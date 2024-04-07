@@ -1,0 +1,252 @@
+from graphviz import Digraph
+from arsenal import Integerizer
+from functools import lru_cache
+
+class WeightedGraph:
+
+    def __init__(self, WeightType, E=()):
+        self.N = set()
+        self.WeightType = WeightType
+        self.E = WeightType.chart()
+        if E:
+            self.E.update(E)
+            for i,j in E: self.N.add(i); self.N.add(j)
+
+    def __iter__(self):
+        return iter(self.E)
+
+    # TODOL this method are not good!!
+    @lru_cache(None)
+    def incoming(self, j):  # TODO: use slice notation
+        return {I: self.E[I,J] for I,J in self if J == j}
+
+    @lru_cache(None)
+    def outgoing(self, i):  # TODO: use slice notation
+        return {J: self.E[I,J] for I,J in self if I == i}
+
+    def edge(self, i, w, j):
+        self.N.add(i); self.N.add(j)
+        self.E[i,j] += w
+
+    def __getitem__(self, item):
+        i,j = item
+        return self.E[i,j]
+
+    def __setitem__(self, item, value):
+        i,j = item
+        self.N.add(i); self.N.add(j)
+        self.E[i,j] = value
+        return self
+
+    def closure(self):
+        return WeightedGraph(self.WeightType, self.closure_scc_based())
+
+    def closure_reference(self):
+        return self._closure(self.E, self.N)
+
+    def closure_scc_based(self):
+        K = self.WeightType.chart()
+        for i in self.N:
+            b = self.WeightType.chart()
+            b[i] = self.WeightType.one
+            sol = self.linsolve(b)
+            for j in sol:
+                K[i,j] = sol[j]
+        return K
+
+    def linsolve(self, b):
+        """
+        Solve `x = x A + b` using block, upper-triangular decomposition
+        """
+        sol = self.WeightType.chart()
+        for block in self.blocks():
+
+            # Compute the total weight of entering the block at each entry j in the block
+            enter = self.WeightType.chart()
+            for j in block:
+                enter[j] += b[j]
+                for i in self.incoming(j):
+                    enter[j] += sol[i] * self.E[i,j]
+
+            # Now, compute the total weight of completing the block
+            B = self._closure(self.E, block)
+            for j,k in B:
+                sol[k] += enter[j] * B[j,k]
+
+        return sol
+
+    def _closure(self, A, N):
+        """
+        Compute the reflexive and transitive closure of `A` for the block of nodes `N`.
+        """
+        A = self.E
+        old = A.copy()
+        # transitive closure
+        for j in N:
+            new = self.WeightType.chart()
+            sjj = self.WeightType.star(old[j,j])
+            for i in N:
+                for k in N:
+                    new[i,k] = old[i,k] + old[i,j] * sjj * old[j,k]
+            old, new = new, old   # swap to repurpose space
+        # reflexive closure
+        for i in N: old[i,i] += self.WeightType.one
+        return old
+
+    def blocks(self, roots=None):
+        "Return the directed acyclic graph of strongly connected components."
+        return tarjan(self.incoming, roots if roots else self.N)
+
+    def _repr_svg_(self):
+        return self.graphviz()._repr_image_svg_xml()
+
+    def graphviz(self, label_format=str):
+
+        name = Integerizer()
+
+        g = Digraph(
+            node_attr=dict(
+                fontname='Monospace', fontsize='9', height='0', width='0',
+                margin="0.055,0.042", penwidth='0.15', shape='box', style='rounded',
+            ),
+            edge_attr=dict(
+                penwidth='0.5', arrowhead='vee', arrowsize='0.5',
+                fontname='Monospace', fontsize='8'
+            ),
+        )
+
+        for i,j in self.E:
+            if self.E[i,j] == self.WeightType.zero: continue
+            g.edge(str(name(i)), str(name(j)), label=label_format(self.E[i,j]))
+
+        for i in self.N:
+            g.node(str(name(i)), label=escape(i))
+
+        return g
+
+
+def tarjan(successors, roots):
+    """
+    Tarjan's linear-time algorithm O(E + V) for finding the maximal
+    strongly connected components.
+    """
+
+    # 'Low Link Value' of a node is the smallest id reachable by DFS, including itself.
+    # low link values are initialized to each node's id.
+    lowest = {}      # node -> position of the root of the SCC
+
+    stack = []      # stack
+    trail = set()   # set of nodes on the stack
+    t = 0
+
+    def dfs(v):
+        # DFS pushes nodes onto the stack
+        nonlocal t
+        t += 1
+        num = t
+        lowest[v] = t
+        trail.add(v)
+        stack.append(v)
+
+        for w in successors(v):
+            if lowest.get(w) is None:
+                # As usual, only recurse when we haven't already visited this node
+                yield from dfs(w)
+                # The recursive call will find a cycle if there is one.
+                # `lowest` is used to propagate the position of the earliest
+                # node on the cycle in the DFS.
+                lowest[v] = min(lowest[v], lowest[w])
+            elif w in trail:
+                # Collapsing cycles.  If `w` comes before `v` in dfs and `w` is
+                # on the stack, then we've detected a cycle and we can start
+                # collapsing values in the SCC.  It might not be the maximal
+                # SCC. The min and stack will take care of that.
+                lowest[v] = min(lowest[v], lowest[w])
+
+        if lowest[v] == num:
+            # `v` is the root of an SCC; We're totally done with that subgraph.
+            # nodes above `v` on the stack are an SCC.
+            C = []
+            while True:   # pop until we reach v
+                w = stack.pop()
+                trail.remove(w)
+                C.append(w)
+                if w == v: break
+            yield frozenset(C)
+
+    for v in roots:
+        if lowest.get(v) is None:
+            yield from dfs(v)
+
+
+
+#class Matrix:
+#    def __init__(self, WeightType, domain, values=None):
+#        self.WeightType  WeightType
+#        self.values = values if values is not None else self.WeightType.chart()
+#        self.domain = domain
+#
+#    def __matmul__(self, other):
+#        assert isinstance(other, Matrix)
+#        values = self.WeightType.chart()
+#
+#        for i, in self.values:
+#            for k in other.domain:
+#                values[i,k] += self[i,j] * other[j,k]
+#
+#        return Matrix(self.WeightType, self.domain | other.domain, values)
+#
+#    def zero(self):
+#        return
+#
+#    def __add__(self, other):
+#        assert isinstance(other, Matrix)
+#        values = self.WeightType.chart()
+#        for i,k in self.values:
+#            values[i,k] += self[i,k]
+#        for i,k in other.values:
+#            values[i,k] += other[i,k]
+#        return Matrix(self.WeightType, self.domain | other.domain, values)
+#
+#    def star(self):
+#        A = self.values
+#        N = self.domain
+#        old = A.copy()
+#        for j in N:
+#            new = self.WeightType.chart()
+#            sjj = self.WeightType.star(old[j,j])
+#            for i in N:
+#                for k in N:
+#                    new[i,k] = old[i,k] + old[i,j] * sjj * old[j,k]
+#            old, new = new, old   # swap to repurpose space
+#        # post processing fix-up: add the identity matrix
+#        for i in N: old[i,i] += self.WeightType.one
+#        return old
+
+
+def test_closure():
+    from genparse.cfglm import Real as Float
+
+    G = WeightedGraph(Float)
+    G['a','a'] += .1
+    G['a','b'] += .5
+    G['b','a'] += 1
+    G['b','c'] += 1
+    G['c','d'] += .25
+    G['d','e'] += 1
+    G['e','c'] += 1
+    G['e','f'] += 1
+    G['f','f'] += .1
+    G['f','g'] += 1
+    G['g','g'] += .1
+
+    want = G.closure_reference()
+    have = G.closure_scc_based()
+
+    from arsenal.maths import compare
+    compare(have, want).show()
+
+
+if __name__ == '__main__':
+    from arsenal import testing_framework
+    testing_framework(globals())
