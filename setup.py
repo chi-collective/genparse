@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name='genparse',
     version='0.0.1',
-    description=''
+    description='',
     install_requires = [
         'numpy',
         'IPython',
