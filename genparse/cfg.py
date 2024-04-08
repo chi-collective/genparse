@@ -626,16 +626,38 @@ class CFG:
             for k in range(len(r.body)):
                 routing[r.body[k]].append((r, k))
 
-        change = self.R.chart()
+        # Dependency analysis to determine a reasonable prioritization order
+        # 1) Form the dependency graph
+        deps = WeightedGraph(Boolean)
+        for r in self:
+            for y in r.body:
+                deps[r.head, y] += Boolean.one
+        deps.N |= self.N; deps.N |= self.V
+        # 2) Run the SCC analysis, extract its results
+        blocks = list(deps.blocks())
+        bucket = {y: i for i, block in enumerate(reversed(blocks)) for y in block}
+
+        # helper function
+        def update(x, W):
+            change[bucket[x]][x] += W
+
+        change = defaultdict(lambda: self.R.chart())
         for a in self.V:
-            change[a] += self.R.one
+            update(a, self.R.one)
 
         for r in self:
             if len(r.body) == 0:
-                change[r.head] += r.w
+                update(r.head, r.w)
 
-        while len(change) > 0:
-            u,v = change.popitem()
+        B = len(blocks)
+        b = 0
+        while b < B:
+
+            if len(change[b]) == 0:
+                b += 1
+                continue
+
+            u,v = change[b].popitem()
 
             new = old[u] + v
 
@@ -652,7 +674,7 @@ class CFG:
                     else:
                         W *= old[r.body[j]]
 
-                change[r.head] += W
+                update(r.head, W)
 
             old[u] = new
 
