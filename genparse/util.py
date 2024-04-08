@@ -1,7 +1,6 @@
 import re
 import dill
 import sys
-import networkx as nx
 import nltk
 import numpy as np
 from path import Path

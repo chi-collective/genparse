@@ -1,7 +1,6 @@
 import re
 import nltk
 import numpy as np
-import networkx as nx
 import graphviz
 
 from collections import defaultdict, Counter

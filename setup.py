@@ -7,7 +7,6 @@ setup(
     install_requires = [
         'numpy',
         'IPython',
-        'networkx',
         'nltk',
         'svgling',    # nltk uses svgling to draw derivations
         'pytest',
@@ -18,6 +17,7 @@ setup(
     ],
     authors = [
         'Tim Vieira',
+        'Clemente Pasti',
     ],
     readme=open('README.md').read(),
     scripts=[],
