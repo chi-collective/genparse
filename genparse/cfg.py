@@ -11,6 +11,7 @@ from itertools import product
 from .chart import Chart
 from .semiring import Semiring, Boolean
 from .util import colors, format_table
+from .linear import WeightedGraph
 
 
 def _gen_nt(prefix=''):
@@ -387,27 +388,6 @@ class CFG:
     #___________________________________________________________________________
     # Transformations
 
-    def _lehmann(self, N, W):
-        "Lehmann's (1977) algorithm."
-
-        V = W.copy()
-        U = W.copy()
-
-        for j in N:
-            V, U = U, V
-            V = self.R.chart()
-            s = self.R.star(U[j, j])
-            for i in N:
-                for k in N:
-                    # i ➙ j ⇝ j ➙ k
-                    V[i, k] = U[i, k] + U[i, j] * s * U[j, k]
-
-        # add paths of length zero
-        for i in N:
-            V[i, i] += self.R.one
-
-        return V
-
     def unaryremove(self):
         """
         Return an equivalent grammar with no unary rules.
@@ -415,23 +395,20 @@ class CFG:
 
         # compute the matrix closure of the unary rules, so we can unfold them
         # into the preterminal and binary rules.
-        A = self.R.chart()
-        n = 0
-        for p in self:
-            if len(p.body) == 1 and self.is_nonterminal(p.body[0]):
-                n += 1
-                A[p.body[0], p.head] += p.w
+        A = WeightedGraph(self.R)
+        for r in self:
+            if len(r.body) == 1 and self.is_nonterminal(r.body[0]):
+                A[r.head, r.body[0]] += r.w
 
-        if n == 0: return self   # skip if there are no unary rules
+        A.N |= self.N
 
-        W = self._lehmann(self.N, A)
+        W = A.closure_scc_based()
 
         new = self.spawn()
-        for p in self:
-            X, body = p
-            if len(body) == 1 and self.is_nonterminal(body[0]): continue
+        for r in self:
+            if len(r.body) == 1 and self.is_nonterminal(r.body[0]): continue
             for Y in self.N:
-                new.add(W[X,Y]*p.w, Y, *body)
+                new.add(W[Y, r.head]*r.w, Y, *r.body)
 
         return new
 
@@ -740,18 +717,6 @@ class CFG:
         while f'{x}@{i}' in self.N:
             i += 1
         return f'{x}@{i}'
-
-    # TODO: only for testing purposes
-    def prefix_weight_bf(self, s, depth, verbose=False):
-        "Brute-force computation of the prefix weight of the sequence `s`."
-        bf = self.R.zero
-        for d in self.derivations(None, depth):
-            y = d.Yield()
-            w = d.weight()
-            if len(y) >= len(s) and all(x == y for x,y in zip(s, y)):
-                if verbose: print(d.weight(), d.Yield(), d)
-                bf += w
-        return bf
 
     def derivatives(self, s):
         "Return the sequence of derivatives for each prefix of `s`."

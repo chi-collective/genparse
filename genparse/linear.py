@@ -1,32 +1,23 @@
-from graphviz import Digraph
+"""
+Algorithms for solving left-linear or right-linear systems of equations over closed semirings.
+"""
+import html
 from arsenal import Integerizer
-from functools import lru_cache
+from collections import defaultdict
+from functools import lru_cache, cached_property
+from graphviz import Digraph
+
 
 class WeightedGraph:
 
-    def __init__(self, WeightType, E=()):
+    def __init__(self, WeightType):
         self.N = set()
+        self.incoming = defaultdict(set)
         self.WeightType = WeightType
         self.E = WeightType.chart()
-        if E:
-            self.E.update(E)
-            for i,j in E: self.N.add(i); self.N.add(j)
 
     def __iter__(self):
         return iter(self.E)
-
-    # TODOL this method are not good!!
-    @lru_cache(None)
-    def incoming(self, j):  # TODO: use slice notation
-        return {I: self.E[I,J] for I,J in self if J == j}
-
-    @lru_cache(None)
-    def outgoing(self, i):  # TODO: use slice notation
-        return {J: self.E[I,J] for I,J in self if I == i}
-
-    def edge(self, i, w, j):
-        self.N.add(i); self.N.add(j)
-        self.E[i,j] += w
 
     def __getitem__(self, item):
         i,j = item
@@ -34,8 +25,10 @@ class WeightedGraph:
 
     def __setitem__(self, item, value):
         i,j = item
-        self.N.add(i); self.N.add(j)
+        self.N.add(i)
+        self.N.add(j)
         self.E[i,j] = value
+        self.incoming[j].add(i)
         return self
 
     def closure(self):
@@ -56,20 +49,19 @@ class WeightedGraph:
 
     def linsolve(self, b):
         """
-        Solve `x = x A + b` using block, upper-triangular decomposition
+        Solve `x = x A + b` using block, upper-triangular decomposition.
         """
         sol = self.WeightType.chart()
-        for block in self.blocks():
+        for block, B in self.Blocks:
 
             # Compute the total weight of entering the block at each entry j in the block
             enter = self.WeightType.chart()
             for j in block:
                 enter[j] += b[j]
-                for i in self.incoming(j):
+                for i in self.incoming[j]:
                     enter[j] += sol[i] * self.E[i,j]
 
             # Now, compute the total weight of completing the block
-            B = self._closure(self.E, block)
             for j,k in B:
                 sol[k] += enter[j] * B[j,k]
 
@@ -77,7 +69,7 @@ class WeightedGraph:
 
     def _closure(self, A, N):
         """
-        Compute the reflexive and transitive closure of `A` for the block of nodes `N`.
+        Compute the reflexive, transitive closure of `A` for the block of nodes `N`.
         """
         A = self.E
         old = A.copy()
@@ -95,12 +87,16 @@ class WeightedGraph:
 
     def blocks(self, roots=None):
         "Return the directed acyclic graph of strongly connected components."
-        return tarjan(self.incoming, roots if roots else self.N)
+        return tarjan(self.incoming.__getitem__, roots if roots else self.N)
+
+    @cached_property
+    def Blocks(self, **kwargs):
+        return [(block, self._closure(self.E, block)) for block in self.blocks(**kwargs)]
 
     def _repr_svg_(self):
         return self.graphviz()._repr_image_svg_xml()
 
-    def graphviz(self, label_format=str):
+    def graphviz(self, label_format=str, escape=lambda x: html.escape(str(x))):
 
         name = Integerizer()
 
@@ -177,51 +173,6 @@ def tarjan(successors, roots):
     for v in roots:
         if lowest.get(v) is None:
             yield from dfs(v)
-
-
-
-#class Matrix:
-#    def __init__(self, WeightType, domain, values=None):
-#        self.WeightType  WeightType
-#        self.values = values if values is not None else self.WeightType.chart()
-#        self.domain = domain
-#
-#    def __matmul__(self, other):
-#        assert isinstance(other, Matrix)
-#        values = self.WeightType.chart()
-#
-#        for i, in self.values:
-#            for k in other.domain:
-#                values[i,k] += self[i,j] * other[j,k]
-#
-#        return Matrix(self.WeightType, self.domain | other.domain, values)
-#
-#    def zero(self):
-#        return
-#
-#    def __add__(self, other):
-#        assert isinstance(other, Matrix)
-#        values = self.WeightType.chart()
-#        for i,k in self.values:
-#            values[i,k] += self[i,k]
-#        for i,k in other.values:
-#            values[i,k] += other[i,k]
-#        return Matrix(self.WeightType, self.domain | other.domain, values)
-#
-#    def star(self):
-#        A = self.values
-#        N = self.domain
-#        old = A.copy()
-#        for j in N:
-#            new = self.WeightType.chart()
-#            sjj = self.WeightType.star(old[j,j])
-#            for i in N:
-#                for k in N:
-#                    new[i,k] = old[i,k] + old[i,j] * sjj * old[j,k]
-#            old, new = new, old   # swap to repurpose space
-#        # post processing fix-up: add the identity matrix
-#        for i in N: old[i,i] += self.WeightType.one
-#        return old
 
 
 def test_closure():

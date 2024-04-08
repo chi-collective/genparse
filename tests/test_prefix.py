@@ -18,6 +18,19 @@ def keep_nonzero(semiring, chart):
     return new
 
 
+# TODO: only for testing purposes
+def prefix_weight_bf(self, s, depth, verbose=False):
+    "Brute-force computation of the prefix weight of the sequence `s`."
+    bf = self.R.zero
+    for d in self.derivations(None, depth):
+        y = d.Yield()
+        w = d.weight()
+        if len(y) >= len(s) and all(x == y for x,y in zip(s, y)):
+            if verbose: print(d.weight(), d.Yield(), d)
+            bf += w
+    return bf
+
+
 def test_parsing():
 
     cfg = CFG.from_string("""
@@ -85,7 +98,7 @@ def test_palindrome():
     s = 'aba'
 
     assert_equal(
-        have = cfg.prefix_weight_bf(s, 15),
+        have = prefix_weight_bf(cfg, s, 15),
         want = Real(0.03599999999726485),
         tol = 1e-3
     )
