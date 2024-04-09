@@ -5,7 +5,7 @@ from arsenal import colors
 from arsenal.maths import compare
 
 from genparse.steer import LocalProduct, run, normalize
-from genparse.cfglm import Real, CFG, CFGLM, add_EOS, explode
+from genparse.cfglm import Float, CFG, CFGLM, add_EOS, explode
 
 
 MAX_LENGTH = 10
@@ -97,14 +97,14 @@ def test_empty():
         0.45: S -> b S b
         0.1: S ->
 
-        """, Real))),
+        """, Float))),
 
         CFGLM(add_EOS(CFG.from_string("""
 
         0.5: S -> a b S
         0.5: S ->
 
-        """, Real))),
+        """, Float))),
 
     )
 
@@ -120,7 +120,7 @@ def test_finite_finite():
         1: S -> b b b b b b b b b
         1: S ->
 
-        """, Real))),
+        """, Float))),
 
         CFGLM(add_EOS(CFG.from_string("""
 
@@ -128,7 +128,7 @@ def test_finite_finite():
         1: S -> b b b b b
         1: S -> b b b b b b b b b
 
-        """, Real))),
+        """, Float))),
     )
 
 
@@ -142,7 +142,7 @@ def test_palindrome_universal():
         0.45: S -> b S b
         0.1: S ->
 
-        """, Real))),
+        """, Float))),
 
         CFGLM(add_EOS(CFG.from_string("""
 
@@ -150,7 +150,7 @@ def test_palindrome_universal():
         0.1: S -> b S
         0.1: S ->
 
-        """, Real))),
+        """, Float))),
     )
 
 
@@ -164,7 +164,7 @@ def test_palindrome_finite():
         0.45: S -> b S b
         0.1: S ->
 
-        """, Real))),
+        """, Float))),
 
         CFGLM(add_EOS(CFG.from_string("""
 
@@ -174,7 +174,7 @@ def test_palindrome_finite():
         1: S -> a a
         1: S ->
 
-        """, Real))),
+        """, Float))),
     )
 
 

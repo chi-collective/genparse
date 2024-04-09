@@ -1,5 +1,5 @@
 import numpy as np
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 
 class Semiring:
@@ -158,6 +158,15 @@ class MaxTimes(Semiring):
 
 MaxTimes.zero = MaxTimes(0)
 MaxTimes.one = MaxTimes(1)
+
+
+class Float:
+    def star(x):        return 1/(1-x)
+    def from_string(x): return float(x)
+    def metric(x,y):    return abs(x - y)
+    chart = lambda: Counter()
+    zero = 0
+    one = 1
 
 
 class Real(Semiring):

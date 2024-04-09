@@ -4,7 +4,7 @@ Fast computation of the posterior distrubtion over the next word in a PCFG langu
 
 import genparse
 import genparse.examples
-from genparse import CFG, Real
+from genparse import CFG, Float, Real
 from genparse.cfglm import CFGLM, next_token_weights
 from genparse.chart import Chart
 
@@ -40,7 +40,7 @@ def next_token_weights_slow(cfg, prefix):
     Compute the posterior over the next word in O(V N³) time.
     """
     Z = cfg.prefix_weight(prefix)
-    p = {}
+    p = Chart(cfg.R)
     for v in sorted(cfg.V):
         p[v] = cfg.prefix_weight([*prefix, v])
         if p[v] == cfg.R.zero: del p[v]
@@ -77,12 +77,13 @@ def test_new_abcdx():
     for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
         print()
         print(colors.light.blue % prefix)
-        want = Chart(cfg.R, next_token_weights_slow(cfg, prefix)[1])
+        want = next_token_weights_slow(cfg, prefix)[1]
         print(want)
-        have = Chart(cfg.R, fast_posterior(cfg, prefix))
+        have = fast_posterior(cfg, prefix)
         print(have)
-        print(colors.mark(have.metric(want) <= 1e-5))
-        assert have.metric(want) <= 1e-5
+        err = have.metric(want)
+        print(colors.mark(err <= 1e-5))
+        assert err <= 1e-5, err
 
 
 def test_new_palindrome():
@@ -92,12 +93,13 @@ def test_new_palindrome():
     for prefix in ['', 'a', 'ab']:
         print()
         print(colors.light.blue % prefix)
-        want = Chart(cfg.R, next_token_weights_slow(cfg, prefix)[1])
+        want = next_token_weights_slow(cfg, prefix)[1]
         print(want)
         have = fast_posterior(cfg, prefix)
         print(have)
-        print(colors.mark(have.metric(want) <= 1e-5))
-        assert have.metric(want) <= 1e-5
+        err = have.metric(want)
+        print(colors.mark(err <= 1e-5))
+        assert err <= 1e-5
 
 
 def test_new_papa():
@@ -113,7 +115,7 @@ def test_new_papa():
     ]:
         print()
         print(colors.light.blue % prefix)
-        want = Chart(cfg.R, next_token_weights_slow(cfg, prefix)[1])
+        want = next_token_weights_slow(cfg, prefix)[1]
         print(want)
         have = fast_posterior(cfg, prefix)
         print(have)

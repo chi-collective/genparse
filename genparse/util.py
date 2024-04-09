@@ -33,12 +33,12 @@ class LarkStuff:
 
     def convert(self):
         from genparse import CFG, Rule
-        from genparse.cfglm import Real
+        from genparse.cfglm import Float
         terminals = [t.name for t in self.all_terminals]
         rules = [Rule(1, r.lhs.name, tuple(y.name for y in r.rhs)) for r in self.rules]
         lhs_count_dict = Counter([r.head for r in rules])
         rules = [normalize_rule(r, lhs_count_dict) for r in rules]
-        cfg = CFG(R=Real, S="start", V=set(terminals))
+        cfg = CFG(R=Float, S="start", V=set(terminals))
         for r in rules:
             cfg.add(r.w, r.head, *r.body)
         return cfg

@@ -3,7 +3,7 @@ from arsenal.maths import sample_dict
 from collections import Counter, defaultdict, deque
 
 from genparse.chart import Chart
-from genparse.cfglm import Real, EOS, SPACER
+from genparse.cfglm import Float, EOS, SPACER
 
 from genparse.steer import normalize
 
@@ -69,7 +69,7 @@ def pullback(lm, qs, decode=''.join, init=(), verbose=False):
     #display(m)
     #display(m.min.threshold(1e-8))
 
-    return Chart(Real, total)
+    return Chart(Float, total)
 
 
 def string_char_sync(lm1, char_lm2, draw=sample_dict, verbose=False):

@@ -15,6 +15,8 @@ class Chart:
         return iter(self._vals)
     def __getitem__(self, k):
         return self._vals[k]
+    def __delitem__(self, k):
+        del self._vals[k]
     def __setitem__(self, k, v):
         self._vals[k] = v
         return self

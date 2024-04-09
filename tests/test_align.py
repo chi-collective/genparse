@@ -6,7 +6,7 @@ from arsenal.maths import compare
 
 from genparse.steer import LocalProduct, run, normalize
 from genparse.align import pullback
-from genparse.cfglm import Real, CFG, CFGLM, add_EOS, explode
+from genparse.cfglm import Float, CFG, CFGLM, add_EOS, explode
 from genparse.lm import AutoTokenizer, AutoModelForCausalLM, NoCacheGPT, TokenGPT2
 
 
@@ -35,7 +35,7 @@ def test_pullback_cfg():
     1: A -> b
     1: A -> bb
 
-    """, Real)
+    """, Float)
 
     char_lm = CFGLM(explode(cfg).cnf)
 

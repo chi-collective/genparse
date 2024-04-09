@@ -3,19 +3,12 @@ Fast computation of the posterior distrubtion over the next word in a WCFG langu
 """
 
 import numpy as np
-from .cfg import CFG
-from . import Chart
 from functools import lru_cache
-
 from collections import Counter
 
-class Real:
-    def star(x):        return 1/(1-x)
-    def from_string(x): return float(x)
-    def metric(x,y):    return abs(x - y)
-    chart = lambda: Counter()
-    zero = 0
-    one = 1
+from .cfg import CFG
+from . import Chart
+from .semiring import Float
 
 
 # TODO: untested
