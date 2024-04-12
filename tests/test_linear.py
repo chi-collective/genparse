@@ -1,0 +1,32 @@
+from arsenal.maths import compare
+from genparse import Float
+from genparse.linear import WeightedGraph
+
+
+def test_closure():
+
+    G = WeightedGraph(Float)
+    G['a','a'] += .1
+    G['a','b'] += .5
+    G['b','a'] += 1
+    G['b','c'] += 1
+    G['c','d'] += .25
+    G['d','e'] += 1
+    G['e','c'] += 1
+    G['e','f'] += 1
+    G['f','f'] += .1
+    G['f','g'] += 1
+    G['g','g'] += .1
+
+    want = G.closure_reference()
+    have = G.closure_scc_based()
+
+    c = compare(have, want)
+    #c.show()
+    assert c.max_err <= 1e-8
+
+
+
+if __name__ == '__main__':
+    from arsenal import testing_framework
+    testing_framework(globals())
