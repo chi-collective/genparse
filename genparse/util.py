@@ -87,20 +87,6 @@ def display_table(*args, **kwargs):
     return display(HTML(format_table(*args, **kwargs)))
 
 
-def assert_equal_chart(have, want, domain=None, tol=1e-5, verbose=False, throw=True):
-    if domain is None: domain = have.keys() | want.keys()
-    assert verbose or throw
-    for x in domain:
-        if have[x].metric(want[x]) <= tol:
-            if verbose:
-                print(colors.mark(True), x, have[x])
-        else:
-            if verbose:
-                print(colors.mark(False), x, have[x], want[x])
-            if throw:
-                raise AssertionError(f'{x}: {have[x]} {want[x]}')
-
-
 @contextmanager
 def timeit(name, fmt='{name} ({htime})', header=None):
     """Context Manager which prints the time it took to run code block."""

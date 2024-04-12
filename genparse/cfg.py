@@ -80,9 +80,6 @@ class Rule:
         self.body = body
         self._hash = hash((head, body))
 
-    def __iter__(self):
-        return iter((self.head, self.body))
-
     def __eq__(self, other):
         return (isinstance(other, Rule)
                 and self.w == other.w
@@ -105,14 +102,11 @@ class Derivation:
         self.x = x
         self.ys = ys
 
-    # Warning: Currently, Derivations compare equal even if they have different rules.
     def __hash__(self):
-#        return hash((self.r, self.x, self.ys))
-        return hash((self.x, self.ys))
+        return hash((self.r, self.x, self.ys))
 
     def __eq__(self, other):
-#        return (self.r, self.x, self.ys) == (other.r, other.x, other.ys)
-        return isinstance(other, Derivation) and (self.x, self.ys) == (other.x, other.ys)
+        return (self.r, self.x, self.ys) == (other.r, other.x, other.ys)
 
     def __repr__(self):
         open = colors.dark.white % '('
@@ -178,22 +172,14 @@ class CFG:
                 raise ValueError(f'bad input line:\n{line}')
         return cfg
 
-    def __getitem__(self, X):
-        "Return the CFG for language of the nonterminal `X`."
-        assert self.is_nonterminal(X)
-        new = self.spawn(S=X)
-        for r in self:
-            new.add(r.w, r.head, *r.body)
-        return new
-
     def __call__(self, input):
         "Compute the total weight of the `input` sequence."
+        self = self.cnf   # need to do this here because the start symbol might change
         return self._parse_chart(input)[0,self.S,len(input)]
 
     def _parse_chart(self, input):
         "Implements CKY algorithm for evaluating the total weight of the `input` sequence."
-        if not self.in_cnf(): self = self.cnf
-        (nullary, terminal, binary) = self._cnf
+        (nullary, terminal, binary) = self._cnf   # will convert to CNF
         N = len(input)
         # nullary rule
         c = self.R.chart()
@@ -350,39 +336,14 @@ class CFG:
                 for ys in self._derivations_list(r.body, H-1):
                     yield Derivation(r, X, *ys)
 
-    def _derivations_list(self, X, H):
-        if len(X) == 0:
+    def _derivations_list(self, Xs, H):
+        "Helper method for derivations; expands any list of symbols `X` up to depth `H`."
+        if len(Xs) == 0:
             yield ()
         else:
-            for x in self.derivations(X[0], H):
-                for xs in self._derivations_list(X[1:], H):
+            for x in self.derivations(Xs[0], H):
+                for xs in self._derivations_list(Xs[1:], H):
                     yield (x, *xs)
-
-    def derivations_of(self, s):
-        "Enumeration of derivations with yield `s`"
-
-        def p(X,I,K):
-            if self.is_terminal(X):
-                if K-I == 1 and s[I] == X:
-                    yield X
-                else:
-                    return
-            else:
-                for r in self.rhs[X]:
-                    for ys in ps(r.body, I, K):
-                        yield Derivation(r, X, *ys)
-
-        def ps(X,I,K):
-            if len(X) == 0:
-                if K-I == 0:
-                    yield ()
-            else:
-                for J in range(I, K+1):
-                    for x in p(X[0], I, J):
-                        for xs in ps(X[1:], J, K):
-                            yield (x, *xs)
-
-        return p(self.S, 0, len(s))
 
     #___________________________________________________________________________
     # Transformations
@@ -437,7 +398,8 @@ class CFG:
         return self.null_weight()[self.S]
 
     def _push_null_weights(self, null_weight, recovery=False, rename=lambda x: f'${x}'):
-        """Returns a grammar that generates the same weighted language but it is
+        """
+        Returns a grammar that generates the same weighted language but it is
         nullary-free at all nonterminals except its start symbol.  [Assumes that
         S does not appear on any RHS; call separate_start to ensure this.]
 
@@ -568,6 +530,7 @@ class CFG:
     # TODO: make CNF grammars a speciazed subclass of CFG.
     @cached_property
     def _cnf(self):
+        self = self.cnf
         nullary = self.R.zero
         terminal = defaultdict(list)
         binary = []

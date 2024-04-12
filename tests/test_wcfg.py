@@ -1,9 +1,8 @@
 import numpy as np
 from collections import defaultdict
 from genparse import Boolean, Real, Rule, CFG, Entropy, \
-    Boolean, MaxPlus, MaxTimes, Log, Derivation
-from genparse.util import timeit, colors, powerset, assert_equal_chart, \
-    display_table
+    Boolean, MaxPlus, MaxTimes, Log, Derivation, Chart
+from genparse.util import timeit, colors, powerset, display_table
 
 
 tol = 1e-5
@@ -12,6 +11,20 @@ tol = 1e-5
 def assert_equal(have, want, tol=tol):
     error = have.metric(want)
     assert error <= tol, f'have = {have}, want = {want}, error = {error}'
+
+
+def test_sdd1():
+    "This is a silly bug made once when refactoring"
+
+    cfg = CFG.from_string("""
+    0.3: S -> a S a
+    0.4: S -> b S b
+    0.3: S ->
+    """, Real)
+
+    have = cfg('aa')
+    want = cfg.cnf('aa')
+    assert have.metric(want) <= 1e-5, [have, want]
 
 
 def test_misc():
@@ -38,7 +51,7 @@ def test_misc():
 
     # include an expected-failure test
     try:
-        assert_equal_chart({'a': Real(1)}, {'a': Real(2)})
+        Chart(Real, {'a': Real(1)}).assert_equal({'a': Real(2)})
     except AssertionError:
         pass
     else:
@@ -87,7 +100,7 @@ def test_semirings():
     0: B → b
     """, Boolean)
 
-    assert_equal_chart(g.agenda(), {
+    g.agenda().assert_equal({
         'a': Boolean(True),
         'b': Boolean(True),
         'A': Boolean(True),
@@ -310,14 +323,6 @@ def test_palindrome_derivations():
     """, Real)
 
     s = 'a b c b a'.split()
-
-    n = 0
-    print(colors.yellow % 'Derivations:', s)
-    for t in cfg.derivations_of(s):
-        print(colors.orange % 'derivation:', t)
-        assert t.weight().score == 1
-        n += 1
-    assert n == 1
 
     n = 0
     print(colors.yellow % 'Derivations:')
