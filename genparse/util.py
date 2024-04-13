@@ -4,7 +4,7 @@ import sys
 import nltk
 import numpy as np
 from path import Path
-from collections import Counter, defaultdict
+from collections import Counter
 from contextlib import contextmanager
 from itertools import chain, combinations
 from time import time

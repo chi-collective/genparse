@@ -7,9 +7,8 @@ import asyncio
 import warnings
 
 from arsenal import colors
-from arsenal.maths import sample_dict, logsumexp, softmax
+from arsenal.maths import sample_dict
 
-from collections import Counter, defaultdict
 from functools import lru_cache
 
 from genparse import CFG, Chart

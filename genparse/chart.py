@@ -2,31 +2,14 @@ from collections import defaultdict
 from .util import format_table
 
 
-class Chart:
+class Chart(dict):
 
     def __init__(self, semiring, vals=()):
         self.semiring = semiring
-        self._vals = semiring.chart()
-        self._vals.update(vals)
+        super().__init__(vals)
 
-    def keys(self):
-        return self._vals.keys()
-
-    def items(self):
-        return self._vals.items()
-
-    def __iter__(self):
-        return iter(self._vals)
-
-    def __getitem__(self, k):
-        return self._vals[k]
-
-    def __delitem__(self, k):
-        del self._vals[k]
-
-    def __setitem__(self, k, v):
-        self._vals[k] = v
-        return self
+    def __missing__(self, k):
+        return self.semiring.zero
 
     def spawn(self):
         return Chart(self.semiring)
@@ -42,19 +25,19 @@ class Chart:
     def product(self, ks):
         v = self.semiring.one
         for k in ks:
-            v *= self._vals[k]
+            v *= self[k]
         return v
 
     def copy(self):
         return self.spawn() + self
 
     def trim(self):
-        return Chart(self.semiring, {k: v for k, v in self._vals.items() if v != self.semiring.zero})
+        return Chart(self.semiring, {k: v for k, v in self._items() if v != self.semiring.zero})
 
     def metric(self, other):
         assert isinstance(other, Chart)
         err = 0
-        for x in self._vals.keys() | other._vals.keys():
+        for x in self.keys() | other.keys():
             err = max(err, self.semiring.metric(self[x], other[x]))
         return err
 
@@ -64,7 +47,7 @@ class Chart:
                 + '</div>')
 
     def __repr__(self):
-        return repr({k: v for k, v in self._vals.items() if v != self.semiring.zero})
+        return repr({k: v for k, v in self.items() if v != self.semiring.zero})
 
     def assert_equal(self, want, domain=None, tol=1e-5, verbose=False, throw=True):
         if domain is None: domain = self.keys() | want.keys()

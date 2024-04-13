@@ -1,5 +1,5 @@
 from genparse.wfsa.semiring_wfsa import WFSA
-from genparse.semiring import Real
+from genparse.semiring import Real, Semiring
 
 
 def test_basics():
@@ -29,7 +29,7 @@ def test_det():
     precision = 5
 
     # TODO: this is a quantized real class (see hash and equality methods)
-    class Real(leftcorner.semiring.Semiring):
+    class Real(Semiring):
         def __init__(self, score):
             self.score = score
         def __eq__(self, other):

@@ -14,6 +14,7 @@ class WeightedGraph:
         self.WeightType = WeightType
         self.N = set()
         self.incoming = defaultdict(set)
+        self.outgoing = defaultdict(set)
         self.E = WeightType.chart()
 
     def __iter__(self):
@@ -29,6 +30,7 @@ class WeightedGraph:
         self.N.add(j)
         self.E[i,j] = value
         self.incoming[j].add(i)
+        self.outgoing[i].add(j)
         return self
 
     def closure(self):
@@ -46,19 +48,20 @@ class WeightedGraph:
         for i in self.N:
             b = self.WeightType.chart()
             b[i] = self.WeightType.one
-            sol = self.linsolve(b)
+            sol = self.solve_left(b)
             for j in sol:
                 K[i,j] = sol[j]
         return K
 
-    def linsolve(self, b):
+    def solve_left(self, b):
         """
         Solve `x = x A + b` using block, upper-triangular decomposition.
         """
         sol = self.WeightType.chart()
         for block, B in self.Blocks:
 
-            # Compute the total weight of entering the block at each entry j in the block
+            # Compute the total weight of entering the block from the left at
+            # each entry j in the block
             enter = self.WeightType.chart()
             for j in block:
                 enter[j] += b[j]
@@ -68,6 +71,27 @@ class WeightedGraph:
             # Now, compute the total weight of completing the block
             for j,k in B:
                 sol[k] += enter[j] * B[j,k]
+
+        return sol
+
+    def solve_right(self, b):
+        """
+        Solve `x = A x + b` using block, upper-triangular decomposition.
+        """
+        sol = self.WeightType.chart()
+        for block, B in reversed(self.Blocks):
+
+            # Compute the total weight of entering the block from the right at
+            # each entry point j in the block
+            enter = self.WeightType.chart()
+            for j in block:
+                enter[j] += b[j]
+                for k in self.outgoing[j]:
+                    enter[j] += self.E[j,k] * sol[k]
+
+            # Now, compute the total weight of completing the block
+            for i,j in B:
+                sol[i] += B[i,j] * enter[j]
 
         return sol
 

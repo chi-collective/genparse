@@ -1,5 +1,6 @@
 import numpy as np
-from collections import defaultdict, Counter
+from collections import Counter
+from genparse.chart import Chart
 
 
 class Semiring:
@@ -9,7 +10,7 @@ class Semiring:
 
     @classmethod
     def chart(cls):
-        return defaultdict(lambda: cls.zero)
+        return Chart(cls)
 
 #    @classmethod
 #    def zeros(cls, *shape):

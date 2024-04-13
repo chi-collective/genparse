@@ -1,10 +1,9 @@
 """
 Implementation of semiring-weighted finite-state automata.
 """
-from collections import defaultdict
+
 from functools import cached_property
 from frozendict import frozendict
-
 
 from genparse.wfsa import base
 EPSILON = base.EPSILON
@@ -78,7 +77,7 @@ class WFSA(base.WFSA):
     @cached_property
     def push(self):
         "Weight pushing algorithm (Mohri, 2001)."
-        V = self.backward()
+        V = self.backward
         new = self.spawn()
         for i in self.states:
             if V[i] == self.R.zero: continue

@@ -2,6 +2,7 @@ from arsenal import Integerizer
 from collections import defaultdict
 from functools import cached_property
 from graphviz import Digraph
+from genparse.linear import WeightedGraph
 
 
 EPSILON = "ε"
@@ -157,11 +158,12 @@ class WFSA:
 
     @cached_property
     def epsremove(self):
-        E = self.R.chart()
+        E = WeightedGraph(self.R)
         for i, a, j, w in self.arcs():
             if a == EPSILON:
                 E[i, j] += w
-        S = _lehmann(self.R, self.states, E)
+        E.N |= self.states
+        S = E.closure_scc_based()
         new = self.spawn(keep_stop=True)
         for i, w_i in self.I:
             for k in self.states:
@@ -171,13 +173,6 @@ class WFSA:
             for k in self.states:
                 new.add_arc(i, a, k, w_ij * S[j, k])
         return new
-
-    @cached_property
-    def K(self):
-        W = self.R.chart()
-        for i, a, j, w in self.arcs():
-            W[i, j] += w
-        return _lehmann(self.R, self.states, W)
 
     @cached_property
     def reverse(self):
@@ -306,34 +301,34 @@ class WFSA:
         return m
 
     def total_weight(self):
-        b = self.backward()
+        b = self.backward
         return sum(self.start[i] * b[i] for i in self.start)
 
-    def forward(self):
-        K = self.K
-        initial = self.R.chart()
-        for i,w in self.I:
-            initial[i] += w
-        forward = self.R.chart()
-        for i,j in K:
-            forward[j] += initial[i] * K[i,j]
-        return forward
+    @cached_property
+    def G(self):
+        G = WeightedGraph(self.R)
+        for i, a, j, w in self.arcs():
+            G[i, j] += w
+        G.N |= self.states
+        return G
 
+    @cached_property
+    def K(self):
+        return self.G.closure_scc_based()
+
+    @cached_property
+    def forward(self):
+        return self.G.solve_left(self.start)
+
+    @cached_property
     def backward(self):
-        K = self.K
-        final = self.R.chart()
-        for i,w in self.F:
-            final[i] += w
-        backward = self.R.chart()
-        for i,j in K:
-            backward[i] += K[i,j] * final[j]
-        return backward
+        return self.G.solve_right(self.stop)
 
     @cached_property
     def trim(self):
 
-        forward = self.forward()
-        backward = self.backward()
+        forward = self.forward
+        backward = self.backward
 
         # determine the set of active state, (i.e., those with nonzero forward and backward weights)
         active = {
