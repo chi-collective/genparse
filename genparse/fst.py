@@ -1,4 +1,4 @@
-from wfsa import WFSA, EPSILON
+from .wfsa import WFSA, EPSILON
 
 
 ε = EPSILON

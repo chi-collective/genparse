@@ -17,7 +17,7 @@ def pullback(lm, qs, decode=''.join, init=(), verbose=False):
     domain of `qs`.
     """
 
-    #from wfsa import WFSA
+    #from genparse.wfsa import WFSA
     #m = WFSA()
     #m.add_I((), 1)
 
