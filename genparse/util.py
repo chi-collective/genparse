@@ -68,6 +68,7 @@ class LarkStuff:
         return m
 
     def convert(self):
+        "Convert the lark grammar into a `genparse.CFG` grammar."
         from genparse import CFG, Rule
         from genparse.cfglm import Float
         terminals = [t.name for t in self.terminals]
@@ -96,11 +97,17 @@ class LarkStuff:
 
 
 def regex_to_greenery(regex, ignore = "\s*"):
+    """
+    Convert `regex`, a python-like regular expression (`re`), into a `greenery`
+    finite-state machine (FSM).
+    """
     import greenery
-    regex = regex.replace("\\ ", " ")   # greenery does not escape spaces
+    # Patch: note that greenery does not escape spaces but both the `re` and `lark` do.
+    regex = regex.replace("\\ ", " ")
     return greenery.parse(regex + ignore).to_fsm()
 
 
+# Not essential; only used in a notebook to visualize individual greenery FSMs
 def greenery_to_fsa(fsm):
     import fsa, greenery
     if isinstance(fsm, str): fsm = greenery.parse(regex + ignore).to_fsm()
@@ -155,12 +162,6 @@ def timeit(name, fmt='{name} ({htime})', header=None):
     sec = time() - b4
     ht = '%.4f sec' % sec
     print(fmt.format(name=name, htime=ht, sec=sec), file=sys.stderr)
-
-
-def powerset(iterable):
-    "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
-    s = list(iterable)
-    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
 
 
 def ansi(color=None, light=None, bg=3):

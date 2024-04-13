@@ -2,7 +2,7 @@ import numpy as np
 from collections import defaultdict
 from genparse import Boolean, Real, Rule, CFG, Entropy, \
     Boolean, MaxPlus, MaxTimes, Log, Derivation, Chart
-from genparse.util import timeit, colors, powerset, display_table
+from genparse.util import timeit, colors, display_table
 
 
 tol = 1e-5

@@ -578,6 +578,14 @@ class CFG:
 
         return new
 
+    def dependency_graph(self):
+        deps = WeightedGraph(Boolean)
+        for r in self:
+            for y in r.body:
+                deps[r.head, y] += Boolean.one
+        deps.N |= self.N; deps.N |= self.V
+        return deps
+
     def agenda(self, tol=1e-12):
         "Agenda-based semi-naive evaluation"
         old = self.R.chart()
@@ -590,11 +598,7 @@ class CFG:
 
         # Dependency analysis to determine a reasonable prioritization order
         # 1) Form the dependency graph
-        deps = WeightedGraph(Boolean)
-        for r in self:
-            for y in r.body:
-                deps[r.head, y] += Boolean.one
-        deps.N |= self.N; deps.N |= self.V
+        deps = self.dependency_graph()
         # 2) Run the SCC analysis, extract its results
         blocks = list(deps.blocks())
         bucket = {y: i for i, block in enumerate(reversed(blocks)) for y in block}
@@ -714,7 +718,6 @@ class CFG:
     # performs nullary elimination at the same time.
     def derivative(self, a, id=0):
         "Return a grammar that generates the derivative with respect to `a`."
-        if isinstance(a, list): return self.derivatives(a)[-1]
         def slash(x, y): return Slash(x, y, id=id)
         D = self.spawn(S = slash(self.S, a))
         U = self.null_weight()
