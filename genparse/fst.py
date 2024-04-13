@@ -1,0 +1,200 @@
+from wfsa import WFSA, EPSILON
+
+
+ε = EPSILON
+ε_1 = f"{EPSILON}₁"
+ε_2 = f"{EPSILON}₂"
+
+
+class FST(WFSA):
+
+    def __init__(self, R):
+        super().__init__(R=R)
+
+        # alphabets
+        self.A = set()
+        self.B = set()
+
+    def add_arc(self, i, ab, j, w):
+        (a,b) = ab
+        self.A.add(a)
+        self.B.add(b)
+        return super().add_arc(i, ab, j, w)
+
+    def __call__(self, x, y):
+        """
+        Compute the total weight of x:y under the FST's weighted relation.  If one
+        of x or y is None, we return the weighted language that is the cross
+        section (we do so efficiently by representing it as a WFSA).
+        """
+
+        if x is not None and y is not None:
+            x = FST.from_string(x, self.R)
+            y = FST.from_string(y, self.R)
+            return (x @ self @ y).total_weight()
+
+        elif x is not None and y is None:
+            x = FST.from_string(x, self.R)
+            return (x @ self).project(1)
+
+        elif x is None and y is not None:
+            y = FST.from_string(y, self.R)
+            return (self @ y).project(0)
+
+        else:
+            return self
+
+    @staticmethod
+    def from_string(x, R):
+        return diag_fst(WFSA.from_string(x, R))
+
+    def project(self, axis):
+        """
+        Project the FST into a FSA when `component` is 0, we project onto the left,
+        and with 1 we project onto the right.
+        """
+        assert axis in [0, 1]
+
+        A = WFSA(R=self.R)
+        for i, (a, b), j, w in self.arcs():
+            if axis == 0:
+                A.add_arc(i, a, j, w)
+            else:
+                A.add_arc(i, b, j, w)
+
+        for i, w in self.I:
+            A.add_I(i, w)
+
+        for i, w in self.F:
+            A.add_F(i, w)
+
+        return A
+
+    def transpose(self):
+        T = self.spawn()
+        for i, (a, b), j, w in self.arcs():
+            T.add_arc(i, (b, a), j, w)      # (a,b) -> (b,a)
+        for q, w in self.I:
+            T.add_I(q, w)
+        for q, w in self.F:
+            T.add_F(q, w)
+        return T
+
+    def __matmul__(self, fst):
+        return (
+            self._augment_epsilon_transitions(0)            # rename epsilons on the right
+            ._compose(epsilon_filter_fst(self.R, self.B))   # this FST carefully combines the special epsilons
+            ._compose(fst._augment_epsilon_transitions(1))  # rename epsilons on th left
+        )
+
+    def _compose(self, other):
+        """
+        Implements the on-the-fly composition of the FST self with the FST T.
+        """
+
+        C = FST(R=self.R)
+
+        visited = set()
+        stack = []
+
+        # add initial states
+        for P, w1 in self.I:
+            for Q, w2 in other.I:
+                 PQ = (P, Q)
+                 C.add_I(PQ, w1 * w2)
+                 visited.add(PQ)
+                 stack.append(PQ)
+
+        # traverse the machine using depth-first search
+        while stack:
+            P, Q = PQ = stack.pop()
+
+            # (q,p) is simultaneously a final state in the respective machines
+            if P in self.stop and Q in other.stop:
+                C.add_F(PQ, self.stop[P] * other.stop[Q])
+                # Note: final states are not necessarily absorbing -> fall thru
+
+            # Arcs of the composition machine are given by a cross-product-like
+            # construction that matches an arc labeled `a:b` with an arc labeled
+            # `b:c` in the left and right machines respectively.
+            for (a, b), Pʼ, w1 in self.arcs(P):
+                for (c, d), Qʼ, w2 in other.arcs(Q):
+
+                    # TODO: is it worth indexing to improve the efficiency of this join?
+                    if b != c: continue
+
+                    PʼQʼ = (Pʼ, Qʼ)
+                    C.add_arc(PQ, (a, d), PʼQʼ, w1 * w2)
+
+                    if PʼQʼ not in visited:
+                        stack.append(PʼQʼ)
+                        visited.add(PʼQʼ)
+
+        return C
+
+    def _augment_epsilon_transitions(self, idx):
+        """
+        Augments the FST by changing the appropriate epsilon transitions to
+        epsilon_1 or epsilon_2 transitions to be able to perform the composition
+        correctly.  See Fig. 7 on p. 17 of Mohri, "Weighted Automata Algorithms".
+
+        Args: `idx` (int): 1 if the FST is the first one in the composition, 2 otherwise.
+        """
+        assert idx in [0, 1]
+
+        T = self.spawn(keep_init=True, keep_stop=True)
+
+        for i in self.states:
+            if idx == 0:
+                T.add_arc(i, (ε, ε_1), i, self.R.one)
+            else:
+                T.add_arc(i, (ε_2, ε), i, self.R.one)
+            for ab, j, w in self.arcs(i):
+                if   idx == 0 and ab[1] == ε: ab = (ab[0], ε_2)
+                elif idx == 1 and ab[0] == ε: ab = (ε_1, ab[1])
+                T.add_arc(i, ab, j, w)
+
+        return T
+
+
+def diag_fst(self):
+    """
+    Convert a FSA A to diagonal relation T wich that T(x,x) = A(x) for all strings x.
+    """
+    fst = FST(self.R)
+    for i, a, j, w in self.arcs():
+        fst.add_arc(i, (a, a), j, w)
+    for i, w in self.start.items():
+        fst.add_I(i, w)
+    for i, w in self.stop.items():
+        fst.add_F(i, w)
+    return fst
+
+
+def epsilon_filter_fst(R, Sigma):
+    """
+    Returns the 3-state epsilon-filtered FST, that is used in to avoid
+    epsilon-related ambiguity when composing WFST with epsilons.
+    """
+
+    F = FST(R)
+
+    F.add_I(0, R.one)
+
+    for a in Sigma:
+        F.add_arc(0, (a, a), 0, R.one)
+        F.add_arc(1, (a, a), 0, R.one)
+        F.add_arc(2, (a, a), 0, R.one)
+
+    F.add_arc(0, (ε_2, ε_1), 0, R.one)
+    F.add_arc(0, (ε_1, ε_1), 1, R.one)
+    F.add_arc(0, (ε_2, ε_2), 2, R.one)
+
+    F.add_arc(1, (ε_1, ε_1), 1, R.one)
+    F.add_arc(2, (ε_2, ε_2), 2, R.one)
+
+    F.add_F(0, R.one)
+    F.add_F(1, R.one)
+    F.add_F(2, R.one)
+
+    return F

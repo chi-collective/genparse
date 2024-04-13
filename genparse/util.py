@@ -28,13 +28,49 @@ class LarkStuff:
         self.instance = lark.Lark(grammar, lexer='basic', parser='cyk')
         self.lex = self.instance.lex
         self.rules = self.parser.grammar.rules
-        self.all_terminals = terminals
+        self.terminals = terminals
         self.ignores = ignores
+
+    def transducer(self):
+        """
+        XXX: Warning: There may be infelicity in the tokenization semantics as there is
+        no longer a prioritized or maximum munch semantics to tokenizer.  It is
+        probabilistic and the weights are set pretty arbitrarily.
+        """
+        from genparse import Float
+        from genparse.fst import FST, EPSILON
+        m = FST(Float)
+
+        START = 0
+        STOP = 1
+        m.add_I(START, 1)
+        m.add_F(STOP, 1)
+
+        m.add_arc(STOP, (EPSILON, EPSILON), START, .99)
+
+        for id, token_class in enumerate(self.terminals):
+            #print('>>>', id, token_class)
+            fsm = regex_to_greenery(token_class.pattern.to_regexp())
+
+            m.add_arc(START, (EPSILON, token_class.name), (id, fsm.initial), 1)
+
+            for final_state in fsm.finals:
+                m.add_arc((id, final_state), (EPSILON, EPSILON), STOP, 1)
+
+            dead = {i for i in fsm.states if not fsm.islive(i)}
+            for state in fsm.states:
+                arcs = fsm.map[state]
+                for input_char, next_state in arcs.items():
+                    if next_state in dead: continue
+                    for char in input_char.get_chars():
+                        m.add_arc((id, state), (char, EPSILON), (id, next_state), 1)
+
+        return m
 
     def convert(self):
         from genparse import CFG, Rule
         from genparse.cfglm import Float
-        terminals = [t.name for t in self.all_terminals]
+        terminals = [t.name for t in self.terminals]
         rules = [Rule(1, r.lhs.name, tuple(y.name for y in r.rhs)) for r in self.rules]
         lhs_count_dict = Counter([r.head for r in rules])
         rules = [normalize_rule(r, lhs_count_dict) for r in rules]
@@ -47,10 +83,9 @@ class LarkStuff:
         """
         This is a very simple DIY tokenizer. That uses Python's `re` library.
         """
-
         # The regex pattern to match any of the tokens
         token_regex = '|'.join(f'(?P<{t.name}>{t.pattern.value})'
-                               for t in sorted(self.all_terminals,
+                               for t in sorted(self.terminals,
                                                key=lambda t: -t.priority))
 
         for match in re.finditer(token_regex, text):
@@ -58,6 +93,30 @@ class LarkStuff:
             token_value = match.group()
             if token_type not in self.ignores:
                 yield token_type, token_value
+
+
+def regex_to_greenery(regex, ignore = "\s*"):
+    import greenery
+    regex = regex.replace("\\ ", " ")   # greenery does not escape spaces
+    return greenery.parse(regex + ignore).to_fsm()
+
+
+def greenery_to_fsa(fsm):
+    import fsa, greenery
+    if isinstance(fsm, str): fsm = greenery.parse(regex + ignore).to_fsm()
+    m = fsa.FSA()
+    m.add_start(fsm.initial)
+    for final_state in fsm.finals:
+        m.add_stop(final_state)
+    rejection_states = [e for e in fsm.states if not fsm.islive(e)]
+    for state in fsm.states:
+        arcs = fsm.map[state]
+        for input_char, next_state in arcs.items():
+            if next_state in rejection_states:  # rejection state
+                continue
+            for char in input_char.get_chars():
+                m.add(state, char, next_state)
+    return m
 
 
 def normalize_rule(rule, lhs_count_dict):
