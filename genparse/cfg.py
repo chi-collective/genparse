@@ -798,8 +798,7 @@ class CFG:
     def _intersect_bottom_up(self, fsa):
         "Determine which items of the intersected grammar are supported"
 
-        A = set()
-
+        A = set()              # agenda
         I = defaultdict(set)   # incomplete items
         C = defaultdict(set)   # complete items
         R = defaultdict(set)   # rules indexed by first subgoal; non-nullary
