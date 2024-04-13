@@ -11,9 +11,9 @@ from graphviz import Digraph
 class WeightedGraph:
 
     def __init__(self, WeightType):
+        self.WeightType = WeightType
         self.N = set()
         self.incoming = defaultdict(set)
-        self.WeightType = WeightType
         self.E = WeightType.chart()
 
     def __iter__(self):
@@ -32,7 +32,11 @@ class WeightedGraph:
         return self
 
     def closure(self):
-        return WeightedGraph(self.WeightType, self.closure_scc_based())
+        C = WeightedGraph(self.WeightType)
+        K = self.closure_scc_based()
+        for i,j in K:
+            C[i,j] += K[i,j]
+        return C
 
     def closure_reference(self):
         return self._closure(self.E, self.N)
@@ -87,7 +91,7 @@ class WeightedGraph:
 
     def blocks(self, roots=None):
         "Return the directed acyclic graph of strongly connected components."
-        return tarjan(self.incoming.__getitem__, roots if roots else self.N)
+        return scc_decomposition(self.incoming.__getitem__, roots if roots else self.N)
 
     @cached_property
     def Blocks(self, **kwargs):
@@ -111,7 +115,7 @@ class WeightedGraph:
             ),
         )
 
-        for i,j in self.E:
+        for i,j in self:
             if self.E[i,j] == self.WeightType.zero: continue
             g.edge(str(name(i)), str(name(j)), label=label_format(self.E[i,j]))
 
@@ -121,10 +125,14 @@ class WeightedGraph:
         return g
 
 
-def tarjan(successors, roots):
+def scc_decomposition(successors, roots):
     """
-    Tarjan's linear-time algorithm O(E + V) for finding the maximal
-    strongly connected components.
+    Finding strongly connected components of a graph.
+    Implemention is based on Tarjan's (1972) algorithm; runs in O(E + V) time, uses O(V) space.
+
+    Tarjan, R. E. (1972), "Depth-first search and linear graph algorithms"
+    SIAM Journal on Computing, 1 (2): 146–160, doi:10.1137/0201010
+
     """
 
     # 'Low Link Value' of a node is the smallest id reachable by DFS, including itself.

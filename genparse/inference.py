@@ -9,9 +9,10 @@ import numpy as np
 import html
 from graphviz import Digraph
 from arsenal import Integerizer
-from arsenal.maths import sample
+from arsenal.maths import sample, logsumexp, softmax
 
-
+#_______________________________________________________________________________
+#
 # The importance sampling method below is an async equivalent of the following
 #
 # for p in iterview(particles):
@@ -30,11 +31,6 @@ from arsenal.maths import sample
 #
 #   (iii) for all y \in universe: \lim_{N -> \infty} E[w(y) / \sum_{y \in P} w(y)] = p(y)
 #
-#
-# TODO: we probably shouldn't even call this method "importance sampling"
-# because it is just a step/gather loop, which doesn't have anything to do with
-# importance sampling, just the HFPPL interface.
-#
 async def importance_sampling(model, n_particles):
     "Importance sampling estimator"
     # Create n_particles copies of the model
@@ -44,54 +40,9 @@ async def importance_sampling(model, n_particles):
         await asyncio.gather(*[p.step() for p in particles if not p.done_stepping()])
     return particles
 
+
 #_______________________________________________________________________________
 # The methods below are borrowed from HFPPL
-
-def find_c(weights, N):
-    # Sort the weights
-    sorted_weights = np.sort(weights)
-    # Find the smallest chi
-    B_val = 0.0
-    A_val = len(weights)
-    for i in range(len(sorted_weights)):
-        chi = sorted_weights[i]
-        # Calculate A_val -- number of weights larger than chi
-        A_val -= 1
-        # Update B_val -- add the sum of weights smaller than or equal to chi
-        B_val += chi
-        if B_val / chi + A_val - N <= 1e-12:
-            return (N - A_val) / B_val
-    return N
-
-
-def resample_optimal(weights, N):
-    c = find_c(weights, N)
-    # Weights for which c * w >= 1 are deterministically resampled
-    deterministic = np.where(c * weights >= 1)[0]
-    # Weights for which c * w <= 1 are stochastically resampled
-    stochastic = np.where(c * weights < 1)[0]
-    # Stratified sampling to generate N-len(deterministic) indices
-    # from the stochastic weights
-    n_stochastic = len(stochastic)
-    n_resample = N - len(deterministic)
-    if n_resample == 0:
-        return deterministic, np.array([], dtype=int), c
-    K = np.sum(weights[stochastic]) / (n_resample)
-    u = np.random.uniform(0, K)
-    i = 0
-    stoch_resampled = np.array([], dtype=int)
-    while i < n_stochastic:
-        u = u - weights[stochastic[i]]
-        if u <= 0:
-            # Add stochastic[i] to resampled indices
-            stoch_resampled = np.append(stoch_resampled, stochastic[i])
-            # Update u
-            u = u + K
-            i = i + 1
-        else:
-            i += 1
-    return deterministic, stoch_resampled, c
-
 
 async def smc_steer(model, n_particles, n_beam):
     """
@@ -147,21 +98,54 @@ async def smc_steer(model, n_particles, n_beam):
     return particles
 
 
+def find_c(weights, N):
+    # Sort the weights
+    sorted_weights = np.sort(weights)
+    # Find the smallest chi
+    B_val = 0.0
+    A_val = len(weights)
+    for i in range(len(sorted_weights)):
+        chi = sorted_weights[i]
+        # Calculate A_val -- number of weights larger than chi
+        A_val -= 1
+        # Update B_val -- add the sum of weights smaller than or equal to chi
+        B_val += chi
+        if B_val / chi + A_val - N <= 1e-12:
+            return (N - A_val) / B_val
+    return N
+
+
+def resample_optimal(weights, N):
+    c = find_c(weights, N)
+    # Weights for which c * w >= 1 are deterministically resampled
+    deterministic = np.where(c * weights >= 1)[0]
+    # Weights for which c * w <= 1 are stochastically resampled
+    stochastic = np.where(c * weights < 1)[0]
+    # Stratified sampling to generate N-len(deterministic) indices
+    # from the stochastic weights
+    n_stochastic = len(stochastic)
+    n_resample = N - len(deterministic)
+    if n_resample == 0:
+        return deterministic, np.array([], dtype=int), c
+    K = np.sum(weights[stochastic]) / (n_resample)
+    u = np.random.uniform(0, K)
+    i = 0
+    stoch_resampled = np.array([], dtype=int)
+    while i < n_stochastic:
+        u = u - weights[stochastic[i]]
+        if u <= 0:
+            # Add stochastic[i] to resampled indices
+            stoch_resampled = np.append(stoch_resampled, stochastic[i])
+            # Update u
+            u = u + K
+            i = i + 1
+        else:
+            i += 1
+    return deterministic, stoch_resampled, c
+
+
 #_______________________________________________________________________________
 #
-
-# Implementation notes:
-#
-#   Rather than subtracting up the spine of the sample path, we re-sum the
-#   children.  This has the benefit of better numerical stability.  For example,
-#   under this regime we get exact zeros when the probability of a subtree has
-#   been exhausted.
-#
-# TODO: use Fenwick trees (`arsenal.datastructures.SumHeap`) to reduce our runtime
-# depends on the number of choices K to log(K) time rather than K.  The subtraction
-# strategy has O(1) updates per node, but worse numerical stability.  Additionally,
-# we can sample in time O(log K) instead of O(K) with the Fenwick tree.
-
 
 class Tracer:
     """
@@ -253,7 +237,6 @@ class Node:
                 g.node(str(f(x)), label=str(fmt_node(x)), shape='box', fillcolor='gray')
 
         return g
-
 
 
 class TraceSWOR(Tracer):
