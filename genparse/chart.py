@@ -49,11 +49,11 @@ class Chart(dict):
     def __repr__(self):
         return repr({k: v for k, v in self.items() if v != self.semiring.zero})
 
-    def assert_equal(self, want, domain=None, tol=1e-5, verbose=False, throw=True):
+    def assert_equal(self, want, *, domain=None, tol=1e-5, verbose=False, throw=True):
         if domain is None: domain = self.keys() | want.keys()
         assert verbose or throw
         for x in domain:
-            if self[x].metric(want[x]) <= tol:
+            if self.semiring.metric(self[x], want[x]) <= tol:
                 if verbose:
                     print(colors.mark(True), x, self[x])
             else:

@@ -1,4 +1,5 @@
 from .wfsa import WFSA, EPSILON
+from functools import cached_property
 
 
 ε = EPSILON
@@ -70,7 +71,9 @@ class FST(WFSA):
 
         return A
 
-    def transpose(self):
+    @cached_property
+    def T(self):
+        "transpose swap left <-> right"
         T = self.spawn()
         for i, (a, b), j, w in self.arcs():
             T.add_arc(i, (b, a), j, w)      # (a,b) -> (b,a)
@@ -81,6 +84,12 @@ class FST(WFSA):
         return T
 
     def __matmul__(self, fst):
+        if not isinstance(fst, FST):
+            from genparse.cfg import CFG
+            if isinstance(fst, CFG):
+                return fst @ self.T
+            else:
+                fst = FST.diag(fst)
         return (
             self._augment_epsilon_transitions(0)            # rename epsilons on the right
             ._compose(epsilon_filter_fst(self.R, self.B))   # this FST carefully combines the special epsilons

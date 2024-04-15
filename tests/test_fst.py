@@ -1,5 +1,35 @@
 from genparse.fst import FST, EPSILON
-from genparse import Float
+from genparse import Float, CFG
+
+
+def test_fst_cfg():
+    fst = FST(Float)
+
+    fst.add_I(0, 1.0)
+    fst.add_arc(0, ('a', 'b'), 0, 0.5)
+    fst.add_arc(0, ('b', 'c'), 0, 0.5)
+    fst.add_arc(0, ('c', 'a'), 0, 0.5)
+    fst.add_F(0, 1.0)
+
+    # apply from the left of the transducer
+    have = CFG.from_string("""
+
+    1: S -> a b c
+
+    """, Float) @ fst
+
+    have.language(5).assert_equal(Float.chart({('b', 'c', 'a'): 0.125}), tol=1e-10)
+
+
+    # apply from the right of the transducer
+    have = fst @ CFG.from_string("""
+
+    1: S -> a b c
+
+    """, Float)
+
+    have.language(5).assert_equal(Float.chart({('c', 'a', 'b'): 0.125}), tol=1e-10)
+
 
 
 def test_basic1():

@@ -9,8 +9,8 @@ class Semiring:
         self.score = score
 
     @classmethod
-    def chart(cls):
-        return Chart(cls)
+    def chart(cls, *args, **kwargs):
+        return Chart(cls, *args, **kwargs)
 
 #    @classmethod
 #    def zeros(cls, *shape):
@@ -165,7 +165,9 @@ class Float:
     def star(x):        return 1/(1-x)
     def from_string(x): return float(x)
     def metric(x,y):    return abs(x - y)
-    chart = lambda: Counter()
+    @classmethod
+    def chart(cls, *args, **kwargs):
+        return Chart(cls, *args, **kwargs)
     zero = 0
     one = 1
 
