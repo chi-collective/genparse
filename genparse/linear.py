@@ -108,7 +108,7 @@ class WeightedGraph:
             for i in N:
                 for k in N:
                     new[i,k] = old[i,k] + old[i,j] * sjj * old[j,k]
-            old, new = new, old   # swap to repurpose space
+            old = new
         # reflexive closure
         for i in N: old[i,i] += self.WeightType.one
         return old

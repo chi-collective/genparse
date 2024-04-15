@@ -1,4 +1,4 @@
-from genparse.wfsa.semiring_wfsa import WFSA
+from genparse.wfsa.base import WFSA
 from genparse.semiring import Real, Semiring
 
 
@@ -24,7 +24,6 @@ def test_basics():
 
 
 def test_det():
-    import leftcorner.semiring
 
     precision = 5
 
@@ -69,7 +68,7 @@ def test_det():
     print(D)
     assert D('ab') == Real(15)
 
-    M = (a * b + a * c).minimize
+    M = (a * b + a * c).min_det
     print(M)
     assert M('ab') == Real(15)
     print(M)

@@ -35,10 +35,6 @@ class WFSA(base.WFSA):
     def __hash__(self):
         return hash(self.simple)
 
-#    def __call__(self, xs):
-#        "Evaluate the sequence `xs`."
-#        return self.simple(xs)
-
     def threshold(self, threshold):
         "Drop init, arcs, final below a given abs-threshold."
         m = self.__class__(self.R)
@@ -53,22 +49,12 @@ class WFSA(base.WFSA):
                 m.add_F(q, w)
         return m
 
-    def __sub__(self, other):
-        self, other = self.rename_apart(other)
-        U = self.spawn(keep_init=True, keep_arcs=True, keep_stop=True)
-        # add arcs, initial and final states from argument
-        for q, w in other.I:            U.add_I(q, -w)
-        for i, a, j, w in other.arcs(): U.add_arc(i, a, j, w)
-        for q, w in other.F:            U.add_F(q, w)
-        return U
-
     def graphviz(self, fmt=lambda x: f'{round(x,3):g}', **kwargs):
         return super().graphviz(fmt=fmt, **kwargs)
 
     @cached_property
     def simple(self):
         self = self.epsremove.renumber
-#        self = self.renumber
 
         S = self.dim
         start = np.full(S, self.R.zero)
@@ -83,12 +69,6 @@ class WFSA(base.WFSA):
             stop[i] += w
 
         assert EPSILON not in arcs
-#        if EPSILON in arcs:
-#            W = arcs.pop(EPSILON)   # remove it
-#            E = linalg.inv(np.eye(self.dim) - W)
-#            for a in arcs:
-#                arcs[a] = arcs[a] @ E
-#            start = start @ E
 
         return Simple(start, arcs, stop)
 
@@ -117,19 +97,6 @@ class WFSA(base.WFSA):
         m.add_arc(0, x, 1, w)
         m.add_F(1, R.one)
         return m
-
-    @cached_property
-    def push(self):
-        "Weight pushing algorithm (Mohri, 2001)."
-        V = self.backward()
-        new = self.spawn()
-        for i in self.states:
-            if V[i] == self.R.zero: continue
-            new.add_I(i, self.start[i] * V[i])
-            new.add_F(i, V[i]**(-1) * self.stop[i])
-            for a, j, w in self.arcs(i):
-                new.add_arc(i, a, j, V[i]**(-1) * w * V[j])
-        return new
 
 #    @property
 #    def zero(self):

@@ -1,33 +1,12 @@
 from arsenal import Integerizer
 from collections import defaultdict
 from functools import cached_property
+from frozendict import frozendict
 from graphviz import Digraph
 from genparse.linear import WeightedGraph
 
 
 EPSILON = "ε"
-
-
-def _lehmann(R, N, W):
-    "Lehmann's (1977) algorithm."
-
-    V = W.copy()
-    U = W.copy()
-
-    for j in N:
-        V, U = U, V
-        V = R.chart()
-        s = R.star(U[j, j])
-        for i in N:
-            for k in N:
-                # i ➙ j ⇝ j ➙ k
-                V[i, k] = U[i, k] + U[i, j] * s * U[j, k]
-
-    # add paths of length zero
-    for i in N:
-        V[i, i] += R.one
-
-    return V
 
 
 class WFSA:
@@ -157,12 +136,19 @@ class WFSA:
         return total
 
     @cached_property
-    def epsremove(self):
+    def E(self):
+        "Weighted graph of epsilon arcs"
         E = WeightedGraph(self.R)
         for i, a, j, w in self.arcs():
             if a == EPSILON:
                 E[i, j] += w
         E.N |= self.states
+        return E
+
+    @cached_property
+    def epsremove(self):
+        "Return an equivalent machine with no epsilon arcs."
+        E = self.E
         S = E.closure_scc_based()
         new = self.spawn(keep_stop=True)
         for i, w_i in self.I:
@@ -199,6 +185,16 @@ class WFSA:
             U.add_I(q, w)
         for q, w in other.F:
             U.add_F(q, w)
+        return U
+
+    def __sub__(self, other):
+        "Assumes -w exists for all weights."
+        self, other = self.rename_apart(other)
+        U = self.spawn(keep_init=True, keep_arcs=True, keep_stop=True)
+        # add arcs, initial and final states from argument
+        for q, w in other.I:            U.add_I(q, -w)
+        for i, a, j, w in other.arcs(): U.add_arc(i, a, j, w)
+        for q, w in other.F:            U.add_F(q, w)
         return U
 
     def __mul__(self, other):
@@ -325,6 +321,19 @@ class WFSA:
         return self.G.solve_right(self.stop)
 
     @cached_property
+    def push(self):
+        "Weight pushing algorithm (Mohri, 2001); assumes v**-1 possible for weights."
+        V = self.backward
+        new = self.spawn()
+        for i in self.states:
+            if V[i] == self.R.zero: continue
+            new.add_I(i, self.start[i] * V[i])
+            new.add_F(i, V[i]**(-1) * self.stop[i])
+            for a, j, w in self.arcs(i):
+                new.add_arc(i, a, j, V[i]**(-1) * w * V[j])
+        return new
+
+    @cached_property
     def trim(self):
 
         forward = self.forward
@@ -347,3 +356,66 @@ class WFSA:
                 new.add_arc(i,a,j,w)
 
         return new
+
+    @cached_property
+    def min_det(self):
+        """
+        Implements Brzozowski's_minimization algorithm.
+        See https://ralphs16.github.io/src/CatLectures/HW_Brzozowski.pdf and
+        https://link.springer.com/chapter/10.1007/978-3-642-39274-0_17.
+        """
+        return self.reverse.determinize.trim.reverse.determinize.trim
+
+    @cached_property
+    def determinize(self):
+        """
+        Mohri (2009)'s "on-the-fly" determinization semi-algorithm.
+        https://link.springer.com/chapter/10.1007/978-3-642-01492-5_6
+
+        Use with caution as this method may not terminate.
+        """
+
+        self = self.epsremove.push
+
+        def _powerarcs(Q):
+
+            U = {a: self.R.chart() for a in self.alphabet}
+
+            for i, u in Q.items():
+                for a, j, v in self.arcs(i):
+                    U[a][j] += u * v
+
+            for a in U:
+                R = U[a]
+                W = sum(R.values(), start=self.R.zero)
+
+                if 0:
+                    # If we cannot extract a common factor, then all of the arcs will have weight one
+                    yield a, frozendict(R), self.R.one
+
+                else:
+                    yield a, frozendict({p: W**(-1) * R[p] for p in R}), W
+
+        D = self.spawn()
+
+        stack = []
+        visited = set()
+
+        Q = frozendict({i: w for i, w in self.I})
+        D.add_I(Q, self.R.one)
+        stack.append(Q)
+        visited.add(Q)
+
+        while stack:
+            P = stack.pop()
+            for a, Q, w in _powerarcs(P):
+                if Q not in visited:
+                    stack.append(Q)
+                    visited.add(Q)
+                D.add_arc(P, a, Q, w)
+
+        for Q in D.states:
+            for q in Q:
+                D.add_F(Q, Q[q] * self.stop[q])
+
+        return D
