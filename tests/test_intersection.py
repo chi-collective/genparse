@@ -2,6 +2,7 @@ import genparse
 from genparse import CFG, Real
 from itertools import product
 from collections import defaultdict
+from genparse.fst import FST
 
 from genparse.cfg import FSA
 
@@ -192,6 +193,105 @@ def check(cfg, fsa):
         print()
         print(want)
         have.assert_equal(want, verbose=True)
+
+
+# COMPOSITION TESTS
+
+compose_fast = CFG.compose
+
+def test_catalan_fst():
+    cfg = CFG.from_string("""
+    0.4: S -> S S
+    0.3: S -> a
+    0.3: S -> b
+    """, Real)
+
+    fst = FST(Real)
+
+    fst.add_I(0, Real(1.0))
+    fst.add_arc(0, ('a', 'b'), 1, Real(1.0))
+    fst.add_arc(1, ('a', 'b'), 2, Real(1.0))
+    fst.add_arc(2, ('a', ''), 3, Real(1.0))
+    fst.add_arc(3, ('a', 'b'), 3, Real(1.0))
+    fst.add_arc(3, ('b', 'a'), 3, Real(1.0))
+    fst.add_F(3, Real(1.0))
+    
+    check_fst(cfg, fst)
+
+def test_palindrome_fst():
+    cfg = CFG.from_string("""
+    0.3: S -> a S a
+    0.4: S -> b S b
+    0.3: S ->
+    """, Real)
+
+    fst = FST(Real)
+
+    fst.add_I(0, Real(1.0))
+    fst.add_arc(0, ('a', 'b'), 1, Real(1.0))
+    fst.add_arc(1, ('a', 'b'), 2, Real(1.0))
+    fst.add_arc(2, ('a', 'b'), 3, Real(1.0))
+    fst.add_arc(3, ('a', ''), 3, Real(1.0))
+    fst.add_arc(3, ('b', ''), 3, Real(1.0))
+    fst.add_F(3, Real(1.0))
+    
+    check_fst(cfg, fst)
+
+def check_fst(cfg, fst):
+
+    want = compose_slow(cfg, fst).trim(bottomup_only=True)
+    have = compose_fast(cfg, fst)
+
+    if 0:
+        want = want.trim().trim()
+        have = have.trim().trim()
+
+#    want = want.trim()
+#    have = have.trim()
+
+    print()
+    print('have=')
+    print(have)
+    print()
+    print('want=')
+    print(want)
+
+    print()
+    print('have chart=')
+    print(have.agenda())
+    print()
+    print('want chart=')
+    print(want.agenda())
+
+    assert have.treesum().metric(want.treesum()) < 1e-5, [have.treesum(), want.treesum()]
+
+    if CHECK_CHART:
+        have.agenda().assert_equal(want.agenda(), tol=1e-5)
+
+    if CHECK_RULES:
+        print()
+        print(have)
+        print()
+        print(want)
+        have.assert_equal(want, verbose=True)
+
+def compose_slow(self, fst):
+    "Reference implementation of the grammar-transducer composition."
+    if isinstance(fst, (str, list, tuple)): fst = FST.from_string(fst, self.R)
+    new_start = self.S
+    new = self.spawn(S = new_start)
+    for r in self:
+        for qs in product(fst.states, repeat=1+len(r.body)):
+            new.add(r.w, (qs[0], r.head, qs[-1]), *((qs[i], r.body[i], qs[i+1]) for i in range(len(r.body))))
+    for qi, wi in fst.start.items():
+        for qf, wf in fst.stop.items():
+            new.add(wi*wf, new_start, (qi, self.S, qf))
+    for i, (a,b) , j, w in fst.arcs():
+        if b == "":
+            new.add(w, (i, a , j), )
+        else:
+            new.add(w, (i, a , j), b )
+    return new
 
 
 if __name__ == '__main__':
