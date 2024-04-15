@@ -46,7 +46,7 @@ class FST(WFSA):
 
     @staticmethod
     def from_string(x, R):
-        return diag_fst(WFSA.from_string(x, R))
+        return FST.diag(WFSA.from_string(x, R))
 
     def project(self, axis):
         """
@@ -156,19 +156,19 @@ class FST(WFSA):
 
         return T
 
-
-def diag_fst(self):
-    """
-    Convert a FSA A to diagonal relation T wich that T(x,x) = A(x) for all strings x.
-    """
-    fst = FST(self.R)
-    for i, a, j, w in self.arcs():
-        fst.add_arc(i, (a, a), j, w)
-    for i, w in self.start.items():
-        fst.add_I(i, w)
-    for i, w in self.stop.items():
-        fst.add_F(i, w)
-    return fst
+    @classmethod
+    def diag(cls, fsa):
+        """
+        Convert a FSA A to diagonal relation T wich that T(x,x) = A(x) for all strings x.
+        """
+        fst = cls(fsa.R)
+        for i, a, j, w in fsa.arcs():
+            fst.add_arc(i, (a, a), j, w)
+        for i, w in fsa.start.items():
+            fst.add_I(i, w)
+        for i, w in fsa.stop.items():
+            fst.add_F(i, w)
+        return fst
 
 
 def epsilon_filter_fst(R, Sigma):

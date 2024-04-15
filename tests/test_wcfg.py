@@ -39,6 +39,9 @@ def test_misc():
 
     cfg = CFG.from_string('1: X -> Y', Real)
 
+    f = lambda x: x.lower()
+    assert cfg.rename(f).N == {f(X) for X in cfg.N}
+
     try:
         CFG.from_string('x -> y : 1', Real)
     except ValueError:

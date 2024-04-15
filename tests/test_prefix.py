@@ -54,7 +54,7 @@ def test_parsing():
 
         print('want:', want)
 
-        #assert_equal(cfg.intersect(s).trim().treesum(), want, 1e-5)
+        #assert_equal((cfg @ s).trim().treesum(), want, 1e-5)
 
         print('nullable derivatives')
         other = cfg.derivatives(s)[-1].trim().null_weight_start()
@@ -219,7 +219,7 @@ def test_connection_palindrome():
     print()
     print(D.trim())
     print()
-    B = new.intersect(s).trim()
+    B = (new @ s).trim()
     print(B)
     print()
 

@@ -21,34 +21,6 @@ def _gen_nt(prefix=''):
 _gen_nt.i = 0
 
 
-# This is just the data structure with none of the methods that make it a weighted language
-class FSA:
-    def __init__(self, start, edges, stop):
-        self.start = dict(start)
-        self.edges = edges
-        self.stop = dict(stop)
-
-        self.states = set()
-        self.states.update(s for s in self.start)
-        self.states.update(s for s in self.stop)
-        self.states.update(s for s, _, _, _ in self.edges)
-        self.states.update(s for _, _, s, _ in self.edges)
-
-        self.alphabet = {a for _, a, _, _ in self.edges}
-
-    def arcs(self):
-        return self.edges
-
-    @classmethod
-    def from_string(cls, xs, semiring):
-        "Make a straight-line automaton from the string `xs`."
-        return FSA(
-            [(0, semiring.one)],
-            [(i, xs[i], i+1, semiring.one) for i in range(len(xs))],
-            [(len(xs), semiring.one)],
-        )
-
-
 class Slash:
 
     def __init__(self, Y, Z, id):
@@ -736,71 +708,11 @@ class CFG:
 #            new.add(w, (i, a, j), a)
 #        return new
 
-    def intersect(self, fsa):
-        "Return a CFG that denoting the pointwise product of `self` and `fsa`."
-        if isinstance(fsa, (str, list, tuple)): fsa = FSA.from_string(fsa, self.R)
+    def _compose_bottom_up(self, fst):
+        "Determine which items of the composition grammar are supported"
 
-        new_start = self.S
-        new = self.spawn(S = new_start)
+        A = set()
 
-        # The bottom-up intersection algorithm is a two pass algorithm
-        #
-        # Pass 1: Determine the set of items that are possiblly nonzero-valued
-        C = self._intersect_bottom_up(fsa)
-
-        # Note that over estimate is safe so we could even use the set below,
-        # however, it would be much less efficient to do so.
-        #
-        #C = {(i,X): fsa.states for i in fsa.states for X in self.N | self.V}
-
-        # Pass 2: expands the grammar's rules against those items; Although, the
-        # construction we have is correct for unbinarized rules, it is generally
-        # much more efficient to binarized the grammar before calling this method.
-        #
-        def product(start, Ys):
-            """
-            Helper method; expands the rule body
-
-            Given Ys = [Y_1, ... Y_K], we will enumerate expansion of the form
-
-            (s_0, Y_1, s_1), (s_1, Y_2, s_2), ..., (s_{k-1}, Y_K, s_K)
-
-            where each (s_k, Y_k, s_k) in the expansion is a completed items
-            (i.e., \forall k: (s_k, Y_k, s_k) in C).
-            """
-            if not Ys:
-                yield []
-            else:
-                for K in C[start, Ys[0]]:
-                    for rest in product(K, Ys[1:]):
-                        yield [(start, Ys[0], K)] + rest
-
-        start = {I for (I,_) in C}
-
-        for r in self:
-            if len(r.body) == 0:
-                for s in fsa.states:
-                    new.add(r.w, (s, r.head, s))
-            else:
-                for I in start:
-                    for rhs in product(I, r.body):
-                        K = rhs[-1][-1]
-                        new.add(r.w, (I, r.head, K), *rhs)
-
-        for i, wi in fsa.start.items():
-            for k, wf in fsa.stop.items():
-                new.add(wi*wf, new_start, (i, self.S, k))
-
-        for i, a, j, w in fsa.arcs():
-            if a in self.V:
-                new.add(w, (i, a, j), a)
-
-        return new
-
-    def _intersect_bottom_up(self, fsa):
-        "Determine which items of the intersected grammar are supported"
-
-        A = set()              # agenda
         I = defaultdict(set)   # incomplete items
         C = defaultdict(set)   # complete items
         R = defaultdict(set)   # rules indexed by first subgoal; non-nullary
@@ -812,13 +724,13 @@ class CFG:
         # we have two base cases:
         #
         # base case 1: arcs
-        for i, a, j, w in fsa.arcs():
-            A.add((i, a, (), j))
+        for i, (a,b), j, w in fst.arcs():
+            A.add((i, a, (), j)) #The empty tuple is to mark that the rule body is complete
 
         # base case 2: nullary rules
         for r in self:
             if len(r.body) == 0:
-                for i in fsa.states:
+                for i in fst.states:
                     A.add((i, r.head, (), i))
 
         # drain the agenda
@@ -850,65 +762,13 @@ class CFG:
                     A.add((i, X, Ys[1:], k))
 
         return C
-    
-    # def _compose_bottom_up(self, fst):
-    #     "Determine which items of the intersected grammar are supported"
 
-    #     A = set()
-
-    #     I = defaultdict(set)   # incomplete items
-    #     C = defaultdict(set)   # complete items
-    #     R = defaultdict(set)   # rules indexed by first subgoal; non-nullary
-
-    #     for r in self:
-    #         if len(r.body) > 0:
-    #             R[r.body[0]].add(r)
-
-    #     # we have two base cases:
-    #     #
-    #     # base case 1: arcs
-    #     for i, (a,b) , j, w in fst.arcs():
-    #         A.add((i, a, (), j)) #The empty tuple is to mark that the rule body is complete
-
-    #     # base case 2: nullary rules
-    #     for r in self:
-    #         if len(r.body) == 0:
-    #             for i in fst.states:
-    #                 A.add((i, r.head, (), i))
-
-    #     # drain the agenda
-    #     while A:
-    #         (i, X, Ys, j) = A.pop()
-
-    #         # No pending items ==> the item is complete
-    #         if not Ys:
-
-    #             if j in C[i, X]: continue
-    #             C[i, X].add(j)
-
-    #             # combine the newly completed item with incomplete rules that are
-    #             # looking for an item like this one
-    #             for (h, X1, Zs) in I[i, X]:
-    #                 A.add((h, X1, Zs[1:], j))
-
-    #             # initialize rules that can start with an item like this one
-    #             for r in R[X]:
-    #                 A.add((i, r.head, r.body[1:], j))
-
-    #         # Still have pending items ==> advanced the pending items
-    #         else:
-
-    #             if (i, X, Ys) in I[j, Ys[0]]: continue
-    #             I[j, Ys[0]].add((i, X, Ys))
-
-    #             for k in C[j, Ys[0]]:
-    #                 A.add((i, X, Ys[1:], k))
-
-    #     return C
-
-    def compose(self, fst):
+    def __matmul__(self, fst):
         "Return a CFG denoting the pointwise product of `self` and `fs`."
-        if isinstance(fst, (str, list, tuple)): fst = FST.from_string(fsa, self.R)
+        # coerce something sequence like into a diagonal FST
+        if isinstance(fst, (str, list, tuple)): fst = FST.from_string(fst, self.R)
+        # coerce something FSA-like into an FST, might throw an error
+        if not isinstance(fst, FST): fst = FST.diag(fst)
 
         new_start = self.S
         new = self.spawn(S = new_start)
@@ -916,14 +776,12 @@ class CFG:
         # The bottom-up intersection algorithm is a two pass algorithm
         #
         # Pass 1: Determine the set of items that are possiblly nonzero-valued
-        
-        # C = self._compose_bottom_up(fst)
-        C = self._intersect_bottom_up(fst.project(0))
+        C = self._compose_bottom_up(fst)
 
         # Note that over estimate is safe so we could even use the set below,
         # however, it would be much less efficient to do so.
         #
-    #    C = {(i,X): fsa.states for i in fsa.states for X in self.N | self.V}
+        #C = {(i,X): fst.states for i in fst.states for X in self.N | self.V}
 
         # Pass 2: expands the grammar's rules against those items; Although, the
         # construction we have is correct for unbinarized rules, it is generally
@@ -970,16 +828,7 @@ class CFG:
                 else:
                     new.add(w, (i, a, j), b)
         return new
-    
-    def __matmul__(self,fst):
 
-        if isinstance(fst,FST):
-            return self.compose(fst)
-        elif isinstance(fst,FSA):
-            return self.intersect(fst)
-        else:
-            assert False, "Not an fst nor an fsa"
-        
 
 # TODO: replace this code with the transduction version!
 class PrefixGrammar(CFG):

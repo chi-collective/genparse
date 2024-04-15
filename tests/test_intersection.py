@@ -3,9 +3,7 @@ from genparse import CFG, Real
 from itertools import product
 from collections import defaultdict
 from genparse.fst import FST
-
-from genparse.cfg import FSA
-from genparse.wfsa import EPSILON
+from genparse.wfsa import WFSA, EPSILON
 
 
 # reference implementation of the intersection algorithm
@@ -24,6 +22,7 @@ def intersect_slow(self, fsa):
         new.add(w, (i, a, j), a)
     return new
 
+
 def test_palindrome1():
     cfg = CFG.from_string("""
     0.3: S -> a S a
@@ -31,7 +30,7 @@ def test_palindrome1():
     0.3: S ->
     """, Real)
 
-    fsa = FSA.from_string('aa', cfg.R)
+    fsa = WFSA.from_string('aa', cfg.R)
 
     check(cfg, fsa)
 
@@ -43,18 +42,13 @@ def test_palindrome2():
     0.3: S ->
     """, Real)
 
-    fsa = FSA(
-        Real.chart(),
-        [
-            (0, 'a', 0, Real.one),
-            (0, 'b', 0, Real.one),
-            (0, 'c', 0, Real.one),
-        ],
-        Real.chart(),
-    )
+    fsa = WFSA(Real)
+    fsa.add_arc(0, 'a', 0, Real.one)
+    fsa.add_arc(0, 'b', 0, Real.one)
+    fsa.add_arc(0, 'c', 0, Real.one)
 
-    fsa.start[0] = Real.one
-    fsa.stop[0] = Real.one
+    fsa.add_I(0, Real.one)
+    fsa.add_F(0, Real.one)
 
     check(cfg, fsa)
 
@@ -66,22 +60,17 @@ def test_palindrome3():
     0.3: S ->
     """, Real)
 
-    fsa = FSA(
-        Real.chart(),
-        [
-            # straight line aaa
-            (0, 'a', 1, Real.one),
-            (1, 'a', 2, Real.one),
-            (2, 'a', 3, Real.one),
-            # and then a cycle
-            (3, 'a', 3, Real(0.5)),
-            (3, 'b', 3, Real(0.5)),
-        ],
-        Real.chart(),
-    )
+    fsa = WFSA(Real)
+    # straight line aaa
+    fsa.add_arc(0, 'a', 1, Real.one)
+    fsa.add_arc(1, 'a', 2, Real.one)
+    fsa.add_arc(2, 'a', 3, Real.one)
+    # and then a cycle
+    fsa.add_arc(3, 'a', 3, Real(0.5))
+    fsa.add_arc(3, 'b', 3, Real(0.5))
 
-    fsa.start[0] = Real.one
-    fsa.stop[3] = Real.one
+    fsa.add_I(0, Real.one)
+    fsa.add_F(3, Real.one)
 
     check(cfg, fsa)
 
@@ -93,7 +82,7 @@ def test_catalan1():
     0.3: S -> b
     """, Real)
 
-    fsa = FSA.from_string('aa', cfg.R)
+    fsa = WFSA.from_string('aa', cfg.R)
 
     check(cfg, fsa)
 
@@ -105,45 +94,17 @@ def test_catalan2():
     0.3: S -> b
     """, Real)
 
-    fsa = FSA(
-        Real.chart(),
-        [
-            (0, 'a', 0, Real.one),
-            (0, 'b', 0, Real.one),
-            (0, 'c', 0, Real.one),
-        ],
-        Real.chart(),
-    )
+    fsa = WFSA(Real)
+    fsa.add_I(0, Real.one)
+    fsa.add_F(3, Real.one)
 
-    fsa.start[0] = Real.one
-    fsa.stop[0] = Real.one
-
-    check(cfg, fsa)
-
-
-def test_catalan2():
-    cfg = CFG.from_string("""
-    0.4: S -> S S
-    0.3: S -> a
-    0.3: S -> b
-    """, Real)
-
-    fsa = FSA(
-        Real.chart(),
-        [
-            # straight line aaa
-            (0, 'a', 1, Real.one),
-            (1, 'a', 2, Real.one),
-            (2, 'a', 3, Real.one),
-            # and then a cycle
-            (3, 'a', 3, Real(0.5)),
-            (3, 'b', 3, Real(0.5)),
-        ],
-        Real.chart(),
-    )
-
-    fsa.start[0] = Real.one
-    fsa.stop[3] = Real.one
+    # straight line aaa
+    fsa.add_arc(0, 'a', 1, Real.one)
+    fsa.add_arc(1, 'a', 2, Real.one)
+    fsa.add_arc(2, 'a', 3, Real.one)
+    # and then a cycle
+    fsa.add_arc(3, 'a', 3, Real(0.5))
+    fsa.add_arc(3, 'b', 3, Real(0.5))
 
     check(cfg, fsa)
 
@@ -194,7 +155,7 @@ def check(cfg, fsa):
 
 # COMPOSITION TESTS
 
-compose_fast = CFG.compose
+compose_fast = CFG.__matmul__
 
 def test_catalan_fst():
     cfg = CFG.from_string("""
@@ -212,7 +173,7 @@ def test_catalan_fst():
     fst.add_arc(3, ('a', 'b'), 3, Real(1.0))
     fst.add_arc(3, ('b', 'a'), 3, Real(1.0))
     fst.add_F(3, Real(1.0))
-    
+
     check_fst(cfg, fst)
 
 def test_palindrome_fst():
@@ -231,7 +192,7 @@ def test_palindrome_fst():
     fst.add_arc(3, ('a', EPSILON ), 3, Real(1.0))
     fst.add_arc(3, ('b', EPSILON ), 3, Real(1.0))
     fst.add_F(3, Real(1.0))
-    
+
     check_fst(cfg, fst)
 
 def check_fst(cfg, fst):
