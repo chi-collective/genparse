@@ -5,6 +5,7 @@ from collections import defaultdict
 from genparse.fst import FST
 
 from genparse.cfg import FSA
+from genparse.wfsa import EPSILON
 
 
 # reference implementation of the intersection algorithm
@@ -22,10 +23,6 @@ def intersect_slow(self, fsa):
     for i, a, j, w in fsa.arcs():
         new.add(w, (i, a, j), a)
     return new
-
-
-intersect_fast = CFG.intersect
-
 
 def test_palindrome1():
     cfg = CFG.from_string("""
@@ -159,7 +156,7 @@ CHECK_CHART = True
 def check(cfg, fsa):
 
     want = intersect_slow(cfg, fsa).trim(bottomup_only=True)
-    have = intersect_fast(cfg, fsa)
+    have = cfg @ fsa # fast intersection
 
     if 0:
         want = want.trim().trim()
@@ -211,7 +208,7 @@ def test_catalan_fst():
     fst.add_I(0, Real(1.0))
     fst.add_arc(0, ('a', 'b'), 1, Real(1.0))
     fst.add_arc(1, ('a', 'b'), 2, Real(1.0))
-    fst.add_arc(2, ('a', ''), 3, Real(1.0))
+    fst.add_arc(2, ('a', EPSILON ), 3, Real(1.0))
     fst.add_arc(3, ('a', 'b'), 3, Real(1.0))
     fst.add_arc(3, ('b', 'a'), 3, Real(1.0))
     fst.add_F(3, Real(1.0))
@@ -231,8 +228,8 @@ def test_palindrome_fst():
     fst.add_arc(0, ('a', 'b'), 1, Real(1.0))
     fst.add_arc(1, ('a', 'b'), 2, Real(1.0))
     fst.add_arc(2, ('a', 'b'), 3, Real(1.0))
-    fst.add_arc(3, ('a', ''), 3, Real(1.0))
-    fst.add_arc(3, ('b', ''), 3, Real(1.0))
+    fst.add_arc(3, ('a', EPSILON ), 3, Real(1.0))
+    fst.add_arc(3, ('b', EPSILON ), 3, Real(1.0))
     fst.add_F(3, Real(1.0))
     
     check_fst(cfg, fst)
@@ -240,14 +237,11 @@ def test_palindrome_fst():
 def check_fst(cfg, fst):
 
     want = compose_slow(cfg, fst).trim(bottomup_only=True)
-    have = compose_fast(cfg, fst)
+    have = cfg @ fst #fast composition
 
     if 0:
         want = want.trim().trim()
         have = have.trim().trim()
-
-#    want = want.trim()
-#    have = have.trim()
 
     print()
     print('have=')
@@ -287,7 +281,7 @@ def compose_slow(self, fst):
         for qf, wf in fst.stop.items():
             new.add(wi*wf, new_start, (qi, self.S, qf))
     for i, (a,b) , j, w in fst.arcs():
-        if b == "":
+        if b == EPSILON :
             new.add(w, (i, a , j), )
         else:
             new.add(w, (i, a , j), b )

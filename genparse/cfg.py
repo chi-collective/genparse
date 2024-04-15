@@ -6,6 +6,8 @@ import graphviz
 from collections import defaultdict, Counter
 from functools import cached_property
 from itertools import product
+from genparse.wfsa import EPSILON
+from genparse.fst import FST
 
 from .chart import Chart
 from .semiring import Semiring, Boolean
@@ -849,61 +851,60 @@ class CFG:
 
         return C
     
-    def _compose_bottom_up(self, fst):
-        "Determine which items of the intersected grammar are supported"
+    # def _compose_bottom_up(self, fst):
+    #     "Determine which items of the intersected grammar are supported"
 
-        A = set()
+    #     A = set()
 
-        I = defaultdict(set)   # incomplete items
-        C = defaultdict(set)   # complete items
-        R = defaultdict(set)   # rules indexed by first subgoal; non-nullary
+    #     I = defaultdict(set)   # incomplete items
+    #     C = defaultdict(set)   # complete items
+    #     R = defaultdict(set)   # rules indexed by first subgoal; non-nullary
 
-        for r in self:
-            if len(r.body) > 0:
-                R[r.body[0]].add(r)
+    #     for r in self:
+    #         if len(r.body) > 0:
+    #             R[r.body[0]].add(r)
 
-        # we have two base cases:
-        #
-        # base case 1: arcs
-        for i, (a,b) , j, w in fst.arcs():
-            A.add((i, a, (), j)) #The empty tuple is to mark that the rule body is complete
+    #     # we have two base cases:
+    #     #
+    #     # base case 1: arcs
+    #     for i, (a,b) , j, w in fst.arcs():
+    #         A.add((i, a, (), j)) #The empty tuple is to mark that the rule body is complete
 
-        # base case 2: nullary rules
-        for r in self:
-            if len(r.body) == 0:
-                for i in fst.states:
-                    A.add((i, r.head, (), i))
+    #     # base case 2: nullary rules
+    #     for r in self:
+    #         if len(r.body) == 0:
+    #             for i in fst.states:
+    #                 A.add((i, r.head, (), i))
 
-        # drain the agenda
-        while A:
-            (i, X, Ys, j) = A.pop()
+    #     # drain the agenda
+    #     while A:
+    #         (i, X, Ys, j) = A.pop()
 
-            # No pending items ==> the item is complete
-            if not Ys:
+    #         # No pending items ==> the item is complete
+    #         if not Ys:
 
-                if j in C[i, X]: continue
-                C[i, X].add(j)
+    #             if j in C[i, X]: continue
+    #             C[i, X].add(j)
 
-                # combine the newly completed item with incomplete rules that are
-                # looking for an item like this one
-                for (h, X1, Zs) in I[i, X]:
-                    A.add((h, X1, Zs[1:], j))
+    #             # combine the newly completed item with incomplete rules that are
+    #             # looking for an item like this one
+    #             for (h, X1, Zs) in I[i, X]:
+    #                 A.add((h, X1, Zs[1:], j))
 
-                # initialize rules that can start with an item like this one
-                for r in R[X]:
-                    A.add((i, r.head, r.body[1:], j))
+    #             # initialize rules that can start with an item like this one
+    #             for r in R[X]:
+    #                 A.add((i, r.head, r.body[1:], j))
 
-            # Still have pending items ==> advanced the pending items
-            else:
+    #         # Still have pending items ==> advanced the pending items
+    #         else:
 
-                if (i, X, Ys) in I[j, Ys[0]]: continue
-                I[j, Ys[0]].add((i, X, Ys))
+    #             if (i, X, Ys) in I[j, Ys[0]]: continue
+    #             I[j, Ys[0]].add((i, X, Ys))
 
-                for k in C[j, Ys[0]]:
-                    A.add((i, X, Ys[1:], k))
+    #             for k in C[j, Ys[0]]:
+    #                 A.add((i, X, Ys[1:], k))
 
-        return C
-
+    #     return C
 
     def compose(self, fst):
         "Return a CFG denoting the pointwise product of `self` and `fs`."
@@ -915,7 +916,9 @@ class CFG:
         # The bottom-up intersection algorithm is a two pass algorithm
         #
         # Pass 1: Determine the set of items that are possiblly nonzero-valued
-        C = self._compose_bottom_up(fst)
+        
+        # C = self._compose_bottom_up(fst)
+        C = self._intersect_bottom_up(fst.project(0))
 
         # Note that over estimate is safe so we could even use the set below,
         # however, it would be much less efficient to do so.
@@ -962,13 +965,21 @@ class CFG:
 
         for i, (a,b), j, w in fst.arcs():
             if a in self.V:
-                if b=="":
+                if b== EPSILON :
                     new.add(w, (i, a, j),)
                 else:
                     new.add(w, (i, a, j), b)
         return new
+    
+    def __matmul__(self,fst):
 
-
+        if isinstance(fst,FST):
+            return self.compose(fst)
+        elif isinstance(fst,FSA):
+            return self.intersect(fst)
+        else:
+            assert False, "Not an fst nor an fsa"
+        
 
 # TODO: replace this code with the transduction version!
 class PrefixGrammar(CFG):
