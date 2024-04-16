@@ -6,7 +6,8 @@ from graphviz import Digraph
 from genparse.linear import WeightedGraph
 
 
-EPSILON = "ε"
+#EPSILON = "ε"
+EPSILON = ''
 
 
 class WFSA:
@@ -441,3 +442,25 @@ class WFSA:
                 D.add_F(Q, Q[q] * self.stop[q])
 
         return D
+
+    def to_cfg(self):
+        """converts the WFSA to an equivalent WCFG"""
+
+        from genparse.cfg import CFG, _gen_nt
+
+        start = _gen_nt()
+        cfg = CFG(R=self.R, V=self.alphabet, S=start)
+
+        # add production rule for initial states
+        for i in self.start:
+            cfg.add(self.start[i], start, i)
+
+        # add production rule for final states
+        for i in self.start:
+            cfg.add(self.stop[i], i)
+
+        # add other production rules
+        for i, a, j, w in self.arcs():
+            cfg.add(w, i, a, j)
+
+        return cfg

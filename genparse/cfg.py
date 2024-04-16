@@ -4,7 +4,7 @@ import numpy as np
 import graphviz
 
 from collections import defaultdict, Counter
-from functools import cached_property
+from functools import cached_property, lru_cache
 from itertools import product
 from genparse.wfsa import EPSILON
 from genparse.fst import FST
@@ -246,6 +246,7 @@ class CFG:
     def treesum(self, **kwargs):
         return self.agenda()[self.S]
 
+    @lru_cache(None)
     def trim(self, bottomup_only=False):
 
         C = set(self.V)
