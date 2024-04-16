@@ -149,14 +149,14 @@ class WFSA:
     def epsremove(self):
         "Return an equivalent machine with no epsilon arcs."
         E = self.E
-        S = E.closure_scc_based()
+        S = E.closure()
         new = self.spawn(keep_stop=True)
         for i, w_i in self.I:
-            for k in self.states:
+            for k in S.outgoing[i]:
                 new.add_I(k, w_i * S[i, k])
         for i, a, j, w_ij in self.arcs():
             if a == EPSILON: continue
-            for k in self.states:
+            for k in S.outgoing[j]:
                 new.add_arc(i, a, k, w_ij * S[j, k])
         return new
 
@@ -334,18 +334,40 @@ class WFSA:
         return new
 
     @cached_property
-    def trim(self):
-
+    def trim_vals(self):
+        """
+        This method provides fine-grained trimming based on semiring values rather
+        than the coarser-grained boolean approximation provided by `trim`.
+        However, it is generally slower to evaluation.
+        """
         forward = self.forward
         backward = self.backward
-
         # determine the set of active state, (i.e., those with nonzero forward and backward weights)
-        active = {
+        return self._trim({
             i
             for i in self.states
             if forward[i] != self.R.zero and backward[i] != self.R.zero
-        }
+        })
 
+    def accessible(self):
+        stack = list(self.start)
+        visited = set(self.start)
+        while stack:
+            P = stack.pop()
+            for _, Q, _ in self.arcs(P):
+                if Q not in visited:
+                    stack.append(Q)
+                    visited.add(Q)
+        return visited
+
+    def co_accessible(self):
+        return self.reverse.accessible()
+
+    @cached_property
+    def trim(self):
+        return self._trim(self.accessible() & self.co_accessible())
+
+    def _trim(self, active):
         new = self.spawn()
         for i in active:
             new.add_I(i, self.start[i])

@@ -28,9 +28,10 @@ class WeightedGraph:
         i,j = item
         self.N.add(i)
         self.N.add(j)
-        self.E[i,j] = value
-        self.incoming[j].add(i)
-        self.outgoing[i].add(j)
+        if value != self.WeightType.zero:
+            self.E[i,j] = value
+            self.incoming[j].add(i)
+            self.outgoing[i].add(j)
         return self
 
     def closure(self):
@@ -99,16 +100,24 @@ class WeightedGraph:
         """
         Compute the reflexive, transitive closure of `A` for the block of nodes `N`.
         """
+
+        # Special handling for the common case of |N| = 1; XXX: I'm surprised
+        # how much faster this version is compared to the loops below it.
+        if len(N) == 1:
+            [i] = N
+            return {(i,i): self.WeightType.star(self.E[i,i])}
+
         A = self.E
         old = A.copy()
+        new = self.WeightType.chart()
         # transitive closure
         for j in N:
-            new = self.WeightType.chart()
+            new.clear()
             sjj = self.WeightType.star(old[j,j])
             for i in N:
                 for k in N:
                     new[i,k] = old[i,k] + old[i,j] * sjj * old[j,k]
-            old = new
+            old, new = new, old
         # reflexive closure
         for i in N: old[i,i] += self.WeightType.one
         return old

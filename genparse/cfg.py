@@ -822,9 +822,10 @@ class CFG:
                 new.add(wi*wf, new_start, (i, self.S, k))
 
         for i, (a,b), j, w in fst.arcs():
+            assert a != EPSILON, 'not yet supported'
             if a in self.V:
-                if b== EPSILON :
-                    new.add(w, (i, a, j),)
+                if b == EPSILON:
+                    new.add(w, (i, a, j))
                 else:
                     new.add(w, (i, a, j), b)
         return new

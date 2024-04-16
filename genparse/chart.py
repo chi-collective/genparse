@@ -29,7 +29,7 @@ class Chart(dict):
         return v
 
     def copy(self):
-        return self.spawn() + self
+        return Chart(self.semiring, self)
 
     def trim(self):
         return Chart(self.semiring, {k: v for k, v in self._items() if v != self.semiring.zero})
