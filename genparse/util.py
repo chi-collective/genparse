@@ -15,11 +15,13 @@ def bpe_wfst(S):
     """
     Create a transducer relating strings of BPE token ids to their associated strings
     """
+    from genparse import Float
+    from genparse.fst import FST, EPSILON
     m = FST(Float)
     START = 0
     STOP = 1
     m.add_I(0, 1)
-    for i, x in iterview(S):
+    for i, x in S:
         m.add_arc(START, (i, EPSILON), (i, 0), 1)
         for j in range(len(x)):
             m.add_arc((i,j), (EPSILON, x[j]), (i,j+1), 1)

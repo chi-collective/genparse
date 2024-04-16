@@ -444,8 +444,7 @@ class WFSA:
         return D
 
     def to_cfg(self):
-        """converts the WFSA to an equivalent WCFG"""
-
+        "Convert the WFSA to a WCFG with the same weighted language."
         from genparse.cfg import CFG, _gen_nt
 
         start = _gen_nt()

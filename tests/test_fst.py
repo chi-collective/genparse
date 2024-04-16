@@ -2,13 +2,13 @@ from genparse.fst import FST, EPSILON
 from genparse import Float, CFG
 
 
-def test_fst_cfg():
+def test_fst_cfg1():
     fst = FST(Float)
 
     fst.add_I(0, 1.0)
-    fst.add_arc(0, ('a', 'b'), 0, 0.5)
-    fst.add_arc(0, ('b', 'c'), 0, 0.5)
-    fst.add_arc(0, ('c', 'a'), 0, 0.5)
+    fst.add_arc(0, ('a', 'A'), 0, 0.5)
+    fst.add_arc(0, ('b', 'B'), 0, 0.5)
+    fst.add_arc(0, ('c', 'C'), 0, 0.5)
     fst.add_F(0, 1.0)
 
     # apply from the left of the transducer
@@ -18,18 +18,22 @@ def test_fst_cfg():
 
     """, Float) @ fst
 
-    have.language(5).assert_equal(Float.chart({('b', 'c', 'a'): 0.125}), tol=1e-10)
+    have = have.trim()
 
+    assert have.V == {'A', 'B', 'C'}
+
+    have.language(5).assert_equal(Float.chart({('A', 'B', 'C'): 0.125}), tol=1e-10)
 
     # apply from the right of the transducer
     have = fst @ CFG.from_string("""
 
-    1: S -> a b c
+    1: S -> A B C
 
-    """, Float)
+    """, Float, is_terminal=lambda X: X in 'ABC')
 
-    have.language(5).assert_equal(Float.chart({('c', 'a', 'b'): 0.125}), tol=1e-10)
+    assert have.V == {'a', 'b', 'c'}
 
+    have.language(5).assert_equal(Float.chart({('a', 'b', 'c'): 0.125}), tol=1e-10)
 
 
 def test_basic1():
