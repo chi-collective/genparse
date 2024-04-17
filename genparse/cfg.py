@@ -45,25 +45,6 @@ class Slash:
             and self.id == other.id
         )
 
-class Other:
-
-    def __init__(self, X, id=0):
-        self.X = X
-        self._hash = hash(('~' , X, id))
-        self.id = id
-
-    def __repr__(self):
-        return f'~{self.X}'
-
-    def __hash__(self):
-        return self._hash
-
-    def __eq__(self, other):
-        return (
-            isinstance(other, Other)
-            and self.X == other.X
-            and self.id == other.id
-        )
 
 class Rule:
 
@@ -741,27 +722,24 @@ class CFG:
 
         for qi, wi in fst.start.items():
             for qf, wf in fst.stop.items():
-                new.add(wi*wf, new_start, (qi, Other(self.S) , qf))
+                new.add(wi*wf, new_start, (qi, qf))
 
-        for i, (a,b) , j, w in fst.arcs():
+        for i, (a,b), j, w in fst.arcs():
             if b == EPSILON :
-                new.add(w, (i, a , j), )
+                new.add(w, (i, a, j))
             else:
-                new.add(w, (i, a , j), b )
+                new.add(w, (i, a, j), b)
 
-        for qs in product(fst.states, repeat=3 ):
+        for qs in product(fst.states, repeat=3):
             for a in self.V :
-                new.add(self.R.one, (qs[0], a ,qs[2]),  \
-                        (qs[0], EPSILON, qs[1]),(qs[1], a , qs[2]))
-                
-        for qs in product(fst.states, repeat=3 ):
-            new.add(self.R.one, (qs[0], Other(self.S) ,qs[2]),  \
-                    (qs[0], Other(self.S) , qs[1]),(qs[1], EPSILON, qs[2]))
-            
-        for qs in product(fst.states, repeat=2 ):
-            new.add(self.R.one, (qs[0], Other(self.S) ,qs[1]),  \
-                    (qs[0], self.S , qs[1]))
-            
+                new.add(self.R.one, (qs[0], a, qs[2]), (qs[0], EPSILON, qs[1]), (qs[1], a, qs[2]))
+
+        for qs in product(fst.states, repeat=3):
+            new.add(self.R.one, (qs[0], qs[2]), (qs[0], qs[1]), (qs[1], EPSILON, qs[2]))
+
+        for qs in product(fst.states, repeat=2):
+            new.add(self.R.one, (qs[0], qs[1]), (qs[0], self.S , qs[1]))
+
         return new
 
 
