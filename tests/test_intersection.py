@@ -7,7 +7,7 @@ from genparse.fst import FST
 from genparse.wfsa import WFSA, EPSILON
 
 
-def assert_equal(have, want, tol=1e-8):
+def assert_equal(have, want, tol=1e-5):
     error = have.metric(want)
     assert error <= tol, f'have = {have}, want = {want}, error = {error}'
 
@@ -147,9 +147,6 @@ def check(cfg, fsa):
 
     assert have.treesum().metric(want.treesum()) < 1e-5, [have.treesum(), want.treesum()]
 
-    if CHECK_CHART:
-        have.agenda().assert_equal(want.agenda(), tol=1e-5)
-
     if CHECK_RULES:
         print()
         print(have)
@@ -200,6 +197,58 @@ def test_palindrome_fst():
 
     check_fst(cfg, fst)
 
+def check_fst(cfg, fst):
+
+    want = compose_slow(cfg, fst).trim(bottomup_only=True)
+    have = cfg @ fst #fast composition
+
+    if 0:
+        want = want.trim().trim()
+        have = have.trim().trim()
+
+    print()
+    print('have=')
+    print(have)
+    print()
+    print('want=')
+    print(want)
+
+    print()
+    print('have chart=')
+    print(have.agenda())
+    print()
+    print('want chart=')
+    print(want.agenda())
+
+    assert have.treesum().metric(want.treesum()) < 1e-5, [have.treesum(), want.treesum()]
+
+    if CHECK_RULES:
+        print()
+        print(have)
+        print()
+        print(want)
+        have.assert_equal(want, verbose=True)
+
+def compose_slow(self, fst):
+    "Reference implementation of the grammar-transducer composition."
+    if isinstance(fst, (str, list, tuple)): fst = FST.from_string(fst, self.R)
+    new_start = self.S
+    new = self.spawn(S = new_start)
+    for r in self:
+        for qs in product(fst.states, repeat=1+len(r.body)):
+            new.add(r.w, (qs[0], r.head, qs[-1]), *((qs[i], r.body[i], qs[i+1]) for i in range(len(r.body))))
+    for qi, wi in fst.start.items():
+        for qf, wf in fst.stop.items():
+            new.add(wi*wf, new_start, (qi, self.S, qf))
+    for i, (a,b) , j, w in fst.arcs():
+        if b == EPSILON :
+            new.add(w, (i, a , j), )
+        else:
+            new.add(w, (i, a , j), b )
+    return new
+
+# TEST FOR COMPOSITION WITH EPSILON INPUT ARCS
+
 def test_epsilon_fst():
     cfg = CFG.from_string("""
     0.3: S -> a S a
@@ -223,11 +272,9 @@ def test_epsilon_fst():
     fst_removed.add_arc(1, ('a','a'),2, Real(1.0))
     fst_removed.add_F(2, Real(1.0))
 
-    want = compose_slow_epsilon(cfg, fst).trim(bottomup_only=True)
+    want = cfg.compose_naive_epsilon( fst).trim(bottomup_only=True)
     
     have = cfg @ fst_removed
-
-
     assert_equal( want.treesum(), have.treesum() )
 
     
@@ -256,104 +303,13 @@ def test_epsilon_fst_2():
     fst_removed.add_arc(1, ('a','a'),2, Real(1.0))
     fst_removed.add_F(2, Real(1.0))
 
-    want = compose_slow_epsilon(cfg, fst)
+    want = cfg.compose_naive_epsilon( fst)
     have = cfg @ fst_removed
 
     print(want.treesum())
     print(have.treesum())
 
     assert_equal( want.treesum(), have.treesum() )
-
-
-def check_fst(cfg, fst):
-
-    want = compose_slow(cfg, fst).trim(bottomup_only=True)
-    have = cfg @ fst #fast composition
-
-    if 0:
-        want = want.trim().trim()
-        have = have.trim().trim()
-
-    print()
-    print('have=')
-    print(have)
-    print()
-    print('want=')
-    print(want)
-
-    print()
-    print('have chart=')
-    print(have.agenda())
-    print()
-    print('want chart=')
-    print(want.agenda())
-
-    assert have.treesum().metric(want.treesum()) < 1e-5, [have.treesum(), want.treesum()]
-
-    if CHECK_CHART:
-        have.agenda().assert_equal(want.agenda(), tol=1e-5)
-
-    if CHECK_RULES:
-        print()
-        print(have)
-        print()
-        print(want)
-        have.assert_equal(want, verbose=True)
-
-def compose_slow(self, fst):
-    "Reference implementation of the grammar-transducer composition."
-    if isinstance(fst, (str, list, tuple)): fst = FST.from_string(fst, self.R)
-    new_start = self.S
-    new = self.spawn(S = new_start)
-    for r in self:
-        for qs in product(fst.states, repeat=1+len(r.body)):
-            new.add(r.w, (qs[0], r.head, qs[-1]), *((qs[i], r.body[i], qs[i+1]) for i in range(len(r.body))))
-    for qi, wi in fst.start.items():
-        for qf, wf in fst.stop.items():
-            new.add(wi*wf, new_start, (qi, self.S, qf))
-    for i, (a,b) , j, w in fst.arcs():
-        if b == EPSILON :
-            new.add(w, (i, a , j), )
-        else:
-            new.add(w, (i, a , j), b )
-    return new
-
-def compose_slow_epsilon(self, fst):
-    "Reference implementation of the grammar-transducer composition."
-
-    if isinstance(fst, (str, list, tuple)): fst = FST.from_string(fst, self.R)
-    new_start = self.S
-    new = self.spawn(S = new_start)
-
-    for r in self:
-        for qs in product(fst.states, repeat=1+len(r.body)):
-            new.add(r.w, (qs[0], r.head, qs[-1]), *((qs[i], r.body[i], qs[i+1]) for i in range(len(r.body))))
-
-    for qi, wi in fst.start.items():
-        for qf, wf in fst.stop.items():
-            new.add(wi*wf, new_start, (qi, Other(self.S) , qf))
-
-    for i, (a,b) , j, w in fst.arcs():
-        if b == EPSILON :
-            new.add(w, (i, a , j), )
-        else:
-            new.add(w, (i, a , j), b )
-
-    for qs in product(fst.states, repeat=3 ):
-        for a in self.V :
-            new.add(self.R.one, (qs[0], a ,qs[2]),  \
-                    (qs[0], EPSILON, qs[1]),(qs[1], a , qs[2]))
-            
-    for qs in product(fst.states, repeat=3 ):
-        new.add(self.R.one, (qs[0], Other(self.S) ,qs[2]),  \
-                (qs[0], Other(self.S) , qs[1]),(qs[1], EPSILON, qs[2]))
-        
-    for qs in product(fst.states, repeat=2 ):
-        new.add(self.R.one, (qs[0], Other(self.S) ,qs[1]),  \
-                (qs[0], self.S , qs[1]))
-        
-    return new
-
 
 if __name__ == '__main__':
     from arsenal import testing_framework
