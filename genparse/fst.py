@@ -1,5 +1,6 @@
 from .wfsa import WFSA, EPSILON
 from functools import cached_property
+from collections import defaultdict
 
 
 ε = EPSILON
@@ -103,6 +104,11 @@ class FST(WFSA):
 
         C = FST(R=self.R)
 
+        # index arcs in `other` to so that they are fast against later
+        tmp = defaultdict(list)
+        for i, (a, b), j, w in other.arcs():
+            tmp[i, a].append((b, j, w))
+
         visited = set()
         stack = []
 
@@ -127,13 +133,10 @@ class FST(WFSA):
             # construction that matches an arc labeled `a:b` with an arc labeled
             # `b:c` in the left and right machines respectively.
             for (a, b), Pʼ, w1 in self.arcs(P):
-                for (c, d), Qʼ, w2 in other.arcs(Q):
-
-                    # TODO: is it worth indexing to improve the efficiency of this join?
-                    if b != c: continue
+                for c, Qʼ, w2 in tmp[Q, b]:
 
                     PʼQʼ = (Pʼ, Qʼ)
-                    C.add_arc(PQ, (a, d), PʼQʼ, w1 * w2)
+                    C.add_arc(PQ, (a, c), PʼQʼ, w1 * w2)
 
                     if PʼQʼ not in visited:
                         stack.append(PʼQʼ)

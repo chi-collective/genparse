@@ -11,6 +11,26 @@ from time import time
 from IPython.display import display, SVG, Image, HTML, Latex
 
 
+def bpe_wfst(S):
+    """
+    Create a transducer relating strings of BPE token ids to their associated strings
+    """
+    from genparse import Float
+    from genparse.fst import FST, EPSILON
+    m = FST(Float)
+    START = 0
+    STOP = 1
+    m.add_I(0, 1)
+    for i, x in S:
+        m.add_arc(START, (i, EPSILON), (i, 0), 1)
+        for j in range(len(x)):
+            m.add_arc((i,j), (EPSILON, x[j]), (i,j+1), 1)
+        m.add_arc((i,len(x)), (EPSILON, EPSILON), STOP, 1)
+    m.add_F(STOP, 1)
+    m.add_arc(STOP, (EPSILON, EPSILON), START, .1)   # decay
+    return m.renumber
+
+
 class LarkStuff:
     """
     Utility class for leveraging the lark parsing library.
@@ -31,7 +51,7 @@ class LarkStuff:
         self.terminals = terminals
         self.ignores = ignores
 
-    def transducer(self):
+    def transducer(self, **kwargs):
         """
         XXX: Warning: There may be infelicity in the tokenization semantics as there is
         no longer a prioritized or maximum munch semantics to tokenizer.  It is
@@ -50,7 +70,7 @@ class LarkStuff:
 
         for id, token_class in enumerate(self.terminals):
             #print('>>>', id, token_class)
-            fsm = regex_to_greenery(token_class.pattern.to_regexp())
+            fsm = regex_to_greenery(token_class.pattern.to_regexp(), **kwargs)
 
             m.add_arc(START, (EPSILON, token_class.name), (id, fsm.initial), 1)
 

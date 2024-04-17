@@ -1,5 +1,6 @@
 from collections import defaultdict
 from .util import format_table
+from arsenal import colors
 
 
 class Chart(dict):

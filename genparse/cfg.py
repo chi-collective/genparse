@@ -4,7 +4,7 @@ import numpy as np
 import graphviz
 
 from collections import defaultdict, Counter
-from functools import cached_property
+from functools import cached_property, lru_cache
 from itertools import product
 from genparse.wfsa import EPSILON
 from genparse.fst import FST
@@ -265,6 +265,7 @@ class CFG:
     def treesum(self, **kwargs):
         return self.agenda()[self.S]
 
+    @lru_cache(None)
     def trim(self, bottomup_only=False):
 
         C = set(self.V)
@@ -784,15 +785,19 @@ class CFG:
 
     def __matmul__(self, fst):
         "Return a CFG denoting the pointwise product of `self` and `fs`."
+
         # coerce something sequence like into a diagonal FST
         if isinstance(fst, (str, list, tuple)): fst = FST.from_string(fst, self.R)
         # coerce something FSA-like into an FST, might throw an error
         if not isinstance(fst, FST): fst = FST.diag(fst)
 
+        # Initialize the new CFG:
+        # - its start symbol is chosen arbitrarily to be `self.S`
+        # - its the alphabet changes - it is now 'output' alphabet of the transducer
         new_start = self.S
-        new = self.spawn(S = new_start)
+        new = self.spawn(S = new_start, V = fst.B)
 
-        # The bottom-up intersection algorithm is a two pass algorithm
+        # The bottom-up intersection algorithm is a two-pass algorithm
         #
         # Pass 1: Determine the set of items that are possiblly nonzero-valued
         C = self._compose_bottom_up(fst)

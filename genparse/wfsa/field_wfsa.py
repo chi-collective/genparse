@@ -131,29 +131,7 @@ class Simple:
         return self.counterexample(other) is None
 
     def __hash__(self):
-#        return self._hash
         return 0
-
-#    # TODO: not working yet :-(
-#    @cached_property
-#    def _hash(self):
-#        # Assign a random value in to each symbols of the alphabet, then compute
-#        # the weight of all paths.
-#        #
-#        # The idea for this hash function is related to this randomized
-#        # algorithm for equivalence testing: https://arxiv.org/abs/1302.2818
-#        #
-#        # TODO: We might be able to skip the matrix inverse! Rather than summing
-#        # over all paths, we can basically just sample some paths.  That's more
-#        # similar to what is done in that paper.
-#        self = self.min
-#        # this gives us a weighted graph where (i,a:w,j) ==> (i,a*w,j)
-#        n = self.dim
-#        W = np.zeros((n,n))
-#        for a,M in self.arcs.items():
-#            W += hash(a) * M
-#        z = self.start @ linalg.solve(np.eye(n) - W, self.stop)
-#        return hash(int(np.round(z)))
 
     def counterexample(self, B):
 
