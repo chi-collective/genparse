@@ -45,6 +45,25 @@ class Slash:
             and self.id == other.id
         )
 
+class Other:
+
+    def __init__(self, X, id=0):
+        self.X = X
+        self._hash = hash(('~' , X, id))
+        self.id = id
+
+    def __repr__(self):
+        return f'~{self.X}'
+
+    def __hash__(self):
+        return self._hash
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, Other)
+            and self.X == other.X
+            and self.id == other.id
+        )
 
 class Rule:
 
