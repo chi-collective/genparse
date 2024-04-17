@@ -45,6 +45,25 @@ class Slash:
             and self.id == other.id
         )
 
+class Other:
+
+    def __init__(self, X, id=0):
+        self.X = X
+        self._hash = hash(('~' , X, id))
+        self.id = id
+
+    def __repr__(self):
+        return f'~{self.X}'
+
+    def __hash__(self):
+        return self._hash
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, Other)
+            and self.X == other.X
+            and self.id == other.id
+        )
 
 class Rule:
 
@@ -708,6 +727,43 @@ class CFG:
 #        for i, a, j, w in fsa.arcs():
 #            new.add(w, (i, a, j), a)
 #        return new
+
+    def compose_naive_epsilon(self, fst):
+        "Reference implementation of the grammar-transducer composition."
+
+        if isinstance(fst, (str, list, tuple)): fst = FST.from_string(fst, self.R)
+        new_start = self.S
+        new = self.spawn(S = new_start)
+
+        for r in self:
+            for qs in product(fst.states, repeat=1+len(r.body)):
+                new.add(r.w, (qs[0], r.head, qs[-1]), *((qs[i], r.body[i], qs[i+1]) for i in range(len(r.body))))
+
+        for qi, wi in fst.start.items():
+            for qf, wf in fst.stop.items():
+                new.add(wi*wf, new_start, (qi, Other(self.S) , qf))
+
+        for i, (a,b) , j, w in fst.arcs():
+            if b == EPSILON :
+                new.add(w, (i, a , j), )
+            else:
+                new.add(w, (i, a , j), b )
+
+        for qs in product(fst.states, repeat=3 ):
+            for a in self.V :
+                new.add(self.R.one, (qs[0], a ,qs[2]),  \
+                        (qs[0], EPSILON, qs[1]),(qs[1], a , qs[2]))
+                
+        for qs in product(fst.states, repeat=3 ):
+            new.add(self.R.one, (qs[0], Other(self.S) ,qs[2]),  \
+                    (qs[0], Other(self.S) , qs[1]),(qs[1], EPSILON, qs[2]))
+            
+        for qs in product(fst.states, repeat=2 ):
+            new.add(self.R.one, (qs[0], Other(self.S) ,qs[1]),  \
+                    (qs[0], self.S , qs[1]))
+            
+        return new
+
 
     def _compose_bottom_up(self, fst):
         "Determine which items of the composition grammar are supported"

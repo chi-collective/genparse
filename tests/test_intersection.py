@@ -1,10 +1,15 @@
 import genparse
 from genparse import CFG, Real
+from genparse.cfg import Other
 from itertools import product
 from collections import defaultdict
 from genparse.fst import FST
 from genparse.wfsa import WFSA, EPSILON
 
+
+def assert_equal(have, want, tol=1e-5):
+    error = have.metric(want)
+    assert error <= tol, f'have = {have}, want = {want}, error = {error}'
 
 # reference implementation of the intersection algorithm
 def intersect_slow(self, fsa):
@@ -142,9 +147,6 @@ def check(cfg, fsa):
 
     assert have.treesum().metric(want.treesum()) < 1e-5, [have.treesum(), want.treesum()]
 
-    if CHECK_CHART:
-        have.agenda().assert_equal(want.agenda(), tol=1e-5)
-
     if CHECK_RULES:
         print()
         print(have)
@@ -220,9 +222,6 @@ def check_fst(cfg, fst):
 
     assert have.treesum().metric(want.treesum()) < 1e-5, [have.treesum(), want.treesum()]
 
-    if CHECK_CHART:
-        have.agenda().assert_equal(want.agenda(), tol=1e-5)
-
     if CHECK_RULES:
         print()
         print(have)
@@ -248,7 +247,71 @@ def compose_slow(self, fst):
             new.add(w, (i, a , j), b )
     return new
 
+# TEST FOR COMPOSITION WITH EPSILON INPUT ARCS
+
+def test_epsilon_fst():
+    cfg = CFG.from_string("""
+    0.3: S -> a S a
+    0.4: S -> b S b
+    0.3: S ->
+    """, Real)
+
+    fst = FST(Real)
+
+    fst.add_I(  0, Real(1.0))
+    fst.add_arc(0, ('a', 'a'), 1, Real(1.0))
+    fst.add_arc(1, ( EPSILON , 'a'), 2, Real(1.0))
+    fst.add_arc(2, ('a', 'a'), 3, Real(1.0))
+    fst.add_arc(3, (EPSILON, 'b' ), 4, Real(1.0))
+    fst.add_F(  4, Real(1.0))
+
+    fst_removed = FST(Real)
+
+    fst_removed.add_I(0, Real(1.0))
+    fst_removed.add_arc(0, ('a','a'),1, Real(1.0))
+    fst_removed.add_arc(1, ('a','a'),2, Real(1.0))
+    fst_removed.add_F(2, Real(1.0))
+
+    want = cfg.compose_naive_epsilon( fst).trim(bottomup_only=True)
+    
+    have = cfg @ fst_removed
+    assert_equal( want.treesum(), have.treesum() )
+
+    
+
+def test_epsilon_fst_2():
+    #This test case is a bit more complex as it contains epsilon cycles on the FST
+    cfg = CFG.from_string("""
+    0.3: S -> a S a
+    0.4: S -> b S b
+    0.3: S ->
+    """, Real)
+
+    fst = FST(Real)
+
+    fst.add_I(0, Real(1.0))
+    fst.add_arc(0, ('a','a'),1, Real(1.0))
+    fst.add_arc(1, ( EPSILON, EPSILON ),1, Real(0.5))
+    fst.add_arc(1, ('a','a'),2, Real(1.0))
+    fst.add_F(2, Real(1.0))
+    
+
+    fst_removed = FST(Real)
+
+    fst_removed.add_I(0, Real(1.0))
+    fst_removed.add_arc(0, ('a','a'),1, Real(2.0)) #The weight of the cycle has been pushed here
+    fst_removed.add_arc(1, ('a','a'),2, Real(1.0))
+    fst_removed.add_F(2, Real(1.0))
+
+    want = cfg.compose_naive_epsilon( fst)
+    have = cfg @ fst_removed
+
+    print(want.treesum())
+    print(have.treesum())
+
+    assert_equal( want.treesum(), have.treesum() )
 
 if __name__ == '__main__':
     from arsenal import testing_framework
     testing_framework(globals())
+

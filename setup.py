@@ -13,6 +13,7 @@ setup(
         'graphviz',   # for notebook visualizations
         'path',
         'pandas',
+        'frozendict',
         'arsenal @ git+https://github.com/timvieira/arsenal',
     ],
     authors = [
