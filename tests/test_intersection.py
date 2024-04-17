@@ -290,19 +290,19 @@ def test_epsilon_fst_2():
     fst = FST(Real)
 
     fst.add_I(0, Real(1.0))
-    fst.add_arc(0, ('a','a'),1, Real(1.0))
-    fst.add_arc(1, ( EPSILON, EPSILON ),1, Real(0.5))
-    fst.add_arc(1, ('a','a'),2, Real(1.0))
+    fst.add_arc(0, ('a','a'), 1, Real(1.0))
+    fst.add_arc(1, (EPSILON, EPSILON), 1, Real(0.5))
+    fst.add_arc(1, ('a','a'), 2, Real(1.0))
     fst.add_F(2, Real(1.0))
 
     fst_removed = FST(Real)
 
     fst_removed.add_I(0, Real(1.0))
-    fst_removed.add_arc(0, ('a','a'),1, Real(2.0)) #The weight of the cycle has been pushed here
-    fst_removed.add_arc(1, ('a','a'),2, Real(1.0))
+    fst_removed.add_arc(0, ('a','a'), 1, Real(2.0)) # The weight of the cycle has been pushed here
+    fst_removed.add_arc(1, ('a','a'), 2, Real(1.0))
     fst_removed.add_F(2, Real(1.0))
 
-    want = cfg.compose_naive_epsilon( fst)
+    want = cfg.compose_naive_epsilon(fst)
     have = cfg @ fst_removed
 
     print(want.treesum())
