@@ -272,12 +272,10 @@ def test_epsilon_fst():
     fst_removed.add_arc(1, ('a','a'),2, Real(1.0))
     fst_removed.add_F(2, Real(1.0))
 
-    want = cfg.compose_naive_epsilon( fst).trim(bottomup_only=True)
-    
+    want = cfg.compose_epsilon_fast(fst) 
     have = cfg @ fst_removed
-    assert_equal( want.treesum(), have.treesum() )
 
-    
+    assert_equal( want.treesum(), have.treesum() )
 
 def test_epsilon_fst_2():
     #This test case is a bit more complex as it contains epsilon cycles on the FST
@@ -303,11 +301,8 @@ def test_epsilon_fst_2():
     fst_removed.add_arc(1, ('a','a'),2, Real(1.0))
     fst_removed.add_F(2, Real(1.0))
 
-    want = cfg.compose_naive_epsilon( fst)
-    have = cfg @ fst_removed
-
-    print(want.treesum())
-    print(have.treesum())
+    want = cfg @ fst_removed
+    have = cfg.compose_naive_epsilon(fst).trim()
 
     assert_equal( want.treesum(), have.treesum() )
 
