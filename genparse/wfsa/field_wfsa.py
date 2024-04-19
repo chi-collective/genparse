@@ -49,7 +49,7 @@ class WFSA(base.WFSA):
                 m.add_F(q, w)
         return m
 
-    def graphviz(self, fmt=lambda x: f'{round(x,3):g}', **kwargs):
+    def graphviz(self, fmt=lambda x: f'{round(x,3):g}' if isinstance(x, (float, int)) else str(x), **kwargs):
         return super().graphviz(fmt=fmt, **kwargs)
 
     @cached_property
