@@ -922,9 +922,9 @@ class CFG:
         # Pass 1: Determine the set of items that are possiblly nonzero-valued
         C = self._compose_bottom_up_epsilon(fst)
 
-        special_rules = [ Rule(self.R.one, a , (EPSILON, a)) for a in self.V ] \
-        + [Rule(self.R.one, Other(self.S), (self.S, ) )] \
-        + [Rule(self.R.one, Other(self.S), (Other(self.S), EPSILON ) )]
+        special_rules = ([Rule(self.R.one, a, (EPSILON, a)) for a in self.V] 
+            + [Rule(self.R.one, Other(self.S), (self.S,))] 
+            + [Rule(self.R.one, Other(self.S), (Other(self.S), EPSILON))])
 
 
         def product(start, Ys):
@@ -983,26 +983,26 @@ class CFG:
 
         for qi, wi in fst.start.items():
             for qf, wf in fst.stop.items():
-                new.add(wi*wf, new_start, (qi, Other(self.S) , qf))
+                new.add(wi*wf, new_start, (qi, Other(self.S), qf))
 
-        for i, (a,b) , j, w in fst.arcs():
-            if b == EPSILON :
-                new.add(w, (i, a , j), )
+        for i, (a,b), j, w in fst.arcs():
+            if b == EPSILON:
+                new.add(w, (i, a, j))
             else:
-                new.add(w, (i, a , j), b )
+                new.add(w, (i, a, j), b)
 
-        for qs in product(fst.states, repeat=3 ):
+        for qs in product(fst.states, repeat=3):
             for a in self.V :
-                new.add(self.R.one, (qs[0], a ,qs[2]),  \
-                        (qs[0], EPSILON, qs[1]),(qs[1], a , qs[2]))
+                new.add(self.R.one, (qs[0], a, qs[2]),  
+                        (qs[0], EPSILON, qs[1]),(qs[1], a, qs[2]))
                 
         for qs in product(fst.states, repeat=3 ):
-            new.add(self.R.one, (qs[0], Other(self.S) ,qs[2]),  \
-                    (qs[0], Other(self.S) , qs[1]),(qs[1], EPSILON, qs[2]))
+            new.add(self.R.one, (qs[0], Other(self.S) ,qs[2]),  
+                    (qs[0], Other(self.S), qs[1]), (qs[1], EPSILON, qs[2]))
             
         for qs in product(fst.states, repeat=2 ):
-            new.add(self.R.one, (qs[0], Other(self.S) ,qs[1]),  \
-                    (qs[0], self.S , qs[1]))
+            new.add(self.R.one, (qs[0], Other(self.S), qs[1]),  
+                    (qs[0], self.S, qs[1]))
             
         return new
 

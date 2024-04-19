@@ -272,10 +272,13 @@ def test_epsilon_fst():
     fst_removed.add_arc(1, ('a','a'),2, Real(1.0))
     fst_removed.add_F(2, Real(1.0))
 
-    want = cfg.compose_epsilon_fast(fst) 
-    have = cfg @ fst_removed
+    have = cfg.compose_epsilon_fast(fst) 
+    want = cfg @ fst_removed
 
-    assert_equal( want.treesum(), have.treesum() )
+    assert_equal(want.treesum(), have.treesum() )
+
+    #trim check
+    have.assert_equal(have.trim(bottomup_only = True))
 
 def test_epsilon_fst_2():
     #This test case is a bit more complex as it contains epsilon cycles on the FST
@@ -293,7 +296,6 @@ def test_epsilon_fst_2():
     fst.add_arc(1, ('a','a'),2, Real(1.0))
     fst.add_F(2, Real(1.0))
     
-
     fst_removed = FST(Real)
 
     fst_removed.add_I(0, Real(1.0))
@@ -302,9 +304,11 @@ def test_epsilon_fst_2():
     fst_removed.add_F(2, Real(1.0))
 
     want = cfg @ fst_removed
-    have = cfg.compose_naive_epsilon(fst).trim()
+    have = cfg.compose_epsilon_fast(fst)
 
     assert_equal( want.treesum(), have.treesum() )
+
+    have.assert_equal(have.trim(bottomup_only = True))
 
 if __name__ == '__main__':
     from arsenal import testing_framework
