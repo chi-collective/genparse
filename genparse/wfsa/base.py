@@ -72,20 +72,17 @@ class WFSA:
         if i is not None:
             if a is not None:
                 for j, w in self.delta[i][a].items():
-                    if w != self.R.zero:
-                        yield j, w
+                    yield j, w
             else:
                 for a, T in self.delta[i].items():
                     for j, w in T.items():
-                        if w != self.R.zero:
-                            yield a, j, w
+                        yield a, j, w
         else:
             if a is None:
                 for i in self.delta:
                     for a, T in self.delta[i].items():
                         for j, w in T.items():
-                            if w != self.R.zero:
-                                yield i, a, j, w
+                            yield i, a, j, w
             else:
                 raise NotImplementedError
 
@@ -373,10 +370,9 @@ class WFSA:
         for i in active:
             new.add_I(i, self.start[i])
             new.add_F(i, self.stop[i])
-
-        for i,a,j,w in self.arcs():
-            if i in active and j in active:
-                new.add_arc(i,a,j,w)
+            for a,j,w in self.arcs(i):
+                if j in active:
+                    new.add_arc(i,a,j,w)
 
         return new
 
@@ -451,12 +447,12 @@ class WFSA:
         cfg = CFG(R=self.R, V=self.alphabet, S=start)
 
         # add production rule for initial states
-        for i in self.start:
-            cfg.add(self.start[i], start, i)
+        for i, w in self.I:
+            cfg.add(w, start, i)
 
         # add production rule for final states
-        for i in self.start:
-            cfg.add(self.stop[i], i)
+        for i, w in self.F:
+            cfg.add(w, i)
 
         # add other production rules
         for i, a, j, w in self.arcs():

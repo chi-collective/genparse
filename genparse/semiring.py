@@ -5,6 +5,8 @@ from genparse.chart import Chart
 
 class Semiring:
 
+    __slots__ = ('score',)
+
     def __init__(self, score):
         self.score = score
 

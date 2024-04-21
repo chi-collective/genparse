@@ -3,6 +3,7 @@ import nltk
 import numpy as np
 import graphviz
 
+from arsenal import Integerizer
 from collections import defaultdict, Counter
 from functools import cached_property, lru_cache
 from itertools import product
@@ -216,7 +217,12 @@ class CFG:
         self.rules.append(r)
         return r
 
+    def renumber(self):
+        "Rename nonterminals to integers"
+        return self.rename(Integerizer())
+
     def rename(self, f):
+        "return a new grammar that is the result of applying `f` to each nonterminal."
         new = self.spawn(S = f(self.S))
         for r in self:
             new.add(r.w, f(r.head), *((y if self.is_terminal(y) else f(y)
@@ -248,7 +254,7 @@ class CFG:
 
     @lru_cache(None)
     def trim(self, bottomup_only=False):
-
+        "Return an equivalent grammar with no dead or useless nonterminals or rules."
         C = set(self.V)
         C.update(e.head for e in self.rules if len(e.body) == 0)
 
@@ -741,7 +747,6 @@ class CFG:
             new.add(self.R.one, (qs[0], qs[1]), (qs[0], self.S , qs[1]))
 
         return new
-
 
     def _compose_bottom_up(self, fst):
         "Determine which items of the composition grammar are supported"

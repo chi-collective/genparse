@@ -33,7 +33,7 @@ class Chart(dict):
         return Chart(self.semiring, self)
 
     def trim(self):
-        return Chart(self.semiring, {k: v for k, v in self._items() if v != self.semiring.zero})
+        return Chart(self.semiring, {k: v for k, v in self.items() if v != self.semiring.zero})
 
     def metric(self, other):
         assert isinstance(other, Chart)

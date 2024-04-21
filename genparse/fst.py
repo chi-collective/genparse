@@ -1,6 +1,13 @@
-from .wfsa import WFSA, EPSILON
-from functools import cached_property
+import numpy as np
+
+from arsenal import colors
 from collections import defaultdict
+from functools import lru_cache, cached_property
+from time import time
+from itertools import zip_longest
+
+from genparse import Boolean
+from genparse.wfsa import WFSA, EPSILON
 
 
 ε = EPSILON
@@ -18,9 +25,10 @@ class FST(WFSA):
         self.B = set()
 
     def add_arc(self, i, ab, j, w):
-        (a,b) = ab
-        self.A.add(a)
-        self.B.add(b)
+        if ab != EPSILON:
+            (a,b) = ab
+            self.A.add(a)
+            self.B.add(b)
         return super().add_arc(i, ab, j, w)
 
     def __call__(self, x, y):
@@ -49,6 +57,18 @@ class FST(WFSA):
     @staticmethod
     def from_string(x, R):
         return FST.diag(WFSA.from_string(x, R))
+
+    @staticmethod
+    def from_pairs(pairs, R):
+        p = FST(R)
+        p.add_I(0, R.one)
+        p.add_F(1, R.one)
+        for i, (xs, ys) in enumerate(pairs):
+            p.add_arc(0, EPSILON, (i,0), R.one)
+            for j, (x,y) in enumerate(zip_longest(xs, ys, fillvalue=EPSILON)):
+                p.add_arc((i,j), (x, y), (i,j+1), R.one)
+            p.add_arc((i,max(len(xs), len(ys))), EPSILON, 1, R.one)
+        return p
 
     def project(self, axis):
         """
@@ -84,20 +104,43 @@ class FST(WFSA):
             T.add_F(q, w)
         return T
 
-    def __matmul__(self, fst):
-        if not isinstance(fst, FST):
+    def __matmul__(self, other):
+        "Relation composition; may coerce `other` to an appropriate type if need be."
+        if not isinstance(other, FST):
             from genparse.cfg import CFG
-            if isinstance(fst, CFG):
-                return fst @ self.T
+            if isinstance(other, CFG):
+                return other @ self.T
             else:
-                fst = FST.diag(fst)
-        return (
-            self._augment_epsilon_transitions(0)            # rename epsilons on the right
-            ._compose(epsilon_filter_fst(self.R, self.B))   # this FST carefully combines the special epsilons
-            ._compose(fst._augment_epsilon_transitions(1))  # rename epsilons on th left
-        )
+                other = FST.diag(other)
 
-    def _compose(self, other):
+        # minor efficiency trick: it's slightly more efficient to associate the composition as follows
+        if len(self.states) < len(other.states):
+            return (
+                self._augment_epsilon_transitions(0)                           # rename epsilons on the right
+                ._compose(epsilon_filter_fst(self.R, self.B), coarsen=False)   # this FST carefully combines the special epsilons
+                ._compose(other._augment_epsilon_transitions(1))               # rename epsilons on th left
+            )
+
+        else:
+            return (
+                self._augment_epsilon_transitions(0)                                        # rename epsilons on the right
+                ._compose(epsilon_filter_fst(self.R, self.B)                                # this FST carefully combines the special epsilons
+                          ._compose(other._augment_epsilon_transitions(1), coarsen=False))  # rename epsilons on th left
+            )
+
+    def _compose(self, other, coarsen=True):
+
+        if coarsen and FST.PRUNING is not None:
+            keep = FST.PRUNING(self, other)
+            result = self._pruned_compose(other, keep, keep.keep_arc)
+
+        else:
+            result = self._pruned_compose(other, lambda x: True, lambda i,label,j: True)
+
+        return result
+
+    # TODO: add assertions for the 'bad' epsilon cases to ensure users aren't using this method incorrectly.
+    def _pruned_compose(self, other, keep, keep_arc):
         """
         Implements the on-the-fly composition of the FST self with the FST T.
         """
@@ -116,6 +159,9 @@ class FST(WFSA):
         for P, w1 in self.I:
             for Q, w2 in other.I:
                  PQ = (P, Q)
+
+                 if not keep(PQ): continue
+
                  C.add_I(PQ, w1 * w2)
                  visited.add(PQ)
                  stack.append(PQ)
@@ -134,8 +180,12 @@ class FST(WFSA):
             # `b:c` in the left and right machines respectively.
             for (a, b), Pʼ, w1 in self.arcs(P):
                 for c, Qʼ, w2 in tmp[Q, b]:
+                    assert b != EPSILON
 
                     PʼQʼ = (Pʼ, Qʼ)
+
+                    if not keep(PʼQʼ) or not keep_arc(PQ, (a, c), PʼQʼ): continue
+
                     C.add_arc(PQ, (a, c), PʼQʼ, w1 * w2)
 
                     if PʼQʼ not in visited:
@@ -176,11 +226,21 @@ class FST(WFSA):
         fst = cls(fsa.R)
         for i, a, j, w in fsa.arcs():
             fst.add_arc(i, (a, a), j, w)
-        for i, w in fsa.start.items():
+        for i, w in fsa.I:
             fst.add_I(i, w)
-        for i, w in fsa.stop.items():
+        for i, w in fsa.F:
             fst.add_F(i, w)
         return fst
+
+    def coarsen(self, N, A, B):
+        m = FST(Boolean)
+        for i in self.start:
+            m.add_I(N(i), Boolean.one)
+        for i in self.stop:
+            m.add_F(N(i), Boolean.one)
+        for i, (a, b), j, _ in self.arcs():
+            m.add_arc(N(i), (A(a), B(b)), N(j), Boolean.one)
+        return m
 
 
 def epsilon_filter_fst(R, Sigma):
@@ -210,3 +270,6 @@ def epsilon_filter_fst(R, Sigma):
     F.add_F(2, R.one)
 
     return F
+
+
+FST.PRUNING = None
