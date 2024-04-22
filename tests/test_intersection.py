@@ -53,6 +53,44 @@ def compose_slow(self, fst):
     return new
 
 
+# TODO: this code is unused
+def compose_naive_epsilon(self, fst):
+    "Reference implementation of the grammar-transducer composition."
+
+    if isinstance(fst, (str, list, tuple)): fst = FST.from_string(fst, self.R)
+    new_start = self.S
+    new = self.spawn(S = new_start)
+
+    for r in self:
+        for qs in product(fst.states, repeat=1+len(r.body)):
+            new.add(r.w, (qs[0], r.head, qs[-1]), *((qs[i], r.body[i], qs[i+1]) for i in range(len(r.body))))
+
+    for qi, wi in fst.start.items():
+        for qf, wf in fst.stop.items():
+            new.add(wi*wf, new_start, (qi, Other(self.S), qf))
+
+    for i, (a,b), j, w in fst.arcs():
+        if b == EPSILON:
+            new.add(w, (i, a, j))
+        else:
+            new.add(w, (i, a, j), b)
+
+    for qs in product(fst.states, repeat=3):
+        for a in self.V :
+            new.add(self.R.one, (qs[0], a, qs[2]),
+                    (qs[0], EPSILON, qs[1]),(qs[1], a, qs[2]))
+
+    for qs in product(fst.states, repeat=3 ):
+        new.add(self.R.one, (qs[0], Other(self.S) ,qs[2]),
+                (qs[0], Other(self.S), qs[1]), (qs[1], EPSILON, qs[2]))
+
+    for qs in product(fst.states, repeat=2 ):
+        new.add(self.R.one, (qs[0], Other(self.S), qs[1]),
+                (qs[0], self.S, qs[1]))
+
+    return new
+
+
 def check_fst(cfg, fst):
 
     want = compose_slow(cfg, fst).trim(bottomup_only=True)
@@ -273,7 +311,7 @@ def test_epsilon_fst():
     fst_removed.add_arc(1, ('a','a'),2, Real(1.0))
     fst_removed.add_F(2, Real(1.0))
 
-    have = cfg.compose_epsilon_fast(fst) 
+    have = cfg.compose_epsilon_fast(fst)
     want = cfg @ fst_removed
 
     assert_equal(want.treesum(), have.treesum() )
@@ -297,7 +335,7 @@ def test_epsilon_fst_2():
     fst.add_arc(1, (EPSILON, EPSILON), 1, Real(0.5))
     fst.add_arc(1, ('a','a'), 2, Real(1.0))
     fst.add_F(2, Real(1.0))
-    
+
     fst_removed = FST(Real)
 
     fst_removed.add_I(0, Real(1.0))
