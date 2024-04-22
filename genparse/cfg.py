@@ -701,24 +701,9 @@ class CFG:
                 else:
                     D.add(delta*r.w, slash(r.head, a), slash(r.body[k], a), *r.body[k+1:])
                 delta *= U[y]
-        return D#.trim()
+        return D
 
-#    def intersect(self, fsa):
-#        "Return a CFG that denoting the pointwise product of `self` and `fsa`."
-#        if isinstance(fsa, (str, list, tuple)): fsa = FSA.from_string(fsa, self.R)
-#        new_start = self.S
-#        new = self.spawn(S = new_start)
-#        for r in self:
-#            for qs in product(fsa.states, repeat=1+len(r.body)):
-#                new.add(r.w, (qs[0], r.head, qs[-1]), *((qs[i], r.body[i], qs[i+1]) for i in range(len(r.body))))
-#        for qi, wi in fsa.start.items():
-#            for qf, wf in fsa.stop.items():
-#                new.add(wi*wf, new_start, (qi, self.S, qf))
-#        for i, a, j, w in fsa.arcs():
-#            new.add(w, (i, a, j), a)
-#        return new
-
-    def _compose_bottom_up(self, fst):
+    def _compose_bottom_up_epsilon(self, fst):
         "Determine which items of the composition grammar are supported"
 
         A = set()
@@ -727,7 +712,13 @@ class CFG:
         C = defaultdict(set)   # complete items
         R = defaultdict(set)   # rules indexed by first subgoal; non-nullary
 
-        for r in self:
+        special_rules = (
+            [Rule(self.R.one, a, (EPSILON, a)) for a in self.V ]
+            + [Rule(self.R.one, Other(self.S), (self.S,)),
+               Rule(self.R.one, Other(self.S), (Other(self.S), EPSILON))]
+        )
+
+        for r in itertools.chain(self,special_rules):
             if len(r.body) > 0:
                 R[r.body[0]].add(r)
 
@@ -774,137 +765,7 @@ class CFG:
         return C
 
     def __matmul__(self, fst):
-        "Return a CFG denoting the pointwise product of `self` and `fs`."
-
-        # coerce something sequence like into a diagonal FST
-        if isinstance(fst, (str, list, tuple)): fst = FST.from_string(fst, self.R)
-        # coerce something FSA-like into an FST, might throw an error
-        if not isinstance(fst, FST): fst = FST.diag(fst)
-
-        # Initialize the new CFG:
-        # - its start symbol is chosen arbitrarily to be `self.S`
-        # - its the alphabet changes - it is now 'output' alphabet of the transducer
-        new_start = self.S
-        new = self.spawn(S = new_start, V = fst.B)
-
-        # The bottom-up intersection algorithm is a two-pass algorithm
-        #
-        # Pass 1: Determine the set of items that are possiblly nonzero-valued
-        C = self._compose_bottom_up(fst)
-
-        # Note that over estimate is safe so we could even use the set below,
-        # however, it would be much less efficient to do so.
-        #
-        #C = {(i,X): fst.states for i in fst.states for X in self.N | self.V}
-
-        # Pass 2: expands the grammar's rules against those items; Although, the
-        # construction we have is correct for unbinarized rules, it is generally
-        # much more efficient to binarized the grammar before calling this method.
-        #
-        def product(start, Ys):
-            """
-            Helper method; expands the rule body
-
-            Given Ys = [Y_1, ... Y_K], we will enumerate expansion of the form
-
-            (s_0, Y_1, s_1), (s_1, Y_2, s_2), ..., (s_{k-1}, Y_K, s_K)
-
-            where each (s_k, Y_k, s_k) in the expansion is a completed items
-            (i.e., \forall k: (s_k, Y_k, s_k) in C).
-            """
-            if not Ys:
-                yield []
-            else:
-                for K in C[start, Ys[0]]:
-                    for rest in product(K, Ys[1:]):
-                        yield [(start, Ys[0], K)] + rest
-
-        start = {I for (I,_) in C}
-
-        for r in self:
-            if len(r.body) == 0:
-                for s in fst.states:
-                    new.add(r.w, (s, r.head, s))
-            else:
-                for I in start:
-                    for rhs in product(I, r.body):
-                        K = rhs[-1][-1]
-                        new.add(r.w, (I, r.head, K), *rhs)
-
-        for i, wi in fst.start.items():
-            for k, wf in fst.stop.items():
-                new.add(wi*wf, new_start, (i, self.S, k))
-
-        for i, (a,b), j, w in fst.arcs():
-            assert a != EPSILON, 'not yet supported'
-            if a in self.V:
-                if b == EPSILON:
-                    new.add(w, (i, a, j))
-                else:
-                    new.add(w, (i, a, j), b)
-        return new
-
-    def _compose_bottom_up_epsilon(self, fst):
-        "Determine which items of the composition grammar are supported"
-
-        A = set()
-
-        I = defaultdict(set)   # incomplete items
-        C = defaultdict(set)   # complete items
-        R = defaultdict(set)   # rules indexed by first subgoal; non-nullary
-
-        special_rules = [ Rule(self.R.one, a , (EPSILON, a)) for a in self.V ] \
-        + [Rule(self.R.one, Other(self.S), (self.S, ) )] \
-        + [Rule(self.R.one, Other(self.S), (Other(self.S), EPSILON ) )]
-
-        for r in itertools.chain(self,special_rules):
-            if len(r.body) > 0:
-                R[r.body[0]].add(r)
-
-        # we have two base cases:
-        #
-        # base case 1: arcs
-        for i, (a,b), j, w in fst.arcs():
-            A.add((i, a, (), j)) #The empty tuple is to mark that the rule body is complete
-
-        # base case 2: nullary rules
-        for r in self:
-            if len(r.body) == 0:
-                for i in fst.states:
-                    A.add((i, r.head, (), i))
-
-        # drain the agenda
-        while A:
-            (i, X, Ys, j) = A.pop()
-
-            # No pending items ==> the item is complete
-            if not Ys:
-
-                if j in C[i, X]: continue
-                C[i, X].add(j)
-
-                # combine the newly completed item with incomplete rules that are
-                # looking for an item like this one
-                for (h, X1, Zs) in I[i, X]:
-                    A.add((h, X1, Zs[1:], j))
-
-                # initialize rules that can start with an item like this one
-                for r in R[X]:
-                    A.add((i, r.head, r.body[1:], j))
-
-            # Still have pending items ==> advanced the pending items
-            else:
-
-                if (i, X, Ys) in I[j, Ys[0]]: continue
-                I[j, Ys[0]].add((i, X, Ys))
-
-                for k in C[j, Ys[0]]:
-                    A.add((i, X, Ys[1:], k))
-
-        return C
-
-    def compose_epsilon_fast(self, fst):
-        "Return a CFG denoting the pointwise product of `self` and `fs`."
+        "Return a CFG denoting the pointwise product or composition of `self` and `fs`."
 
         # coerce something sequence like into a diagonal FST
         if isinstance(fst, (str, list, tuple)): fst = FST.from_string(fst, self.R)
@@ -922,10 +783,11 @@ class CFG:
         # Pass 1: Determine the set of items that are possiblly nonzero-valued
         C = self._compose_bottom_up_epsilon(fst)
 
-        special_rules = ([Rule(self.R.one, a, (EPSILON, a)) for a in self.V]
-            + [Rule(self.R.one, Other(self.S), (self.S,))]
-            + [Rule(self.R.one, Other(self.S), (Other(self.S), EPSILON))])
-
+        special_rules = (
+            [Rule(self.R.one, a, (EPSILON, a)) for a in self.V]
+            + [Rule(self.R.one, Other(self.S), (self.S,)),
+               Rule(self.R.one, Other(self.S), (Other(self.S), EPSILON))]
+        )
 
         def product(start, Ys):
             """
@@ -962,7 +824,6 @@ class CFG:
                 new.add(wi*wf, new_start, (i, Other(self.S), k))
 
         for i, (a,b), j, w in fst.arcs():
-            # assert a != EPSILON, 'not yet supported'
             # if a in self.V:
             if b == EPSILON:
                 new.add(w, (i, a, j))
