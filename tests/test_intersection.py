@@ -3,8 +3,8 @@ from genparse import CFG, Float, Real
 from itertools import product
 from collections import defaultdict
 from genparse.fst import FST
-from genparse.wfsa import WFSA, EPSILON
 from genparse.cfg import Other
+from genparse.wfsa import WFSA, EPSILON
 
 
 def assert_equal(have, want, tol=1e-5):
@@ -17,44 +17,9 @@ def assert_equal(have, want, tol=1e-5):
 
 # reference implementation of the intersection algorithm
 def intersect_slow(self, fsa):
-    "Return a CFG that denoting the pointwise product of `self` and `fsa`."
-    if isinstance(fsa, (str, list, tuple)): fsa = FSA.from_string(fsa, self.R)
-    new_start = self.S
-    new = self.spawn(S = new_start)
-    for r in self:
-        for qs in product(fsa.states, repeat=1+len(r.body)):
-            new.add(r.w, (qs[0], r.head, qs[-1]), *((qs[i], r.body[i], qs[i+1]) for i in range(len(r.body))))
-    for qi, wi in fsa.start.items():
-        for qf, wf in fsa.stop.items():
-            new.add(wi*wf, new_start, (qi, self.S, qf))
-    for i, a, j, w in fsa.arcs():
-        assert a != EPSILON
-        new.add(w, (i, a, j), a)
-    return new
+    fst = FST.diag(fsa)
+    return compose_naive_epsilon(self,fst)
 
-
-# reference implementation of the composition algorithm; does not support input-side epsilon arcs
-def compose_slow(self, fst):
-    "Reference implementation of the grammar-transducer composition."
-    if isinstance(fst, (str, list, tuple)): fst = FST.from_string(fst, self.R)
-    new_start = self.S
-    new = self.spawn(S = new_start)
-    for r in self:
-        for qs in product(fst.states, repeat=1+len(r.body)):
-            new.add(r.w, (qs[0], r.head, qs[-1]), *((qs[i], r.body[i], qs[i+1]) for i in range(len(r.body))))
-    for qi, wi in fst.start.items():
-        for qf, wf in fst.stop.items():
-            new.add(wi*wf, new_start, (qi, self.S, qf))
-    for i, (a, b), j, w in fst.arcs():
-        assert a != EPSILON
-        if b == EPSILON :
-            new.add(w, (i, a, j))
-        else:
-            new.add(w, (i, a, j), b)
-    return new
-
-
-# TODO: this code is unused
 def compose_naive_epsilon(self, fst):
     "Reference implementation of the grammar-transducer composition."
 
@@ -78,23 +43,22 @@ def compose_naive_epsilon(self, fst):
 
     for qs in product(fst.states, repeat=3):
         for a in self.V :
-            new.add(self.R.one, (qs[0], a, qs[2]),
+            new.add(self.R.one, (qs[0], a, qs[2]),  
                     (qs[0], EPSILON, qs[1]),(qs[1], a, qs[2]))
-
+            
     for qs in product(fst.states, repeat=3 ):
-        new.add(self.R.one, (qs[0], Other(self.S) ,qs[2]),
+        new.add(self.R.one, (qs[0], Other(self.S) ,qs[2]),  
                 (qs[0], Other(self.S), qs[1]), (qs[1], EPSILON, qs[2]))
-
+        
     for qs in product(fst.states, repeat=2 ):
-        new.add(self.R.one, (qs[0], Other(self.S), qs[1]),
+        new.add(self.R.one, (qs[0], Other(self.S), qs[1]),  
                 (qs[0], self.S, qs[1]))
-
+        
     return new
-
 
 def check_fst(cfg, fst):
 
-    want = compose_slow(cfg, fst).trim(bottomup_only=True)
+    want = compose_naive_epsilon(cfg, fst).trim(bottomup_only=True)
     have = cfg @ fst  # fast composition
 
     if 0:
@@ -215,12 +179,9 @@ def check(cfg, fsa):
     want = intersect_slow(cfg, fsa).trim(bottomup_only=True)
     have = cfg @ fsa # fast intersection
 
-    if 0:
-        want = want.trim().trim()
-        have = have.trim().trim()
-
-#    want = want.trim()
-#    have = have.trim()
+    
+    want = want.trim().trim()
+    have = have.trim().trim()
 
     print()
     print('have=')
@@ -246,7 +207,6 @@ def check(cfg, fsa):
 
 
 # COMPOSITION TESTS
-
 def test_catalan_fst():
     cfg = CFG.from_string("""
     0.4: S -> S S
@@ -266,7 +226,6 @@ def test_catalan_fst():
 
     check_fst(cfg, fst)
 
-
 def test_palindrome_fst():
     cfg = CFG.from_string("""
     0.3: S -> a S a
@@ -285,7 +244,6 @@ def test_palindrome_fst():
     fst.add_F(3, Real(1.0))
 
     check_fst(cfg, fst)
-
 
 # TEST FOR COMPOSITION WITH EPSILON INPUT ARCS
 
@@ -312,14 +270,13 @@ def test_epsilon_fst():
     fst_removed.add_arc(1, ('a','a'),2, Real(1.0))
     fst_removed.add_F(2, Real(1.0))
 
-    have = cfg.compose_epsilon_fast(fst)
-    want = cfg @ fst_removed
+    want = compose_naive_epsilon(cfg, fst) 
+    have = cfg @ fst_removed
 
-    assert_equal(want.treesum(), have.treesum() )
+    assert_equal(want.treesum(), have.treesum())
 
-    # trim check
+    #check that the output of the fast implementation is a trim
     have.assert_equal(have.trim(bottomup_only = True))
-
 
 def test_epsilon_fst_2():
     #This test case is a bit more complex as it contains epsilon cycles on the FST
@@ -336,7 +293,7 @@ def test_epsilon_fst_2():
     fst.add_arc(1, (EPSILON, EPSILON), 1, Real(0.5))
     fst.add_arc(1, ('a','a'), 2, Real(1.0))
     fst.add_F(2, Real(1.0))
-
+    
     fst_removed = FST(Real)
 
     fst_removed.add_I(0, Real(1.0))
@@ -344,13 +301,13 @@ def test_epsilon_fst_2():
     fst_removed.add_arc(1, ('a','a'), 2, Real(1.0))
     fst_removed.add_F(2, Real(1.0))
 
-    want = cfg @ fst_removed
-    have = cfg.compose_epsilon_fast(fst)
+    have = cfg @ fst_removed
+    want = compose_naive_epsilon(cfg, fst)
 
     assert_equal(want.treesum(), have.treesum())
 
+    #check that th eoutput of teh fast implementation is a trim
     have.assert_equal(have.trim(bottomup_only = True))
-
 
 if __name__ == '__main__':
     from arsenal import testing_framework
