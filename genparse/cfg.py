@@ -8,13 +8,13 @@ from arsenal import Integerizer
 from collections import defaultdict, Counter, namedtuple
 from functools import cached_property, lru_cache
 from itertools import product
-from genparse.wfsa import EPSILON
-from genparse.fst import FST
 
 from .chart import Chart
+from .fst import FST
+from .linear import WeightedGraph
 from .semiring import Semiring, Boolean
 from .util import colors, format_table
-from .linear import WeightedGraph
+from .wfsa import EPSILON
 
 
 def _gen_nt(prefix=''):
@@ -570,7 +570,7 @@ class CFG:
         deps.N |= self.N; deps.N |= self.V
         return deps
 
-    def agenda(self, tol=1e-12):
+    def agenda(self, tol=1e-12, maxiter=np.inf):
         "Agenda-based semi-naive evaluation"
         old = self.R.chart()
 
@@ -601,10 +601,14 @@ class CFG:
 
         B = len(blocks)
         b = 0
+        iteration = 0
         while b < B:
+            iteration += 1
+            if iteration > maxiter: break
 
             if len(change[b]) == 0:
                 b += 1
+                iteration = 0   # reset iteration number for the next bucket
                 continue
 
             u,v = change[b].popitem()
@@ -776,7 +780,7 @@ class CFG:
         # - its start symbol is chosen arbitrarily to be `self.S`
         # - its the alphabet changes - it is now 'output' alphabet of the transducer
         new_start = self.S
-        new = self.spawn(S = new_start, V = fst.B)
+        new = self.spawn(S = new_start, V = fst.B - {EPSILON})
 
         # The bottom-up intersection algorithm is a two-pass algorithm
         #

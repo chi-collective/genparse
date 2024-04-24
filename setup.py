@@ -14,6 +14,8 @@ setup(
         'path',
         'pandas',
         'frozendict',
+        'transformers',
+        'lark',
         'arsenal @ git+https://github.com/timvieira/arsenal',
     ],
     authors = [

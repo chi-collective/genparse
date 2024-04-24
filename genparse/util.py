@@ -1,5 +1,4 @@
 import re
-import dill
 import sys
 import nltk
 import numpy as np
@@ -51,7 +50,7 @@ class LarkStuff:
         self.terminals = terminals
         self.ignores = ignores
 
-    def transducer(self, **kwargs):
+    def transducer(self, decay=.99, **kwargs):
         """
         XXX: Warning: There may be infelicity in the tokenization semantics as there is
         no longer a prioritized or maximum munch semantics to tokenizer.  It is
@@ -66,7 +65,7 @@ class LarkStuff:
         m.add_I(START, 1)
         m.add_F(STOP, 1)
 
-        m.add_arc(STOP, (EPSILON, EPSILON), START, .99)
+        m.add_arc(STOP, (EPSILON, EPSILON), START, decay)
 
         for id, token_class in enumerate(self.terminals):
             #print('>>>', id, token_class)
@@ -116,21 +115,20 @@ class LarkStuff:
                 yield token_type, token_value
 
 
-def regex_to_greenery(regex, ignore = "\s*"):
+def regex_to_greenery(regex, ignore = ''):
     """
     Convert `regex`, a python-like regular expression (`re`), into a `greenery`
     finite-state machine (FSM).
     """
     import greenery
     # Patch: note that greenery does not escape spaces but both the `re` and `lark` do.
-    regex = regex.replace("\\ ", " ")
-    return greenery.parse(regex + ignore).to_fsm()
+    return greenery.parse(regex.replace("\\ ", " ") + ignore).to_fsm()
 
 
 # Not essential; only used in a notebook to visualize individual greenery FSMs
 def greenery_to_fsa(fsm):
-    import fsa, greenery
-    if isinstance(fsm, str): fsm = greenery.parse(regex + ignore).to_fsm()
+    import fsa
+    if isinstance(fsm, str): fsm = regex_to_greenery(fsm)
     m = fsa.FSA()
     m.add_start(fsm.initial)
     for final_state in fsm.finals:
