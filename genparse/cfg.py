@@ -332,21 +332,20 @@ class CFG:
     #___________________________________________________________________________
     # Transformations
 
-    def unaryremove(self):
-        """
-        Return an equivalent grammar with no unary rules.
-        """
-
+    def _unary_graph(self):
         # compute the matrix closure of the unary rules, so we can unfold them
         # into the preterminal and binary rules.
         A = WeightedGraph(self.R)
         for r in self:
             if len(r.body) == 1 and self.is_nonterminal(r.body[0]):
                 A[r.head, r.body[0]] += r.w
-
         A.N |= self.N
+        return A
 
-        W = A.closure_scc_based()
+    def unaryremove(self):
+        "Return an equivalent grammar with no unary rules."
+
+        W = self._unary_graph().closure_scc_based()
 
         new = self.spawn()
         for r in self:
@@ -508,7 +507,7 @@ class CFG:
     @cached_property
     def cnf(self):
         new = self.separate_terminals().nullaryremove(binarize=True).trim().unaryremove().trim()
-        assert new.in_cnf()
+        assert new.in_cnf(), self._find_invalid_cnf_rule()
         return new
 
     # TODO: make CNF grammars a speciazed subclass of CFG.
@@ -534,6 +533,10 @@ class CFG:
 
     def in_cnf(self):
         "Return true of the grammar is in CNF."
+        return self._find_invalid_cnf_rule() is None
+
+    def _find_invalid_cnf_rule(self):
+        "Return true of the grammar is in CNF."
         for r in self:
             assert r.head in self.N
             if len(r.body) == 0 and r.head == self.S:
@@ -543,8 +546,7 @@ class CFG:
             elif len(r.body) == 2 and all(self.is_nonterminal(y) and y != self.S for y in r.body):
                 continue
             else:
-                return False
-        return True
+                return r
 
     def unfold(self, i, k):
         assert isinstance(i, int) and isinstance(k, int)
