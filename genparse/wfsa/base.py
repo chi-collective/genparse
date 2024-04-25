@@ -97,6 +97,10 @@ class WFSA:
             m.add_arc(f(i), a, f(j), w)
         return m
 
+    def to_fst(self):
+        from genparse.fst import FST
+        return FST.diag(self)
+
     def rename_apart(self, other):
         f = Integerizer()
         return (self.rename(lambda i: f((0,i))), other.rename(lambda i: f((1,i))))

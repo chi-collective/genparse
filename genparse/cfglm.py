@@ -5,6 +5,7 @@ Fast computation of the posterior distrubtion over the next word in a WCFG langu
 import numpy as np
 from functools import lru_cache
 from collections import Counter
+from arsenal.maths import sample_dict
 
 from .cfg import CFG
 from . import Chart
@@ -25,6 +26,7 @@ def locally_normalize(self):
     new = self.spawn()
     Z = self.agenda()
     for r in self:
+        if Z[r.head] == 0: continue
         new.add(r.w * Z.product(r.body) / Z[r.head], r.head, *r.body)
     return new
 
@@ -47,6 +49,15 @@ class CFGLM:
     def p_next(self, prefix):
         chart = self.chart(prefix)
         return next_token_weights(self.pfg, chart, prefix)
+
+    def sample(self, verbose=False):
+        ys = []
+        while True:
+            p = self.p_next(tuple(ys))
+            if verbose: print(ys)
+            y = sample_dict(p)
+            if y == EOS: return ys
+            ys.append(y)
 
 
 def next_token_weights(cfg, chart, prefix):

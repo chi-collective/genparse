@@ -166,7 +166,9 @@ MaxTimes.one = MaxTimes(1)
 class Float:
     def star(x):        return 1/(1-x)
     def from_string(x): return float(x)
-    def metric(x,y):    return abs(x - y)
+    def metric(x,y):
+        if x == np.inf == y: return 0
+        return abs(x - y)
     @classmethod
     def chart(cls, *args, **kwargs):
         return Chart(cls, *args, **kwargs)

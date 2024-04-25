@@ -50,6 +50,19 @@ class Chart(dict):
     def __repr__(self):
         return repr({k: v for k, v in self.items() if v != self.semiring.zero})
 
+    def __str__(self, style_value=lambda k,v: str(v)):
+
+        def key(k):
+            return -self.semiring.metric(self[k], self.semiring.zero)
+
+        return (
+            'Chart {\n' +
+            '\n'.join(
+                f'  {k}: {style_value(k, self[k])},' for k in sorted(self, key=key) if self[k] != self.semiring.zero
+            )
+            + '\n}'
+        )
+
     def assert_equal(self, want, *, domain=None, tol=1e-5, verbose=False, throw=True):
         if domain is None: domain = self.keys() | want.keys()
         assert verbose or throw

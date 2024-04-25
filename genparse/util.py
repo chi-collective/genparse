@@ -1,5 +1,4 @@
 import re
-import dill
 import sys
 import nltk
 import numpy as np
@@ -9,6 +8,17 @@ from contextlib import contextmanager
 from itertools import chain, combinations
 from time import time
 from IPython.display import display, SVG, Image, HTML, Latex
+
+
+class hf_tokenizer:
+    def __init__(self, name='gpt2'):
+        from transformers import AutoTokenizer
+        from genparse import FST, EPSILON, Float
+        self.tokenizer = AutoTokenizer.from_pretrained(name)
+        self.pairs = [(i, self.tokenizer.decode([i]))
+                      for i in range(self.tokenizer.vocab_size)]
+        #self.fst = FST.from_pairs(self.pairs, Float).star()
+        self.fst = bpe_wfst(self.pairs)
 
 
 def bpe_wfst(S):
@@ -51,7 +61,7 @@ class LarkStuff:
         self.terminals = terminals
         self.ignores = ignores
 
-    def transducer(self, **kwargs):
+    def transducer(self, decay=.99, **kwargs):
         """
         XXX: Warning: There may be infelicity in the tokenization semantics as there is
         no longer a prioritized or maximum munch semantics to tokenizer.  It is
@@ -64,18 +74,18 @@ class LarkStuff:
         START = 0
         STOP = 1
         m.add_I(START, 1)
-        m.add_F(STOP, 1)
+        m.add_F(STOP, decay)
 
-        m.add_arc(STOP, (EPSILON, EPSILON), START, .99)
+        m.add_arc(STOP, (EPSILON, EPSILON), START, decay)
 
         for id, token_class in enumerate(self.terminals):
             #print('>>>', id, token_class)
             fsm = regex_to_greenery(token_class.pattern.to_regexp(), **kwargs)
 
-            m.add_arc(START, (EPSILON, token_class.name), (id, fsm.initial), 1)
+            m.add_arc(START, (EPSILON, token_class.name), (id, fsm.initial), decay)
 
             for final_state in fsm.finals:
-                m.add_arc((id, final_state), (EPSILON, EPSILON), STOP, 1)
+                m.add_arc((id, final_state), (EPSILON, EPSILON), STOP, decay)
 
             dead = {i for i in fsm.states if not fsm.islive(i)}
             for state in fsm.states:
@@ -83,7 +93,7 @@ class LarkStuff:
                 for input_char, next_state in arcs.items():
                     if next_state in dead: continue
                     for char in input_char.get_chars():
-                        m.add_arc((id, state), (char, EPSILON), (id, next_state), 1)
+                        m.add_arc((id, state), (char, EPSILON), (id, next_state), decay)
 
         return m
 
@@ -116,21 +126,20 @@ class LarkStuff:
                 yield token_type, token_value
 
 
-def regex_to_greenery(regex, ignore = "\s*"):
+def regex_to_greenery(regex, ignore = ''):
     """
     Convert `regex`, a python-like regular expression (`re`), into a `greenery`
     finite-state machine (FSM).
     """
     import greenery
     # Patch: note that greenery does not escape spaces but both the `re` and `lark` do.
-    regex = regex.replace("\\ ", " ")
-    return greenery.parse(regex + ignore).to_fsm()
+    return greenery.parse(regex.replace("\\ ", " ") + ignore).to_fsm()
 
 
 # Not essential; only used in a notebook to visualize individual greenery FSMs
 def greenery_to_fsa(fsm):
-    import fsa, greenery
-    if isinstance(fsm, str): fsm = greenery.parse(regex + ignore).to_fsm()
+    import fsa
+    if isinstance(fsm, str): fsm = regex_to_greenery(fsm)
     m = fsa.FSA()
     m.add_start(fsm.initial)
     for final_state in fsm.finals:
