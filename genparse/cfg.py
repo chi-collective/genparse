@@ -150,6 +150,15 @@ class CFG:
                 raise ValueError(f'bad input line:\n{line}')
         return cfg
 
+    def __getitem__(self, root):
+        new = self.spawn(S = root)
+        for r in self:
+            new.add(r.w, r.head, *r.body)
+        return new
+
+    def __len__(self):
+        return len(self.rules)
+
     def __call__(self, input):
         "Compute the total weight of the `input` sequence."
         self = self.cnf   # need to do this here because the start symbol might change

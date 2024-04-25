@@ -443,16 +443,16 @@ class WFSA:
 
         return D
 
-    def to_cfg(self):
+    def to_cfg(self, S=None):
         "Convert the WFSA to a WCFG with the same weighted language."
         from genparse.cfg import CFG, _gen_nt
 
-        start = _gen_nt()
-        cfg = CFG(R=self.R, V=self.alphabet, S=start)
+        if S is None: S = _gen_nt()
+        cfg = CFG(R=self.R, V=self.alphabet, S=S)
 
         # add production rule for initial states
         for i, w in self.I:
-            cfg.add(w, start, i)
+            cfg.add(w, S, i)
 
         # add production rule for final states
         for i, w in self.F:

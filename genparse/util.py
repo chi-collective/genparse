@@ -21,6 +21,81 @@ class hf_tokenizer:
         self.fst = bpe_wfst(self.pairs)
 
 
+def bpe2term_approx(tokenizer, bpe):
+    # approximate the transducer using a single canonical path;
+    # UPDATE: the unpruned answer should match this - it's the uncertainty over bpe that's tricky
+    c = tuple(([b], tokenizer.decode([b])) for b in bpe)
+    tmp = FST.from_pairs([([], '')], Float)
+    for pair in c:
+        tmp = tmp * FST.from_pairs([pair], Float)
+    return tmp
+    # TODO: approximate this transducer by a canonical path
+    #return c2t(c, None).trim.epsremove.trim
+
+
+def about(m):
+    print(f"states: {len(m.states)}, trim: {len(m.trim.states)}")
+
+
+#def template(main, annotation):
+#    return f"""\
+#<div style="text-align: center; display: inline-block; font-family: Monospace; margin: 0px !important; padding: 0px !important;">
+#    <div style="margin: 0px !important; padding: 0px !important; border-bottom: 1px solid #ddd;">{html.escape(str(main))}</div>
+#    <div style="font-size: 8pt; color: #bbb; margin: 0px !important; padding: 0px !important;">{html.escape(str(annotation))}</div>
+#</div>
+#"""
+
+def template(main, annotation):
+    return f"""\
+<div style="text-align: center; display: inline-block; background-color: #eee; font-family: Monospace; margin: 0px !important; padding: 0px !important;">
+    <div style="display: inline-block; margin: 0px !important; padding: 0px !important;">{html.escape(str(main))}</div>
+    <div style="display: inline-block; font-size: 8pt; color: #bbb; margin: 0px !important; padding: 0px !important;">/{html.escape(str(annotation))}</div>
+</div>
+"""
+
+def fmt(x): return repr(x)[1:-1] if isinstance(x, str) else repr(x)
+
+def show_grammar(cfg_t, chart=None, showzero=False):
+    """Fancier pretty-printing the grammar.
+
+    - total weight alongsize each nonterminal
+
+    - rules are grouped by their head and how on one line separated by "|"
+
+    - head nonterminals are grouped by SCC (i.e., mutually recursive block) and
+      sort SCCs topologically (layout is top down starting from the root).
+
+    - Grammar is trimmed to nonzero values (to bypas set `showzero=True`).
+
+    """
+    if chart is None:
+        chart = cfg_t.agenda(maxiter=1000)
+
+    def format_tokens(tokens):
+        if len(tokens) == 0: return template('ε', cfg_t.R.one)
+        return '<span style="padding-right: 10px;"></span>'.join(template(fmt(i), chart[i]) for i in tokens)
+
+    lines = []
+
+    for block in cfg_t.dependency_graph().blocks():
+        if not showzero: block = [x for x in block if chart[x] != cfg_t.R.zero and cfg_t.is_nonterminal(x)]
+        if not block: continue
+
+        block_code = []
+        for x in block:
+            block_code.append(
+                template(fmt(x), chart[x]) #+ '<br/>'
+                +
+                ('<div style="display: inline-block;">→ %s</div>'
+                 % ' | '.join(template('', r.w) + format_tokens(r.body) for r in cfg_t.rhs[x]))
+            )
+
+#        lines.append('<div style="border-left: thick solid black; padding-left: 3px; margin-bottom: 5px;">%s</div>' % '\n'.join(block_code))
+        lines.append('<div style="border-left: thick solid black; padding-left: 3px; margin-bottom: 5px;">%s</div>' % '\n'.join(block_code))
+
+    return HTML(''.join(lines))
+
+
 def bpe_wfst(S):
     """
     Create a transducer relating strings of BPE token ids to their associated strings
@@ -108,7 +183,31 @@ class LarkStuff:
         cfg = CFG(R=Float, S="start", V=set(terminals))
         for r in rules:
             cfg.add(r.w, r.head, *r.body)
-        return cfg
+        return cfg.renumber()
+
+    def char_cfg(self, decay):
+        from genparse import CFG, Rule
+        from genparse.cfglm import Float
+
+        cfg = self.convert()
+
+        foo = CFG(Float, S=cfg.S, V=set())
+        for r in cfg:
+            foo.add(r.w, r.head, *r.body)
+
+        for token_class in self.terminals:
+
+            fsa = greenery_to_wfsa(token_class.pattern.to_regexp(), decay=decay,
+                                   name=lambda x: (token_class.name, x))
+            #display(fsa)
+            G = fsa.to_cfg(S=token_class.name)
+            #display(G)
+
+            foo.V |= G.V
+            for r in G:
+                foo.add(r.w, r.head, *r.body)
+
+        return foo
 
     def simple_tokenizer(self, text):
         """
@@ -137,21 +236,54 @@ def regex_to_greenery(regex, ignore = ''):
 
 
 # Not essential; only used in a notebook to visualize individual greenery FSMs
-def greenery_to_fsa(fsm):
-    import fsa
+#def greenery_to_fsa(fsm):
+#    import fsa
+#    if isinstance(fsm, str): fsm = regex_to_greenery(fsm)
+#    m = fsa.FSA()
+#    m.add_start(fsm.initial)
+#    for final_state in fsm.finals:
+#        m.add_stop(final_state)
+#    rejection_states = [e for e in fsm.states if not fsm.islive(e)]
+#    for state in fsm.states:
+#        arcs = fsm.map[state]
+#        for input_char, next_state in arcs.items():
+#            if next_state in rejection_states:  # rejection state
+#                continue
+#            for char in input_char.get_chars():
+#                m.add(state, char, next_state)
+#    return m
+
+
+# Not essential; only used in a notebook to visualize individual greenery FSMs
+def greenery_to_wfsa(fsm, decay=.99, name=lambda x: x):
+    from genparse import WFSA, Float
     if isinstance(fsm, str): fsm = regex_to_greenery(fsm)
-    m = fsa.FSA()
-    m.add_start(fsm.initial)
-    for final_state in fsm.finals:
-        m.add_stop(final_state)
+    m = WFSA(Float)
+    m.add_I(name(fsm.initial), 1)
+
     rejection_states = [e for e in fsm.states if not fsm.islive(e)]
     for state in fsm.states:
         arcs = fsm.map[state]
+
+        # determine this state's fan out...
+        K = 0
         for input_char, next_state in arcs.items():
-            if next_state in rejection_states:  # rejection state
-                continue
+            if next_state in rejection_states: continue  # rejection state
             for char in input_char.get_chars():
-                m.add(state, char, next_state)
+                K += 1
+        if state in fsm.finals:
+            K += 1
+
+        if K == 0: continue
+
+        if state in fsm.finals:
+            m.add_F(name(state), decay / K)
+
+        for input_char, next_state in arcs.items():
+            if next_state in rejection_states: continue  # rejection state
+            for char in input_char.get_chars():
+                m.add_arc(name(state), char, name(next_state), decay / K)
+
     return m
 
 

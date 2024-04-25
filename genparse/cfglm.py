@@ -12,7 +12,6 @@ from . import Chart
 from .semiring import Float
 
 
-# TODO: untested
 def locally_normalize(self):
     """
     Locally normalizes the grammar: return a transformed grammar such that
@@ -35,7 +34,7 @@ class CFGLM:
 
     def __init__(self, cfg):
         self.cfg = cfg
-        self.pfg = cfg.cnf.prefix_grammar.cnf.trim()
+        self.pfg = cfg.cnf.prefix_grammar.cnf
 
     @lru_cache(None)
     def chart(self, prefix):
@@ -50,12 +49,12 @@ class CFGLM:
         chart = self.chart(prefix)
         return next_token_weights(self.pfg, chart, prefix)
 
-    def sample(self, verbose=False):
+    def sample(self, draw=sample_dict, verbose=False):
         ys = []
         while True:
             p = self.p_next(tuple(ys))
             if verbose: print(ys)
-            y = sample_dict(p)
+            y = draw(p)
             if y == EOS: return ys
             ys.append(y)
 
