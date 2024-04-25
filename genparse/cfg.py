@@ -125,7 +125,7 @@ class CFG:
         self.rules = [] # rules
 
     def __repr__(self):
-        return "\n".join(f"{p}" for p in self)
+        return 'Grammar {\n%s\n}' % '\n'.join(f'  {r}' for r in self)
 
     def _repr_html_(self):
         return f'<pre style="width: fit-content; text-align: left; border: thin solid black; padding: 0.5em;">{self}</pre>'
@@ -346,6 +346,7 @@ class CFG:
         "Return an equivalent grammar with no unary rules."
 
         W = self._unary_graph().closure_scc_based()
+        #W = self._unary_graph().closure_reference()
 
         new = self.spawn()
         for r in self:
@@ -572,7 +573,7 @@ class CFG:
         deps.N |= self.N; deps.N |= self.V
         return deps
 
-    def agenda(self, tol=1e-12, maxiter=100):
+    def agenda(self, tol=1e-12, maxiter=1000):
 #    def agenda(self, tol=1e-12, maxiter=np.inf):
         "Agenda-based semi-naive evaluation"
         old = self.R.chart()
@@ -816,7 +817,7 @@ class CFG:
 
         start = {I for (I,_) in C}
 
-        for r in itertools.chain(self,special_rules):
+        for r in itertools.chain(self, special_rules):
             if len(r.body) == 0:
                 for s in fst.states:
                     new.add(r.w, (s, r.head, s))
