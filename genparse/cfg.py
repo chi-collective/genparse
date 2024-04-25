@@ -824,13 +824,11 @@ class CFG:
                 new.add(wi*wf, new_start, (i, Other(self.S), k))
 
         for i, (a,b), j, w in fst.arcs():
-            # if a in self.V:
             if b == EPSILON:
                 new.add(w, (i, a, j))
-            else:
+            elif a in self.V :
                 new.add(w, (i, a, j), b)
         return new
-
 
 # TODO: replace this code with the transduction version!
 class PrefixGrammar(CFG):

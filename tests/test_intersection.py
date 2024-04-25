@@ -176,12 +176,11 @@ def test_catalan2():
 
 def check(cfg, fsa):
 
-    want = intersect_slow(cfg, fsa).trim(bottomup_only=True)
+    want = intersect_slow(cfg, fsa).trim(bottomup_only = True)
     have = cfg @ fsa # fast intersection
-
     
-    want = want.trim().trim()
-    have = have.trim().trim()
+    # want = want.trim().trim()
+    # have = have.trim().trim()
 
     print()
     print('have=')
