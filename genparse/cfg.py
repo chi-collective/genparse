@@ -507,7 +507,7 @@ class CFG:
     @cached_property
     def cnf(self):
         new = self.separate_terminals().nullaryremove(binarize=True).trim().unaryremove().trim()
-        assert new.in_cnf(), self._find_invalid_cnf_rule()
+        assert new.in_cnf(), '\n'.join(str(r) for r in new._find_invalid_cnf_rule())
         return new
 
     # TODO: make CNF grammars a speciazed subclass of CFG.
@@ -533,7 +533,7 @@ class CFG:
 
     def in_cnf(self):
         "Return true of the grammar is in CNF."
-        return self._find_invalid_cnf_rule() is None
+        return len(list(self._find_invalid_cnf_rule())) == 0
 
     def _find_invalid_cnf_rule(self):
         "Return true of the grammar is in CNF."
@@ -546,7 +546,7 @@ class CFG:
             elif len(r.body) == 2 and all(self.is_nonterminal(y) and y != self.S for y in r.body):
                 continue
             else:
-                return r
+                yield r
 
     def unfold(self, i, k):
         assert isinstance(i, int) and isinstance(k, int)
@@ -572,7 +572,8 @@ class CFG:
         deps.N |= self.N; deps.N |= self.V
         return deps
 
-    def agenda(self, tol=1e-12, maxiter=np.inf):
+    def agenda(self, tol=1e-12, maxiter=100):
+#    def agenda(self, tol=1e-12, maxiter=np.inf):
         "Agenda-based semi-naive evaluation"
         old = self.R.chart()
 

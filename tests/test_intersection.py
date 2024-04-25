@@ -309,6 +309,30 @@ def test_epsilon_fst_2():
     #check that th eoutput of teh fast implementation is a trim
     have.assert_equal(have.trim(bottomup_only = True))
 
+
+def test_simple_epsilon():
+    g = CFG.from_string("""
+
+    1: S -> a
+
+    """, Float)
+
+    t = FST(Float)
+    t.add_I(0, 1)
+    t.add_arc(0, ('a', ''), 1, 1)
+    t.add_arc(1, ('', 'b'), 1, 0.5)
+    t.add_F(1, 1)
+
+    gt = (g @ t)
+
+    assert_equal(gt(''), 1.0)
+    assert_equal(gt('b'), 0.5)
+    assert_equal(gt('bb'), 0.25)
+    assert_equal(gt('bbb'), 0.125)
+    assert_equal(gt('bbbb'), 0.0625)
+    assert_equal(gt('bbbbb'), 0.03125)
+
+
 if __name__ == '__main__':
     from arsenal import testing_framework
     testing_framework(globals())
