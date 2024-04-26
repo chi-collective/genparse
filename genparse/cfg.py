@@ -390,7 +390,7 @@ class CFG:
     def null_weight_start(self):
         return self.null_weight()[self.S]
 
-    def _push_null_weights(self, null_weight, recovery=False, rename=lambda x: f'${x}'):
+    def _push_null_weights(self, null_weight, rename=lambda x: f'${x}'):
         """
         Returns a grammar that generates the same weighted language but it is
         nullary-free at all nonterminals except its start symbol.  [Assumes that
@@ -419,12 +419,6 @@ class CFG:
 
         rcfg = self.spawn()
         rcfg.add(null_weight[self.S], self.S)
-
-        if recovery:
-            for x in self.N:
-                if f(x) == x: continue
-                rcfg.add(null_weight[x], x)
-                rcfg.add(self.R.one, x, f(x))
 
         for r in self:
 
@@ -517,7 +511,7 @@ class CFG:
     @cached_property
     def cnf(self):
         new = self.separate_terminals().nullaryremove(binarize=True).trim().unaryremove().trim()
-        assert new.in_cnf(), '\n'.join(str(r) for r in new._find_invalid_cnf_rule())
+        assert new.in_cnf(), '\n'.join(str(r) for r in new._find_invalid_cnf_rule())   # pragma: no cover
         return new
 
     # TODO: make CNF grammars a speciazed subclass of CFG.
@@ -685,13 +679,13 @@ class CFG:
         return self @ prefix_transducer(self.R, self.V)
         #return PrefixGrammar(self)
 
-    def gensym(self, x):
-        assert x not in self.V
-        if x not in self.N: return x
-        i = 1
-        while f'{x}@{i}' in self.N:
-            i += 1
-        return f'{x}@{i}'
+#    def gensym(self, x):
+#        assert x not in self.V
+#        if x not in self.N: return x
+#        i = 1
+#        while f'{x}@{i}' in self.N:
+#            i += 1
+#        return f'{x}@{i}'
 
     def derivatives(self, s):
         "Return the sequence of derivatives for each prefix of `s`."
