@@ -1,7 +1,11 @@
-from genparse.util import LarkStuff
+import numpy as np
+
 from arsenal.maths import compare
 from collections import Counter
-from genparse.util import regex_to_greenery
+
+from genparse.util import LarkStuff
+from genparse import CFGLM, add_EOS, locally_normalize
+from genparse.util import normalize
 
 
 grammar1 = r"""
@@ -61,10 +65,6 @@ def test_parsing_basics():
 
     assert g.prefix_weight(tokens) > 0
 
-#    i = 4
-#    token_class = lark_stuff.terminals[i]
-#    m = greenery_to_fsa(regex_to_greenery(token_class.pattern.to_regexp()))
-
 
 def test_char_level_cfg():
     lark_stuff = LarkStuff(grammar1)
@@ -82,9 +82,6 @@ def test_char_level_cfg():
 
     assert cfg(text) > 0
 
-    import numpy as np
-    from genparse import CFGLM, add_EOS, locally_normalize
-    from genparse.util import normalize
     lm = CFGLM(add_EOS(locally_normalize(cfg, tol=1e-40, maxiter=np.inf)))
 
     p = normalize(lm.p_next('SELECT state_color FROM '))
