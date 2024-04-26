@@ -582,7 +582,8 @@ class CFG:
         deps.N |= self.N; deps.N |= self.V
         return deps
 
-    def agenda(self, tol=1e-12, maxiter=1000):
+    # TODO: the default treesum algorithm should probably be SCC-decomposed newton's method
+    def agenda(self, tol=1e-12, maxiter=100_000):
 #    def agenda(self, tol=1e-12, maxiter=np.inf):
         "Agenda-based semi-naive evaluation"
         old = self.R.chart()

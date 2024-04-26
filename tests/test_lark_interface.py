@@ -1,14 +1,11 @@
-import lark
-
 from genparse.util import LarkStuff
-from arsenal import Integerizer
 from arsenal.maths import compare
 from collections import Counter
-from genparse.util import regex_to_greenery, greenery_to_fsa
+from genparse.util import regex_to_greenery
 
 
 grammar1 = r"""
-start: WS "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
+start: WS? "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
 EOS: "</s>"
 select_expr: STAR | select_list
 bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
@@ -37,10 +34,8 @@ def test_tokenization_basics():
     tks = T(text, None).renumber.epsremove.trim
     #print(tks)
 
-    # check that the target transduction is in the set language
-    tmp = tks.to_cfg().cnf.trim().rename(Integerizer()).trim().language(10)
-    #for x in tmp:
-    #    print(tmp[x], x)
+    # check that lark's token sequence is in the transducer's language
+    tmp = tks.to_cfg().renumber().cnf.language(10)
 
     target = tuple(t.type for t in tokens)
     assert target in tmp
@@ -53,8 +48,7 @@ def test_parsing_basics():
     text = 'SELECT state_color FROM data </s>'
     tokens = list(lark_stuff.lex(text))
 
-    intern = Integerizer()   # rename nonterminals to integers
-    g = lark_stuff.convert().rename(intern)
+    g = lark_stuff.convert().renumber()
     assert g.in_cnf()    # lark returns a grammar in CNF
 
 
@@ -70,6 +64,40 @@ def test_parsing_basics():
 #    i = 4
 #    token_class = lark_stuff.terminals[i]
 #    m = greenery_to_fsa(regex_to_greenery(token_class.pattern.to_regexp()))
+
+
+def test_char_level_cfg():
+    lark_stuff = LarkStuff(grammar1)
+
+    # this grammar is kind of silly - it requires a space at the front of the string
+    text = 'SELECT state_color FROM data </s>'
+
+    #tokens = list(lark_stuff.lex(text))
+    #print(lark_stuff.parser.parse(tokens, 'start'))
+
+    cfg = lark_stuff.char_cfg(.1)
+
+    #print(len(cfg.trim()))
+    #print(len(cfg.cnf))
+
+    assert cfg(text) > 0
+
+    import numpy as np
+    from genparse import CFGLM, add_EOS, locally_normalize
+    from genparse.util import normalize
+    lm = CFGLM(add_EOS(locally_normalize(cfg, tol=1e-40, maxiter=np.inf)))
+
+    p = normalize(lm.p_next('SELECT state_color FROM '))
+    print(p)
+    p.assert_equal({'d': 1})
+
+    p = normalize(lm.p_next('S'))
+    print(p)
+    p.assert_equal({'E': 1})
+
+    p = normalize(lm.p_next('SELECT '))
+    print(p)
+    assert p.argmax() == '*'
 
 
 if __name__ == '__main__':

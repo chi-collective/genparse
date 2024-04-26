@@ -7,6 +7,7 @@ from path import Path
 from collections import Counter
 from contextlib import contextmanager
 from itertools import chain, combinations
+from functools import cached_property
 from time import time
 from IPython.display import display, SVG, Image, HTML, Latex
 
@@ -14,12 +15,34 @@ from IPython.display import display, SVG, Image, HTML, Latex
 class hf_tokenizer:
     def __init__(self, name='gpt2'):
         from transformers import AutoTokenizer
-        from genparse import FST, EPSILON, Float
         self.tokenizer = AutoTokenizer.from_pretrained(name)
         self.pairs = [(i, self.tokenizer.decode([i]))
                       for i in range(self.tokenizer.vocab_size)]
-        #self.fst = FST.from_pairs(self.pairs, Float).star()
-        self.fst = bpe_wfst(self.pairs)
+        
+    @cached_property
+    def fst(self):
+        return bpe_wfst(self.pairs)
+
+
+# Warning: untested
+#class hf_tokenizer_codellama:
+#    def __init__(self):
+#        from transformers import AutoTokenizer
+#        model_name = "codellama/CodeLlama-7b-Instruct-hf"
+#        self.tokenizer = AutoTokenizer.from_pretrained(
+#            model_name,
+#            use_fast=True,
+#            prefix_token=None,
+#            middle_token=None,
+#            suffix_token=None,
+#            eot_token=None,
+#            fill_token=None,
+#        )
+#        self.pairs = [(i, tokenizer.decode([i])) for i in range(self.tokenizer.vocab_size)]
+#
+#    @cached_property
+#    def fst(self):
+#        return bpe_wfst(self.pairs)
 
 
 def normalize(p):
@@ -105,12 +128,13 @@ def show_grammar(cfg_t, chart=None, showzero=False):
     return HTML(''.join(lines))
 
 
+# TODO: should this method be factored into a method that builds the set of pairs followed 
+# by a call to kleene star of the transducer?
 def bpe_wfst(S):
     """
     Create a transducer relating strings of BPE token ids to their associated strings
     """
-    from genparse import Float
-    from genparse.fst import FST, EPSILON
+    from genparse import Float, FST, EPSILON
     m = FST(Float)
     START = 0
     STOP = 1
@@ -121,7 +145,7 @@ def bpe_wfst(S):
             m.add_arc((i,j), (EPSILON, x[j]), (i,j+1), 1)
         m.add_arc((i,len(x)), (EPSILON, EPSILON), STOP, 1)
     m.add_F(STOP, 1)
-    m.add_arc(STOP, (EPSILON, EPSILON), START, 1)   # decay
+    m.add_arc(STOP, (EPSILON, EPSILON), START, 1)
     return m.renumber
 
 
