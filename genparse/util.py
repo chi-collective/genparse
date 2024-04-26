@@ -1,6 +1,7 @@
 import re
 import sys
 import nltk
+import html
 import numpy as np
 from path import Path
 from collections import Counter
@@ -19,6 +20,14 @@ class hf_tokenizer:
                       for i in range(self.tokenizer.vocab_size)]
         #self.fst = FST.from_pairs(self.pairs, Float).star()
         self.fst = bpe_wfst(self.pairs)
+
+
+def normalize(p):
+    Z = sum(p[x] for x in p)
+    q = p.copy()
+    for x in q:
+        q[x] /= Z
+    return q
 
 
 def bpe2term_approx(tokenizer, bpe):
@@ -112,7 +121,7 @@ def bpe_wfst(S):
             m.add_arc((i,j), (EPSILON, x[j]), (i,j+1), 1)
         m.add_arc((i,len(x)), (EPSILON, EPSILON), STOP, 1)
     m.add_F(STOP, 1)
-    m.add_arc(STOP, (EPSILON, EPSILON), START, .1)   # decay
+    m.add_arc(STOP, (EPSILON, EPSILON), START, 1)   # decay
     return m.renumber
 
 

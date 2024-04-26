@@ -12,7 +12,7 @@ from . import Chart
 from .semiring import Float
 
 
-def locally_normalize(self):
+def locally_normalize(self, **kwargs):
     """
     Locally normalizes the grammar: return a transformed grammar such that
 
@@ -23,7 +23,7 @@ def locally_normalize(self):
 
     """
     new = self.spawn()
-    Z = self.agenda()
+    Z = self.agenda(**kwargs)
     for r in self:
         if Z[r.head] == 0: continue
         new.add(r.w * Z.product(r.body) / Z[r.head], r.head, *r.body)

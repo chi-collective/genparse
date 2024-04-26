@@ -730,12 +730,12 @@ class CFG:
         R = defaultdict(set)   # rules indexed by first subgoal; non-nullary
 
         special_rules = (
-            [Rule(self.R.one, a, (EPSILON, a)) for a in self.V ]
+            [Rule(self.R.one, a, (EPSILON, a)) for a in self.V]
             + [Rule(self.R.one, Other(self.S), (self.S,)),
                Rule(self.R.one, Other(self.S), (Other(self.S), EPSILON))]
         )
 
-        for r in itertools.chain(self,special_rules):
+        for r in itertools.chain(self, special_rules):
             if len(r.body) > 0:
                 R[r.body[0]].add(r)
 
