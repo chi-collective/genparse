@@ -42,10 +42,10 @@ class CheckParticles:
     def __init__(self, lm1, lm2, MAX_LENGTH):
         # Create a reference distribution for the global product of experts by
         # materializing the distrbution over strings up to a maximum length
-        self.p1 = normalize(lm1.cfg.cnf.language(MAX_LENGTH))
-        self.p2 = normalize(lm2.cfg.cnf.language(MAX_LENGTH))
-        self.target = normalize(Counter({x: self.p1[x] * self.p2[x] for x in self.p1
-                                         if len(x) <= MAX_LENGTH}))
+        self.p1 = lm1.cfg.cnf.language(MAX_LENGTH).normalize()
+        self.p2 = lm2.cfg.cnf.language(MAX_LENGTH).normalize()
+        self.target = Float.chart({x: self.p1[x] * self.p2[x] for x in self.p1
+                                   if len(x) <= MAX_LENGTH}).normalize()
 
     def check(self, particles):
         n_particles = len(particles)

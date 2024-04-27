@@ -4,7 +4,7 @@ from collections import Counter
 from arsenal import colors
 from arsenal.maths import compare
 
-from genparse.steer import LocalProduct, run, normalize
+from genparse.steer import LocalProduct, run
 from genparse.align import pullback
 from genparse.cfglm import Float, CFG, CFGLM, add_EOS, explode
 from genparse.lm import AutoTokenizer, AutoModelForCausalLM, NoCacheGPT, TokenGPT2

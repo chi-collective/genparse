@@ -18,7 +18,7 @@ class hf_tokenizer:
         self.tokenizer = AutoTokenizer.from_pretrained(name)
         self.pairs = [(i, self.tokenizer.decode([i]))
                       for i in range(self.tokenizer.vocab_size)]
-        
+
     @cached_property
     def fst(self):
         return bpe_wfst(self.pairs)
@@ -128,7 +128,7 @@ def show_grammar(cfg_t, chart=None, showzero=False):
     return HTML(''.join(lines))
 
 
-# TODO: should this method be factored into a method that builds the set of pairs followed 
+# TODO: should this method be factored into a method that builds the set of pairs followed
 # by a call to kleene star of the transducer?
 def bpe_wfst(S):
     """
@@ -184,16 +184,16 @@ class LarkStuff:
         m.add_I(START, 1)
         m.add_F(STOP, decay)
 
-        m.add_arc(STOP, (EPSILON, EPSILON), START, decay)
+        m.add_arc(STOP, (EPSILON, EPSILON), START, 1)
 
         for id, token_class in enumerate(self.terminals):
             #print('>>>', id, token_class)
             fsm = regex_to_greenery(token_class.pattern.to_regexp(), **kwargs)
 
-            m.add_arc(START, (EPSILON, token_class.name), (id, fsm.initial), decay)
+            m.add_arc(START, (EPSILON, token_class.name), (id, fsm.initial), 1)
 
             for final_state in fsm.finals:
-                m.add_arc((id, final_state), (EPSILON, EPSILON), STOP, decay)
+                m.add_arc((id, final_state), (EPSILON, EPSILON), STOP, 1)
 
             dead = {i for i in fsm.states if not fsm.islive(i)}
             for state in fsm.states:
@@ -207,15 +207,12 @@ class LarkStuff:
 
     def convert(self):
         "Convert the lark grammar into a `genparse.CFG` grammar."
-        from genparse import CFG, Rule
-        from genparse.cfglm import Float
-        terminals = [t.name for t in self.terminals]
+        from genparse import CFG, Rule, Float
         rules = [Rule(1, r.lhs.name, tuple(y.name for y in r.rhs)) for r in self.rules]
-        lhs_count_dict = Counter([r.head for r in rules])
-        rules = [normalize_rule(r, lhs_count_dict) for r in rules]
-        cfg = CFG(R=Float, S="start", V=set(terminals))
+        lhs_count = Counter([r.head for r in rules])
+        cfg = CFG(R=Float, S="start", V={t.name for t in self.terminals})
         for r in rules:
-            cfg.add(r.w, r.head, *r.body)
+            cfg.add(1/lhs_count[r.head], r.head, *r.body)
         return cfg.renumber()
 
     def char_cfg(self, decay):
@@ -242,20 +239,17 @@ class LarkStuff:
 
         return foo
 
-    def simple_tokenizer(self, text):
-        """
-        This is a very simple DIY tokenizer. That uses Python's `re` library.
-        """
-        # The regex pattern to match any of the tokens
-        token_regex = '|'.join(f'(?P<{t.name}>{t.pattern.value})'
-                               for t in sorted(self.terminals,
-                                               key=lambda t: -t.priority))
-
-        for match in re.finditer(token_regex, text):
-            token_type = match.lastgroup
-            token_value = match.group()
-            if token_type not in self.ignores:
-                yield token_type, token_value
+#    def simple_tokenizer(self, text):
+#        "simple DIY prioritized tokenizer; uses Python's `re` library."
+#        # The regex pattern to match any of the tokens
+#        token_regex = '|'.join(f'(?P<{t.name}>{t.pattern.value})'
+#                               for t in sorted(self.terminals,
+#                                               key=lambda t: -t.priority))
+#        for match in re.finditer(token_regex, text):
+#            token_type = match.lastgroup
+#            token_value = match.group()
+#            if token_type not in self.ignores:
+#                yield token_type, token_value
 
 
 def regex_to_greenery(regex, ignore = ''):
@@ -318,11 +312,6 @@ def greenery_to_wfsa(fsm, decay=.99, name=lambda x: x):
                 m.add_arc(name(state), char, name(next_state), decay / K)
 
     return m
-
-
-def normalize_rule(rule, lhs_count_dict):
-    rule.w = 1.0 / lhs_count_dict[rule.head]
-    return rule
 
 
 def format_table(rows, headings=None):

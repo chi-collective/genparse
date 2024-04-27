@@ -58,7 +58,7 @@ class Chart(dict):
         return (
             'Chart {\n' +
             '\n'.join(
-                f'  {k}: {style_value(k, self[k])},' for k in sorted(self, key=key) if self[k] != self.semiring.zero
+                f'  {k!r}: {style_value(k, self[k])},' for k in sorted(self, key=key) if self[k] != self.semiring.zero
             )
             + '\n}'
         )
@@ -91,3 +91,7 @@ class Chart(dict):
 
     def sum(self):
         return sum(self.values())
+
+    def normalize(self):
+        Z = self.sum()
+        return self.semiring.chart((x, v/Z) for x, v in self.items())
