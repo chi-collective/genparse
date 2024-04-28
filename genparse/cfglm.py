@@ -33,16 +33,17 @@ def locally_normalize(self, **kwargs):
 class CFGLM:
 
     def __init__(self, cfg):
-        self.cfg = cfg
-        self.pfg = cfg.cnf.prefix_grammar.cnf
+        self.cfg = cfg.renumber()
+        self.pfg = cfg.cnf.prefix_grammar.cnf.renumber().cnf
 
     @lru_cache(None)
     def chart(self, prefix):
         if len(prefix) == 0:
-            return self.pfg._parse_chart([])
+            return [self.pfg._parse_chart([])]
         else:
             chart = self.chart(prefix[:-1])
-            return extend_chart(self.pfg, chart, prefix)
+            last_chart = extend_chart(self.pfg, chart, prefix)
+            return chart + [last_chart]    # TODO: avoid list addition here as it is not constant time!
 
     @lru_cache(None)
     def p_next(self, prefix):
@@ -76,9 +77,10 @@ def next_token_weights(cfg, chart, prefix):
     for span in reversed(range(1, k + 1)):
         i = k - span
         for j in range(i + 1, k):
+            chart_j = chart[j]
             for r in binary:
                 X, [Y, Z] = r.head, r.body
-                α[j, Z] += r.w * chart[i, Y, j] * α[i, X]
+                α[j, Z] += r.w * chart_j[i, Y] * α[i, X]
 
     # Preterminal
     q = cfg.R.chart()
@@ -86,7 +88,7 @@ def next_token_weights(cfg, chart, prefix):
         for r in terminal[w]:
             q[w] += r.w * α[k-1, r.head]
 
-    return Chart(cfg.R, q)
+    return q
 
 
 def extend_chart(cfg, chart, s):
@@ -98,26 +100,25 @@ def extend_chart(cfg, chart, s):
 
     (nullary, terminal, binary) = cfg._cnf
 
-    # TODO: This is an unnecessarily expensive O(N^2) copy operation. We can
-    # speed it up by representing the chart as an end-position-indexed
-    # collection of sub-charts.
-    c = chart.copy()
+    new = cfg.R.chart()
 
     # Nullary
-    c[k, cfg.S, k] += nullary
+    new[k, cfg.S] += nullary
 
     # Preterminal
     for r in terminal[s[k-1]]:
-        c[k-1, r.head, k] += r.w
+        new[k-1, r.head] += r.w
 
     # Binary rules
     for span in range(1, k+1):
         i = k - span
         for j in range(i + 1, k):
+            chart_j = chart[j]
             for r in binary:
                 X, [Y, Z] = r.head, r.body
-                c[i, X, k] += r.w * c[i, Y, j] * c[j, Z, k]
-    return c
+                new[i, X] += r.w * chart_j[i, Y] * new[j, Z]
+
+    return new
 
 
 # TODO: Make the token-id sequences available as well as the character

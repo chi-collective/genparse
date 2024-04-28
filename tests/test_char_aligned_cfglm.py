@@ -69,7 +69,14 @@ def test_basic_aligned_model():
 #            distinct.add(ys)
 
 
-# initial version (best of several runs) 16.7135 sec
+# Optimizations:
+#
+# initial version (best of several runs)  16.7135 sec
+#
+# using integers for nonterminals:        14.4915 sec;  1.15x faster
+#
+# using lists of charts to avoid copying: 13.0670 sec;  1.1x faster
+
 
 if __name__ == '__main__':
     from arsenal import testing_framework
