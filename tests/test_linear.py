@@ -25,8 +25,8 @@ def test_closure():
     #c.show()
     assert c.max_err <= 1e-8
 
-    # dry run
-    G.graphviz()
+    # dry run of visualization methods
+    G._repr_svg_()
 
 
 if __name__ == '__main__':
