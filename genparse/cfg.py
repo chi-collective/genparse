@@ -1,7 +1,5 @@
 import re
 import nltk
-import numpy as np
-import graphviz
 import itertools
 
 from arsenal import Integerizer, colors
@@ -12,8 +10,7 @@ from itertools import product
 from .chart import Chart
 from .fst import FST
 from .linear import WeightedGraph
-from .semiring import Semiring, Boolean
-from .util import format_table
+from .semiring import Boolean
 from .wfsa import EPSILON
 
 
@@ -146,7 +143,7 @@ class CFG:
                     if is_terminal(x):
                         V.add(x)
                 cfg.add(semiring.from_string(w), lhs, *rhs)
-            except ValueError as e:
+            except ValueError:
                 raise ValueError(f'bad input line:\n{line}')
         return cfg
 
@@ -262,7 +259,7 @@ class CFG:
             f'\n\nhave=\n{str(self)}\nwant=\n{str(other)}'
 
     def treesum(self, **kwargs):
-        return self.agenda()[self.S]
+        return self.agenda(**kwargs)[self.S]
 
     @lru_cache(None)
     def trim(self, bottomup_only=False):
@@ -557,7 +554,6 @@ class CFG:
         s = self.rules[i]
         assert self.is_nonterminal(s.body[k])
 
-        wp = self.R.zero
         new = self.spawn()
         for j, r in enumerate(self):
             if j != i:
@@ -578,7 +574,7 @@ class CFG:
 
     # TODO: the default treesum algorithm should probably be SCC-decomposed newton's method
     def agenda(self, tol=1e-12, maxiter=100_000):
-#    def agenda(self, tol=1e-12, maxiter=np.inf):
+#    def agenda(self, tol=1e-12, maxiter=float('inf')):
         "Agenda-based semi-naive evaluation"
         old = self.R.chart()
 
@@ -737,8 +733,8 @@ class CFG:
         # we have two base cases:
         #
         # base case 1: arcs
-        for i, (a,b), j, w in fst.arcs():
-            A.add((i, a, (), j)) #The empty tuple is to mark that the rule body is complete
+        for i, (a, _), j, _ in fst.arcs():
+            A.add((i, a, (), j))   # empty tuple -> the rule 'complete'
 
         # base case 2: nullary rules
         for r in self:

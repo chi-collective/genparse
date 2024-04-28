@@ -4,7 +4,9 @@ from genparse import Float, CFG, CFGLM
 from genparse.steer import LocalProduct, run
 from genparse.align import pullback
 from genparse.cfglm import explode
-from genparse.lm import AutoTokenizer, AutoModelForCausalLM, NoCacheGPT, TokenGPT2
+from genparse.lm import NoCacheGPT, TokenGPT2
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 
 # TODO: this doesn't have an actual test, so it is just a test of the interface

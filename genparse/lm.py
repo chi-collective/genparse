@@ -8,9 +8,6 @@ from functools import lru_cache
 from collections import Counter
 
 import torch
-import torch.nn.functional as F
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
 
 # TODO: be careful with log probs vs probs vs weights vs log weights.
 

@@ -1,12 +1,8 @@
-import numpy as np
-
-from arsenal import colors
 from collections import defaultdict
-from functools import lru_cache, cached_property
-from time import time
+from functools import cached_property
 from itertools import zip_longest
 
-from genparse import Boolean
+from genparse.semiring import Boolean
 from genparse.wfsa import WFSA, EPSILON
 
 
@@ -170,13 +166,13 @@ class FST(WFSA):
         # add initial states
         for P, w1 in self.I:
             for Q, w2 in other.I:
-                 PQ = (P, Q)
+                PQ = (P, Q)
 
-                 if not keep(PQ): continue
+                if not keep(PQ): continue
 
-                 C.add_I(PQ, w1 * w2)
-                 visited.add(PQ)
-                 stack.append(PQ)
+                C.add_I(PQ, w1 * w2)
+                visited.add(PQ)
+                stack.append(PQ)
 
         # traverse the machine using depth-first search
         while stack:

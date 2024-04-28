@@ -1,6 +1,6 @@
 from arsenal import colors
 from arsenal.maths import sample_dict
-from collections import Counter, defaultdict, deque
+from collections import Counter, deque
 
 from genparse import Float, Chart, EOS
 from genparse.cfglm import SPACER

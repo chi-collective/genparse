@@ -2,16 +2,12 @@
 Language model steering methods
 """
 import numpy as np
-import pandas as pd
 import asyncio
 import warnings
 
-from arsenal import colors
 from arsenal.maths import sample_dict
-
 from functools import lru_cache
 
-from genparse import CFG, Chart
 from genparse.lm import LM
 from genparse.cfglm import EOS
 from genparse.inference import importance_sampling, smc_steer

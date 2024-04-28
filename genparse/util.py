@@ -1,15 +1,7 @@
-import re
-import sys
-import nltk
 import html
-import numpy as np
-from path import Path
 from collections import Counter
-from contextlib import contextmanager
-from itertools import chain, combinations
 from functools import cached_property
-from time import time
-from IPython.display import display, SVG, Image, HTML, Latex
+from IPython.display import display, HTML
 
 
 class hf_tokenizer:
@@ -86,7 +78,6 @@ def template(main, annotation):
 </div>
 """
 
-def fmt(x): return repr(x)[1:-1] if isinstance(x, str) else repr(x)
 
 def show_grammar(cfg_t, chart=None, showzero=False):
     """Fancier pretty-printing the grammar.
@@ -103,6 +94,8 @@ def show_grammar(cfg_t, chart=None, showzero=False):
     """
     if chart is None:
         chart = cfg_t.agenda(maxiter=1000)
+
+    def fmt(x): return repr(x)[1:-1] if isinstance(x, str) else repr(x)
 
     def format_tokens(tokens):
         if len(tokens) == 0: return template('ε', cfg_t.R.one)
@@ -216,7 +209,7 @@ class LarkStuff:
         return cfg.renumber()
 
     def char_cfg(self, decay):
-        from genparse import CFG, Rule, Float
+        from genparse import CFG, Float
 
         cfg = self.convert()
 
@@ -326,7 +319,7 @@ def format_table(rows, headings=None):
     return (
         '<table>'
          + ('<tr style="font-weight: bold;">' + ''.join(f'<td>{x}</td>' for x in headings) +'</tr>' if headings else '')
-         + ''.join(f'<tr>' + ''.join(f'<td>{fmt(x)}</td>' for x in row) +  ' </tr>' for row in rows)
+         + ''.join('<tr>' + ''.join(f'<td>{fmt(x)}</td>' for x in row) +  ' </tr>' for row in rows)
          + '</table>'
     )
 

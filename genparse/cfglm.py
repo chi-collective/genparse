@@ -2,13 +2,12 @@
 Fast computation of the posterior distrubtion over the next word in a WCFG language model.
 """
 
-import numpy as np
 from arsenal import colors
 from arsenal.maths import sample_dict
-from collections import Counter, defaultdict
+from collections import defaultdict
 from functools import lru_cache
 
-from .cfg import CFG, _gen_nt
+from .cfg import _gen_nt
 
 
 def locally_normalize(self, **kwargs):
@@ -75,8 +74,8 @@ def next_token_weights(cfg, chart, prefix):
     """
     k = len(prefix) + 1
 
-    (nullary, terminal, binary) = cfg._cnf
-    r_y_xz = cfg.r_y_xz    # TODO: this is a quick hack
+    (_, terminal, _) = cfg._cnf
+    r_y_xz = cfg.r_y_xz
 
     # the code below is just backprop / outside algorithm
     α = defaultdict(lambda: cfg.R.chart())
@@ -93,7 +92,7 @@ def next_token_weights(cfg, chart, prefix):
             for Y, Y_score in chart_ij.items():
                 for r in r_y_xz[Y]:
                     X, [Y, Z] = r.head, r.body
-                    α_j[Z] += r.w * chart_ij[Y] * α_i[X]
+                    α_j[Z] += r.w * Y_score * α_i[X]
 
     # Preterminal
     q = cfg.R.chart()
@@ -112,7 +111,7 @@ def extend_chart(cfg, chart, s):
     """
     k = len(s)
 
-    (nullary, terminal, binary) = cfg._cnf
+    (nullary, terminal, _) = cfg._cnf
     r_y_xz = cfg.r_y_xz
 
     new = defaultdict(lambda: cfg.R.chart())
@@ -190,7 +189,7 @@ class CharAlignedCFGLM:
             yield from self.traverse_trie(context + x, node[x], P_x)
 
     # TODO: test equivalence of `traverse_trie` and `traverse_naive`.
-    def traverse_naive(self, context, node, P):
+    def traverse_naive(self, context, P):
         for x in self.words:
             p = self.lm.pfg(context + x)
             P_x = P * p

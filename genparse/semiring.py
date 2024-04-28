@@ -1,5 +1,4 @@
 import numpy as np
-from collections import Counter
 from genparse.chart import Chart
 
 
