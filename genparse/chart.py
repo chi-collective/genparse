@@ -67,15 +67,16 @@ class Chart(dict):
         if not isinstance(want, Chart): want = self.semiring.chart(want)
         if domain is None: domain = self.keys() | want.keys()
         assert verbose or throw
+        errors = []
         for x in domain:
             if self.semiring.metric(self[x], want[x]) <= tol:
-                if verbose:
-                    print(colors.mark(True), x, self[x])
+                if verbose: print(colors.mark(True), x, self[x])
             else:
-                if verbose:
-                    print(colors.mark(False), x, self[x], want[x])
-                if throw:
-                    raise AssertionError(f'{x}: {self[x]} {want[x]}')
+                if verbose: print(colors.mark(False), x, self[x], want[x])
+                errors.append(x)
+        if throw:
+            for x in errors:
+                raise AssertionError(f'{x}: {self[x]} {want[x]}')
 
     def argmax(self):
         return max(self, key=self.__getitem__)

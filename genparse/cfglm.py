@@ -120,6 +120,76 @@ def extend_chart(cfg, chart, s):
     return c
 
 
+class CharAlignedCFGLM:
+    """
+    This class implements a simple strategy for "aligning" a character-level 
+    CFG language model to a vocabulary of character chunks, such as those
+    used in the common byte-pair encoding (BPE) schemes of large language models.
+    """
+
+    def __init__(self, lm, words, eos):
+
+        # TODO: Correctly handle the possibility that the word model and lm may
+        # have different EOS symbols. To accomodate this, we just we need
+        # something that converts them that they don't have to be equal strings.
+        # This will just amount to some special cases.
+        assert eos in words
+
+        self.lm = lm
+        self.words = words
+        self.eos = eos
+        self._end = object()
+        self.trie = self.make_trie(words)
+
+    def make_trie(self, words):
+        root = dict()
+        for word in words:
+            curr = root
+            for letter in word:
+                curr = curr.setdefault(letter, {})
+            curr[self._end] = self._end
+        return root
+
+    def p_next(self, context):
+        t = len(context)
+        return Float.chart(
+            # strip the common length-t prefix
+            (k[t:], v) for k,v in self.traverse_trie(context, self.trie, 1)
+        )
+
+    def traverse_trie(self, context, node, P):
+        p = self.lm.p_next(context)
+        for x in node.keys():
+            if x == self._end:
+                yield (context, P)
+                continue
+            P_x = P * p[x]
+            if P_x == 0: continue
+            yield from self.traverse_trie(context + x, node[x], P_x)
+
+    def traverse_naive(self, context, node, P):
+        for x in self.words:
+            p = self.lm.pfg(context + x)
+            P_x = P * p
+            if P_x == 0: continue
+            yield (context + x, P_x)
+
+    def sample(self, draw=sample_dict, verbose=False):
+        context = ''
+        while True:
+            if verbose: print(repr(context))
+            p = Float.chart(self.p_next(context))
+            y = draw(p)
+            if y == self.eos: break
+            context += y
+            # TODO: this is an ugly hack the arises from sloppy handling of EOS.
+            # To handle this cleanly we just need to align the EOS in the LM and
+            # the EOS in words.
+            if context.endswith('</s>'): break
+        if verbose: print(repr(context))
+        return context
+
+
 #EOS = '$EOS'
 #EOS = '🛑'
 EOS = '▪'
