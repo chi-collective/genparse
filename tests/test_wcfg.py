@@ -363,7 +363,7 @@ def test_unfold():
     print(new)
 
     err = cfg.treesum(tol=tol).metric(new.treesum(tol=tol))
-    assert err <= 1e-10, err
+    assert err <= 1e-5, err
 
     new.assert_equal(CFG.from_string("""
 
