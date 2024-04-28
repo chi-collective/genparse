@@ -25,6 +25,8 @@ def test_closure():
     #c.show()
     assert c.max_err <= 1e-8
 
+    # dry run
+    G.graphviz()
 
 
 if __name__ == '__main__':

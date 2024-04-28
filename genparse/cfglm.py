@@ -3,13 +3,12 @@ Fast computation of the posterior distrubtion over the next word in a WCFG langu
 """
 
 import numpy as np
-from functools import lru_cache
-from collections import Counter, defaultdict
+from arsenal import colors
 from arsenal.maths import sample_dict
+from collections import Counter, defaultdict
+from functools import lru_cache
 
 from .cfg import CFG, _gen_nt
-from . import Chart
-from .semiring import Float
 
 
 def locally_normalize(self, **kwargs):
@@ -33,9 +32,11 @@ def locally_normalize(self, **kwargs):
 class CFGLM:
 
     def __init__(self, cfg):
+        if EOS not in cfg.V: cfg = add_EOS(cfg)
         self.cfg = cfg.renumber()
         self.pfg = cfg.cnf.prefix_grammar.cnf.renumber().cnf
 
+        # TODO: this is is a quick hack; clean this up.
         self.pfg.r_y_xz = r_y_xz = defaultdict(list)
         for r in self.pfg._cnf[2]:  # binary rules
             r_y_xz[r.body[0]].append(r)
@@ -173,7 +174,7 @@ class CharAlignedCFGLM:
 
     def p_next(self, context):
         t = len(context)
-        return Float.chart(
+        return self.lm.cfg.R.chart(
             # strip the common length-t prefix
             (k[t:], v) for k,v in self.traverse_trie(context, self.trie, 1)
         ).normalize()
@@ -188,6 +189,7 @@ class CharAlignedCFGLM:
             if P_x == 0: continue
             yield from self.traverse_trie(context + x, node[x], P_x)
 
+    # TODO: test equivalence of `traverse_trie` and `traverse_naive`.
     def traverse_naive(self, context, node, P):
         for x in self.words:
             p = self.lm.pfg(context + x)
@@ -260,3 +262,19 @@ def explode(cfg):
                 ys.append(y)
         new.add(r.w, r.head, *ys)
     return new
+
+
+def pcfg_check(cfg):
+    chart = cfg.agenda()
+    if all((0 <= v <= 1.000001) for v in chart.values()):
+        print(colors.mark(True), 'PCFG')
+    else:
+        print(colors.mark(False), 'PCFG', chart.__str__(style_value=lambda k, v: v if abs(1 - v) <= 1e-5 else (colors.light.red % v)))
+
+
+def cfg_check_bounded(cfg, ub=1.000001, lb=0):
+    chart = cfg.agenda()
+    if all((0 <= v <= 1.000001) for v in chart.values()):
+        print(colors.mark(True), 'PCFG')
+    else:
+        print(colors.mark(False), 'PCFG', chart.__str__(style_value=lambda k, v: v if lb <= v <= ub else (colors.light.red % v)))

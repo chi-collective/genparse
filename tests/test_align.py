@@ -1,12 +1,9 @@
 import pandas as pd
-import numpy as np
-from collections import Counter
-from arsenal import colors
-from arsenal.maths import compare
 
+from genparse import Float, CFG, CFGLM
 from genparse.steer import LocalProduct, run
 from genparse.align import pullback
-from genparse.cfglm import Float, CFG, CFGLM, add_EOS, explode
+from genparse.cfglm import explode
 from genparse.lm import AutoTokenizer, AutoModelForCausalLM, NoCacheGPT, TokenGPT2
 
 

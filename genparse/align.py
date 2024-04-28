@@ -2,9 +2,8 @@ from arsenal import colors
 from arsenal.maths import sample_dict
 from collections import Counter, defaultdict, deque
 
-from genparse.chart import Chart
-from genparse.cfglm import Float, EOS, SPACER
-
+from genparse import Float, Chart, EOS
+from genparse.cfglm import SPACER
 from genparse.steer import normalize
 
 ERROR = '💥'

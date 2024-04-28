@@ -1,11 +1,9 @@
 import pandas as pd
 import numpy as np
-from collections import Counter
 from arsenal import colors
-from arsenal.maths import compare
 
-from genparse.steer import LocalProduct, run, normalize
-from genparse.cfglm import Float, CFG, CFGLM, add_EOS, explode
+from genparse import CFG, CFGLM, Float
+from genparse.steer import run
 
 
 MAX_LENGTH = 10
@@ -50,10 +48,10 @@ class CheckParticles:
     def check(self, particles):
         n_particles = len(particles)
 
-        w = Counter()
+        w = Float.chart()
         for p in particles:
             w[tuple(p.ys)] += np.exp(p.weight)
-        empirical = normalize(w)
+        empirical = w.normalize()
 
         df = []
         for x in self.p1 | self.p2 | empirical:
@@ -68,7 +66,6 @@ class CheckParticles:
 
         print('total variation:', abs(df.target - df.empirical).sum() / 2)
 
-        #compare(target, empirical)#.show()
         return df
 
 
@@ -86,20 +83,20 @@ def test_empty():
 
     run_test(
 
-        CFGLM(add_EOS(CFG.from_string("""
+        CFGLM(CFG.from_string("""
 
         0.45: S -> a S a
         0.45: S -> b S b
         0.1: S ->
 
-        """, Float))),
+        """, Float)),
 
-        CFGLM(add_EOS(CFG.from_string("""
+        CFGLM(CFG.from_string("""
 
         0.5: S -> a b S
         0.5: S ->
 
-        """, Float))),
+        """, Float)),
 
     )
 
@@ -108,22 +105,22 @@ def test_finite_finite():
 
     run_test(
 
-        CFGLM(add_EOS(CFG.from_string("""
+        CFGLM(CFG.from_string("""
 
         1: S -> a a a
         1: S -> b b b
         1: S -> b b b b b b b b b
         1: S ->
 
-        """, Float))),
+        """, Float)),
 
-        CFGLM(add_EOS(CFG.from_string("""
+        CFGLM(CFG.from_string("""
 
         2: S -> a a a
         1: S -> b b b b b
         1: S -> b b b b b b b b b
 
-        """, Float))),
+        """, Float)),
     )
 
 
@@ -131,21 +128,21 @@ def test_palindrome_universal():
 
     run_test(
 
-        CFGLM(add_EOS(CFG.from_string("""
+        CFGLM(CFG.from_string("""
 
         0.45: S -> a S a
         0.45: S -> b S b
         0.1: S ->
 
-        """, Float))),
+        """, Float)),
 
-        CFGLM(add_EOS(CFG.from_string("""
+        CFGLM(CFG.from_string("""
 
         0.8: S -> a S
         0.1: S -> b S
         0.1: S ->
 
-        """, Float))),
+        """, Float)),
     )
 
 
@@ -153,15 +150,15 @@ def test_palindrome_finite():
 
     run_test(
 
-        CFGLM(add_EOS(CFG.from_string("""
+        CFGLM(CFG.from_string("""
 
         0.45: S -> a S a
         0.45: S -> b S b
         0.1: S ->
 
-        """, Float))),
+        """, Float)),
 
-        CFGLM(add_EOS(CFG.from_string("""
+        CFGLM(CFG.from_string("""
 
         1: S -> a a a a a a a a
         1: S -> a a a a a a
@@ -169,7 +166,7 @@ def test_palindrome_finite():
         1: S -> a a
         1: S ->
 
-        """, Float))),
+        """, Float)),
     )
 
 

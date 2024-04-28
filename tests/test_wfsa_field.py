@@ -2,6 +2,19 @@ import numpy as np
 from arsenal import colors
 from genparse.wfsa.field_wfsa import WFSA
 
+def test_misc():
+    one = WFSA.one
+    zero = WFSA.zero
+
+    a = WFSA.lift('a', 1)
+    b = WFSA.lift('b', 1)
+    c = WFSA.lift('c', 1)
+
+    M = one + a + a * b + a * b * c
+
+    # dry run
+    M.graphviz()
+    
 
 def test_min():
 

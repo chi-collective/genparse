@@ -176,8 +176,7 @@ class LarkStuff:
         no longer a prioritized or maximum munch semantics to tokenizer.  It is
         probabilistic and the weights are set pretty arbitrarily.
         """
-        from genparse import Float
-        from genparse.fst import FST, EPSILON
+        from genparse import Float, FST, EPSILON
         m = FST(Float)
 
         START = 0
@@ -217,8 +216,7 @@ class LarkStuff:
         return cfg.renumber()
 
     def char_cfg(self, decay):
-        from genparse import CFG, Rule
-        from genparse.cfglm import Float
+        from genparse import CFG, Rule, Float
 
         cfg = self.convert()
 
