@@ -36,31 +36,40 @@ def test_basic_aligned_model():
 
     bpe_lm = CharAlignedCFGLM(lm=lm, words={x for _, x in H.pairs}, eos=H.tokenizer.eos_token)
 
-    p = bpe_lm.p_next('')
-    print(p)
-    assert p.keys() == {'S', 'SE', 'SELECT'}
+    with timeit('took'):
 
-    p = bpe_lm.p_next('SELECT * FROM data')
-    print(p)
-    assert p.keys() == {
-        ' ',
-        ' <',
-        ' </',
-        ' G',
-        ' W',
-        ' O',
-        ' GR',
-        ' WH',
-        ' OR',
-        ' GROUP',
-        ' WHERE',
-        ' ORDER',
-    }
+        p = bpe_lm.p_next('')
+        print(p)
+        assert p.keys() == {'S', 'SE', 'SELECT'}
 
-    with timeit('generate'):
-        ys = bpe_lm.sample(verbose=1)
-    print('sample=', repr(ys))
+        p = bpe_lm.p_next('SELECT * FROM data')
+        print(p)
+        assert p.keys() == {' ', ' <', ' </', ' G', ' W', ' O', ' GR', ' WH', ' OR',
+                            ' GROUP', ' WHERE', ' ORDER'}
 
+        p = bpe_lm.p_next('SELECT age FROM data')
+        print(p)
+        assert p.keys() == {' ', ' <', ' </', ' G', ' W', ' O', ' GR', ' WH', ' OR',
+                            ' GROUP', ' WHERE', ' ORDER'}
+
+#    # Note: We generate the underlying *token* sequences without replacement,
+#    # but the *character* sequences may be repeated (in limited ways).
+#    import random, numpy as np
+#    random.seed(0); np.random.seed(0)
+#    from genparse.inference import TraceSWOR
+#    tracer = TraceSWOR()
+#    distinct = set()
+#    with timeit('took'):
+#        for t in range(100):
+#            if t % 100 == 0: print(t, tracer.root.mass)
+#            with tracer:
+#                ys = bpe_lm.sample(draw=tracer)
+#            if ys not in distinct:
+#                print(ys)
+#            distinct.add(ys)
+
+
+# initial version (best of several runs) 16.7135 sec
 
 if __name__ == '__main__':
     from arsenal import testing_framework

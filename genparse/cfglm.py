@@ -120,9 +120,12 @@ def extend_chart(cfg, chart, s):
     return c
 
 
+# TODO: Make the token-id sequences available as well as the character
+# sequences.  Using the character sequences is useful the CFGLM caching, so we
+# should not dispense with it!
 class CharAlignedCFGLM:
     """
-    This class implements a simple strategy for "aligning" a character-level 
+    This class implements a simple strategy for "aligning" a character-level
     CFG language model to a vocabulary of character chunks, such as those
     used in the common byte-pair encoding (BPE) schemes of large language models.
     """
@@ -155,7 +158,7 @@ class CharAlignedCFGLM:
         return Float.chart(
             # strip the common length-t prefix
             (k[t:], v) for k,v in self.traverse_trie(context, self.trie, 1)
-        )
+        ).normalize()
 
     def traverse_trie(self, context, node, P):
         p = self.lm.p_next(context)
@@ -178,7 +181,7 @@ class CharAlignedCFGLM:
         context = ''
         while True:
             if verbose: print(repr(context))
-            p = Float.chart(self.p_next(context))
+            p = self.p_next(context)
             y = draw(p)
             if y == self.eos: break
             context += y
