@@ -77,7 +77,8 @@ def test_basic_aligned_model():
 #
 # using lists of charts to avoid copying: 13.0670 sec;  1.1x faster
 #
-# left-child loop (in `extend_chart`)      6.0260 sec;  2.16x faster
+# left-child loop in `extend_chart`)       6.0260 sec;  2.2x faster
+# left-child loop in `next_token_weights`  1.6176 sec;  3.7x faster
 #===============================================================================
 
 if __name__ == '__main__':

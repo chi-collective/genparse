@@ -75,6 +75,7 @@ def next_token_weights(cfg, chart, prefix):
     k = len(prefix) + 1
 
     (nullary, terminal, binary) = cfg._cnf
+    r_y_xz = cfg.r_y_xz    # TODO: this is a quick hack
 
     # the code below is just backprop / outside algorithm
     α = defaultdict(lambda: cfg.R.chart())
@@ -83,17 +84,22 @@ def next_token_weights(cfg, chart, prefix):
     # Binary rules
     for span in reversed(range(1, k + 1)):
         i = k - span
-        for j in range(i + 1, k):   # TODO: use the same left-child index
-            chart_j = chart[j]
-            for r in binary:
-                X, [Y, Z] = r.head, r.body
-                α[j][Z] += r.w * chart_j[i][Y] * α[i][X]
+        α_i = α[i]
+        for j in range(i + 1, k):
+            chart_ij = chart[j][i]
+
+            α_j = α[j]
+            for Y, Y_score in chart_ij.items():
+                for r in r_y_xz[Y]:
+                    X, [Y, Z] = r.head, r.body
+                    α_j[Z] += r.w * chart_ij[Y] * α_i[X]
 
     # Preterminal
     q = cfg.R.chart()
+    tmp = α[k-1]
     for w in cfg.V:
         for r in terminal[w]:
-            q[w] += r.w * α[k-1][r.head]
+            q[w] += r.w * tmp[r.head]
 
     return q
 
