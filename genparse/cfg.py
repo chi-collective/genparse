@@ -4,7 +4,7 @@ import numpy as np
 import graphviz
 import itertools
 
-from arsenal import Integerizer
+from arsenal import Integerizer, colors
 from collections import defaultdict, Counter, namedtuple
 from functools import cached_property, lru_cache
 from itertools import product
@@ -13,7 +13,7 @@ from .chart import Chart
 from .fst import FST
 from .linear import WeightedGraph
 from .semiring import Semiring, Boolean
-from .util import colors, format_table
+from .util import format_table
 from .wfsa import EPSILON
 
 
