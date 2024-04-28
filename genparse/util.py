@@ -53,10 +53,11 @@ def normalize(p):
     return q
 
 
-def bpe2term_approx(tokenizer, bpe):
+def bpe2term_approx(tokenizer, bpe_sequence):
+    from genparse import FST, Float
     # approximate the transducer using a single canonical path;
     # UPDATE: the unpruned answer should match this - it's the uncertainty over bpe that's tricky
-    c = tuple(([b], tokenizer.decode([b])) for b in bpe)
+    c = tuple(([b], tokenizer.decode([b])) for b in bpe_sequence)
     tmp = FST.from_pairs([([], '')], Float)
     for pair in c:
         tmp = tmp * FST.from_pairs([pair], Float)

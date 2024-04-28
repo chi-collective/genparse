@@ -4,7 +4,7 @@ Fast computation of the posterior distrubtion over the next word in a WCFG langu
 
 import numpy as np
 from functools import lru_cache
-from collections import Counter
+from collections import Counter, defaultdict
 from arsenal.maths import sample_dict
 
 from .cfg import CFG, _gen_nt
@@ -33,16 +33,24 @@ def locally_normalize(self, **kwargs):
 class CFGLM:
 
     def __init__(self, cfg):
-        self.cfg = cfg
-        self.pfg = cfg.cnf.prefix_grammar.cnf
+        self.cfg = cfg.renumber()
+        self.pfg = cfg.cnf.prefix_grammar.cnf.renumber().cnf
+
+        self.pfg.r_y_xz = r_y_xz = defaultdict(list)
+        for r in self.pfg._cnf[2]:  # binary rules
+            r_y_xz[r.body[0]].append(r)
 
     @lru_cache(None)
     def chart(self, prefix):
         if len(prefix) == 0:
-            return self.pfg._parse_chart([])
+            # TODO: double check this!
+            tmp = [defaultdict(self.pfg.R.chart)]
+            tmp[0][0][self.pfg.S] = self.pfg('')
+            return tmp
         else:
             chart = self.chart(prefix[:-1])
-            return extend_chart(self.pfg, chart, prefix)
+            last_chart = extend_chart(self.pfg, chart, prefix)
+            return chart + [last_chart]    # TODO: avoid list addition here as it is not constant time!
 
     @lru_cache(None)
     def p_next(self, prefix):
@@ -67,26 +75,33 @@ def next_token_weights(cfg, chart, prefix):
     k = len(prefix) + 1
 
     (nullary, terminal, binary) = cfg._cnf
+    r_y_xz = cfg.r_y_xz    # TODO: this is a quick hack
 
     # the code below is just backprop / outside algorithm
-    α = cfg.R.chart()
-    α[0, cfg.S] += cfg.R.one
+    α = defaultdict(lambda: cfg.R.chart())
+    α[0][cfg.S] += cfg.R.one
 
     # Binary rules
     for span in reversed(range(1, k + 1)):
         i = k - span
+        α_i = α[i]
         for j in range(i + 1, k):
-            for r in binary:
-                X, [Y, Z] = r.head, r.body
-                α[j, Z] += r.w * chart[i, Y, j] * α[i, X]
+            chart_ij = chart[j][i]
+
+            α_j = α[j]
+            for Y, Y_score in chart_ij.items():
+                for r in r_y_xz[Y]:
+                    X, [Y, Z] = r.head, r.body
+                    α_j[Z] += r.w * chart_ij[Y] * α_i[X]
 
     # Preterminal
     q = cfg.R.chart()
+    tmp = α[k-1]
     for w in cfg.V:
         for r in terminal[w]:
-            q[w] += r.w * α[k-1, r.head]
+            q[w] += r.w * tmp[r.head]
 
-    return Chart(cfg.R, q)
+    return q
 
 
 def extend_chart(cfg, chart, s):
@@ -97,27 +112,103 @@ def extend_chart(cfg, chart, s):
     k = len(s)
 
     (nullary, terminal, binary) = cfg._cnf
+    r_y_xz = cfg.r_y_xz
 
-    # TODO: This is an unnecessarily expensive O(N^2) copy operation. We can
-    # speed it up by representing the chart as an end-position-indexed
-    # collection of sub-charts.
-    c = chart.copy()
+    new = defaultdict(lambda: cfg.R.chart())
 
     # Nullary
-    c[k, cfg.S, k] += nullary
+    new[k][cfg.S] += nullary
 
     # Preterminal
     for r in terminal[s[k-1]]:
-        c[k-1, r.head, k] += r.w
+        new[k-1][r.head] += r.w
 
     # Binary rules
     for span in range(1, k+1):
         i = k - span
+        new_i = new[i]
         for j in range(i + 1, k):
-            for r in binary:
-                X, [Y, Z] = r.head, r.body
-                c[i, X, k] += r.w * c[i, Y, j] * c[j, Z, k]
-    return c
+            chart_ij = chart[j][i]
+            new_j = new[j]
+            for Y, Y_score in chart_ij.items():
+                for r in r_y_xz[Y]:
+                    X, [Y, Z] = r.head, r.body
+                    new_i[X] += r.w * Y_score * new_j[Z]
+
+    return new
+
+
+# TODO: Make the token-id sequences available as well as the character
+# sequences.  Using the character sequences is useful the CFGLM caching, so we
+# should not dispense with it!
+class CharAlignedCFGLM:
+    """
+    This class implements a simple strategy for "aligning" a character-level
+    CFG language model to a vocabulary of character chunks, such as those
+    used in the common byte-pair encoding (BPE) schemes of large language models.
+    """
+
+    def __init__(self, lm, words, eos):
+
+        # TODO: Correctly handle the possibility that the word model and lm may
+        # have different EOS symbols. To accomodate this, we just we need
+        # something that converts them that they don't have to be equal strings.
+        # This will just amount to some special cases.
+        assert eos in words
+
+        self.lm = lm
+        self.words = words
+        self.eos = eos
+        self._end = object()
+        self.trie = self.make_trie(words)
+
+    def make_trie(self, words):
+        root = dict()
+        for word in words:
+            curr = root
+            for letter in word:
+                curr = curr.setdefault(letter, {})
+            curr[self._end] = self._end
+        return root
+
+    def p_next(self, context):
+        t = len(context)
+        return Float.chart(
+            # strip the common length-t prefix
+            (k[t:], v) for k,v in self.traverse_trie(context, self.trie, 1)
+        ).normalize()
+
+    def traverse_trie(self, context, node, P):
+        p = self.lm.p_next(context)
+        for x in node.keys():
+            if x == self._end:
+                yield (context, P)
+                continue
+            P_x = P * p[x]
+            if P_x == 0: continue
+            yield from self.traverse_trie(context + x, node[x], P_x)
+
+    def traverse_naive(self, context, node, P):
+        for x in self.words:
+            p = self.lm.pfg(context + x)
+            P_x = P * p
+            if P_x == 0: continue
+            yield (context + x, P_x)
+
+    def sample(self, draw=sample_dict, verbose=False):
+        context = ''
+        while True:
+            if verbose: print(repr(context))
+            p = self.p_next(context)
+            y = draw(p)
+            if y == self.eos: break
+            context += y
+            # TODO: this is an ugly hack the arises from sloppy handling of EOS.
+            # To handle this cleanly we just need to align the EOS in the LM and
+            # the EOS in words.
+            if context.endswith('</s>'): break
+        if verbose: print(repr(context))
+        return context
 
 
 #EOS = '$EOS'

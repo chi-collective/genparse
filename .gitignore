@@ -12,3 +12,5 @@ venv
 .coverage
 htmlcov
 dist/*
+profile.html
+profile.json

@@ -15,8 +15,7 @@ from collections import defaultdict
 
 
 def fast_posterior(cfg, prefix):
-    chart = cfg.prefix_grammar.cnf._parse_chart(prefix)
-    return next_token_weights(cfg.prefix_grammar.cnf, chart, prefix)
+    return CFGLM(cfg).p_next(tuple(prefix))
 
 
 #def test_cfglm():
@@ -40,7 +39,7 @@ def next_token_weights_slow(cfg, prefix):
     Compute the posterior over the next word in O(V N³) time.
     """
     Z = cfg.prefix_weight(prefix)
-    p = Chart(cfg.R)
+    p = cfg.R.chart()
     for v in sorted(cfg.V):
         p[v] = cfg.prefix_weight([*prefix, v])
         if p[v] == cfg.R.zero: del p[v]
