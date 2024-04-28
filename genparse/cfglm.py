@@ -4,7 +4,7 @@ Fast computation of the posterior distrubtion over the next word in a WCFG langu
 
 import numpy as np
 from functools import lru_cache
-from collections import Counter
+from collections import Counter, defaultdict
 from arsenal.maths import sample_dict
 
 from .cfg import CFG, _gen_nt
@@ -36,10 +36,17 @@ class CFGLM:
         self.cfg = cfg.renumber()
         self.pfg = cfg.cnf.prefix_grammar.cnf.renumber().cnf
 
+        self.pfg.r_y_xz = r_y_xz = defaultdict(list)
+        for r in self.pfg._cnf[2]:  # binary rules
+            r_y_xz[r.body[0]].append(r)
+
     @lru_cache(None)
     def chart(self, prefix):
         if len(prefix) == 0:
-            return [self.pfg._parse_chart([])]
+            # TODO: double check this!
+            tmp = [defaultdict(self.pfg.R.chart)]
+            tmp[0][0][self.pfg.S] = self.pfg('')
+            return tmp
         else:
             chart = self.chart(prefix[:-1])
             last_chart = extend_chart(self.pfg, chart, prefix)
@@ -70,23 +77,23 @@ def next_token_weights(cfg, chart, prefix):
     (nullary, terminal, binary) = cfg._cnf
 
     # the code below is just backprop / outside algorithm
-    α = cfg.R.chart()
-    α[0, cfg.S] += cfg.R.one
+    α = defaultdict(lambda: cfg.R.chart())
+    α[0][cfg.S] += cfg.R.one
 
     # Binary rules
     for span in reversed(range(1, k + 1)):
         i = k - span
-        for j in range(i + 1, k):
+        for j in range(i + 1, k):   # TODO: use the same left-child index
             chart_j = chart[j]
             for r in binary:
                 X, [Y, Z] = r.head, r.body
-                α[j, Z] += r.w * chart_j[i, Y] * α[i, X]
+                α[j][Z] += r.w * chart_j[i][Y] * α[i][X]
 
     # Preterminal
     q = cfg.R.chart()
     for w in cfg.V:
         for r in terminal[w]:
-            q[w] += r.w * α[k-1, r.head]
+            q[w] += r.w * α[k-1][r.head]
 
     return q
 
@@ -99,24 +106,28 @@ def extend_chart(cfg, chart, s):
     k = len(s)
 
     (nullary, terminal, binary) = cfg._cnf
+    r_y_xz = cfg.r_y_xz
 
-    new = cfg.R.chart()
+    new = defaultdict(lambda: cfg.R.chart())
 
     # Nullary
-    new[k, cfg.S] += nullary
+    new[k][cfg.S] += nullary
 
     # Preterminal
     for r in terminal[s[k-1]]:
-        new[k-1, r.head] += r.w
+        new[k-1][r.head] += r.w
 
     # Binary rules
     for span in range(1, k+1):
         i = k - span
+        new_i = new[i]
         for j in range(i + 1, k):
-            chart_j = chart[j]
-            for r in binary:
-                X, [Y, Z] = r.head, r.body
-                new[i, X] += r.w * chart_j[i, Y] * new[j, Z]
+            chart_ij = chart[j][i]
+            new_j = new[j]
+            for Y, Y_score in chart_ij.items():
+                for r in r_y_xz[Y]:
+                    X, [Y, Z] = r.head, r.body
+                    new_i[X] += r.w * Y_score * new_j[Z]
 
     return new
 
