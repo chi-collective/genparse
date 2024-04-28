@@ -104,6 +104,18 @@ class FST(WFSA):
             T.add_F(q, w)
         return T
 
+    def prune_to_alphabet(self, A, B):
+        "Drop arcs `(i, (a, b), j, w)` that do not satisfy `a in A` and `b in B`."
+        T = self.spawn()
+        for i, (a, b), j, w in self.arcs():
+            if (A is None or a in A) and (B is None or b in B):
+                T.add_arc(i, (a, b), j, w)
+        for q, w in self.I:
+            T.add_I(q, w)
+        for q, w in self.F:
+            T.add_F(q, w)
+        return T.trim
+
     def __matmul__(self, other):
         "Relation composition; may coerce `other` to an appropriate type if need be."
         if not isinstance(other, FST):

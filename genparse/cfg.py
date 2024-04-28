@@ -150,6 +150,15 @@ class CFG:
                 raise ValueError(f'bad input line:\n{line}')
         return cfg
 
+    def __getitem__(self, root):
+        new = self.spawn(S = root)
+        for r in self:
+            new.add(r.w, r.head, *r.body)
+        return new
+
+    def __len__(self):
+        return len(self.rules)
+
     def __call__(self, input):
         "Compute the total weight of the `input` sequence."
         self = self.cnf   # need to do this here because the start symbol might change
@@ -381,7 +390,7 @@ class CFG:
     def null_weight_start(self):
         return self.null_weight()[self.S]
 
-    def _push_null_weights(self, null_weight, recovery=False, rename=lambda x: f'${x}'):
+    def _push_null_weights(self, null_weight, rename=lambda x: f'${x}'):
         """
         Returns a grammar that generates the same weighted language but it is
         nullary-free at all nonterminals except its start symbol.  [Assumes that
@@ -410,12 +419,6 @@ class CFG:
 
         rcfg = self.spawn()
         rcfg.add(null_weight[self.S], self.S)
-
-        if recovery:
-            for x in self.N:
-                if f(x) == x: continue
-                rcfg.add(null_weight[x], x)
-                rcfg.add(self.R.one, x, f(x))
 
         for r in self:
 
@@ -508,7 +511,7 @@ class CFG:
     @cached_property
     def cnf(self):
         new = self.separate_terminals().nullaryremove(binarize=True).trim().unaryremove().trim()
-        assert new.in_cnf(), '\n'.join(str(r) for r in new._find_invalid_cnf_rule())
+        assert new.in_cnf(), '\n'.join(str(r) for r in new._find_invalid_cnf_rule())   # pragma: no cover
         return new
 
     # TODO: make CNF grammars a speciazed subclass of CFG.
@@ -573,7 +576,8 @@ class CFG:
         deps.N |= self.N; deps.N |= self.V
         return deps
 
-    def agenda(self, tol=1e-12, maxiter=1000):
+    # TODO: the default treesum algorithm should probably be SCC-decomposed newton's method
+    def agenda(self, tol=1e-12, maxiter=100_000):
 #    def agenda(self, tol=1e-12, maxiter=np.inf):
         "Agenda-based semi-naive evaluation"
         old = self.R.chart()
@@ -675,13 +679,13 @@ class CFG:
         return self @ prefix_transducer(self.R, self.V)
         #return PrefixGrammar(self)
 
-    def gensym(self, x):
-        assert x not in self.V
-        if x not in self.N: return x
-        i = 1
-        while f'{x}@{i}' in self.N:
-            i += 1
-        return f'{x}@{i}'
+#    def gensym(self, x):
+#        assert x not in self.V
+#        if x not in self.N: return x
+#        i = 1
+#        while f'{x}@{i}' in self.N:
+#            i += 1
+#        return f'{x}@{i}'
 
     def derivatives(self, s):
         "Return the sequence of derivatives for each prefix of `s`."
@@ -721,12 +725,12 @@ class CFG:
         R = defaultdict(set)   # rules indexed by first subgoal; non-nullary
 
         special_rules = (
-            [Rule(self.R.one, a, (EPSILON, a)) for a in self.V ]
+            [Rule(self.R.one, a, (EPSILON, a)) for a in self.V]
             + [Rule(self.R.one, Other(self.S), (self.S,)),
                Rule(self.R.one, Other(self.S), (Other(self.S), EPSILON))]
         )
 
-        for r in itertools.chain(self,special_rules):
+        for r in itertools.chain(self, special_rules):
             if len(r.body) > 0:
                 R[r.body[0]].add(r)
 

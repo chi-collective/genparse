@@ -15,14 +15,7 @@ from genparse import CFG, Chart
 from genparse.lm import LM
 from genparse.cfglm import EOS
 from genparse.inference import importance_sampling, smc_steer
-
-
-def normalize(p):
-    Z = sum(p[x] for x in p)
-    q = p.copy()
-    for x in q:
-        q[x] /= Z
-    return q
+from genparse.util import normalize
 
 #____________________________________________________________________________________
 #

@@ -1,11 +1,13 @@
 import re
 import sys
 import nltk
+import html
 import numpy as np
 from path import Path
 from collections import Counter
 from contextlib import contextmanager
 from itertools import chain, combinations
+from functools import cached_property
 from time import time
 from IPython.display import display, SVG, Image, HTML, Latex
 
@@ -13,20 +15,126 @@ from IPython.display import display, SVG, Image, HTML, Latex
 class hf_tokenizer:
     def __init__(self, name='gpt2'):
         from transformers import AutoTokenizer
-        from genparse import FST, EPSILON, Float
         self.tokenizer = AutoTokenizer.from_pretrained(name)
         self.pairs = [(i, self.tokenizer.decode([i]))
                       for i in range(self.tokenizer.vocab_size)]
-        #self.fst = FST.from_pairs(self.pairs, Float).star()
-        self.fst = bpe_wfst(self.pairs)
+
+    @cached_property
+    def fst(self):
+        return bpe_wfst(self.pairs)
 
 
+# Warning: untested
+#class hf_tokenizer_codellama:
+#    def __init__(self):
+#        from transformers import AutoTokenizer
+#        model_name = "codellama/CodeLlama-7b-Instruct-hf"
+#        self.tokenizer = AutoTokenizer.from_pretrained(
+#            model_name,
+#            use_fast=True,
+#            prefix_token=None,
+#            middle_token=None,
+#            suffix_token=None,
+#            eot_token=None,
+#            fill_token=None,
+#        )
+#        self.pairs = [(i, tokenizer.decode([i])) for i in range(self.tokenizer.vocab_size)]
+#
+#    @cached_property
+#    def fst(self):
+#        return bpe_wfst(self.pairs)
+
+
+def normalize(p):
+    Z = sum(p[x] for x in p)
+    q = p.copy()
+    for x in q:
+        q[x] /= Z
+    return q
+
+
+def bpe2term_approx(tokenizer, bpe):
+    # approximate the transducer using a single canonical path;
+    # UPDATE: the unpruned answer should match this - it's the uncertainty over bpe that's tricky
+    c = tuple(([b], tokenizer.decode([b])) for b in bpe)
+    tmp = FST.from_pairs([([], '')], Float)
+    for pair in c:
+        tmp = tmp * FST.from_pairs([pair], Float)
+    return tmp
+    # TODO: approximate this transducer by a canonical path
+    #return c2t(c, None).trim.epsremove.trim
+
+
+def about(m):
+    print(f"states: {len(m.states)}, trim: {len(m.trim.states)}")
+
+
+#def template(main, annotation):
+#    return f"""\
+#<div style="text-align: center; display: inline-block; font-family: Monospace; margin: 0px !important; padding: 0px !important;">
+#    <div style="margin: 0px !important; padding: 0px !important; border-bottom: 1px solid #ddd;">{html.escape(str(main))}</div>
+#    <div style="font-size: 8pt; color: #bbb; margin: 0px !important; padding: 0px !important;">{html.escape(str(annotation))}</div>
+#</div>
+#"""
+
+def template(main, annotation):
+    return f"""\
+<div style="text-align: center; display: inline-block; background-color: #eee; font-family: Monospace; margin: 0px !important; padding: 0px !important;">
+    <div style="display: inline-block; margin: 0px !important; padding: 0px !important;">{html.escape(str(main))}</div>
+    <div style="display: inline-block; font-size: 8pt; color: #bbb; margin: 0px !important; padding: 0px !important;">/{html.escape(str(annotation))}</div>
+</div>
+"""
+
+def fmt(x): return repr(x)[1:-1] if isinstance(x, str) else repr(x)
+
+def show_grammar(cfg_t, chart=None, showzero=False):
+    """Fancier pretty-printing the grammar.
+
+    - total weight alongsize each nonterminal
+
+    - rules are grouped by their head and how on one line separated by "|"
+
+    - head nonterminals are grouped by SCC (i.e., mutually recursive block) and
+      sort SCCs topologically (layout is top down starting from the root).
+
+    - Grammar is trimmed to nonzero values (to bypas set `showzero=True`).
+
+    """
+    if chart is None:
+        chart = cfg_t.agenda(maxiter=1000)
+
+    def format_tokens(tokens):
+        if len(tokens) == 0: return template('ε', cfg_t.R.one)
+        return '<span style="padding-right: 10px;"></span>'.join(template(fmt(i), chart[i]) for i in tokens)
+
+    lines = []
+
+    for block in cfg_t.dependency_graph().blocks():
+        if not showzero: block = [x for x in block if chart[x] != cfg_t.R.zero and cfg_t.is_nonterminal(x)]
+        if not block: continue
+
+        block_code = []
+        for x in block:
+            block_code.append(
+                template(fmt(x), chart[x]) #+ '<br/>'
+                +
+                ('<div style="display: inline-block;">→ %s</div>'
+                 % ' | '.join(template('', r.w) + format_tokens(r.body) for r in cfg_t.rhs[x]))
+            )
+
+#        lines.append('<div style="border-left: thick solid black; padding-left: 3px; margin-bottom: 5px;">%s</div>' % '\n'.join(block_code))
+        lines.append('<div style="border-left: thick solid black; padding-left: 3px; margin-bottom: 5px;">%s</div>' % '\n'.join(block_code))
+
+    return HTML(''.join(lines))
+
+
+# TODO: should this method be factored into a method that builds the set of pairs followed
+# by a call to kleene star of the transducer?
 def bpe_wfst(S):
     """
     Create a transducer relating strings of BPE token ids to their associated strings
     """
-    from genparse import Float
-    from genparse.fst import FST, EPSILON
+    from genparse import Float, FST, EPSILON
     m = FST(Float)
     START = 0
     STOP = 1
@@ -37,7 +145,7 @@ def bpe_wfst(S):
             m.add_arc((i,j), (EPSILON, x[j]), (i,j+1), 1)
         m.add_arc((i,len(x)), (EPSILON, EPSILON), STOP, 1)
     m.add_F(STOP, 1)
-    m.add_arc(STOP, (EPSILON, EPSILON), START, .1)   # decay
+    m.add_arc(STOP, (EPSILON, EPSILON), START, 1)
     return m.renumber
 
 
@@ -76,16 +184,16 @@ class LarkStuff:
         m.add_I(START, 1)
         m.add_F(STOP, decay)
 
-        m.add_arc(STOP, (EPSILON, EPSILON), START, decay)
+        m.add_arc(STOP, (EPSILON, EPSILON), START, 1)
 
         for id, token_class in enumerate(self.terminals):
             #print('>>>', id, token_class)
             fsm = regex_to_greenery(token_class.pattern.to_regexp(), **kwargs)
 
-            m.add_arc(START, (EPSILON, token_class.name), (id, fsm.initial), decay)
+            m.add_arc(START, (EPSILON, token_class.name), (id, fsm.initial), 1)
 
             for final_state in fsm.finals:
-                m.add_arc((id, final_state), (EPSILON, EPSILON), STOP, decay)
+                m.add_arc((id, final_state), (EPSILON, EPSILON), STOP, 1)
 
             dead = {i for i in fsm.states if not fsm.islive(i)}
             for state in fsm.states:
@@ -99,31 +207,49 @@ class LarkStuff:
 
     def convert(self):
         "Convert the lark grammar into a `genparse.CFG` grammar."
+        from genparse import CFG, Rule, Float
+        rules = [Rule(1, r.lhs.name, tuple(y.name for y in r.rhs)) for r in self.rules]
+        lhs_count = Counter([r.head for r in rules])
+        cfg = CFG(R=Float, S="start", V={t.name for t in self.terminals})
+        for r in rules:
+            cfg.add(1/lhs_count[r.head], r.head, *r.body)
+        return cfg.renumber()
+
+    def char_cfg(self, decay):
         from genparse import CFG, Rule
         from genparse.cfglm import Float
-        terminals = [t.name for t in self.terminals]
-        rules = [Rule(1, r.lhs.name, tuple(y.name for y in r.rhs)) for r in self.rules]
-        lhs_count_dict = Counter([r.head for r in rules])
-        rules = [normalize_rule(r, lhs_count_dict) for r in rules]
-        cfg = CFG(R=Float, S="start", V=set(terminals))
-        for r in rules:
-            cfg.add(r.w, r.head, *r.body)
-        return cfg
 
-    def simple_tokenizer(self, text):
-        """
-        This is a very simple DIY tokenizer. That uses Python's `re` library.
-        """
-        # The regex pattern to match any of the tokens
-        token_regex = '|'.join(f'(?P<{t.name}>{t.pattern.value})'
-                               for t in sorted(self.terminals,
-                                               key=lambda t: -t.priority))
+        cfg = self.convert()
 
-        for match in re.finditer(token_regex, text):
-            token_type = match.lastgroup
-            token_value = match.group()
-            if token_type not in self.ignores:
-                yield token_type, token_value
+        foo = CFG(Float, S=cfg.S, V=set())
+        for r in cfg:
+            foo.add(r.w, r.head, *r.body)
+
+        for token_class in self.terminals:
+
+            fsa = greenery_to_wfsa(token_class.pattern.to_regexp(), decay=decay,
+                                   name=lambda x: (token_class.name, x))
+            #display(fsa)
+            G = fsa.to_cfg(S=token_class.name)
+            #display(G)
+
+            foo.V |= G.V
+            for r in G:
+                foo.add(r.w, r.head, *r.body)
+
+        return foo
+
+#    def simple_tokenizer(self, text):
+#        "simple DIY prioritized tokenizer; uses Python's `re` library."
+#        # The regex pattern to match any of the tokens
+#        token_regex = '|'.join(f'(?P<{t.name}>{t.pattern.value})'
+#                               for t in sorted(self.terminals,
+#                                               key=lambda t: -t.priority))
+#        for match in re.finditer(token_regex, text):
+#            token_type = match.lastgroup
+#            token_value = match.group()
+#            if token_type not in self.ignores:
+#                yield token_type, token_value
 
 
 def regex_to_greenery(regex, ignore = ''):
@@ -137,27 +263,55 @@ def regex_to_greenery(regex, ignore = ''):
 
 
 # Not essential; only used in a notebook to visualize individual greenery FSMs
-def greenery_to_fsa(fsm):
-    import fsa
+#def greenery_to_fsa(fsm):
+#    import fsa
+#    if isinstance(fsm, str): fsm = regex_to_greenery(fsm)
+#    m = fsa.FSA()
+#    m.add_start(fsm.initial)
+#    for final_state in fsm.finals:
+#        m.add_stop(final_state)
+#    rejection_states = [e for e in fsm.states if not fsm.islive(e)]
+#    for state in fsm.states:
+#        arcs = fsm.map[state]
+#        for input_char, next_state in arcs.items():
+#            if next_state in rejection_states:  # rejection state
+#                continue
+#            for char in input_char.get_chars():
+#                m.add(state, char, next_state)
+#    return m
+
+
+# Not essential; only used in a notebook to visualize individual greenery FSMs
+def greenery_to_wfsa(fsm, decay=.99, name=lambda x: x):
+    from genparse import WFSA, Float
     if isinstance(fsm, str): fsm = regex_to_greenery(fsm)
-    m = fsa.FSA()
-    m.add_start(fsm.initial)
-    for final_state in fsm.finals:
-        m.add_stop(final_state)
+    m = WFSA(Float)
+    m.add_I(name(fsm.initial), 1)
+
     rejection_states = [e for e in fsm.states if not fsm.islive(e)]
     for state in fsm.states:
         arcs = fsm.map[state]
+
+        # determine this state's fan out...
+        K = 0
         for input_char, next_state in arcs.items():
-            if next_state in rejection_states:  # rejection state
-                continue
+            if next_state in rejection_states: continue  # rejection state
             for char in input_char.get_chars():
-                m.add(state, char, next_state)
+                K += 1
+        if state in fsm.finals:
+            K += 1
+
+        if K == 0: continue
+
+        if state in fsm.finals:
+            m.add_F(name(state), decay / K)
+
+        for input_char, next_state in arcs.items():
+            if next_state in rejection_states: continue  # rejection state
+            for char in input_char.get_chars():
+                m.add_arc(name(state), char, name(next_state), decay / K)
+
     return m
-
-
-def normalize_rule(rule, lhs_count_dict):
-    rule.w = 1.0 / lhs_count_dict[rule.head]
-    return rule
 
 
 def format_table(rows, headings=None):

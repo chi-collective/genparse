@@ -1,7 +1,7 @@
 import numpy as np
 from collections import defaultdict
 from genparse import Boolean, Real, Rule, CFG, Entropy, \
-    Boolean, MaxPlus, MaxTimes, Log, Derivation, Chart
+    Boolean, MaxPlus, MaxTimes, Log, Derivation, Chart, Float
 from genparse.util import timeit, colors, display_table
 
 
@@ -59,6 +59,21 @@ def test_misc():
         pass
     else:
         raise AssertionError('test failed')
+
+
+def test_agenda_misc():
+
+    # test stopping early
+    g = CFG.from_string("""
+
+    0.5: S → a S
+    1: S → a
+
+    """, Float)
+
+    g.agenda(maxiter=2).assert_equal({'a': 1, 'S': 1.5})
+    g.agenda(maxiter=3).assert_equal({'a': 1, 'S': 1.75})
+
 
 
 def test_semirings():

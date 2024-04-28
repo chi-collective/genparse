@@ -58,12 +58,13 @@ class Chart(dict):
         return (
             'Chart {\n' +
             '\n'.join(
-                f'  {k}: {style_value(k, self[k])},' for k in sorted(self, key=key) if self[k] != self.semiring.zero
+                f'  {k!r}: {style_value(k, self[k])},' for k in sorted(self, key=key) if self[k] != self.semiring.zero
             )
             + '\n}'
         )
 
     def assert_equal(self, want, *, domain=None, tol=1e-5, verbose=False, throw=True):
+        if not isinstance(want, Chart): want = self.semiring.chart(want)
         if domain is None: domain = self.keys() | want.keys()
         assert verbose or throw
         for x in domain:
@@ -75,3 +76,22 @@ class Chart(dict):
                     print(colors.mark(False), x, self[x], want[x])
                 if throw:
                     raise AssertionError(f'{x}: {self[x]} {want[x]}')
+
+    def argmax(self):
+        return max(self, key=self.__getitem__)
+
+    def argmin(self):
+        return min(self, key=self.__getitem__)
+
+    def max(self):
+        return max(self.values())
+
+    def min(self):
+        return min(self.values())
+
+    def sum(self):
+        return sum(self.values())
+
+    def normalize(self):
+        Z = self.sum()
+        return self.semiring.chart((x, v/Z) for x, v in self.items())
