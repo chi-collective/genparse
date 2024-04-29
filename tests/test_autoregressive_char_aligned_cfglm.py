@@ -10,24 +10,10 @@ from lark import Lark
 
 def test_basic_aligned_model():
 
-    grammar = r"""
-    start: "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
-    EOS: "</s>"
-    select_expr: STAR | select_list
-    bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
-    bool_expr: var "=" value | var ">" value | var "<" value
-    from_expr: "data"
-    orderby_expr: var_list WS "ASC" | var_list WS "DESC"
-    select_list: select_var ("," WS select_var)*
-    var_list: var ("," WS var)*
-    select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
-    var: "age" | "gender" | "year" | "state_color" | "zipcode" | "vote" | "race_ethnicity"
-    value: NUMBER | "red" | "blue" | "white" | "black" | "latino" | "republican" | "democrat" | "male" | "female"
-    STAR: "*"
-    NUMBER: /\d+/
-    //WS: /[ \t\f\r\n]/
-    WS: " "
-    """
+    grammar_id = "basic_calc" # "basic_calc" # "restricted_sql" "simple_json"
+    grammar_dir = f"grammars/{grammar_id}.lark"
+
+    grammar = open(grammar_dir).read()
 
     lark_stuff = LarkStuff(grammar)
     lark_parser = Lark(grammar)
@@ -61,7 +47,8 @@ def test_basic_aligned_model():
         t_1 = time.time()
         step_time.append(t_1 - t_0)
     
-    mean_step_time = np.mean(step_time)
+    mean_step_time = np.mean(step_time[1:])
+    print(step_time)
     print(f"Mean step time: {mean_step_time}")
 
     success, failure = 0, 0
