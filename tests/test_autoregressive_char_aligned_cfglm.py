@@ -37,14 +37,15 @@ def test_basic_aligned_model():
         t_0 = time.time()
         p = bpe_lm.p_next(production)
         p_list = list(p.items())
-        next_token_id = np.random.choice(a=len(p_list), p=np.array([x[1] for x in p_list]))
+        # next_token_id = np.random.choice(a=len(p_list), p=np.array([x[1] for x in p_list]))
+        next_token_id = np.random.choice(a=len(p_list), p=np.full(len(p_list), 1/len(p_list)))
         next_token = p_list[next_token_id][0]
 
         production = production + next_token # max(p, key=p.get)
-        print(production)
         if production.endswith("</s>"):
             break
         t_1 = time.time()
+        print(production, t_1 - t_0)
         step_time.append(t_1 - t_0)
     
     mean_step_time = np.mean(step_time[1:])
