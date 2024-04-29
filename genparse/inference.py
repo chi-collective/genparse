@@ -8,7 +8,7 @@ import numpy as np
 
 import html
 from graphviz import Digraph
-from arsenal import Integerizer
+from arsenal import Integerizer, colors
 from arsenal.maths import sample, logsumexp, softmax
 
 #_______________________________________________________________________________

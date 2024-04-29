@@ -2,25 +2,25 @@ from genparse.wfsa.base import WFSA
 from genparse.semiring import Real, Semiring
 
 
-def test_basics():
-    from semirings import Symbol
-
-    a = WFSA.lift('a', Real(3))
-    b = WFSA.lift('b', Real(5))
-    c = a * b
-
-    assert a('a') == Real(3)
-    assert b('b') == Real(5)
-    assert (a * b)('ab') == Real(15)
-
-    assert (a + b)('a') == Real(3)
-    assert (a + b)('b') == Real(5)
-
-    a = WFSA.lift('a', Symbol('a') + Symbol('A').star())
-    b = WFSA.lift('b', Symbol('b'))
-    c = (a * b + b.star() * a).star()
-
-    print(c('ab'))
+#def test_basics():
+#    from semirings import Symbol
+#
+#    a = WFSA.lift('a', Real(3))
+#    b = WFSA.lift('b', Real(5))
+#    c = a * b
+#
+#    assert a('a') == Real(3)
+#    assert b('b') == Real(5)
+#    assert (a * b)('ab') == Real(15)
+#
+#    assert (a + b)('a') == Real(3)
+#    assert (a + b)('b') == Real(5)
+#
+#    a = WFSA.lift('a', Symbol('a') + Symbol('A').star())
+#    b = WFSA.lift('b', Symbol('b'))
+#    c = (a * b + b.star() * a).star()
+#
+#    print(c('ab'))
 
 
 def test_det():

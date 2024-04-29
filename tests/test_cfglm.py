@@ -4,9 +4,8 @@ Fast computation of the posterior distrubtion over the next word in a PCFG langu
 
 import genparse
 import genparse.examples
-from genparse import CFG, Float, Real
-from genparse.cfglm import CFGLM, next_token_weights
-from genparse.chart import Chart
+from genparse import CFG, Float, Real, CFGLM, Chart
+from genparse.cfglm import add_EOS
 
 from arsenal import colors
 from arsenal.maths import sample_dict
@@ -63,7 +62,7 @@ def next_token_weights_slow(cfg, prefix):
 
 def test_new_abcdx():
 
-    cfg = CFG.from_string("""
+    cfg = add_EOS(CFG.from_string("""
 
     1: S -> a b c d
     1: S -> a b c x
@@ -71,7 +70,7 @@ def test_new_abcdx():
     1: S -> a x x x
     1: S -> x x x x
 
-    """, Real)
+    """, Real))
 
     for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
         print()
@@ -87,7 +86,7 @@ def test_new_abcdx():
 
 def test_new_palindrome():
 
-    cfg = genparse.examples.palindrome_ab
+    cfg = add_EOS(genparse.examples.palindrome_ab)
 
     for prefix in ['', 'a', 'ab']:
         print()
@@ -103,7 +102,7 @@ def test_new_palindrome():
 
 def test_new_papa():
 
-    cfg = genparse.examples.papa
+    cfg = add_EOS(genparse.examples.papa)
 
     for prefix in [
             [],

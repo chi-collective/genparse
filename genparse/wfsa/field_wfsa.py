@@ -12,14 +12,13 @@ References
 
 """
 import numpy as np
-from collections import defaultdict, Counter, deque
+from collections import deque
 from functools import cached_property
 
 from numpy import linalg
 #from scipy import linalg
 
-from genparse import Float
-
+from genparse.semiring import Float
 from genparse.wfsa import base
 
 EPSILON = base.EPSILON
@@ -49,7 +48,7 @@ class WFSA(base.WFSA):
                 m.add_F(q, w)
         return m
 
-    def graphviz(self, fmt=lambda x: f'{round(x,3):g}' if isinstance(x, (float, int)) else str(x), **kwargs):
+    def graphviz(self, fmt=lambda x: f'{round(x,3):g}' if isinstance(x, (float, int)) else str(x), **kwargs):  # pylint: disable=arguments-differ
         return super().graphviz(fmt=fmt, **kwargs)
 
     @cached_property

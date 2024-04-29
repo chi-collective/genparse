@@ -1,12 +1,8 @@
-import numpy as np
-
-from arsenal import colors
 from collections import defaultdict
-from functools import lru_cache, cached_property
-from time import time
+from functools import cached_property
 from itertools import zip_longest
 
-from genparse import Boolean
+from genparse.semiring import Boolean
 from genparse.wfsa import WFSA, EPSILON
 
 
@@ -24,7 +20,7 @@ class FST(WFSA):
         self.A = set()
         self.B = set()
 
-    def add_arc(self, i, ab, j, w):
+    def add_arc(self, i, ab, j, w):   # pylint: disable=arguments-renamed
         if ab != EPSILON:
             (a,b) = ab
             self.A.add(a)
@@ -54,9 +50,9 @@ class FST(WFSA):
         else:
             return self
 
-    @staticmethod
-    def from_string(x, R):
-        return FST.diag(WFSA.from_string(x, R))
+    @classmethod
+    def from_string(cls, xs, R, w=None):
+        return cls.diag(WFSA.from_string(xs=xs, R=R, w=w))
 
     @staticmethod
     def from_pairs(pairs, R):
@@ -170,13 +166,13 @@ class FST(WFSA):
         # add initial states
         for P, w1 in self.I:
             for Q, w2 in other.I:
-                 PQ = (P, Q)
+                PQ = (P, Q)
 
-                 if not keep(PQ): continue
+                if not keep(PQ): continue
 
-                 C.add_I(PQ, w1 * w2)
-                 visited.add(PQ)
-                 stack.append(PQ)
+                C.add_I(PQ, w1 * w2)
+                visited.add(PQ)
+                stack.append(PQ)
 
         # traverse the machine using depth-first search
         while stack:

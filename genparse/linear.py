@@ -4,7 +4,7 @@ Algorithms for solving left-linear or right-linear systems of equations over clo
 import html
 from arsenal import Integerizer
 from collections import defaultdict
-from functools import lru_cache, cached_property
+from functools import cached_property
 from graphviz import Digraph
 
 

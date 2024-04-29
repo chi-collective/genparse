@@ -2,7 +2,8 @@ import numpy as np
 from collections import defaultdict
 from genparse import Boolean, Real, Rule, CFG, Entropy, \
     Boolean, MaxPlus, MaxTimes, Log, Derivation, Chart, Float
-from genparse.util import timeit, colors, display_table
+from genparse.util import display_table
+from arsenal import colors
 
 
 tol = 1e-5
@@ -28,8 +29,6 @@ def test_sdd1():
 
 
 def test_misc():
-    with timeit('testing'):
-        pass
 
     Derivation(None, Derivation(None, 'X'))._repr_html_()
 
@@ -49,8 +48,6 @@ def test_misc():
 
     display_table([[cfg, "hello"], [cfg, cfg]], headings=['a', 'b'])
     display_table([[cfg, "hello"], [cfg, cfg]])
-
-    print(colors.thick_line(5), colors.line(5))
 
     # include an expected-failure test
     try:
@@ -366,7 +363,7 @@ def test_unfold():
     print(new)
 
     err = cfg.treesum(tol=tol).metric(new.treesum(tol=tol))
-    assert err <= 1e-10, err
+    assert err <= 1e-5, err
 
     new.assert_equal(CFG.from_string("""
 

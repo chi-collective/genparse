@@ -1,13 +1,12 @@
 import pandas as pd
-import numpy as np
-from collections import Counter
-from arsenal import colors
-from arsenal.maths import compare
 
+from genparse import Float, CFG, CFGLM
 from genparse.steer import LocalProduct, run
 from genparse.align import pullback
-from genparse.cfglm import Float, CFG, CFGLM, add_EOS, explode
-from genparse.lm import AutoTokenizer, AutoModelForCausalLM, NoCacheGPT, TokenGPT2
+from genparse.cfglm import explode
+from genparse.lm import NoCacheGPT, TokenGPT2
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 
 # TODO: this doesn't have an actual test, so it is just a test of the interface
@@ -15,9 +14,9 @@ def test_pullback_gpt():
 
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     gpt_model = AutoModelForCausalLM.from_pretrained("gpt2")
-    llm = NoCacheGPT(gpt_model)
+#    llm = NoCacheGPT(gpt_model)
 
-#    llm = TokenGPT2(gpt_model)
+    llm = TokenGPT2(gpt_model)
 
     out = pullback(llm, ' th', tokenizer.decode, tuple(tokenizer.encode(' ')))
     print('>>>', out)

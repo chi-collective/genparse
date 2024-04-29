@@ -169,12 +169,12 @@ class WFSA:
         R = self.spawn()
         # reverse each arc
         for i, a, j, w in self.arcs():
-            R.add_arc(j, a, i, w)
+            R.add_arc(j, a, i, w)               # pylint: disable=arguments-out-of-order
         # reverse initial and final states
-        for q, w in self.F:
-            R.add_I(q, w)
-        for q, w in self.I:
-            R.add_F(q, w)
+        for i, w in self.F:
+            R.add_I(i, w)
+        for i, w in self.I:
+            R.add_F(i, w)
         return R
 
     def __add__(self, other):
@@ -189,18 +189,18 @@ class WFSA:
             U.add_F(q, w)
         return U
 
-    def __sub__(self, other):
-        "Assumes -w exists for all weights."
-        self, other = self.rename_apart(other)
-        U = self.spawn(keep_init=True, keep_arcs=True, keep_stop=True)
-        # add arcs, initial and final states from argument
-        for q, w in other.I:            U.add_I(q, -w)
-        for i, a, j, w in other.arcs(): U.add_arc(i, a, j, w)
-        for q, w in other.F:            U.add_F(q, w)
-        return U
+#    def __sub__(self, other):
+#        "Assumes -w exists for all weights."
+#        self, other = self.rename_apart(other)
+#        U = self.spawn(keep_init=True, keep_arcs=True, keep_stop=True)
+#        # add arcs, initial and final states from argument
+#        for q, w in other.I:            U.add_I(q, -w)
+#        for i, a, j, w in other.arcs(): U.add_arc(i, a, j, w)
+#        for q, w in other.F:            U.add_F(q, w)
+#        return U
 
     def __mul__(self, other):
-        if not isinstance(other, self.__class__): return other.__rmul__(self)
+#        if not isinstance(other, self.__class__): return other.__rmul__(self)
 
         self, other = self.rename_apart(other)
         C = self.spawn(keep_init=True, keep_arcs=True)
@@ -292,10 +292,10 @@ class WFSA:
     def from_strings(cls, Xs, R):
         m = cls(R)
         for xs in Xs:
-            m.add_I(xs[:0])
+            m.add_I(xs[:0], R.one)
             for i in range(len(xs)):
                 m.add_arc(xs[:i], xs[i], xs[:i+1], R.one)
-            m.add_F(xs)
+            m.add_F(xs, R.one)
         return m
 
     def total_weight(self):
@@ -305,7 +305,7 @@ class WFSA:
     @cached_property
     def G(self):
         G = WeightedGraph(self.R)
-        for i, a, j, w in self.arcs():
+        for i, _, j, w in self.arcs():
             G[i, j] += w
         G.N |= self.states
         return G

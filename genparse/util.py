@@ -1,15 +1,7 @@
-import re
-import sys
-import nltk
 import html
-import numpy as np
-from path import Path
 from collections import Counter
-from contextlib import contextmanager
-from itertools import chain, combinations
 from functools import cached_property
-from time import time
-from IPython.display import display, SVG, Image, HTML, Latex
+from IPython.display import display, HTML
 
 
 class hf_tokenizer:
@@ -86,7 +78,6 @@ def template(main, annotation):
 </div>
 """
 
-def fmt(x): return repr(x)[1:-1] if isinstance(x, str) else repr(x)
 
 def show_grammar(cfg_t, chart=None, showzero=False):
     """Fancier pretty-printing the grammar.
@@ -103,6 +94,8 @@ def show_grammar(cfg_t, chart=None, showzero=False):
     """
     if chart is None:
         chart = cfg_t.agenda(maxiter=1000)
+
+    def fmt(x): return repr(x)[1:-1] if isinstance(x, str) else repr(x)
 
     def format_tokens(tokens):
         if len(tokens) == 0: return template('ε', cfg_t.R.one)
@@ -129,8 +122,8 @@ def show_grammar(cfg_t, chart=None, showzero=False):
     return HTML(''.join(lines))
 
 
-# TODO: should this method be factored into a method that builds the set of pairs followed
-# by a call to kleene star of the transducer?
+# TODO: should this method be re-factored into a method that builds the set of
+# pairs followed by a call to kleene star of the transducer?
 def bpe_wfst(S):
     """
     Create a transducer relating strings of BPE token ids to their associated strings
@@ -176,34 +169,24 @@ class LarkStuff:
         no longer a prioritized or maximum munch semantics to tokenizer.  It is
         probabilistic and the weights are set pretty arbitrarily.
         """
-        from genparse import Float
-        from genparse.fst import FST, EPSILON
+        from genparse import Float, FST, EPSILON
         m = FST(Float)
-
-        START = 0
-        STOP = 1
+        START = 0; STOP = 1
         m.add_I(START, 1)
         m.add_F(STOP, decay)
-
         m.add_arc(STOP, (EPSILON, EPSILON), START, 1)
-
-        for id, token_class in enumerate(self.terminals):
-            #print('>>>', id, token_class)
+        for token_id, token_class in enumerate(self.terminals):
             fsm = regex_to_greenery(token_class.pattern.to_regexp(), **kwargs)
-
-            m.add_arc(START, (EPSILON, token_class.name), (id, fsm.initial), 1)
-
+            m.add_arc(START, (EPSILON, token_class.name), (token_id, fsm.initial), 1)
             for final_state in fsm.finals:
-                m.add_arc((id, final_state), (EPSILON, EPSILON), STOP, 1)
-
+                m.add_arc((token_id, final_state), (EPSILON, EPSILON), STOP, 1)
             dead = {i for i in fsm.states if not fsm.islive(i)}
             for state in fsm.states:
                 arcs = fsm.map[state]
                 for input_char, next_state in arcs.items():
                     if next_state in dead: continue
                     for char in input_char.get_chars():
-                        m.add_arc((id, state), (char, EPSILON), (id, next_state), decay)
-
+                        m.add_arc((token_id, state), (char, EPSILON), (token_id, next_state), decay)
         return m
 
     def convert(self):
@@ -217,8 +200,7 @@ class LarkStuff:
         return cfg.renumber()
 
     def char_cfg(self, decay):
-        from genparse import CFG, Rule
-        from genparse.cfglm import Float
+        from genparse import CFG, Float
 
         cfg = self.convert()
 
@@ -229,10 +211,9 @@ class LarkStuff:
         for token_class in self.terminals:
 
             fsa = greenery_to_wfsa(token_class.pattern.to_regexp(), decay=decay,
-                                   name=lambda x: (token_class.name, x))
+                                   name=lambda x, t=token_class.name: (t, x))
             #display(fsa)
             G = fsa.to_cfg(S=token_class.name)
-            #display(G)
 
             foo.V |= G.V
             for r in G:
@@ -328,60 +309,10 @@ def format_table(rows, headings=None):
     return (
         '<table>'
          + ('<tr style="font-weight: bold;">' + ''.join(f'<td>{x}</td>' for x in headings) +'</tr>' if headings else '')
-         + ''.join(f'<tr>' + ''.join(f'<td>{fmt(x)}</td>' for x in row) +  ' </tr>' for row in rows)
+         + ''.join('<tr>' + ''.join(f'<td>{fmt(x)}</td>' for x in row) +  ' </tr>' for row in rows)
          + '</table>'
     )
 
 
 def display_table(*args, **kwargs):
     return display(HTML(format_table(*args, **kwargs)))
-
-
-@contextmanager
-def timeit(name, fmt='{name} ({htime})', header=None):
-    """Context Manager which prints the time it took to run code block."""
-    if header is not None: print(header)
-    b4 = time()
-    yield
-    sec = time() - b4
-    ht = '%.4f sec' % sec
-    print(fmt.format(name=name, htime=ht, sec=sec), file=sys.stderr)
-
-
-def ansi(color=None, light=None, bg=3):
-    return '\x1b[%s;%s%sm' % (light, bg, color) + '%s\x1b[0m'
-
-
-class colors:
-
-    black, red, green, yellow, blue, magenta, cyan, white = \
-        [ansi(c, 0) for c in range(8)]
-
-    class light:
-        black, red, green, yellow, blue, magenta, cyan, white = \
-            [ansi(c, 1) for c in range(8)]
-
-    class dark:
-        black, red, green, yellow, blue, magenta, cyan, white = \
-            [ansi(c, 2) for c in range(8)]
-
-    def rgb(r,g,b): return f"\x1b[38;2;{r};{g};{b}m%s\x1b[0m"
-
-    orange = rgb(255, 165, 0)
-
-    purple = '\x1b[38;5;91m' + '%s' + '\x1b[0m'
-
-    normal = '\x1b[0m%s\x1b[0m'
-    bold = '\x1b[1m%s\x1b[0m'
-    italic = "\x1b[3m%s\x1b[0m"
-    underline = "\x1b[4m%s\x1b[0m"
-    strike = "\x1b[9m%s\x1b[0m"
-    #overline = lambda x: (u''.join(unicode(c) + u'\u0305' for c in unicode(x))).encode('utf-8')
-
-    def line(n): return '─'*(n)
-
-    def thick_line(n): return ('━'*n)
-
-    check = green % '✔'
-    xmark = dark.red % '✘'
-    def mark(x): return colors.check if x else colors.xmark

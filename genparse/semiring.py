@@ -1,5 +1,4 @@
 import numpy as np
-from collections import Counter
 from genparse.chart import Chart
 
 
@@ -40,12 +39,12 @@ class Semiring:
     def __eq__(self, other):
         return isinstance(other, Semiring) and self.score == other.score
 
-    def __lt__(self, other):
-        raise NotImplementedError()
+#    def __lt__(self, other):
+#        raise NotImplementedError()
 #        return self.score < other.score
 
-    def __hash__(self):
-        raise NotImplementedError()
+#    def __hash__(self):
+#        raise NotImplementedError()
 #        return hash(self.score)
 
     def metric(self, other):
@@ -164,9 +163,10 @@ MaxTimes.one = MaxTimes(1)
 
 
 class Float:
-    def star(x):        return 1/(1-x)
-    def from_string(x): return float(x)
-    def metric(x,y):
+    def star(self):          return 1/(1-self)
+    @classmethod
+    def from_string(cls, x): return float(x)
+    def metric(x,y):     # pylint: disable=no-self-argument
         if x == np.inf == y: return 0
         return abs(x - y)
     @classmethod

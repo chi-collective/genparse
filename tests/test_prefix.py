@@ -69,32 +69,6 @@ def test_palindrome():
     0.3: S ->
     """, Real)
 
-    # This tests only work on the old version of the derivative grammar before the fire
-    if 0:
-        cfg_hack(cfg.derivative(['a']).trim()).assert_equal("""
-        0.3: S → a S a
-        0.4: S → b S b
-        0.3: S →
-        0.3: S/a → S a
-        """)
-
-        cfg_hack(cfg.derivative(['a','b']).trim()).assert_equal("""
-        0.3: S → a S a
-        0.4: S → b S b
-        0.3: S →
-        0.4: S/b → S b
-        0.3: S/a/b → S/b a
-        """)
-
-        cfg_hack(cfg.derivative(['a','b','a']).trim()).assert_equal("""
-        0.3: S → a S a
-        0.4: S → b S b
-        0.3: S →
-        0.3: S/a → S a
-        0.4: S/b/a → S/a b
-        0.3: S/a/b/a → S/b/a a
-        """)
-
     s = 'aba'
 
     assert_equal(
