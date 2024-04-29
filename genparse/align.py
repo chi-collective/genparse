@@ -71,6 +71,8 @@ def pullback(lm, qs, decode=''.join, init=(), verbose=False):
     return Chart(Float, total)
 
 
+# TODO: Replace this method with the local production of experts where one of
+# the experts is a CharAlignedCFGLM.
 def string_char_sync(lm1, char_lm2, draw=sample_dict, verbose=False):
     context = ()
     prob = 1
@@ -101,6 +103,8 @@ def string_char_sync(lm1, char_lm2, draw=sample_dict, verbose=False):
     return SPACER.join(context), prob
 
 
+# XXX: This method has nothing to do with character-level models - it is just
+# the local product of experts sampling method!
 def char_char_sync(char_lm1, char_lm2, draw=sample_dict):
     context = ()
     prob = 1
