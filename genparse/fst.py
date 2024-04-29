@@ -20,7 +20,7 @@ class FST(WFSA):
         self.A = set()
         self.B = set()
 
-    def add_arc(self, i, ab, j, w):
+    def add_arc(self, i, ab, j, w):   # pylint: disable=arguments-renamed
         if ab != EPSILON:
             (a,b) = ab
             self.A.add(a)
@@ -50,9 +50,9 @@ class FST(WFSA):
         else:
             return self
 
-    @staticmethod
-    def from_string(x, R):
-        return FST.diag(WFSA.from_string(x, R))
+    @classmethod
+    def from_string(cls, xs, R, w=None):
+        return cls.diag(WFSA.from_string(xs=xs, R=R, w=w))
 
     @staticmethod
     def from_pairs(pairs, R):

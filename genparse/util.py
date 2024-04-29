@@ -171,31 +171,22 @@ class LarkStuff:
         """
         from genparse import Float, FST, EPSILON
         m = FST(Float)
-
-        START = 0
-        STOP = 1
+        START = 0; STOP = 1
         m.add_I(START, 1)
         m.add_F(STOP, decay)
-
         m.add_arc(STOP, (EPSILON, EPSILON), START, 1)
-
-        for id, token_class in enumerate(self.terminals):
-            #print('>>>', id, token_class)
+        for token_id, token_class in enumerate(self.terminals):
             fsm = regex_to_greenery(token_class.pattern.to_regexp(), **kwargs)
-
-            m.add_arc(START, (EPSILON, token_class.name), (id, fsm.initial), 1)
-
+            m.add_arc(START, (EPSILON, token_class.name), (token_id, fsm.initial), 1)
             for final_state in fsm.finals:
-                m.add_arc((id, final_state), (EPSILON, EPSILON), STOP, 1)
-
+                m.add_arc((token_id, final_state), (EPSILON, EPSILON), STOP, 1)
             dead = {i for i in fsm.states if not fsm.islive(i)}
             for state in fsm.states:
                 arcs = fsm.map[state]
                 for input_char, next_state in arcs.items():
                     if next_state in dead: continue
                     for char in input_char.get_chars():
-                        m.add_arc((id, state), (char, EPSILON), (id, next_state), decay)
-
+                        m.add_arc((token_id, state), (char, EPSILON), (token_id, next_state), decay)
         return m
 
     def convert(self):
@@ -220,10 +211,9 @@ class LarkStuff:
         for token_class in self.terminals:
 
             fsa = greenery_to_wfsa(token_class.pattern.to_regexp(), decay=decay,
-                                   name=lambda x: (token_class.name, x))
+                                   name=lambda x, t=token_class.name: (t, x))
             #display(fsa)
             G = fsa.to_cfg(S=token_class.name)
-            #display(G)
 
             foo.V |= G.V
             for r in G:

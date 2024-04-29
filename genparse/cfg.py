@@ -22,16 +22,16 @@ _gen_nt.i = 0
 
 class Slash:
 
-    def __init__(self, Y, Z, id):
+    def __init__(self, Y, Z, i):
         self.Y, self.Z = Y, Z
-        self._hash = hash((Y, Z, id))
-        self.id = id
+        self._hash = hash((Y, Z, i))
+        self.i = i
 
     def __repr__(self):
-        if self.id == 0:
+        if self.i == 0:
             return f'{self.Y}/{self.Z}'
         else:
-            return f'{self.Y}/{self.Z}@{self.id}'
+            return f'{self.Y}/{self.Z}@{self.i}'
 
     def __hash__(self):
         return self._hash
@@ -41,7 +41,7 @@ class Slash:
             isinstance(other, Slash)
             and self.Y == other.Y
             and self.Z == other.Z
-            and self.id == other.id
+            and self.i == other.i
         )
 
 Other = namedtuple('Other', 'x')
@@ -84,10 +84,10 @@ class Derivation:
         return (self.r, self.x, self.ys) == (other.r, other.x, other.ys)
 
     def __repr__(self):
-        open = colors.dark.white % '('
-        close = colors.dark.white % ')'
+        open_p = colors.dark.white % '('
+        close_p = colors.dark.white % ')'
         children = ' '.join(str(y) for y in self.ys)
-        return f'{open}{self.x} {children}{close}'
+        return f'{open_p}{self.x} {children}{close_p}'
 
     def weight(self):
         "Compute this weight this `Derivation`."
@@ -114,7 +114,7 @@ class Derivation:
 
 class CFG:
 
-    def __init__(self, R: 'semiring', S: 'start symbol', V: 'terminal vocabulary'):
+    def __init__(self, R: 'semiring', S: 'start symbol', V: 'terminal vocabulary'): # type: ignore
         self.R = R      # semiring
         self.V = V      # alphabet
         self.N = {S}    # nonterminals
@@ -144,7 +144,7 @@ class CFG:
                         V.add(x)
                 cfg.add(semiring.from_string(w), lhs, *rhs)
             except ValueError:
-                raise ValueError(f'bad input line:\n{line}')
+                raise ValueError(f'bad input line:\n{line}')    # pylint: disable=W0707
         return cfg
 
     def __getitem__(self, root):
@@ -156,22 +156,22 @@ class CFG:
     def __len__(self):
         return len(self.rules)
 
-    def __call__(self, input):
-        "Compute the total weight of the `input` sequence."
+    def __call__(self, xs):
+        "Compute the total weight of the `xs` sequence."
         self = self.cnf   # need to do this here because the start symbol might change
-        return self._parse_chart(input)[0,self.S,len(input)]
+        return self._parse_chart(xs)[0,self.S,len(xs)]
 
-    def _parse_chart(self, input):
-        "Implements CKY algorithm for evaluating the total weight of the `input` sequence."
+    def _parse_chart(self, xs):
+        "Implements CKY algorithm for evaluating the total weight of the `xs` sequence."
         (nullary, terminal, binary) = self._cnf   # will convert to CNF
-        N = len(input)
+        N = len(xs)
         # nullary rule
         c = self.R.chart()
         for i in range(N+1):
             c[i,self.S,i] += nullary
         # preterminal rules
         for i in range(N):
-            for r in terminal[input[i]]:
+            for r in terminal[xs[i]]:
                 c[i,r.head,i+1] += r.w
         # binary rules
         for span in range(1, N + 1):
@@ -595,7 +595,7 @@ class CFG:
         def update(x, W):
             change[bucket[x]][x] += W
 
-        change = defaultdict(lambda: self.R.chart())
+        change = defaultdict(self.R.chart)
         for a in self.V:
             update(a, self.R.one)
 
@@ -667,8 +667,8 @@ class CFG:
             U[p.head] += update
         return U
 
-    def prefix_weight(self, input):
-        return self.prefix_grammar(input)
+    def prefix_weight(self, xs):
+        return self.prefix_grammar(xs)
 
     @cached_property
     def prefix_grammar(self):
@@ -693,9 +693,9 @@ class CFG:
 
     # Implementation note: This implementation of the derivative grammar
     # performs nullary elimination at the same time.
-    def derivative(self, a, id=0):
+    def derivative(self, a, i=0):
         "Return a grammar that generates the derivative with respect to `a`."
-        def slash(x, y): return Slash(x, y, id=id)
+        def slash(x, y): return Slash(x, y, i=i)
         D = self.spawn(S = slash(self.S, a))
         U = self.null_weight()
         for r in self:
@@ -797,7 +797,7 @@ class CFG:
                Rule(self.R.one, Other(self.S), (Other(self.S), EPSILON))]
         )
 
-        def product(start, Ys):
+        def join(start, Ys):
             """
             Helper method; expands the rule body
 
@@ -812,7 +812,7 @@ class CFG:
                 yield []
             else:
                 for K in C[start, Ys[0]]:
-                    for rest in product(K, Ys[1:]):
+                    for rest in join(K, Ys[1:]):
                         yield [(start, Ys[0], K)] + rest
 
         start = {I for (I,_) in C}
@@ -823,7 +823,7 @@ class CFG:
                     new.add(r.w, (s, r.head, s))
             else:
                 for I in start:
-                    for rhs in product(I, r.body):
+                    for rhs in join(I, r.body):
                         K = rhs[-1][-1]
                         new.add(r.w, (I, r.head, K), *rhs)
 
