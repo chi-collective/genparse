@@ -14,9 +14,9 @@ def test_pullback_gpt():
 
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     gpt_model = AutoModelForCausalLM.from_pretrained("gpt2")
-    llm = NoCacheGPT(gpt_model)
+#    llm = NoCacheGPT(gpt_model)
 
-#    llm = TokenGPT2(gpt_model)
+    llm = TokenGPT2(gpt_model)
 
     out = pullback(llm, ' th', tokenizer.decode, tuple(tokenizer.encode(' ')))
     print('>>>', out)

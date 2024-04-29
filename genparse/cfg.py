@@ -20,31 +20,11 @@ def _gen_nt(prefix=''):
 _gen_nt.i = 0
 
 
-class Slash:
-
-    def __init__(self, Y, Z, i):
-        self.Y, self.Z = Y, Z
-        self._hash = hash((Y, Z, i))
-        self.i = i
-
-    def __repr__(self):
-        if self.i == 0:
-            return f'{self.Y}/{self.Z}'
-        else:
-            return f'{self.Y}/{self.Z}@{self.i}'
-
-    def __hash__(self):
-        return self._hash
-
-    def __eq__(self, other):
-        return (
-            isinstance(other, Slash)
-            and self.Y == other.Y
-            and self.Z == other.Z
-            and self.i == other.i
-        )
-
 Other = namedtuple('Other', 'x')
+
+NotNull = namedtuple('NotNull', 'x')
+
+Slash = namedtuple('Slash', 'Y, Z, i')
 
 
 class Rule:
@@ -387,7 +367,7 @@ class CFG:
     def null_weight_start(self):
         return self.null_weight()[self.S]
 
-    def _push_null_weights(self, null_weight, rename=lambda x: f'${x}'):
+    def _push_null_weights(self, null_weight, rename=NotNull):
         """
         Returns a grammar that generates the same weighted language but it is
         nullary-free at all nonterminals except its start symbol.  [Assumes that
