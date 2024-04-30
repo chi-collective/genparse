@@ -10,7 +10,7 @@ from functools import lru_cache
 
 from genparse.lm import LM
 from genparse.cfglm import EOS
-from genparse.inference import importance_sampling, smc_steer
+from genparse.inference import importance_sampling, smc_steer, TraceSWOR
 from genparse.util import normalize
 from genparse import Float
 
@@ -26,6 +26,18 @@ class BruteForceGlobalProductOfExperts:
         self.p2 = lm2.cfg.cnf.language(MAX_LENGTH).normalize()
         self.target = Float.chart({x: self.p1[x] * self.p2[x] for x in self.p1
                                    if len(x) <= MAX_LENGTH}).normalize()
+
+
+def generation_tree(lm, **opts):
+    tracer = TraceSWOR()
+    D = Float.chart()
+    while tracer.root.mass > 0:
+        with tracer:
+            s, p = lm.sample(draw=tracer, prob=True, **opts)
+            D[s] += p
+    D = Float.chart((k, D[k]) for k in sorted(D))
+    return D, tracer
+
 
 #____________________________________________________________________________________
 #

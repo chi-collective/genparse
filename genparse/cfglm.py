@@ -7,7 +7,8 @@ from arsenal.maths import sample_dict
 from collections import defaultdict
 from functools import lru_cache
 
-from .cfg import _gen_nt
+from .cfg import _gen_nt, CFG
+from .semiring import Float
 
 
 def locally_normalize(self, **kwargs):
@@ -39,6 +40,12 @@ class CFGLM:
         self.pfg.r_y_xz = r_y_xz = defaultdict(list)
         for r in self.pfg._cnf[2]:  # binary rules
             r_y_xz[r.body[0]].append(r)
+
+    # TODO: should probably be PCFGLM class, which is tied to semifields, rather
+    # than CFGLM, which is meant to semiring-friendly.
+    @classmethod
+    def from_string(cls, x, semiring=Float, **kwargs):
+        return cls(locally_normalize(CFG.from_string(x, Float), **kwargs))
 
     @lru_cache(None)
     def chart(self, prefix):
