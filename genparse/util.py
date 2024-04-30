@@ -298,14 +298,14 @@ def greenery_to_wfsa(fsm, decay=.99, name=lambda x: x):
 
 def format_table(rows, headings=None):
     def fmt(x):
-        try:
+        if hasattr(x, '_repr_html_'):
             return x._repr_html_()
-        except AttributeError:
-            try:
-                return x._repr_svg_()
-            except AttributeError:
-                return str(x)
-
+        elif hasattr(x, '_repr_svg_'):
+            return x._repr_svg_()
+        elif hasattr(x, '_repr_image_svg_xml'):
+            return x._repr_image_svg_xml()
+        else:
+            return f'<pre>{html.escape(str(x))}</pre>'
     return (
         '<table>'
          + ('<tr style="font-weight: bold;">' + ''.join(f'<td>{x}</td>' for x in headings) +'</tr>' if headings else '')

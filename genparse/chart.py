@@ -96,3 +96,10 @@ class Chart(dict):
     def normalize(self):
         Z = self.sum()
         return self.semiring.chart((x, v/Z) for x, v in self.items())
+
+    def project(self, f):
+        "Apply the function `f` to each key; summing when f-transformed keys overlap."
+        out = self.semiring.chart()
+        for k, v in self.items():
+            out[f(k)] += v
+        return out

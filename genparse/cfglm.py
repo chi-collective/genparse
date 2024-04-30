@@ -57,14 +57,17 @@ class CFGLM:
         chart = self.chart(prefix)
         return next_token_weights(self.pfg, chart, prefix)
 
-    def sample(self, draw=sample_dict, verbose=False):
-        ys = []
+    def sample(self, draw=sample_dict, prob=True, verbose=False):
+        ys = ()
+        P = 1.0
         while True:
-            p = self.p_next(tuple(ys))
+            p = self.p_next(ys).normalize()
             if verbose: print(ys)
             y = draw(p)
-            if y == EOS: return ys
-            ys.append(y)
+            P *= p[y]
+            if y == EOS:
+                return (ys, P) if prob else ys
+            ys = ys + (y,)
 
 
 def next_token_weights(cfg, chart, prefix):
@@ -183,25 +186,29 @@ class CharAlignedCFGLM:
         for x in node.keys():
             if x == self._end:
                 yield (context, P)
+#                yield (context, self.lm.pfg(context))
                 continue
             P_x = P * p[x]
             if P_x == 0: continue
             yield from self.traverse_trie(context + x, node[x], P_x)
 
     # TODO: test equivalence of `traverse_trie` and `traverse_naive`.
-    def traverse_naive(self, context, P):
+    def traverse_naive(self, context):
         for x in self.words:
-            p = self.lm.pfg(context + x)
-            P_x = P * p
-            if P_x == 0: continue
-            yield (context + x, P_x)
+            p_x = self.lm.pfg(context + x)  # prefix weight of context + x
+            if p_x == 0: continue
+            yield (context + x, p_x)
 
-    def sample(self, draw=sample_dict, verbose=False):
+    def sample(self, draw=sample_dict, prob=False, chunked=False, verbose=False):
         context = ''
+        chunks = []
+        P = 1
         while True:
             if verbose: print(repr(context))
-            p = self.p_next(context)
+            p = self.p_next(context).normalize()
             y = draw(p)
+            P *= p[y]
+            chunks.append(y)
             if y == self.eos: break
             context += y
             # TODO: this is an ugly hack the arises from sloppy handling of EOS.
@@ -209,7 +216,10 @@ class CharAlignedCFGLM:
             # the EOS in words.
             if context.endswith('</s>'): break
         if verbose: print(repr(context))
-        return context
+        value = context
+        if chunked: value = tuple(chunks)
+        if prob: value = (value, P)
+        return value
 
 
 #EOS = '$EOS'
@@ -273,7 +283,7 @@ def pcfg_check(cfg):
 
 def cfg_check_bounded(cfg, ub=1.000001, lb=0):
     chart = cfg.agenda()
-    if all((0 <= v <= 1.000001) for v in chart.values()):
+    if all((lb <= v <= ub) for v in chart.values()):
         print(colors.mark(True), 'PCFG')
     else:
         print(colors.mark(False), 'PCFG', chart.__str__(style_value=lambda k, v: v if lb <= v <= ub else (colors.light.red % v)))
