@@ -1,12 +1,12 @@
+import time
+import numpy as np
+from lark import Lark
+from arsenal import timeit
+
 from genparse.util import LarkStuff, hf_tokenizer
 from genparse import CFGLM, add_EOS, locally_normalize
 from genparse.cfglm import CharAlignedCFGLM
-from arsenal import timeit
 
-import time
-import numpy as np
-
-from lark import Lark
 
 def test_basic_aligned_model():
 

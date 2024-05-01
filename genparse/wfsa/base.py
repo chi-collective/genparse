@@ -1,3 +1,4 @@
+import html
 from arsenal import Integerizer
 from collections import defaultdict
 from functools import cached_property
@@ -55,6 +56,20 @@ class WFSA:
     def add_F(self, q, w):
         self.add_state(q)
         self.stop[q] += w
+
+    def set_arc(self, i, a, j, w):
+        self.add_state(i)
+        self.add_state(j)
+        self.alphabet.add(a)
+        self.delta[i][a][j] = w
+
+    def set_I(self, q, w):
+        self.add_state(q)
+        self.start[q] = w
+
+    def set_F(self, q, w):
+        self.add_state(q)
+        self.stop[q] = w
 
     @property
     def I(self):
@@ -237,7 +252,12 @@ class WFSA:
     def _repr_svg_(self):
         return self.graphviz()._repr_image_svg_xml()
 
-    def graphviz(self, fmt=str, fmt_node=lambda x: ' '):
+    def graphviz(
+            self,
+            fmt=str,
+            fmt_node=lambda x: ' ',
+            fmt_edge=lambda i,a,j,w: f'{html.escape(str(":".join(str(A or "ε") for A in a)) if isinstance(a, tuple) else str(a))}/{w}',
+    ):
         g = Digraph(
             graph_attr=dict(rankdir='LR'),
             node_attr=dict(
@@ -267,7 +287,7 @@ class WFSA:
             g.edge(str(f(i)), stop, label=f'{fmt(w)}')
         #for i, a, j, w in sorted(self.arcs()):
         for i, a, j, w in self.arcs():
-            g.edge(str(f(i)), str(f(j)), label=f'{a}/{fmt(w)}')
+            g.edge(str(f(i)), str(f(j)), label=f'{fmt_edge(i,a,j,w)}')
         return g
 
     @classmethod

@@ -50,6 +50,7 @@ class CheckParticles:
 
         w = Float.chart()
         for p in particles:
+#            if p.weight == -np.inf: continue
             w[tuple(p.ys)] += np.exp(p.weight)
         empirical = w.normalize()
 

@@ -164,7 +164,7 @@ class Tracer:
         cur = self.cur
 
         if cur.children is None:          # initialize the newly discovered node
-            cur.children = {a: Node(cur.mass * p[a], parent = cur) for a in p}
+            cur.children = {a: Node(cur.mass * p[a], parent = cur) for a in p if p[a] > 0}
             self.cur.context = context   # store the context, which helps detect trace divergence
 
         if context != cur.context:
@@ -201,23 +201,17 @@ class Node:
         if self.parent is not None:
             self.parent.update()
 
-    def graphviz(self, fmt_edge=html.escape, fmt_node=lambda x: ' '):
+    def graphviz(
+        self,
+        fmt_edge=lambda x,a,y: f'{html.escape(a)}/{y._mass/x._mass:.2g}',
+        #fmt_node=lambda x: ' ',
+        fmt_node=lambda x: f'{x.mass}/{x._mass:.2g}' if x.mass > 0 else f'{x._mass:.2g}',
+    ):
         "Create a graphviz instance for this subtree"
         g = Digraph(
             graph_attr=dict(rankdir='LR'),
-            node_attr=dict(
-                fontname='Monospace',
-                fontsize='10',
-                height='.05', width='.05',
-                margin="0.055,0.042"
-                #margin="0,0"
-            ),
-            edge_attr=dict(
-                #arrowhead='vee',
-                arrowsize='0.3',
-                fontname='Monospace',
-                fontsize='9'
-            ),
+            node_attr=dict(fontname='Monospace', fontsize='10', height='.05', width='.05', margin='0.055,0.042'),
+            edge_attr=dict(arrowsize='0.3', fontname='Monospace', fontsize='9'),
         )
         f = Integerizer()
         xs = set()
@@ -227,21 +221,19 @@ class Node:
             xs.add(x)
             if x.children is None: continue
             for a, y in x.children.items():
-                g.edge(str(f(x)), str(f(y)), label=f'{fmt_edge(a)}')
+                g.edge(str(f(x)), str(f(y)), label=f'{fmt_edge(x,a,y)}')
                 q.append(y)
-
         for x in xs:
             if x.children is not None:
                 g.node(str(f(x)), label=str(fmt_node(x)), shape='box')
             else:
                 g.node(str(f(x)), label=str(fmt_node(x)), shape='box', fillcolor='gray')
-
         return g
 
 
 class TraceSWOR(Tracer):
     """
-    Sampling without replacement by program tracing.
+    Sampling without replacement 🤝 Program tracing.
     """
     def __enter__(self):
         self.cur = self.root
@@ -249,3 +241,6 @@ class TraceSWOR(Tracer):
     def __exit__(self, *args):
         self.cur.mass = 0      # we will never sample this node again.
         self.cur.update()      # update invariants
+
+    def _repr_svg_(self):
+        return self.root.graphviz()._repr_image_svg_xml()
