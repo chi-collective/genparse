@@ -1,8 +1,8 @@
-start: query_expr "</s>"
+start: WS query_expr "</s>"
 
-query_expr: select [ "ORDER" "BY" (order_by_expr ",")*  order_by_expr] [ "LIMIT" integer_ ] 
+query_expr: select WS [ "ORDER" WS "BY" WS (order_by_expr ",")*  order_by_expr] WS [ "LIMIT" WS integer_ ] 
 
-select: "SELECT" [(select_expr ",")*] select_expr "FROM" "data" [ "WHERE" bool_expression ] [ "GROUP" "BY" [(expression ",")*] expression ]
+select: "SELECT" WS [(select_expr ",")*] select_expr WS "FROM" WS "data" WS [ "WHERE" WS bool_expression ] [ "GROUP" WS "BY" WS [(expression ",")*] expression ]
 
 select_expr.0: expression_math [ [ "AS" ] alias ] -> select_expression
 
@@ -59,5 +59,4 @@ integer_: /[1-9][0-9]*/
 boolean: "true" -> true
        | "false" -> false
 
-%import common.WS
-%ignore WS
+WS: /[ \t\f\r\n]/

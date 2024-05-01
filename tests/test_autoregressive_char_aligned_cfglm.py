@@ -10,7 +10,7 @@ from lark import Lark
 
 def test_basic_aligned_model():
 
-    grammar_id = "basic_calc" # "basic_calc" # "restricted_sql" "simple_json"
+    grammar_id = "restricted_sql" # "basic_calc" # "restricted_sql" "simple_json"
     grammar_dir = f"grammars/{grammar_id}.lark"
 
     grammar = open(grammar_dir).read()
