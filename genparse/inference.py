@@ -203,9 +203,9 @@ class Node:
 
     def graphviz(
         self,
-        fmt_edge=html.escape,
+        fmt_edge=lambda x,a,y: f'{html.escape(a)}/{y._mass/x._mass:.2g}',
         #fmt_node=lambda x: ' ',
-        fmt_node=lambda x: f'{x.mass}/{x._mass:.2g}',
+        fmt_node=lambda x: f'{x.mass}/{x._mass:.2g}' if x.mass > 0 else f'{x._mass:.2g}',
     ):
         "Create a graphviz instance for this subtree"
         g = Digraph(
@@ -221,7 +221,7 @@ class Node:
             xs.add(x)
             if x.children is None: continue
             for a, y in x.children.items():
-                g.edge(str(f(x)), str(f(y)), label=f'{fmt_edge(a)}')
+                g.edge(str(f(x)), str(f(y)), label=f'{fmt_edge(x,a,y)}')
                 q.append(y)
         for x in xs:
             if x.children is not None:
@@ -233,7 +233,7 @@ class Node:
 
 class TraceSWOR(Tracer):
     """
-    Sampling without replacement by program tracing.
+    Sampling without replacement 🤝 Program tracing.
     """
     def __enter__(self):
         self.cur = self.root

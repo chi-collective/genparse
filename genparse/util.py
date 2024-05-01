@@ -124,22 +124,64 @@ def show_grammar(cfg_t, chart=None, showzero=False):
 
 # TODO: should this method be re-factored into a method that builds the set of
 # pairs followed by a call to kleene star of the transducer?
+#_________________________________________
+# OLDER LESS EFFICIENT CONSTRUCTION BELOW
+#### def bpe_wfst(S):
+####     "Create a transducer relating strings of BPE token ids to their associated strings"
+####     from genparse import Float, FST, EPSILON
+####     m = FST(Float)
+####     START = 0
+####     STOP = 1
+####     m.set_I(0, 1)
+####     for i, x in S:
+####         m.set_arc(START, (i, EPSILON), (i, 0), 1)
+####         for j in range(len(x)):
+####             m.set_arc((i,j), (EPSILON, x[j]), (i,j+1), 1)
+####         m.set_arc((i,len(x)), (EPSILON, EPSILON), STOP, 1)
+####     m.set_F(STOP, 1)
+####     m.set_arc(STOP, (EPSILON, EPSILON), START, 1)
+####     return m.renumber
+#_________________________________________
+#
+
 def bpe_wfst(S):
-    """
-    Create a transducer relating strings of BPE token ids to their associated strings
-    """
     from genparse import Float, FST, EPSILON
     m = FST(Float)
-    START = 0
-    STOP = 1
-    m.add_I(0, 1)
+    m.set_I((), 1)
     for i, x in S:
-        m.add_arc(START, (i, EPSILON), (i, 0), 1)
+        x = tuple(x)
         for j in range(len(x)):
-            m.add_arc((i,j), (EPSILON, x[j]), (i,j+1), 1)
-        m.add_arc((i,len(x)), (EPSILON, EPSILON), STOP, 1)
-    m.add_F(STOP, 1)
-    m.add_arc(STOP, (EPSILON, EPSILON), START, 1)
+            m.set_arc(x[:j], (EPSILON, x[j]), x[:j+1], 1)
+        m.set_arc(x, (i, EPSILON), 1, 1)
+        m.set_F(1, 1)
+        m.set_arc(1, (EPSILON, EPSILON), (), 1)
+    return m.renumber
+
+
+def char2bpe_wfst(S):
+    from genparse import Float, FST, EPSILON
+    m = FST(Float)
+    m.set_I((), 1)
+    for i, x in S:
+        x = tuple(x)
+        for j in range(len(x)):
+            m.set_arc(x[:j], (x[j], EPSILON), x[:j+1], 1)
+        m.set_arc(x, (EPSILON, i), 1, 1)
+        m.set_F(1, 1)
+        m.set_arc(1, (EPSILON, EPSILON), (), 1)
+    return m.renumber
+
+
+def char2bpe_single(S):
+    from genparse import Float, FST, EPSILON
+    m = FST(Float)
+    m.set_I((), 1)
+    for i, x in S:
+        x = tuple(x)
+        for j in range(len(x)):
+            m.set_arc(x[:j], (x[j], EPSILON), x[:j+1], 1)
+        m.set_arc(x, (EPSILON, i), 1, 1)
+        m.set_F(1, 1)
     return m.renumber
 
 

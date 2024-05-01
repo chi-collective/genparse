@@ -190,7 +190,7 @@ class CharAlignedCFGLM:
 
     def traverse_trie(self, context, node, P):
         p = self.lm.p_next(context)
-        for x in node.keys():
+        for x in node:
             if x == self._end:
                 yield (context, P)
 #                yield (context, self.lm.pfg(context))
@@ -215,8 +215,8 @@ class CharAlignedCFGLM:
             p = self.p_next(context).normalize()
             y = draw(p)
             P *= p[y]
-            chunks.append(y)
             if y == self.eos: break
+            chunks.append(y)
             context += y
             # TODO: this is an ugly hack the arises from sloppy handling of EOS.
             # To handle this cleanly we just need to align the EOS in the LM and

@@ -27,6 +27,13 @@ class FST(WFSA):
             self.B.add(b)
         return super().add_arc(i, ab, j, w)
 
+    def set_arc(self, i, ab, j, w):   # pylint: disable=arguments-renamed
+        if ab != EPSILON:
+            (a,b) = ab
+            self.A.add(a)
+            self.B.add(b)
+        return super().set_arc(i, ab, j, w)
+    
     def __call__(self, x, y):
         """
         Compute the total weight of x:y under the FST's weighted relation.  If one
@@ -72,20 +79,16 @@ class FST(WFSA):
         and with 1 we project onto the right.
         """
         assert axis in [0, 1]
-
         A = WFSA(R=self.R)
         for i, (a, b), j, w in self.arcs():
             if axis == 0:
                 A.add_arc(i, a, j, w)
             else:
                 A.add_arc(i, b, j, w)
-
         for i, w in self.I:
             A.add_I(i, w)
-
         for i, w in self.F:
             A.add_F(i, w)
-
         return A
 
     @cached_property
