@@ -144,7 +144,7 @@ def show_grammar(cfg_t, chart=None, showzero=False):
 #_________________________________________
 #
 
-def bpe_wfst(S):
+def bpe_wfst(S, renumber=True):
     from genparse import Float, FST, EPSILON
     m = FST(Float)
     m.set_I((), 1)
@@ -152,13 +152,12 @@ def bpe_wfst(S):
         x = tuple(x)
         for j in range(len(x)):
             m.set_arc(x[:j], (EPSILON, x[j]), x[:j+1], 1)
-        m.set_arc(x, (i, EPSILON), 1, 1)
-        m.set_F(1, 1)
-        m.set_arc(1, (EPSILON, EPSILON), (), 1)
-    return m.renumber
+        m.set_arc(x, (i, EPSILON), (), 1)
+    m.set_F((), 1)
+    return m.renumber if renumber else m
 
 
-def char2bpe_wfst(S):
+def char2bpe_wfst(S, renumber=True):
     from genparse import Float, FST, EPSILON
     m = FST(Float)
     m.set_I((), 1)
@@ -166,23 +165,9 @@ def char2bpe_wfst(S):
         x = tuple(x)
         for j in range(len(x)):
             m.set_arc(x[:j], (x[j], EPSILON), x[:j+1], 1)
-        m.set_arc(x, (EPSILON, i), 1, 1)
-        m.set_F(1, 1)
-        m.set_arc(1, (EPSILON, EPSILON), (), 1)
-    return m.renumber
-
-
-def char2bpe_single(S):
-    from genparse import Float, FST, EPSILON
-    m = FST(Float)
-    m.set_I((), 1)
-    for i, x in S:
-        x = tuple(x)
-        for j in range(len(x)):
-            m.set_arc(x[:j], (x[j], EPSILON), x[:j+1], 1)
-        m.set_arc(x, (EPSILON, i), 1, 1)
-        m.set_F(1, 1)
-    return m.renumber
+        m.set_arc(x, (EPSILON, i), (), 1)
+    m.set_F((), 1)
+    return m.renumber if renumber else m
 
 
 class LarkStuff:

@@ -64,7 +64,7 @@ class CFGLM:
         chart = self.chart(prefix)
         return next_token_weights(self.pfg, chart, prefix)
 
-    def sample(self, draw=sample_dict, prob=True, verbose=False):
+    def sample(self, draw=sample_dict, prob=False, verbose=False):
         ys = ()
         P = 1.0
         while True:

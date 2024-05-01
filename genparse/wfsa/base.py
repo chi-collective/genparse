@@ -256,7 +256,7 @@ class WFSA:
             self,
             fmt=str,
             fmt_node=lambda x: ' ',
-            fmt_edge=lambda i,a,j,w: f'{html.escape(str(":".join(str(A or "ε") for A in a)) if isinstance(a, tuple) else a)}/{w}',
+            fmt_edge=lambda i,a,j,w: f'{html.escape(str(":".join(str(A or "ε") for A in a)) if isinstance(a, tuple) else str(a))}/{w}',
     ):
         g = Digraph(
             graph_attr=dict(rankdir='LR'),
