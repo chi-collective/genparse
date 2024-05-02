@@ -258,6 +258,9 @@ class WFSA:
             fmt_node=lambda x: ' ',
             fmt_edge=lambda i,a,j,w: f'{html.escape(str(":".join(str(A or "ε") for A in a)) if isinstance(a, tuple) else str(a))}/{w}',
     ):
+        if len(self.states) == 0:
+            import warnings
+            warnings.warn('empty visualization')
         g = Digraph(
             graph_attr=dict(rankdir='LR'),
             node_attr=dict(

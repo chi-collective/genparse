@@ -101,6 +101,9 @@ class Chart(dict):
     def sum(self):
         return sum(self.values())
 
+    def sort(self, **kwargs):
+        return self.semiring.chart((k, self[k]) for k in sorted(self, **kwargs))
+
     def normalize(self):
         Z = self.sum()
         return self.semiring.chart((k, v/Z) for k, v in self.items())

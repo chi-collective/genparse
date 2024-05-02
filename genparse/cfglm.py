@@ -31,10 +31,14 @@ def locally_normalize(self, **kwargs):
 
 class CFGLM:
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, renumber=True):
         if EOS not in cfg.V: cfg = add_EOS(cfg)
-        self.cfg = cfg.renumber()
-        self.pfg = cfg.cnf.prefix_grammar.cnf.renumber().cnf
+        if renumber:
+            self.cfg = cfg.renumber()
+            self.pfg = cfg.cnf.prefix_grammar.cnf.renumber().cnf
+        else:
+            self.cfg = cfg
+            self.pfg = cfg.cnf.prefix_grammar.cnf
 
         # TODO: this is is a quick hack; clean this up.
         self.pfg.r_y_xz = r_y_xz = defaultdict(list)
@@ -64,7 +68,7 @@ class CFGLM:
         chart = self.chart(prefix)
         return next_token_weights(self.pfg, chart, prefix)
 
-    def sample(self, draw=sample_dict, prob=False, verbose=False):
+    def sample(self, draw=sample_dict, prob=False, verbose=False, reject=None):
         ys = ()
         P = 1.0
         while True:
@@ -72,12 +76,14 @@ class CFGLM:
             if verbose: print(ys)
             y = draw(p)
             P *= p[y]
+            if reject is not None and reject(ys):
+                return (None, 0) if prob else None
             if y == EOS:
                 return (ys, P) if prob else ys
             ys = ys + (y,)
 
 
-def next_token_weights(cfg, chart, prefix):
+def next_token_weights(cfg, chart, prefix, alpha=False):
     """
     An O(N²) time algorithm to the total weight of a each next-token
     extension of `prefix`.
@@ -111,13 +117,16 @@ def next_token_weights(cfg, chart, prefix):
         for r in terminal[w]:
             q[w] += r.w * tmp[r.head]
 
-    return q
+    if alpha:
+        return q, α
+    else:
+        return q
 
 
 def extend_chart(cfg, chart, prefix):
     """
     An O(N²) time algorithm to extend to the `chart` with the last token
-    appearing at the end of `prefix`; returns a new chart.
+    appearing at the end of `prefix`; returns a new chart column.
     """
     k = len(prefix)
 
