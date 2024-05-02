@@ -8,9 +8,9 @@ from genparse import CFGLM, add_EOS, locally_normalize
 from genparse.cfglm import CharAlignedCFGLM
 
 
-def test_basic_aligned_model():
+def benchmark_basic_aligned_model():
 
-    grammar_id = "basic_calc" # "basic_calc" # "restricted_sql" "simple_json"
+    grammar_id = "restricted_sql"  # "basic_calc" # "restricted_sql" "simple_json"
     grammar_dir = f"grammars/{grammar_id}.lark"
 
     grammar = open(grammar_dir).read()
@@ -27,7 +27,8 @@ def test_basic_aligned_model():
     # the base character-level CFG language model
     lm = CFGLM(add_EOS(foo))
 
-    bpe_lm = CharAlignedCFGLM(lm=lm, words={x for _, x in H.pairs}, eos=H.tokenizer.eos_token)
+    bpe_lm = CharAlignedCFGLM(
+        lm=lm, words={x for _, x in H.pairs}, eos=H.tokenizer.eos_token)
 
     np.random.seed(123)
     production = ""
@@ -38,16 +39,17 @@ def test_basic_aligned_model():
         p = bpe_lm.p_next(production)
         p_list = list(p.items())
         # next_token_id = np.random.choice(a=len(p_list), p=np.array([x[1] for x in p_list]))
-        next_token_id = np.random.choice(a=len(p_list), p=np.full(len(p_list), 1/len(p_list)))
+        next_token_id = np.random.choice(
+            a=len(p_list), p=np.full(len(p_list), 1/len(p_list)))
         next_token = p_list[next_token_id][0]
 
-        production = production + next_token # max(p, key=p.get)
+        production = production + next_token  # max(p, key=p.get)
         if production.endswith("</s>"):
             break
         t_1 = time.time()
         print(production, t_1 - t_0)
         step_time.append(t_1 - t_0)
-    
+
     mean_step_time = np.mean(step_time[1:])
     print(step_time)
     print(f"Mean step time: {mean_step_time}")
@@ -61,8 +63,9 @@ def test_basic_aligned_model():
         print(e)
         print(production, "failed")
         failure += 1
-    
+
     print(f"Success: {success}, Failure: {failure}")
+
 
 if __name__ == '__main__':
     from arsenal import testing_framework

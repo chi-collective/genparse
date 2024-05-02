@@ -1,4 +1,4 @@
-start: WS value "</s>"
+start: WS pair value "</s>"
 
     value: object
           | SIGNED_NUMBER  | STRING
