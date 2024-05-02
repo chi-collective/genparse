@@ -68,7 +68,7 @@ class CFGLM:
         chart = self.chart(prefix)
         return next_token_weights(self.pfg, chart, prefix)
 
-    def sample(self, draw=sample_dict, prob=False, verbose=False, reject=None):
+    def sample(self, draw=sample_dict, prob=False, verbose=False):
         ys = ()
         P = 1.0
         while True:
@@ -76,8 +76,6 @@ class CFGLM:
             if verbose: print(ys)
             y = draw(p)
             P *= p[y]
-            if reject is not None and reject(ys):
-                return (None, 0) if prob else None
             if y == EOS:
                 return (ys, P) if prob else ys
             ys = ys + (y,)
