@@ -1,10 +1,10 @@
 from genparse.util import LarkStuff, hf_tokenizer
 from genparse import CFGLM, add_EOS, locally_normalize
 from genparse.cfglm import CharAlignedCFGLM
-from arsenal import timeit
+from arsenal import timeit, colors
 
 
-def test_basic_aligned_model():
+def test_basic_aligned_model_iql_small():
 
     lark_stuff = LarkStuff(r"""
     start: "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
@@ -52,34 +52,6 @@ def test_basic_aligned_model():
         assert p.keys() == {' ', ' <', ' </', ' G', ' W', ' O', ' GR', ' WH', ' OR',
                             ' GROUP', ' WHERE', ' ORDER'}
 
-#    # Note: We generate the underlying *token* sequences without replacement,
-#    # but the *character* sequences may be repeated (in limited ways).
-#    import random, numpy as np
-#    random.seed(0); np.random.seed(0)
-#    from genparse.inference import TraceSWOR
-#    tracer = TraceSWOR()
-#    distinct = set()
-#    with timeit('took'):
-#        for t in range(100):
-#            if t % 100 == 0: print(t, tracer.root.mass)
-#            with tracer:
-#                ys = bpe_lm.sample(draw=tracer)
-#            if ys not in distinct:
-#                print(ys)
-#            distinct.add(ys)
-
-#===============================================================================
-# [2024-04-28 Sun] Optimizations:
-#
-# initial version (best of several runs)  16.7135 sec
-#
-# using integers for nonterminals:        14.4915 sec;  1.15x faster
-#
-# using lists of charts to avoid copying: 13.0670 sec;  1.1x faster
-#
-# left-child loop in `extend_chart`)       6.0260 sec;  2.2x faster
-# left-child loop in `next_token_weights`  1.6176 sec;  3.7x faster
-#===============================================================================
 
 if __name__ == '__main__':
     from arsenal import testing_framework

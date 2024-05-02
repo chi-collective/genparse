@@ -10,8 +10,34 @@ from functools import lru_cache
 
 from genparse.lm import LM
 from genparse.cfglm import EOS
-from genparse.inference import importance_sampling, smc_steer
+from genparse.inference import importance_sampling, smc_steer, TraceSWOR
 from genparse.util import normalize
+from genparse import Float
+
+#____________________________________________________________________________________
+#
+
+class BruteForceGlobalProductOfExperts:
+
+    def __init__(self, lm1, lm2, MAX_LENGTH):
+        # Create a reference distribution for the global product of experts by
+        # materializing the distrbution over strings up to a maximum length
+        self.p1 = lm1.cfg.cnf.language(MAX_LENGTH).normalize()
+        self.p2 = lm2.cfg.cnf.language(MAX_LENGTH).normalize()
+        self.target = Float.chart({x: self.p1[x] * self.p2[x] for x in self.p1
+                                   if len(x) <= MAX_LENGTH}).normalize()
+
+
+def generation_tree(lm, **opts):
+    tracer = TraceSWOR()
+    D = Float.chart()
+    while tracer.root.mass > 0:
+        with tracer:
+            s, p = lm.sample(draw=tracer, prob=True, **opts)
+            D[s] += p
+    D = Float.chart((k, D[k]) for k in sorted(D))
+    return D, tracer
+
 
 #____________________________________________________________________________________
 #
@@ -89,6 +115,7 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
         async def step(self):
 
             ys = tuple(self.ys)
+
             p1 = lm1.p_next(ys)
             p2 = lm2.p_next(ys)
 
@@ -97,25 +124,40 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
 
             # Some people call this the "locally optimal proposal distribution,"
             # What does it optimize?
-            q = {k: (p1[k] * p2[k]) for k, v in p1.items()}
+            q = Float.chart({k: (p1[k] * p2[k]) for k, v in p1.items()})
 
-            Z = sum(q.values())
+            Z = q.sum()
 
             q = normalize(q)
 
-            y = sample_dict(q)
-
-            #self.weight += np.log(p1[y] * p2[y] / (q[y] / Z))
-            #self.weight += np.log(p1[y]) * np.log(p2[y]) - np.log(q[y]) + np.log(Z)
-            self.weight += np.log(Z)
-
-#            self.Q += np.log(p1[y]) + np.log(p2[y]) - np.log(Z)
-            self.Q += np.log(q[y])
-
-            if len(self.ys) > MAX_LENGTH:
+            if len(ys) > MAX_LENGTH:
                 #print("FORCED EOS")i
                 warnings.warn('force </s>')
                 y = EOS
+
+            else:
+                y = sample_dict(q)
+
+            #self.weight += np.log(p1[y] * p2[y] / (q[y] / Z))
+            #self.weight += np.log(p1[y]) + np.log(p2[y]) - np.log(q[y]) + np.log(Z)
+            #self.weight += np.log(Z)
+
+            self.weight += np.log(Z)
+            self.Q += np.log(q[y])
+
+            #self.weight += np.log(p1(token | history) / p2(prev_token | prev_history))
+
+            #self.weight += np.log(p1[y] * p2[y] / (q[y] / Z))
+#            if q[y] > 0 and p1[y] > 0 and p2[y] > 0:
+#                self.weight += np.log(Z)
+#            else:
+#                self.weight = -np.inf
+
+#            if q[y] > 0:
+#                #self.Q += np.log(p1[y]) + np.log(p2[y]) - np.log(Z)
+#                self.Q += np.log(q[y])
+#            else:
+#                self.Q = -np.inf
 
             self.ys.append(y)
 

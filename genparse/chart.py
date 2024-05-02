@@ -23,6 +23,14 @@ class Chart(dict):
             new[k] += v
         return new
 
+    def __mul__(self, other):
+        new = self.spawn()
+        for k in self:
+            v = self[k] * other[k]
+            if v == self.semiring.zero: continue
+            new[k] += v
+        return new
+
     def product(self, ks):
         v = self.semiring.one
         for k in ks:
@@ -93,6 +101,30 @@ class Chart(dict):
     def sum(self):
         return sum(self.values())
 
+    def sort(self, **kwargs):
+        return self.semiring.chart((k, self[k]) for k in sorted(self, **kwargs))
+
     def normalize(self):
         Z = self.sum()
-        return self.semiring.chart((x, v/Z) for x, v in self.items())
+        return self.semiring.chart((k, v/Z) for k, v in self.items())
+
+    def filter(self, f):
+        return self.semiring.chart((k, v) for k, v in self.items() if f(k))
+
+    def project(self, f):
+        "Apply the function `f` to each key; summing when f-transformed keys overlap."
+        out = self.semiring.chart()
+        for k, v in self.items():
+            out[f(k)] += v
+        return out
+
+    # TODO: the more general version of this method is join
+    def compare(self, other, *, domain=None, tol=None):
+        import pandas as pd
+        if not isinstance(other, Chart): other = self.semiring.chart(other)
+        if domain is None: domain = self.keys() | other.keys()
+        rows = []
+        for x in domain:
+            m = self.semiring.metric(self[x], other[x])
+            rows.append(dict(key=x, self=self[x], other=other[x], metric=m))
+        return pd.DataFrame(rows)
