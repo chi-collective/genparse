@@ -118,12 +118,12 @@ class Simple:
         self.stop = stop
         [self.dim] = start.shape
 
-    def __call__(self, xs):
-        forward = self.start.copy()
-        for x in xs:
-            if x not in self.arcs: return 0
-            forward = forward @ self.arcs[x]
-        return forward @ self.stop
+#    def __call__(self, xs):
+#        forward = self.start.copy()
+#        for x in xs:
+#            if x not in self.arcs: return 0
+#            forward = forward @ self.arcs[x]
+#        return forward @ self.stop
 
     def __eq__(self, other):
 #        return (self is other) or hash(self) == hash(other) and self.counterexample(other) is None

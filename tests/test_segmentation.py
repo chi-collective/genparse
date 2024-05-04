@@ -2,7 +2,8 @@ from arsenal import colors, iterview
 from itertools import product
 
 from genparse import CFGLM, EOS
-from genparse.segmentation import segmentation_pfst, run_segmentation_test
+from genparse.segmentation import segmentation_pfst, run_segmentation_test, \
+    max_munch, longest_suffix_in
 
 
 def test_basics():
@@ -44,6 +45,32 @@ def test_basics():
         run_segmentation_test(C, x, contexts)
 
 
+def test_util():
+
+    tokens = ['abc', 'ab', 'a', 'b', 'c']
+    t = max_munch(tokens)
+    have = t('abcabc')
+    want = ('abc', 'abc')
+    assert have == want, [have, want]
+
+
+    tokens = ['aaa', 'aa', 'a']
+    t = max_munch(tokens)
+    assert t('aaaaaa') == ('aaa','aaa')
+    assert t('aaaaa') == ('aaa','aa')
+
+    have = t('aaaa')
+    want = ('aaa','a')
+    assert have == want, [have, want]
+
+    assert t('aaa' 'aaa' 'aa') == ('aaa','aaa', 'aa')
+
+
+    assert longest_suffix_in(['e', 'de'])('abcde') == 'de'
+    assert longest_suffix_in([''])('abcde') == ''
+
+
+
 def test_distortion():
     c = CFGLM.from_string("""
 
@@ -72,6 +99,27 @@ def test_distortion():
     want = c.cfg.language(100)
 
     have.project(f).assert_equal(want.project(f), verbose=True)
+
+
+def test_bpe():
+    import numpy as np
+    from genparse.util import hf_tokenizer
+
+    H = hf_tokenizer()
+
+    _, B = zip(*H.pairs)
+    B = list(B)
+
+    np.random.shuffle(B)
+    B = B[:500]
+
+    A = {c for b in B for c in b}
+
+    B = set(B) | A
+
+    T = segmentation_pfst(B, A, canonical=True).trim
+
+    print(T.dim, 'states')
 
 
 if __name__ == '__main__':

@@ -42,45 +42,50 @@ def suffixes(z):
         yield z[p:]
 
 
-def longest_suffix_in(s, S):
-    """
-    The longest suffix of `s` that is in `S`.
+class max_munch:
 
-    >>> longest_suffix_in('abcde', ['e', 'de'])
-    'de'
+    def __init__(self, tokens):
+        self._end = object()
+        self.root = self.make_trie(tokens)
 
-    >>> longest_suffix_in('abcde', [''])
-    ''
+    def __call__(self, x):
+        if len(x) == 0:
+            return ()
+        else:
+            t, ys = next(self.traverse(x, 0, self.root))
+            return (ys,) + self(x[t:])
 
-    """
+    def make_trie(self, words):
+        root = dict()
+        for word in words:
+            curr = root
+            for letter in word:
+                curr = curr.setdefault(letter, {})
+            curr[self._end] = self._end
+        return root
 
-    if s in S:
-        return s
-    elif not s:
-        raise KeyError('no suffixes found')
-    else:
-        return longest_suffix_in(s[1:], S)
+    def traverse(self, query, t, node):
+        """
+        Enumerate (in order of longest to shortest) the strings in the trie matching
+        prefixes of `query`.
+        """
+        if node == self._end: return
+        if t < len(query):
+            x = query[t]
+            if x in node:
+                yield from self.traverse(query, t + 1, node[x])
+        if self._end in node:
+            yield (t, query[:t])   # post order gives the longest match
 
 
-def max_munch(tokens):
-    """
-    Maximum-munch tokenizer for the finite set `tokens`.
+class longest_suffix_in:
+    def __init__(self, C):
+        self.rtrie = max_munch([reversed(c) for c in C])
 
-      >>> tokens = ['aaa', 'aa', 'a']
-      >>> t = max_munch(tokens)
-      >>> assert t('aaaaaa') == ('aaa','aaa')
-      >>> assert t('aaaaa') == ('aaa','aa')
-      >>> assert t('aaaa') == ('aaa','a')
-      >>> assert t('aaa' 'aaa' 'aa') == ('aaa','aaa', 'aa')
-
-    """
-    def t(a):
-        if len(a) == 0: return ()
-        for b in sorted(tokens, key=len, reverse=True):
-            if a[:len(b)] == b:
-                return (b,) + t(a[len(b):])
-        raise ValueError('bad token set')
-    return t
+    def __call__(self, c):
+        r = tuple(reversed(c))
+        _, ys = next(self.rtrie.traverse(r, 0, self.rtrie.root))
+        return ''.join(reversed(ys)) if isinstance(c, str) else tuple(reversed(ys))
 
 
 def segmentation_counting_wfst(S):
@@ -173,6 +178,8 @@ def segmentation_pfst(contexts, alphabet, canonical, debug=False, trim=True):
 
     states = {p for c in C for p in prefixes(c[:-1])}  # states track (proper) prefixes of contexts
 
+    longest_suffix = longest_suffix_in(states)
+
     def gensym():
         gensym.id += 1
         return f'${gensym.id}'
@@ -187,7 +194,7 @@ def segmentation_pfst(contexts, alphabet, canonical, debug=False, trim=True):
             c = p+(y,)
 
             # We can transition to any suffix of `c` that is also a state.
-            next_states = {longest_suffix_in(c, states)} if canonical else set(suffixes(c)) & states
+            next_states = {longest_suffix(c)} if canonical else set(suffixes(c)) & states
 
             # Consider `abcde + f = abcdef` that can backoff to any suffix that is also a state.
             #
