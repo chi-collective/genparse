@@ -10,8 +10,8 @@ from functools import lru_cache
 
 from genparse.lm import LM
 from genparse.cfglm import EOS
-from genparse.inference import importance_sampling, smc_steer, TraceSWOR
-from genparse.util import normalize
+from genparse.inference import importance_sampling, smc_standard, smc_steer, TraceSWOR
+from genparse.util import normalize, format_table
 from genparse import Float
 
 #____________________________________________________________________________________
@@ -22,21 +22,27 @@ class BruteForceGlobalProductOfExperts:
     def __init__(self, lm1, lm2, MAX_LENGTH):
         # Create a reference distribution for the global product of experts by
         # materializing the distrbution over strings up to a maximum length
-        self.p1 = lm1.cfg.cnf.language(MAX_LENGTH).normalize()
-        self.p2 = lm2.cfg.cnf.language(MAX_LENGTH).normalize()
-        self.target = Float.chart({x: self.p1[x] * self.p2[x] for x in self.p1
-                                   if len(x) <= MAX_LENGTH}).normalize()
+        self.p1 = lm1.cfg.cnf.language(MAX_LENGTH).filter(lambda x: len(x) <= MAX_LENGTH).normalize()
+        self.p2 = lm2.cfg.cnf.language(MAX_LENGTH).filter(lambda x: len(x) <= MAX_LENGTH).normalize()
+        self.target = (self.p1 * self.p2).normalize()
 
 
-def generation_tree(lm, **opts):
-    tracer = TraceSWOR()
-    D = Float.chart()
-    while tracer.root.mass > 0:
-        with tracer:
-            s, p = lm.sample(draw=tracer, prob=True, **opts)
-            D[s] += p
-    D = Float.chart((k, D[k]) for k in sorted(D))
-    return D, tracer
+# TODO: support early termination options
+class generation_tree:
+
+    def __init__(self, lm, **opts):
+        tracer = TraceSWOR()
+        D = Float.chart()
+        while tracer.root.mass > 0:
+            with tracer:
+                s, p = lm.sample(draw=tracer, prob=True, **opts)
+                D[s] += p
+        D = Float.chart((k, D[k]) for k in sorted(D))
+        self.D = D
+        self.tracer = tracer
+
+    def _repr_html_(self):
+        return format_table([[self.D, self.tracer]])
 
 
 #____________________________________________________________________________________
@@ -124,7 +130,7 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
 
             # Some people call this the "locally optimal proposal distribution,"
             # What does it optimize?
-            q = Float.chart({k: (p1[k] * p2[k]) for k, v in p1.items()})
+            q = p1 * p2
 
             Z = q.sum()
 
@@ -166,7 +172,9 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
 
     if METHOD == 'is':
         return asyncio.run(importance_sampling(Particle(), n_particles=n_particles))
-    elif METHOD == 'smc':
+    elif METHOD == 'smc-steer':
         return asyncio.run(smc_steer(Particle(), n_particles=n_particles, n_beam=1))
+    elif METHOD == 'smc-standard':
+        return asyncio.run(smc_standard(Particle(), n_particles=n_particles))
     else:
         raise ValueError(METHOD)

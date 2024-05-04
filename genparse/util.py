@@ -13,6 +13,7 @@ class hf_tokenizer:
 
     @cached_property
     def fst(self):
+        from genparse.segmentation import bpe_wfst
         return bpe_wfst(self.pairs)
 
 
@@ -34,6 +35,7 @@ class hf_tokenizer:
 #
 #    @cached_property
 #    def fst(self):
+#        from genparse.segmentation import bpe_wfst
 #        return bpe_wfst(self.pairs)
 
 
@@ -120,54 +122,6 @@ def show_grammar(cfg_t, chart=None, showzero=False):
         lines.append('<div style="border-left: thick solid black; padding-left: 3px; margin-bottom: 5px;">%s</div>' % '\n'.join(block_code))
 
     return HTML(''.join(lines))
-
-
-# TODO: should this method be re-factored into a method that builds the set of
-# pairs followed by a call to kleene star of the transducer?
-#_________________________________________
-# OLDER LESS EFFICIENT CONSTRUCTION BELOW
-#### def bpe_wfst(S):
-####     "Create a transducer relating strings of BPE token ids to their associated strings"
-####     from genparse import Float, FST, EPSILON
-####     m = FST(Float)
-####     START = 0
-####     STOP = 1
-####     m.set_I(0, 1)
-####     for i, x in S:
-####         m.set_arc(START, (i, EPSILON), (i, 0), 1)
-####         for j in range(len(x)):
-####             m.set_arc((i,j), (EPSILON, x[j]), (i,j+1), 1)
-####         m.set_arc((i,len(x)), (EPSILON, EPSILON), STOP, 1)
-####     m.set_F(STOP, 1)
-####     m.set_arc(STOP, (EPSILON, EPSILON), START, 1)
-####     return m.renumber
-#_________________________________________
-#
-
-def bpe_wfst(S, renumber=True):
-    from genparse import Float, FST, EPSILON
-    m = FST(Float)
-    m.set_I((), 1)
-    for i, x in S:
-        x = tuple(x)
-        for j in range(len(x)):
-            m.set_arc(x[:j], (EPSILON, x[j]), x[:j+1], 1)
-        m.set_arc(x, (i, EPSILON), (), 1)
-    m.set_F((), 1)
-    return m.renumber if renumber else m
-
-
-def char2bpe_wfst(S, renumber=True):
-    from genparse import Float, FST, EPSILON
-    m = FST(Float)
-    m.set_I((), 1)
-    for i, x in S:
-        x = tuple(x)
-        for j in range(len(x)):
-            m.set_arc(x[:j], (x[j], EPSILON), x[:j+1], 1)
-        m.set_arc(x, (EPSILON, i), (), 1)
-    m.set_F((), 1)
-    return m.renumber if renumber else m
 
 
 class LarkStuff:

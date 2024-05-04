@@ -29,8 +29,17 @@ def run_test(lm1, lm2):
         lm2,
         MAX_LENGTH = MAX_LENGTH,
         n_particles = N_PARTICLES,
-        METHOD = 'smc',
+        METHOD = 'smc-standard',
     ))
+
+    ref.check(run(
+        lm1,
+        lm2,
+        MAX_LENGTH = MAX_LENGTH,
+        n_particles = N_PARTICLES,
+        METHOD = 'smc-steer',
+    ))
+
 
 
 # This class computes a target distribution for testing purposes and then to run

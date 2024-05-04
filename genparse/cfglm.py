@@ -103,10 +103,11 @@ def next_token_weights(cfg, chart, prefix, alpha=False):
             chart_ij = chart[j][i]
 
             α_j = α[j]
-            for Y, Y_score in chart_ij.items():
+            for Y, y in chart_ij.items():
                 for r in r_y_xz[Y]:
-                    X, [Y, Z] = r.head, r.body
-                    α_j[Z] += r.w * Y_score * α_i[X]
+                    X = r.head
+                    Z = r.body[1]
+                    α_j[Z] += r.w * y * α_i[X]
 
     # Preterminal
     q = cfg.R.chart()
@@ -147,10 +148,13 @@ def extend_chart(cfg, chart, prefix):
         for j in range(i + 1, k):
             chart_ij = chart[j][i]
             new_j = new[j]
-            for Y, Y_score in chart_ij.items():
+            for Y, y in chart_ij.items():
                 for r in r_y_xz[Y]:
-                    X, [Y, Z] = r.head, r.body
-                    new_i[X] += r.w * Y_score * new_j[Z]
+                    X = r.head
+                    Z = r.body[1]
+                    z = new_j[Z]
+                    x = r.w * y * z
+                    new_i[X] += x
 
     return new
 
