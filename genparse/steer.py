@@ -22,6 +22,8 @@ class BruteForceGlobalProductOfExperts:
     def __init__(self, lm1, lm2, MAX_LENGTH):
         # Create a reference distribution for the global product of experts by
         # materializing the distrbution over strings up to a maximum length
+        self.lm1 = lm1
+        self.lm2 = lm2
         self.p1 = lm1.cfg.cnf.language(MAX_LENGTH).filter(lambda x: len(x) <= MAX_LENGTH).normalize()
         self.p2 = lm2.cfg.cnf.language(MAX_LENGTH).filter(lambda x: len(x) <= MAX_LENGTH).normalize()
         self.target = (self.p1 * self.p2).normalize()
@@ -79,14 +81,14 @@ class LocalProduct(LM):
         p1 = self.lm1.p_next(ys)
         p2 = self.lm2.p_next(ys)
 
-        # TODO: p_next should already be normalized!  Alternatively, we could
-        # allow them to be energy-based models.
+        # TODO: p_next should already be normalized!  Skipping the normalization
+        # below would allow energy-based models.
         p1 = normalize(p1)
         p2 = normalize(p2)
 
         # Below, we could alternatively use p2's support; any `k` that's not in
         # both must have probability zero.
-        return normalize({k: (p1[k] * p2[k]) for k in p1})
+        return (p1 * p2).normalize()
 
 
 #_______________________________________________________________________________
@@ -125,11 +127,11 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
             p1 = lm1.p_next(ys)
             p2 = lm2.p_next(ys)
 
-            p1 = normalize(p1)
-            p2 = normalize(p2)
+            # TODO: p_next should already be normalized!  Skipping the
+            # normalization below would allow energy-based models.
+            p1 = p1.normalize()
+            p2 = p2.normalize()
 
-            # Some people call this the "locally optimal proposal distribution,"
-            # What does it optimize?
             q = p1 * p2
 
             Z = q.sum()
@@ -137,7 +139,6 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
             q = normalize(q)
 
             if len(ys) > MAX_LENGTH:
-                #print("FORCED EOS")i
                 warnings.warn('force </s>')
                 y = EOS
 
@@ -149,21 +150,9 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
             #self.weight += np.log(Z)
 
             self.weight += np.log(Z)
-            self.Q += np.log(q[y])
+            self.Q += np.log(q[y]) if q[y] > 0 else -np.inf
 
             #self.weight += np.log(p1(token | history) / p2(prev_token | prev_history))
-
-            #self.weight += np.log(p1[y] * p2[y] / (q[y] / Z))
-#            if q[y] > 0 and p1[y] > 0 and p2[y] > 0:
-#                self.weight += np.log(Z)
-#            else:
-#                self.weight = -np.inf
-
-#            if q[y] > 0:
-#                #self.Q += np.log(p1[y]) + np.log(p2[y]) - np.log(Z)
-#                self.Q += np.log(q[y])
-#            else:
-#                self.Q = -np.inf
 
             self.ys.append(y)
 
@@ -177,4 +166,4 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
     elif METHOD == 'smc-standard':
         return asyncio.run(smc_standard(Particle(), n_particles=n_particles))
     else:
-        raise ValueError(METHOD)
+        raise AssertionError(METHOD)

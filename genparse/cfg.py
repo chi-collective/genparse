@@ -819,6 +819,18 @@ class CFG:
                 new.add(w, (i, a, j), b)
         return new
 
+    # TODO: untested
+    def truncate_length(self, max_length):
+        from genparse import WFSA
+        m = WFSA(self.R)
+        m.add_I(0, self.R.one)
+        m.add_F(0, self.R.one)
+        for t in range(max_length):
+            for x in self.V:
+                m.add_arc(t, x, t+1, self.R.one)
+            m.add_F(t+1, self.R.one)
+        return self @ m
+
 
 def prefix_transducer(R, V):
     "Construct the prefix transducer over semiring `R` and alphabet `V`."
