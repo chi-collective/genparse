@@ -1,7 +1,8 @@
 from genparse.util import LarkStuff, hf_tokenizer
-from genparse import CFGLM, add_EOS, locally_normalize
+from genparse import CFGLM, locally_normalize
 from genparse.cfglm import CharAlignedCFGLM
 from arsenal import timeit, colors
+from time import time
 
 
 def test_basic_aligned_model_arithmetic():
@@ -45,8 +46,6 @@ def test_basic_aligned_model_arithmetic():
     # [2024-04-29 Mon] OPTIMIZATIONS: Tianyu provided the follow contexts, which
     # include a mix of slow and not so slow strings
     #
-    #
-    #
     #===========================================================================
     contexts = [
         #'Bey',
@@ -64,8 +63,11 @@ def test_basic_aligned_model_arithmetic():
     for context in contexts:
         print(colors.yellow % repr(context))
         with timeit('parsing'):
+            b4 = time()
             p = bpe_lm.p_next(context)
-            print('output size:', len(p))
+            took = time() - b4
+        print('output size:', len(p))
+        print('time/output:', took / len(p))
 
 
 def test_basic_aligned_model_iql_small():
@@ -89,16 +91,17 @@ def test_basic_aligned_model_iql_small():
     WS: " "
     """)
 
-    foo = lark_stuff.char_cfg(.1)
-    foo = locally_normalize(foo, tol=1e-100).trim()
-    assert len(foo) > 0
+    with timeit('lark conversion'):
+        foo = locally_normalize(lark_stuff.char_cfg(.1), tol=1e-100).trim()
 
-    H = hf_tokenizer()
+    with timeit('tokenizer setup'):
+        H = hf_tokenizer()
 
-    # the base character-level CFG language model
-    lm = CFGLM(add_EOS(foo))
-
-    bpe_lm = CharAlignedCFGLM(lm=lm, words={x for _, x in H.pairs}, eos=H.tokenizer.eos_token)
+    with timeit('LM setup'):
+        # the base character-level CFG language model
+        lm = CFGLM(foo)
+        bpe_lm = CharAlignedCFGLM(lm=lm, words={x for _, x in H.pairs},
+                                  eos=H.tokenizer.eos_token)
 
     with timeit('took'):
 

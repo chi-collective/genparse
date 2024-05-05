@@ -7,7 +7,6 @@ from collections import defaultdict, Counter, namedtuple
 from functools import cached_property, lru_cache
 from itertools import product
 
-from .chart import Chart
 from .fst import FST
 from .linear import WeightedGraph
 from .semiring import Boolean
@@ -616,7 +615,7 @@ class CFG:
 
             old[u] = new
 
-        return Chart(self.R, old)
+        return old
 
     def naive_bottom_up(self, *, tol=1e-12, timeout=100_000):
 
@@ -631,7 +630,7 @@ class CFG:
             if _approx_equal(U, V): break
             V = U
             counter += 1
-        return Chart(self.R, V)
+        return V
 
     def _bottom_up_step(self, V):
         R = self.R
