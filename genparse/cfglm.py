@@ -5,7 +5,6 @@ Fast computation of the posterior distrubtion over the next word in a WCFG langu
 from arsenal import colors
 from arsenal.maths import sample_dict
 from collections import defaultdict
-from functools import lru_cache
 
 from .cfg import _gen_nt, CFG
 from .semiring import Float
@@ -33,6 +32,10 @@ class CFGLM:
 
     def __init__(self, cfg, renumber=True):
         if EOS not in cfg.V: cfg = add_EOS(cfg)
+
+        # cache columns of the chart indexed by prefix
+        self._chart = {}
+
         if renumber:
             self.cfg = cfg.renumber()
             self.pfg = cfg.cnf.prefix_grammar.cnf.renumber().cnf
@@ -51,8 +54,14 @@ class CFGLM:
     def from_string(cls, x, semiring=Float, **kwargs):
         return cls(locally_normalize(CFG.from_string(x, Float), **kwargs))
 
-    @lru_cache(None)
     def chart(self, prefix):
+        c = self._chart.get(prefix)
+        if c is None:
+            c = self._compute_chart(prefix)
+            self._chart[prefix] = c
+        return c
+
+    def _compute_chart(self, prefix):
         if len(prefix) == 0:
             # TODO: double check this!
             tmp = [defaultdict(self.pfg.R.chart)]
@@ -63,13 +72,12 @@ class CFGLM:
             last_chart = extend_chart(self.pfg, chart, prefix)
             return chart + [last_chart]    # TODO: avoid list addition here as it is not constant time!
 
-    @lru_cache(None)
     def p_next(self, prefix):
         chart = self.chart(prefix)
         return next_token_weights(self.pfg, chart, prefix)
 
-    # TODO: Use the cached charts for the prefix-transformed grammar to compute the total 
-    # probability of the string `x`.
+    # TODO: Use the cached charts for the prefix-transformed grammar to compute
+    # the total probability of the string `x`.
     def __call__(self, x):
         assert x[-1] == EOS
         return self.cfg(x)
