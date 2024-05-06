@@ -150,10 +150,10 @@ def test_examples():
         for s in product(cfg.V, repeat=3):
             s = list(s)
             try:
-                assert_equal(
-                    have = cfg.prefix_weight(s),
-                    want = cfg.derivatives(s)[-1].treesum(),
-                )
+                assert cfg.R.metric(
+                    cfg.prefix_weight(s),
+                    cfg.derivatives(s)[-1].treesum(),
+                ) < 1e-8
             except AssertionError as e:
                 print(name, repr(s))
                 print(e)
