@@ -3,13 +3,14 @@ import numpy as np
 from arsenal import colors
 
 from genparse import CFG, CFGLM, Float
-from genparse.steer import run
+from genparse.steer import run, BruteForceGlobalProductOfExperts
 
 
+# NOTE: if the MAX_LENGTH is not long enough we will see truncation bias.  An
+# alternative approach is to truncate the actual distributions.  (That is
+# efficient for CFG, but I am not sure it is efficient for LLMs.)
 MAX_LENGTH = 10
-N_PARTICLES = 10_000
-#METHOD = 'smc'
-#METHOD = 'is'
+N_PARTICLES = 5_000
 
 
 def run_test(lm1, lm2):
@@ -29,33 +30,36 @@ def run_test(lm1, lm2):
         lm2,
         MAX_LENGTH = MAX_LENGTH,
         n_particles = N_PARTICLES,
-        METHOD = 'smc',
+        METHOD = 'smc-standard',
+    ))
+
+    ref.check(run(
+        lm1,
+        lm2,
+        MAX_LENGTH = MAX_LENGTH,
+        n_particles = N_PARTICLES,
+        METHOD = 'smc-steer',
     ))
 
 
 # This class computes a target distribution for testing purposes and then to run
 # some diagnostics to characterize the quality of the approximation.
-class CheckParticles:
-
-    def __init__(self, lm1, lm2, MAX_LENGTH):
-        # Create a reference distribution for the global product of experts by
-        # materializing the distrbution over strings up to a maximum length
-        self.p1 = lm1.cfg.cnf.language(MAX_LENGTH).normalize()
-        self.p2 = lm2.cfg.cnf.language(MAX_LENGTH).normalize()
-        self.target = Float.chart({x: self.p1[x] * self.p2[x] for x in self.p1
-                                   if len(x) <= MAX_LENGTH}).normalize()
+class CheckParticles(BruteForceGlobalProductOfExperts):
 
     def check(self, particles):
         n_particles = len(particles)
 
+        # TODO: weight finalization should be part of the inference algorithm!
         w = Float.chart()
         for p in particles:
-#            if p.weight == -np.inf: continue
-            w[tuple(p.ys)] += np.exp(p.weight)
+            ys = tuple(p.ys)
+            numerator = self.lm1(ys) * self.lm2(ys)   # use the finalized numerator!
+            if numerator > 0:
+                w[ys] += numerator * np.exp(-p.Q)
         empirical = w.normalize()
 
         df = []
-        for x in self.p1 | self.p2 | empirical:
+        for x in self.target | empirical:
             if empirical[x] == 0 and self.target[x] == 0: continue
             df.append(dict(x=x, target=self.target[x], empirical=empirical[x]))
 
@@ -84,20 +88,20 @@ def test_empty():
 
     run_test(
 
-        CFGLM(CFG.from_string("""
+        CFGLM.from_string("""
 
         0.45: S -> a S a
         0.45: S -> b S b
         0.1: S ->
 
-        """, Float)),
+        """),
 
-        CFGLM(CFG.from_string("""
+        CFGLM.from_string("""
 
         0.5: S -> a b S
         0.5: S ->
 
-        """, Float)),
+        """),
 
     )
 
@@ -106,22 +110,22 @@ def test_finite_finite():
 
     run_test(
 
-        CFGLM(CFG.from_string("""
+        CFGLM.from_string("""
 
         1: S -> a a a
         1: S -> b b b
         1: S -> b b b b b b b b b
         1: S ->
 
-        """, Float)),
+        """),
 
-        CFGLM(CFG.from_string("""
+        CFGLM.from_string("""
 
         2: S -> a a a
         1: S -> b b b b b
         1: S -> b b b b b b b b b
 
-        """, Float)),
+        """),
     )
 
 
@@ -129,21 +133,21 @@ def test_palindrome_universal():
 
     run_test(
 
-        CFGLM(CFG.from_string("""
+        CFGLM.from_string("""
 
         0.45: S -> a S a
         0.45: S -> b S b
         0.1: S ->
 
-        """, Float)),
+        """),
 
-        CFGLM(CFG.from_string("""
+        CFGLM.from_string("""
 
         0.8: S -> a S
         0.1: S -> b S
         0.1: S ->
 
-        """, Float)),
+        """),
     )
 
 
@@ -151,15 +155,15 @@ def test_palindrome_finite():
 
     run_test(
 
-        CFGLM(CFG.from_string("""
+        CFGLM.from_string("""
 
         0.45: S -> a S a
         0.45: S -> b S b
         0.1: S ->
 
-        """, Float)),
+        """),
 
-        CFGLM(CFG.from_string("""
+        CFGLM.from_string("""
 
         1: S -> a a a a a a a a
         1: S -> a a a a a a
@@ -167,7 +171,7 @@ def test_palindrome_finite():
         1: S -> a a
         1: S ->
 
-        """, Float)),
+        """),
     )
 
 

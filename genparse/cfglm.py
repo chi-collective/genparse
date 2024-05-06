@@ -7,7 +7,6 @@ from numba import jit
 from arsenal import colors
 from arsenal.maths import sample_dict
 from collections import defaultdict
-from functools import lru_cache
 
 from .cfg import _gen_nt, CFG
 from .semiring import Float
@@ -35,6 +34,10 @@ class CFGLM:
 
     def __init__(self, cfg, renumber=True):
         if EOS not in cfg.V: cfg = add_EOS(cfg)
+
+        # cache columns of the chart indexed by prefix
+        self._chart = {}
+
         if renumber:
             self.cfg = cfg.renumber()
             self.pfg = cfg.cnf.prefix_grammar.cnf.renumber().cnf
@@ -53,8 +56,14 @@ class CFGLM:
     def from_string(cls, x, semiring=Float, **kwargs):
         return cls(locally_normalize(CFG.from_string(x, Float), **kwargs))
 
-    @lru_cache(None)
     def chart(self, prefix):
+        c = self._chart.get(prefix)
+        if c is None:
+            c = self._compute_chart(prefix)
+            self._chart[prefix] = c
+        return c
+
+    def _compute_chart(self, prefix):
         if len(prefix) == 0:
             # TODO: double check this!
             tmp = [defaultdict(self.pfg.R.chart)]
@@ -65,7 +74,6 @@ class CFGLM:
             last_chart = extend_chart(self.pfg, chart, prefix)
             return chart + [last_chart]    # TODO: avoid list addition here as it is not constant time!
         
-    @lru_cache(None)
     def numba_chart(self, prefix):
         if len(prefix) == 0:
             return []
@@ -93,6 +101,12 @@ class CFGLM:
 
         chart = self.chart(prefix)
         return next_token_weights(self.pfg, chart, prefix)
+
+    # TODO: Use the cached charts for the prefix-transformed grammar to compute
+    # the total probability of the string `x`.
+    def __call__(self, x):
+        assert x[-1] == EOS
+        return self.cfg(x)
 
     def sample(self, draw=sample_dict, prob=False, verbose=False):
         ys = ()
@@ -128,10 +142,11 @@ def next_token_weights(cfg, chart, prefix, alpha=False):
             chart_ij = chart[j][i]
 
             α_j = α[j]
-            for Y, Y_score in chart_ij.items():
+            for Y, y in chart_ij.items():
                 for r in r_y_xz[Y]:
-                    X, [Y, Z] = r.head, r.body
-                    α_j[Z] += r.w * Y_score * α_i[X]
+                    X = r.head
+                    Z = r.body[1]
+                    α_j[Z] += r.w * y * α_i[X]
 
     # Preterminal
     q = cfg.R.chart()
@@ -171,10 +186,13 @@ def extend_chart(cfg, chart, prefix):
         for j in range(i + 1, k):
             chart_ij = chart[j][i]
             new_j = new[j]
-            for Y, Y_score in chart_ij.items():
+            for Y, y in chart_ij.items():
                 for r in r_y_xz[Y]:
-                    X, [Y, Z] = r.head, r.body
-                    new_i[X] += r.w * Y_score * new_j[Z]
+                    X = r.head
+                    Z = r.body[1]
+                    z = new_j[Z]
+                    x = r.w * y * z
+                    new_i[X] += x
 
     return new
 
@@ -201,6 +219,18 @@ class CharAlignedCFGLM:
         self.eos = eos
         self._end = object()
         self.trie = self.make_trie(words)
+
+#        self.c = {}
+#        self._counts('', self.trie)
+
+#    def _counts(self, prefix, node):
+#        "Compute the number of continuations under `node`"
+#        total = sum(
+#            1 if x == self._end else self._counts(prefix + x, node[x])
+#            for x in node
+#        )
+#        self.c[prefix] = total
+#        return total
 
     def make_trie(self, words):
         root = dict()
