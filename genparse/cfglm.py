@@ -197,6 +197,18 @@ class CharAlignedCFGLM:
         self._end = object()
         self.trie = self.make_trie(words)
 
+#        self.c = {}
+#        self._counts('', self.trie)
+
+#    def _counts(self, prefix, node):
+#        "Compute the number of continuations under `node`"
+#        total = sum(
+#            1 if x == self._end else self._counts(prefix + x, node[x])
+#            for x in node
+#        )
+#        self.c[prefix] = total
+#        return total
+
     def make_trie(self, words):
         root = dict()
         for word in words:
