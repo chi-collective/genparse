@@ -83,7 +83,7 @@ class CFGLM:
             last_chart = extend_numba_chart(N,T, chart, prefix)
             return chart + [last_chart]    # TODO: avoid list addition here as it is not constant time!
 
-    @lru_cache(None)
+    
     def p_next(self, prefix, NUMBA=False):
 
         if NUMBA: # in this case the fast computation is executed
