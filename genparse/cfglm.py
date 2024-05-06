@@ -1,7 +1,9 @@
 """
 Fast computation of the posterior distrubtion over the next word in a WCFG language model.
 """
-
+import numba 
+import numpy as np
+from numba import jit
 from arsenal import colors
 from arsenal.maths import sample_dict
 from collections import defaultdict
@@ -62,9 +64,33 @@ class CFGLM:
             chart = self.chart(prefix[:-1])
             last_chart = extend_chart(self.pfg, chart, prefix)
             return chart + [last_chart]    # TODO: avoid list addition here as it is not constant time!
+        
+    @lru_cache(None)
+    def numba_chart(self, prefix):
+        if len(prefix) == 0:
+            return []
+        else:
+            chart = self.numba_chart(prefix[:-1])
+            N, T = self.pfg.array_grammar()
+            last_chart = extend_numba_chart(N,T, chart, prefix)
+            return chart + [last_chart]    # TODO: avoid list addition here as it is not constant time!
 
     @lru_cache(None)
-    def p_next(self, prefix):
+    def p_next(self, prefix, NUMBA=False):
+
+        if NUMBA: # in this case the fast computation is executed
+            assert self.pfg.R == Float 
+            chart = self.numba_chart(prefix)
+            start_index = self.pfg.ordered_N[self.pfg.S]
+            N, T = self.pfg.array_grammar
+
+            print(chart,prefix)
+            array_weights = numba_next_token_weights(N, T, chart, prefix, start_index)
+            dict_weights = Float.chart()
+            for a in self.pfg.V : # [index, weight] ==> [terminal, weight]
+                dict_weights[a] = array_weights[self.pfg.ordered_V[a]]
+            return dict_weights
+
         chart = self.chart(prefix)
         return next_token_weights(self.pfg, chart, prefix)
 
@@ -79,7 +105,6 @@ class CFGLM:
             if y == EOS:
                 return (ys, P) if prob else ys
             ys = ys + (y,)
-
 
 def next_token_weights(cfg, chart, prefix, alpha=False):
     """
@@ -120,7 +145,6 @@ def next_token_weights(cfg, chart, prefix, alpha=False):
     else:
         return q
 
-
 def extend_chart(cfg, chart, prefix):
     """
     An O(N²) time algorithm to extend to the `chart` with the last token
@@ -131,7 +155,7 @@ def extend_chart(cfg, chart, prefix):
     (nullary, terminal, _) = cfg._cnf
     r_y_xz = cfg.r_y_xz
 
-    new = defaultdict(cfg.R.chart)
+    new = defaultdict(cfg.R.chart) #cfg.R.chart 
 
     # Nullary
     new[k][cfg.S] += nullary
@@ -153,7 +177,6 @@ def extend_chart(cfg, chart, prefix):
                     new_i[X] += r.w * Y_score * new_j[Z]
 
     return new
-
 
 # TODO: Make the token-id sequences available as well as the character
 # sequences.  Using the character sequences is useful the CFGLM caching, so we
@@ -301,3 +324,65 @@ def cfg_check_bounded(cfg, ub=1.000001, lb=0):
         print(colors.mark(True), 'PCFG')
     else:
         print(colors.mark(False), 'PCFG', chart.__str__(style_value=lambda k, v: v if lb <= v <= ub else (colors.light.red % v)))
+
+
+#-----NUMBA----------------------------------------------------#
+
+@jit
+def extend_numba_chart(N, T, chart, prefix):
+    """
+    An O(N²) time algorithm to extend to the "chart" with the last token
+    appearing at the end of "prefix"; returns a new chart column.
+    """
+    if len(chart) == 0:
+        return
+
+    k = len(prefix)
+
+    # Nullary
+    t = T.shape[1]
+    n = N.shape[0]
+    new = np.zeros([k, n])
+    
+    # Preterminal
+    for a in range(0,t):
+        for X in range(0,n):
+            new[k-1,X] += T[X,a]
+
+    # Binary rules
+    for span in range(1, k+1):
+        i = k - span
+        for j in range(i + 1, k):
+            for X,Y,Z in range(0,n):
+                new[i,X] += chart[j][i,Y] * new[j,Z] * N[X,Y,Z]
+
+    return new
+
+@jit    
+def numba_next_token_weights(N, T, chart, prefix, start_index):
+    """
+    An O(N²) time algorithm to the total weight of a each next-token
+    extension of `prefix`.
+    """
+    k = len(prefix) + 1
+    t = T.shape[1]
+    n = N.shape[0]
+
+    if len(chart) != 0 :
+        # the code below is just backprop / outside algorithm
+        α = np.zeros([k,n])
+        α[0][start_index] += 1
+
+        # Binary rules
+        for span in reversed(range(1, k + 1)):
+            i = k - span
+            for j in range(i + 1, k):
+                    for X,Y,Z in range(0,n):
+                        α[j,Z] += N[X,Y,Z] * chart[j][i,Y] * α[i, X]
+
+    q = np.zeros(t)
+    for X in range(0,n):
+        for a in range(0,t):
+            q[a] += T[X,a] * α[k-1,X]
+
+    return q

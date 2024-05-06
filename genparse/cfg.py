@@ -1,6 +1,7 @@
 import re
 import nltk
 import itertools
+import numpy as np
 
 from arsenal import Integerizer, colors
 from collections import defaultdict, Counter, namedtuple
@@ -176,6 +177,23 @@ class CFG:
         for r in self:
             rhs[r.head].append(r)
         return rhs
+    
+    @cached_property
+    def ordered_N(self):
+        N_list = list(self.N)
+        N_dict = {}
+        for i in range(len(N_list)):
+            N_dict[N_list[i]] = i
+        return N_dict
+
+    
+    @cached_property
+    def ordered_V(self):
+        V_list = list(self.V)
+        V_dict = {}
+        for i in range(len(V_list)):
+            V_dict[V_list[i]] = i
+        return V_dict
 
     def is_terminal(self, x):
         return x in self.V
@@ -528,6 +546,34 @@ class CFG:
                 continue
             else:
                 yield r
+
+    @property
+    def array_grammar(self):
+        """Returns two np arrays encoding the rules of the grammar
+        (except the nullaries ). works only in cnf"""
+
+        assert self.in_cnf()
+        (nullary, terminal, binary) = self._cnf
+
+        N = len(self.N)
+        V = len(self.V)
+
+        R = np.zeros([N,N,N])
+        T = np.zeros([N,V])
+
+        for r in binary:
+            i = self.ordered_N[r.head]
+            j = self.ordered_N[r.body[0]]
+            k = self.ordered_N[r.body[1]]
+            R[i,j,k] += r.w
+
+        for rules in terminal.values():
+            for r in rules:
+                i = self.ordered_N[r.head]
+                k = self.ordered_V[r.body[0]]
+                T[i,k] += r.w
+        
+        return R, T
 
     def unfold(self, i, k):
         assert isinstance(i, int) and isinstance(k, int)
