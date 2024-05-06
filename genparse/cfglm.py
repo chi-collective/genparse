@@ -6,8 +6,8 @@ from arsenal import colors
 from arsenal.maths import sample_dict
 from collections import defaultdict
 
-from .cfg import _gen_nt, CFG
-from .semiring import Float
+from genparse.cfg import _gen_nt, CFG
+from genparse.semiring import Float
 
 
 def locally_normalize(self, **kwargs):
@@ -73,6 +73,7 @@ class CFGLM:
             return chart + [last_chart]    # TODO: avoid list addition here as it is not constant time!
 
     def p_next(self, prefix):
+        chart = self.chart(prefix)
         return next_token_weights(self.pfg, chart, prefix)
 
     # TODO: Use the cached charts for the prefix-transformed grammar to compute
@@ -170,7 +171,6 @@ def extend_chart(cfg, chart, prefix):
                     new_i[X] += x
 
     return new
-
 
 # TODO: Make the token-id sequences available as well as the character
 # sequences.  Using the character sequences is useful the CFGLM caching, so we

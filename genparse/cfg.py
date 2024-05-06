@@ -811,7 +811,6 @@ class CFG:
                 new.add(wi*wf, new_start, (i, Other(self.S), k))
 
         for i, (a,b), j, w in fst.arcs():
-            # if a in self.V:
             if b == EPSILON:
                 new.add(w, (i, a, j))
             else:

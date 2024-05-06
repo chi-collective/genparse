@@ -1,4 +1,4 @@
-from . import CFG, Real
+from . import CFG, Float
 
 # simple CNF grammar, generates one string
 abcd = CFG.from_string("""
@@ -9,7 +9,7 @@ abcd = CFG.from_string("""
 1.0: B -> b
 1.0: C -> c
 1.0: D -> d
-""", Real)
+""", Float)
 
 # simple finite language where each prefix kills off a finite number of continuations
 abcde_prefixes = CFG.from_string("""
@@ -20,12 +20,12 @@ abcde_prefixes = CFG.from_string("""
 1: S -> a x x x x
 1: S -> x x x x x
 
-""", Real)
+""", Float)
 
 catalan = CFG.from_string("""
 0.2: S -> S S
 0.8: S -> a
-""", Real)
+""", Float)
 
 catalan_ab = CFG.from_string("""
 1.0: S -> A
@@ -33,13 +33,13 @@ catalan_ab = CFG.from_string("""
 0.4: A -> a
 0.4: A -> b
 
-""", Real)
+""", Float)
 
 palindrome_ab = CFG.from_string("""
 0.3: S -> a S a
 0.4: S -> b S b
 0.3: S ->
-""", Real)
+""", Float)
 
 papa = CFG.from_string("""
 
@@ -62,4 +62,4 @@ papa = CFG.from_string("""
 0.5: N -> caviar
 0.5: N -> spoon
 
-""", Real)
+""", Float)
