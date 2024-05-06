@@ -153,7 +153,7 @@ class CFG:
             for r in terminal[xs[i]]:
                 c[i,r.head,i+1] += r.w
         # binary rules
-        for span in range(1, N + 1):
+        for span in range(2, N + 1):
             for i in range(N - span + 1):
                 k = i + span
                 for j in range(i + 1, k):

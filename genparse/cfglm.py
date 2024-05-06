@@ -73,7 +73,6 @@ class CFGLM:
             return chart + [last_chart]    # TODO: avoid list addition here as it is not constant time!
 
     def p_next(self, prefix):
-        chart = self.chart(prefix)
         return next_token_weights(self.pfg, chart, prefix)
 
     # TODO: Use the cached charts for the prefix-transformed grammar to compute
@@ -110,7 +109,7 @@ def next_token_weights(cfg, chart, prefix, alpha=False):
     α[0][cfg.S] += cfg.R.one
 
     # Binary rules
-    for span in reversed(range(1, k + 1)):
+    for span in reversed(range(2, k + 1)):
         i = k - span
         α_i = α[i]
         for j in range(i + 1, k):
@@ -156,7 +155,7 @@ def extend_chart(cfg, chart, prefix):
         new[k-1][r.head] += r.w
 
     # Binary rules
-    for span in range(1, k+1):
+    for span in range(2, k+1):
         i = k - span
         new_i = new[i]
         for j in range(i + 1, k):
