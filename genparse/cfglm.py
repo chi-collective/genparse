@@ -173,6 +173,7 @@ def extend_chart(cfg, chart, prefix):
 
     return new
 
+
 # TODO: Make the token-id sequences available as well as the character
 # sequences.  Using the character sequences is useful the CFGLM caching, so we
 # should not dispense with it!

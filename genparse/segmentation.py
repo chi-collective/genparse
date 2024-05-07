@@ -52,8 +52,12 @@ class max_munch:
         if len(x) == 0:
             return ()
         else:
-            t, ys = next(self.traverse(x, 0, self.root))
+            t, ys = self.munch(x)
             return (ys,) + self(x[t:])
+
+    def munch(self, x):
+        (t, ys) = next(self.traverse(x, 0, self.root))
+        return (t, ys)
 
     def make_trie(self, words):
         root = dict()
@@ -86,6 +90,38 @@ class longest_suffix_in:
         r = tuple(reversed(c))
         _, ys = next(self.rtrie.traverse(r, 0, self.rtrie.root))
         return ''.join(reversed(ys)) if isinstance(c, str) else tuple(reversed(ys))
+
+
+#def longest_suffix_in(S):
+#
+#    def f(s):
+#        if s in S:
+#            return s
+#        elif not s:
+#            raise KeyError('no suffixes found')
+#        else:
+#            return f(s[1:])
+#
+#    return f
+
+
+#def max_munch(tokens):
+#    """
+#    Maximum-munch tokenizer for the finite set `tokens`.
+#      >>> tokens = ['aaa', 'aa', 'a']
+#      >>> t = max_munch(tokens)
+#      >>> assert t('aaaaaa') == ('aaa','aaa')
+#      >>> assert t('aaaaa') == ('aaa','aa')
+#      >>> assert t('aaaa') == ('aaa','a')
+#      >>> assert t('aaa' 'aaa' 'aa') == ('aaa','aaa', 'aa')
+#    """
+#    def t(a):
+#        if len(a) == 0: return ()
+#        for b in sorted(tokens, key=len, reverse=True):
+#            if a[:len(b)] == b:
+#                return (b,) + t(a[len(b):])
+#        raise ValueError('bad token set')
+#    return t
 
 
 def segmentation_counting_wfst(S):
@@ -176,7 +212,9 @@ def segmentation_pfst(contexts, alphabet, canonical, debug=False, trim=True):
 
     muncher = max_munch(C)
 
+    # TODO: proper prefixes?
     states = {p for c in C for p in prefixes(c[:-1])}  # states track (proper) prefixes of contexts
+    #states = {p for c in C for p in prefixes(c)}  # states track prefixes of contexts
 
     longest_suffix = longest_suffix_in(states)
 
@@ -193,8 +231,25 @@ def segmentation_pfst(contexts, alphabet, canonical, debug=False, trim=True):
             # The current context
             c = p+(y,)
 
+            if EOS in c: continue
+
             # We can transition to any suffix of `c` that is also a state.
-            next_states = {longest_suffix(c)} if canonical else set(suffixes(c)) & states
+            if canonical:
+                t, _ = muncher.munch(c)
+
+                bite = c[:t]
+                rest = c[t:]
+
+                old_rest = longest_suffix(c)
+                if len(old_rest) == len(c) - 1:   # we've run out of buffer; must emit
+                    next_states = {rest}
+                else:
+                    next_states = {old_rest}
+
+                assert bite + rest == c
+
+            else:
+                next_states = set(suffixes(c)) & states
 
             # Consider `abcde + f = abcdef` that can backoff to any suffix that is also a state.
             #
@@ -279,6 +334,10 @@ def run_segmentation_test(T, x, contexts, rmeps=True, maxseglenth=100, verbose=0
 
     """
 
+    if verbose:
+        print()
+        print(colors.cyan % 'input:', fmt(x))
+
     tmp = T(x + EOS, None)
     if rmeps: tmp = tmp.epsremove.trim
     Z = tmp.total_weight()
@@ -291,6 +350,15 @@ def run_segmentation_test(T, x, contexts, rmeps=True, maxseglenth=100, verbose=0
         if verbose: print(colors.mark(X == x), X, Y)
         assert all((y in contexts) for y in Y)
         ok &= X == x
+
+    if canonical:
+        want = max_munch(contexts)(x)
+        [have] = D.keys()
+        if verbose > 0:
+            print('max munch', colors.mark(len(have) == len(want)), f'{have=} {want=}')
+        assert len(have) == len(want)
+        assert have == want
+
     assert ok and np.allclose(Z, 1) and (not canonical or len(D) == 1), f"""
         {x = }, {Z = }, {canonical = }, {D = }
     """

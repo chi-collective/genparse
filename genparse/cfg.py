@@ -817,7 +817,7 @@ class CFG:
                 new.add(w, (i, a, j), b)
         return new
 
-    # TODO: untested
+    # TODO: experimental; untested
     def truncate_length(self, max_length):
         from genparse import WFSA
         m = WFSA(self.R)
@@ -828,6 +828,10 @@ class CFG:
                 m.add_arc(t, x, t+1, self.R.one)
             m.add_F(t+1, self.R.one)
         return self @ m
+
+    # TODO: experimental; untested
+    def materialize(self, max_length):
+        return self.cnf.language(max_length).filter(lambda x: len(x) <= max_length)
 
 
 def prefix_transducer(R, V):

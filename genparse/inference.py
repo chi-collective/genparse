@@ -8,6 +8,7 @@ import numpy as np
 
 import html
 from graphviz import Digraph
+from genparse import Float
 from arsenal import Integerizer, colors
 from arsenal.maths import sample, logsumexp, softmax
 
@@ -232,12 +233,15 @@ class Node:
         self.parent = parent
         self.children = children
         self.context = context
-        self._mass = mass
+        self._mass = mass           # bookkeeping: remember the original mass
 
     def sample(self):
         cs = list(self.children)
         ms = [c.mass for c in self.children.values()]
         return cs[sample(ms)]
+
+    def p_next(self):
+        return Float.chart((a, c.mass/self.mass) for a, c in self.children.items())
 
     def update(self):
         "Restore the invariant that self.mass = sum children mass."
@@ -248,7 +252,7 @@ class Node:
 
     def graphviz(
         self,
-        fmt_edge=lambda x,a,y: f'{html.escape(a)}/{y._mass/x._mass:.2g}',
+        fmt_edge=lambda x,a,y: f'{html.escape(str(a))}/{y._mass/x._mass:.2g}',
         #fmt_node=lambda x: ' ',
         fmt_node=lambda x: f'{x.mass}/{x._mass:.2g}' if x.mass > 0 else f'{x._mass:.2g}',
     ):
