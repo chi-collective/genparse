@@ -80,7 +80,8 @@ class CFGLM:
     # the total probability of the string `x`.
     def __call__(self, x):
         assert x[-1] == EOS
-        return self.cfg(x)
+        #return self.cfg(x)
+        return self.chart(x)[len(x)][0][self.pfg.S]
 
     def sample(self, draw=sample_dict, prob=False, verbose=False):
         ys = ()
