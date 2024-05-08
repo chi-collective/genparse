@@ -2,10 +2,8 @@ from arsenal import colors
 from arsenal.maths import sample_dict
 from collections import Counter, deque
 
-from genparse import Float, Chart, EOS
-from genparse.cfglm import SPACER, ERROR
-from genparse.steer import normalize
-from genparse.inference import Node
+from genparse import Float, Chart, EOS, SPACER, ERROR
+from genparse.util import normalize
 
 
 # TODO: use A^* to break ties (ambiguity); order fringe by probability
