@@ -4,7 +4,7 @@ from genparse import Float, CFG, CFGLM
 from genparse.steer import LocalProduct, run
 from genparse.align import pullback
 from genparse.cfglm import explode
-from genparse.lm import NoCacheGPT, TokenGPT2
+from genparse.lm import LLM
 
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
@@ -14,9 +14,8 @@ def test_pullback_gpt():
 
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     gpt_model = AutoModelForCausalLM.from_pretrained("gpt2")
-#    llm = NoCacheGPT(gpt_model)
-
-    llm = TokenGPT2(gpt_model)
+    #llm = NoCacheLLM(gpt_model)
+    llm = LLM(gpt_model)
 
     out = pullback(llm, ' th', tokenizer.decode, tuple(tokenizer.encode(' ')))
     print('>>>', out)

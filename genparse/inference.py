@@ -243,6 +243,20 @@ class Node:
     def p_next(self):
         return Float.chart((a, c.mass/self.mass) for a, c in self.children.items())
 
+    # TODO: untested
+    def sample_path(self):
+        curr = self
+        path = []
+        P = 1
+        while True:
+            p = curr.p_next()
+            a = curr.sample()
+            P *= p[a]
+            curr = curr.children[a]
+            if not curr.children: break
+            path.append(a)
+        return (P, path, curr)
+
     def update(self):
         "Restore the invariant that self.mass = sum children mass."
         if self.children is not None:

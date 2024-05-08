@@ -6,6 +6,8 @@ import numpy as np
 import torch
 from functools import lru_cache
 from collections import Counter
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from genparse import Float
 
 
 # In the most abstract case, an LM is a probability distribution over strings
@@ -23,12 +25,12 @@ class LM:
         raise NotImplementedError()
 
 
-class TokenGPT2(LM):
+class LLM(LM):
     """
     This is a simple class that wraps HuggingFace transformers with support for automatic caching.
     """
-    def __init__(self, gpt_model):
-        self.model = gpt_model
+    def __init__(self, model):
+        self.model = model
         self.model.eval()   # Set the model in "evaluation mode"
 
     def __call__(self, input_ids):
@@ -66,12 +68,12 @@ class TokenGPT2(LM):
         return probs[0,:]  # return the conditional distribution of just the last token
 
 
-class NoCacheGPT(LM):
+class NoCacheLLM(LM):
     """
     This is a simple class that wraps HuggingFace transformers.
     """
-    def __init__(self, gpt_model):
-        self.model = gpt_model
+    def __init__(self, model):
+        self.model = model
         self.model.eval()   # Set the model in "evaluation mode"
 
     def __call__(self, input_ids):
@@ -84,3 +86,48 @@ class NoCacheGPT(LM):
             outputs = self.model(input_ids=input_ids, labels=input_ids)
             lprobs = torch.nn.functional.softmax(outputs.logits, dim=-1)
         return lprobs[0,-1,:]  # return the conditional distribution of just the last token
+
+
+class GreedilyTokenizedLLM:
+
+    def __init__(self, name):
+        self.tokenizer = AutoTokenizer.from_pretrained(name)
+        self._model = AutoModelForCausalLM.from_pretrained(name)
+        self.model = LLM(self._model)
+
+    def __call__(self, xs):
+        return self.model(self.tokenizer.encode(xs))
+
+    def p_next(self, xs, top=None):
+        # TODO: support token healing and/or hindsight sampling to get a valid token sequence
+        assert isinstance(xs, str)
+        tokens = self.tokenizer.encode(xs)
+        _p = self.model.p_next(tokens).numpy()
+        if top is None:
+            top_p = _p.argsort()
+        else:
+            top_p = _p.argsort()[-top:]
+        pp = Float.chart()
+        for i in reversed(top_p):
+            x = self.tokenizer.decode([i])
+            pp[x] = _p[i]
+        return pp
+
+#    def p_next_healing(self, xs, top=10):
+#        # TODO: support token healing and/or hindsight sampling to get a valid token sequence
+#        assert isinstance(xs, str)
+#        tokens = self.tokenizer.encode(xs)
+#        # token healing will take all but the last token and then resample the last one
+#        # since it might be a partial token.
+#        print([(t, self.tokenizer.decode([t])) for t in tokens])
+#        complete = self.tokenizer.decode(tokens[:-1])
+#        token_prefix = xs[len(complete):]
+#        tokens = tokens[:-1]
+#        _p = self.model.p_next(tokens).numpy()
+#        pp = Float.chart()
+#        for i in reversed(_p.argsort()):
+#            x = self.tokenizer.decode([i])
+#            if x.startswith(token_prefix):
+#                pp[x] = _p[i]
+#                if len(pp) > top: break
+#        return pp

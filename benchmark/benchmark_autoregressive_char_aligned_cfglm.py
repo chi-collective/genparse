@@ -5,7 +5,7 @@ from arsenal import timeit
 
 from genparse.util import LarkStuff, hf_tokenizer
 from genparse import CFGLM, add_EOS, locally_normalize
-from genparse.cfglm import CharAlignedCFGLM
+from genparse.align import CharAlignedCFGLM
 
 
 def benchmark_basic_aligned_model():
