@@ -1,3 +1,9 @@
+from arsenal.maths import sample_dict
+from genparse.inference import Node
+from genparse import EOS, ERROR
+from arsenal import colors
+
+
 class NextTokenTrie:
     """
     Convert a flat probability distribution over strings into a trie-structured
@@ -129,7 +135,7 @@ class TokenTrieApproximation:
             path.append(a)
 
         return (P, path, curr)
-        
+
 
 def test_llm_trie_approximation():
 
@@ -160,4 +166,3 @@ def test_llm_trie_approximation():
 if __name__ == '__main__':
     from arsenal import testing_framework
     testing_framework(globals())
-
