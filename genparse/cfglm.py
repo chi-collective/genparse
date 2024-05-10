@@ -88,11 +88,9 @@ class CFGLM:
         chart = self.chart(prefix)
         return next_token_weights(self.pfg, chart, prefix)
 
-    # TODO: Use the cached charts for the prefix-transformed grammar to compute
-    # the total probability of the string `x`.
     def __call__(self, x):
         assert x[-1] == EOS
-        #return self.cfg(x)
+        # the quantity below is equivalent to `self.cfg(x)`
         return self.chart(x)[len(x)][0][self.pfg.S]
 
     def sample(self, draw=sample_dict, prob=False, verbose=False):
