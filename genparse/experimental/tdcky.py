@@ -61,6 +61,10 @@ class ExactTensorDecomp:
         (b, _, _) = self.chart(xs)
         return b[len(xs)][0][self.S]
 
+    def p_next(self, prefix):
+        (b, by, bz) = self.chart(prefix)
+        return self.next_token_weights(b, by, bz, prefix)
+
     def chart(self, prefix):
         c = self._chart.get(prefix)
         if c is None:

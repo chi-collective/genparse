@@ -99,7 +99,7 @@ class GreedilyTokenizedLLM:
         return self.model(self.tokenizer.encode(xs))
 
     def p_next(self, xs, top=None):
-        # TODO: support token healing and/or hindsight sampling to get a valid token sequence
+        # TODO: support token healing and/or constrained generation to get a valid token sequence
         assert isinstance(xs, str)
         tokens = self.tokenizer.encode(xs)
         _p = self.model.p_next(tokens).numpy()
