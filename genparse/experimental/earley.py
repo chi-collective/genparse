@@ -77,8 +77,7 @@ class Earley:
         assert not cfg.has_nullary() and not cfg.has_unary_cycle()
         self.cfg = cfg
         self.col = None
-        [_, self.order] = cfg._buckets(cfg._unary_graph())
-#        [_, self.order] = cfg.buckets()
+        self.order = cfg._unary_graph().buckets
         self._predict_filter = PredictFilter(cfg)
 
     def __call__(self, sentence):
