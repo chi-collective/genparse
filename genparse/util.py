@@ -180,7 +180,7 @@ class LarkStuff:
             cfg.add(1/lhs_count[r.head], r.head, *r.body)
         return cfg.renumber()
 
-    def char_cfg(self, decay):
+    def char_cfg(self, decay, ignore=''):
         from genparse import CFG, Float
 
         cfg = self.convert()
@@ -191,7 +191,12 @@ class LarkStuff:
 
         for token_class in self.terminals:
 
-            fsa = greenery_to_wfsa(token_class.pattern.to_regexp(), decay=decay,
+            regex = token_class.pattern.to_regexp()
+            if ignore:
+                regex += ignore
+
+            fsa = greenery_to_wfsa(regex,
+                                   decay=decay,
                                    name=lambda x, t=token_class.name: (t, x))
             #display(fsa)
             G = fsa.to_cfg(S=token_class.name)

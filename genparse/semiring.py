@@ -143,6 +143,10 @@ class MaxPlus(Semiring):
     def __mul__(self, other):
         return MaxPlus(self.score + other.score)
 
+    def metric(self, other):
+        return abs(self.score - other.score)
+
+
 MaxPlus.zero = MaxPlus(-np.inf)
 MaxPlus.one = MaxPlus(0.0)
 
@@ -157,6 +161,10 @@ class MaxTimes(Semiring):
 
     def __mul__(self, other):
         return MaxTimes(self.score * other.score)
+
+    def metric(self, other):
+        return abs(self.score - other.score)
+
 
 MaxTimes.zero = MaxTimes(0)
 MaxTimes.one = MaxTimes(1)
@@ -203,7 +211,7 @@ class Log(Semiring):
         return abs(self.score - other.score)
 
     def star(self):
-        return Log(-np.log(1 / np.exp(self.score) - 1) - self.score)
+        return Log(-np.log1p(-np.exp(self.score)))
 
     def __add__(self, other):
         if self is Log.zero: return other

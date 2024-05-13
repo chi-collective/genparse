@@ -7,10 +7,10 @@ from collections import defaultdict, Counter, namedtuple
 from functools import cached_property, lru_cache
 from itertools import product
 
-from .fst import FST
-from .linear import WeightedGraph
-from .semiring import Boolean
-from .wfsa import EPSILON
+from genparse.linear import WeightedGraph
+from genparse.semiring import Boolean
+from genparse.fst import FST
+from genparse.wfsa import EPSILON
 
 
 def _gen_nt(prefix=''):
@@ -493,14 +493,14 @@ class CFG:
     # TODO: make CNF grammars a speciazed subclass of CFG.
     @cached_property
     def _cnf(self):
-        self = self.cnf
+        "Note: Throws an exception if the grammar is not in CNF."
         nullary = self.R.zero
         terminal = defaultdict(list)
         binary = []
         for r in self:
             if len(r.body) == 0:
                 nullary += r.w
-                assert r.head == self.S
+                assert r.head == self.S, [self.S, r]
             elif len(r.body) == 1:
                 terminal[r.body[0]].append(r)
                 assert self.is_terminal(r.body[0])
