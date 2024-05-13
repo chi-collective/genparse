@@ -341,20 +341,16 @@ class CFG:
 
         return new
 
-    def unarycycleremove(self):
+    def unarycycleremove(self, trim=True):
         "Return an equivalent grammar with no unary cycles."
 
         bot = lambda x: x if x in acyclic else (x, 'bot')
 
         G = self._unary_graph()
-        #G = WeightedGraph(self.R)
-        #G.N = self.N | self.V
-        #for r in self:
-        #    if len(r.body) == 1 and self.is_nonterminal(r.body[0]):
-        #        G[r.head, r.body[0]] += r.w
 
-        # create new grammar
         new = self.spawn(S=self.S)
+
+        bucket = G.buckets
 
         acyclic = set()
         for nodes, _ in G.Blocks:
@@ -369,21 +365,19 @@ class CFG:
             if len(nodes) == 1:
                 [X] = nodes
                 if X in acyclic:
-                    for r in self.rhs[X]:
-                        new.add(r.w, r.head, *r.body)
                     continue
 
             for (X1, X2) in W:
                 new.add(W[X1, X2], X1, bot(X2))
 
-            for X in nodes:
-                for r in self.rhs[X]:
-                    if len(r.body) == 1 and self.is_nonterminal(r.body[0]): continue
-                    new.add(r.w, bot(r.head), *r.body)
+        for r in self:
+            if len(r.body) == 1 and bucket.get(r.body[0]) == bucket[r.head]:
+                continue
+            new.add(r.w, bot(r.head), *r.body)
 
         # TODO: figure out how to ensure that the new grammar is trimmed by
         # construction (assuming the input grammar was trim).
-        new = new.trim()
+        if trim: new = new.trim()
 
         return new
 
@@ -574,6 +568,13 @@ class CFG:
             else:
                 yield r
 
+    def has_nullary(self):
+        return any((len(p.body) == 0) for p in self if p.head != self.S)
+
+    def has_unary_cycle(self):
+        f = self._unary_graph().buckets
+        return any(True for r in self if len(r.body) == 1 and f.get(r.head) == f.get(r.body[0]))
+
     def unfold(self, i, k):
         assert isinstance(i, int) and isinstance(k, int)
         s = self.rules[i]
@@ -609,12 +610,9 @@ class CFG:
             for k in range(len(r.body)):
                 routing[r.body[k]].append((r, k))
 
-        # Dependency analysis to determine a reasonable prioritization order
-        # 1) Form the dependency graph
         deps = self.dependency_graph()
-        # 2) Run the SCC analysis, extract its results
-        blocks = list(deps.blocks())
-        bucket = {y: i for i, block in enumerate(reversed(blocks)) for y in block}
+        blocks = deps.blocks
+        bucket = deps.buckets
 
         # helper function
         def update(x, W):
@@ -628,15 +626,14 @@ class CFG:
             if len(r.body) == 0:
                 update(r.head, r.w)
 
-        B = len(blocks)
-        b = 0
+        b = len(blocks)
         iteration = 0
-        while b < B:
+        while b >= 0:
             iteration += 1
             if iteration > maxiter: break
 
             if len(change[b]) == 0:
-                b += 1
+                b -= 1
                 iteration = 0   # reset iteration number for the next bucket
                 continue
 

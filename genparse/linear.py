@@ -122,13 +122,21 @@ class WeightedGraph:
         for i in N: old[i,i] += self.WeightType.one
         return old
 
-    def blocks(self, roots=None):
-        "Return the directed acyclic graph of strongly connected components."
-        return scc_decomposition(self.incoming.__getitem__, roots if roots else self.N)
+    @cached_property
+    def blocks(self):
+        return list(self._blocks(self.N))
+
+    def _blocks(self, roots=None):
+        return scc_decomposition(self.incoming.__getitem__, roots)
 
     @cached_property
-    def Blocks(self, **kwargs):
-        return [(block, self._closure(self.E, block)) for block in self.blocks(**kwargs)]
+    def buckets(self):
+        "Return the directed acyclic graph of strongly connected components."
+        return {x: i for i, block in enumerate(self.blocks) for x in block}
+
+    @cached_property
+    def Blocks(self):
+        return [(block, self._closure(self.E, block)) for block in self.blocks]
 
     def _repr_svg_(self):
         return self.graphviz()._repr_image_svg_xml()

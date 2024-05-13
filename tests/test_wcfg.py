@@ -72,7 +72,6 @@ def test_agenda_misc():
     g.agenda(maxiter=3).assert_equal({'a': 1, 'S': 1.75})
 
 
-
 def test_semirings():
 
     p = Entropy.from_string('1')
@@ -209,7 +208,6 @@ def test_semirings():
         for b in [w,x,y]:
             for c in [w,x,y]:
                 assert ((a + b) * c).metric(a * c + b * c) <= 1e-10
-
 
 
 def test_treesum():
@@ -410,6 +408,30 @@ def test_cky():
         else:
             print(colors.mark(ok), repr('⋅'.join(x)), colors.red % have, want)
     assert all_ok, [err, have, want]
+
+
+def test_unary_cycle_removal():
+
+    cfg = CFG.from_string("""
+    0.5: S → A1
+
+    0.5: A1 → B1
+    0.5: B1 → C1
+    0.5: C1 → A1
+
+    0.5: C1 → C
+    0.25: C1 → C1
+
+    0.25: C1 → C0
+    1.0: C0 → C
+
+    0.5: C → c
+
+    """, Float)
+
+    unaryfree = cfg.unarycycleremove(trim=False)
+    assert not unaryfree.has_unary_cycle()
+    unaryfree.agenda().assert_equal(cfg.agenda(), domain=cfg.N, tol=1e-10, verbose=1)
 
 
 if __name__ == '__main__':

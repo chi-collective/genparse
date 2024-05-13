@@ -105,7 +105,7 @@ def show_grammar(cfg_t, chart=None, showzero=False):
 
     lines = []
 
-    for block in cfg_t.dependency_graph().blocks():
+    for block in cfg_t.dependency_graph().blocks:
         if not showzero: block = [x for x in block if chart[x] != cfg_t.R.zero and cfg_t.is_nonterminal(x)]
         if not block: continue
 
