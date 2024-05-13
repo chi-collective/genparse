@@ -341,6 +341,52 @@ class CFG:
 
         return new
 
+    def unarycycleremove(self):
+        "Return an equivalent grammar with no unary cycles."
+
+        bot = lambda x: x if x in acyclic else (x, 'bot')
+
+        G = self._unary_graph()
+        #G = WeightedGraph(self.R)
+        #G.N = self.N | self.V
+        #for r in self:
+        #    if len(r.body) == 1 and self.is_nonterminal(r.body[0]):
+        #        G[r.head, r.body[0]] += r.w
+
+        # create new grammar
+        new = self.spawn(S=self.S)
+
+        acyclic = set()
+        for nodes, _ in G.Blocks:
+            if len(nodes) == 1:
+                [X] = nodes
+                if G[X, X] == self.R.zero:
+                    acyclic.add(X)
+
+        # run Lehmann's on each cylical SCC
+        for nodes, W in G.Blocks:
+
+            if len(nodes) == 1:
+                [X] = nodes
+                if X in acyclic:
+                    for r in self.rhs[X]:
+                        new.add(r.w, r.head, *r.body)
+                    continue
+
+            for (X1, X2) in W:
+                new.add(W[X1, X2], X1, bot(X2))
+
+            for X in nodes:
+                for r in self.rhs[X]:
+                    if len(r.body) == 1 and self.is_nonterminal(r.body[0]): continue
+                    new.add(r.w, bot(r.head), *r.body)
+
+        # TODO: figure out how to ensure that the new grammar is trimmed by
+        # construction (assuming the input grammar was trim).
+        new = new.trim()
+
+        return new
+
     def nullaryremove(self, binarize=True, **kwargs):
         """
         Return an equivalent grammar with no nullary rules except for one at the
