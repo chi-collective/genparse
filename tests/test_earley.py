@@ -6,6 +6,139 @@ from genparse.semiring import Float, MaxTimes
 from genparse.experimental.earley import Earley
 
 
+def test_cycles():
+
+    cfg = CFG.from_string("""
+    0.5: S → A1
+    0.5: S → A2
+
+    0.5: A1 → B1
+    0.5: B1 → C1
+    0.5: C1 → A1
+
+    0.5: A2 → B2
+    0.5: B2 → C2
+    0.5: C2 → A2
+
+    1.0: C1 → C
+    1.0: C2 → C
+
+    0.5: C → c
+
+    """, Float)
+
+    print(cfg.unarycycleremove())
+
+    earley = Earley(cfg.unarycycleremove())
+    print(earley.order)
+    print(earley('c'))
+
+    print(cfg('c'))
+
+
+def test_papa():
+    import genparse.examples
+    cfg = genparse.examples.papa
+
+    earley = Earley(cfg.nullaryremove(binarize=False).unarycycleremove())
+
+    x = 'papa ate the caviar'.split()
+    want = cfg(x)
+    have = earley(x)
+    assert cfg.R.metric(have, want) <= 1e-10
+
+    x = 'papa ate the caviar with the spoon'.split()
+    want = cfg(x)
+    have = earley(x)
+    assert cfg.R.metric(have, want) <= 1e-10
+
+    x = 'papa ate'.split()
+    want = cfg(x)
+    have = earley(x)
+    assert cfg.R.metric(have, want) <= 1e-10
+
+
+def test_palindrome():
+    import genparse.examples
+    cfg = genparse.examples.palindrome_ab
+
+    earley = Earley(cfg.nullaryremove(binarize=False).unarycycleremove())
+
+    x = ''
+    want = cfg(x)
+    have = earley(x)
+    assert cfg.R.metric(have, want) <= 1e-10
+
+    x = 'aabbaa'
+    want = cfg(x)
+    have = earley(x)
+    assert cfg.R.metric(have, want) <= 1e-10
+
+    x = 'aabba'
+    want = cfg(x)
+    have = earley(x)
+    assert have == want == 0
+
+
+def test_catalan():
+    import genparse.examples
+    cfg = genparse.examples.catalan
+
+    earley = Earley(cfg.nullaryremove(binarize=False).unarycycleremove())
+
+    x = ''
+    want = cfg(x)
+    have = earley(x)
+    assert cfg.R.metric(have, want) <= 1e-10
+
+    x = 'a'
+    want = cfg(x)
+    have = earley(x)
+    assert cfg.R.metric(have, want) <= 1e-10
+
+    x = 'aa'
+    want = cfg(x)
+    have = earley(x)
+    assert cfg.R.metric(have, want) <= 1e-10
+
+    x = 'aaaaa'
+    want = cfg(x)
+    have = earley(x)
+    assert cfg.R.metric(have, want) <= 1e-10
+
+
+def test_common_rhs():
+    cfg = CFG.from_string("""
+    0.1: S -> S S
+    0.1: S -> S S
+    0.8: S -> a
+    """, Float)
+
+    cfg.agenda().assert_equal({x: 1 for x in cfg.N | cfg.V})
+
+    earley = Earley(cfg)
+
+    x = ''
+    want = cfg(x)
+    have = earley(x)
+    assert cfg.R.metric(have, want) <= 1e-10, [x, have, want]
+
+    x = 'a'
+    want = cfg(x)
+    have = earley(x)
+    assert cfg.R.metric(have, want) <= 1e-10, [x, have, want]
+
+    x = 'aa'
+    want = cfg(x)
+    have = earley(x)
+    assert cfg.R.metric(have, want) <= 1e-10, [x, have, want]
+
+    x = 'aaaaa'
+    want = cfg(x)
+    have = earley(x)
+    assert cfg.R.metric(have, want) <= 1e-10
+
+
 def test_has_unary_cycle():
 
     cfg = CFG.from_string("""

@@ -30,13 +30,13 @@ class PredictFilter:
     def __init__(self, cfg):
         self.cfg = cfg
 
-        R = defaultdict(set)
+        R = defaultdict(list)
         P = defaultdict(set)  # parent table
         for r in cfg:
             A = r.head
             if len(r.body) == 0: continue
             B = r.body[0]
-            R[A,B].add(r)
+            R[A,B].append(r)
             P[B].add(A)
         self.P = P
         self.R = R
@@ -45,9 +45,9 @@ class PredictFilter:
         for token in cfg.V:
             ancestors = self._ancestry(token)
             for B in ancestors:
-                tmp = set()
+                tmp = []
                 for A in ancestors[B]:
-                    tmp.update(self.R[B, A])
+                    tmp.extend(self.R[B, A])
                 self.prediction[token, B] = tmp
 
     def _ancestry(self, w):
@@ -67,7 +67,7 @@ class PredictFilter:
 
 class Earley:
     """
-    Implements a semiring-weighted Earley's algorithm that runs in O(N^3|G|) time.
+    Implements a semiring-weighted version Earley's algorithm that runs in O(N^3|G|) time.
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
@@ -77,8 +77,6 @@ class Earley:
         assert not cfg.has_nullary() and not cfg.has_unary_cycle()
         self.cfg = cfg
         self.col = None
-        # TODO: which direction should the order be???
-        #self.order = cfg._unary_graph().buckets
         self.order = cfg._unary_graph_transpose().buckets
         self._predict_filter = PredictFilter(cfg)
 
@@ -94,6 +92,8 @@ class Earley:
         self._predict(self.col[0], self.cfg.S, sentence[0])
 
         for k in range(N):
+            if len(self.col[-1].q_incomplete) == 0 and len(self.col[-1].q_complete) == 0:
+                return self.cfg.R.zero
             self.col.append(self.next_column(self.col[k], sentence[k]))
 
         return self.col[N].chart[0, self.cfg.S]
@@ -101,9 +101,6 @@ class Earley:
     def next_column(self, prev_col, token):
 
         # proceed to next item set only if there are items waiting on the queue
-        if len(prev_col.q_incomplete) == 0 and len(prev_col.q_complete) == 0:
-            return self.cfg.R.zero
-
         next_col = Column(prev_col.k + 1, self.cfg.R.chart())
 
         Q = prev_col.q_incomplete
@@ -134,15 +131,13 @@ class Earley:
     def _predict(self, col, X, token):
         if X in col.predicted: return
         col.predicted.add(X)
-        zero = self.cfg.R.zero
-        if token not in self.cfg.V: return
         for r in self._predict_filter(token, X):
             self._update(col, col.k, X, r.body, r.w)
 
     def _update(self, col, I, X, Ys, value):
         k = col.k
         if Ys == ():
-            # Items of the form missing(I, X/[], K)
+            # Items of the form phrase(I, X/[], K)
             was = col.chart[I,X]
             if was == self.cfg.R.zero:
                 col.q_j[I] = k if I == k else (k-I-1)
@@ -150,7 +145,7 @@ class Earley:
             col.chart[I,X] = was + value
 
         else:
-            # Items of the form missing(I, X/[Y|Ys], K)
+            # Items of the form phrase(I, X/[Y|Ys], K)
             item = (I, X, Ys)
             was = col.chart[item]
             if was == self.cfg.R.zero:
