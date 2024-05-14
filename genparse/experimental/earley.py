@@ -15,7 +15,6 @@ class Column:
         self.waiting_for = defaultdict(list)
 
         # separate queues for complete and incomplete items
-        self.q_incomplete = deque([])
         self.q_complete = defaultdict(BucketQueue)
 
         # priority queue over positions I in `Column` K.
@@ -89,33 +88,26 @@ class Earley:
 
         # initialize bookkeeping structures
         self.col = [Column(0, self.cfg.R.chart())]
-        self._predict(self.col[0], self.cfg.S, sentence[0])
+        self.col[0].predicted.add(self.cfg.S)
+        for r in self._predict_filter(sentence[0], self.cfg.S):
+            self._update(self.col[0], 0, r.head, r.body, r.w)
+
+        self.PREDICT(self.col[0], sentence[0])
 
         for k in range(N):
-            if len(self.col[-1].q_incomplete) == 0 and len(self.col[-1].q_complete) == 0:
-                return self.cfg.R.zero
-            self.col.append(self.next_column(self.col[k], sentence[k]))
+            self.col.append(self.next_column(self.col[k], sentence[k], sentence[k+1] if k+1 < len(sentence) else None))
 
         return self.col[N].chart[0, self.cfg.S]
 
-    def next_column(self, prev_col, token):
+    def next_column(self, prev_col, token, next_token):
 
-        # proceed to next item set only if there are items waiting on the queue
         next_col = Column(prev_col.k + 1, self.cfg.R.chart())
 
-        Q = prev_col.q_incomplete
-        while Q:
-            (I, X, Ys) = Q.popleft()
-            Y = Ys[0]
-            if self.cfg.is_terminal(Y):
-                # SCAN: missing(I, X/Ys, K) += missing(I, X/[Y|Ys], J) * word(J, Y, K)
-                if Y == token:
-                    self._update(next_col, I, X, Ys[1:], prev_col.chart[I, X, Ys])
-            else:
-                # PREDICT: missing(K, X/Ys, K) += rule(X -> Ys) needed only if needs(X, K), is_leftcorner(X, W), word(K, W, K)
-                self._predict(prev_col, Y, token)
+        # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y, K)
+        for I, X, Ys in prev_col.waiting_for[token]:
+            self._update(next_col, I, X, Ys[1:], prev_col.chart[I, X, Ys])
 
-        # ATTACH: missing(I, X/Ys, K) += missing(I, X/[Y|Ys], J) * complete(J, Y, K)
+        # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
         while next_col.q_j:
             j = next_col.q_j.pop()
             col_j = self.col[j]
@@ -126,13 +118,29 @@ class Earley:
                 for (I, X, Ys) in col_j.waiting_for[Y]:
                     self._update(next_col, I, X, Ys[1:], col_j.chart[I,X,Ys] * y)
 
+        # PREDICT (based on one step of lookahead)
+        if next_token is not None:
+            self.PREDICT(next_col, next_token)
+
         return next_col
 
-    def _predict(self, col, X, token):
-        if X in col.predicted: return
-        col.predicted.add(X)
-        for r in self._predict_filter(token, X):
-            self._update(col, col.k, X, r.body, r.w)
+    def PREDICT(self, prev_col, token):
+        # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with lookahead to prune
+        Q = deque(list(prev_col.waiting_for))
+        while Q:
+            X = Q.popleft()
+            if self.cfg.is_terminal(X) or X in prev_col.predicted: continue
+            prev_col.predicted.add(X)
+            for r in self._predict_filter(token, X):
+                #self._update(prev_col, prev_col.k, Y, r.body, r.w)
+
+                Y = r.body[0]
+                item = (prev_col.k, X, r.body)
+                was = prev_col.chart[item]
+                if was == self.cfg.R.zero:
+                    prev_col.waiting_for[Y].append(item)
+                    Q.append(Y)
+                prev_col.chart[item] = was + r.w
 
     def _update(self, col, I, X, Ys, value):
         k = col.k
@@ -149,6 +157,5 @@ class Earley:
             item = (I, X, Ys)
             was = col.chart[item]
             if was == self.cfg.R.zero:
-                col.q_incomplete.append(item)
                 col.waiting_for[Ys[0]].append(item)
             col.chart[item] = was + value
