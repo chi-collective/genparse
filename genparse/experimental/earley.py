@@ -67,7 +67,7 @@ class PredictFilter:
 
 class Earley:
     """
-    Class to run our O(N^3|G|) faster Earley's algorithm
+    Implements a semiring-weighted Earley's algorithm that runs in O(N^3|G|) time.
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
@@ -77,7 +77,9 @@ class Earley:
         assert not cfg.has_nullary() and not cfg.has_unary_cycle()
         self.cfg = cfg
         self.col = None
-        self.order = cfg._unary_graph().buckets
+        # TODO: which direction should the order be???
+        #self.order = cfg._unary_graph().buckets
+        self.order = cfg._unary_graph_transpose().buckets
         self._predict_filter = PredictFilter(cfg)
 
     def __call__(self, sentence):
@@ -87,59 +89,47 @@ class Earley:
         if N == 0:
             return self.cfg.null_weight_start()
 
-        zero = self.cfg.R.zero
-        rhs = self.cfg.rhs
-
         # initialize bookkeeping structures
-        self.col = []
+        self.col = [Column(0, self.cfg.R.chart())]
+        self._predict(self.col[0], self.cfg.S, sentence[0])
 
-        col = Column(0, self.cfg.R.chart())
-        self._predict(col, self.cfg.S, sentence[0])
-        self.col.append(col)
-
-        for k in range(N+1):
-
-            col = self.col[k]
-
-            # proceed to next item set only if there are items waiting on the queue
-            if len(col.q_incomplete) == 0 and len(col.q_complete) == 0:
-                return zero
-
-            while col.q_j:
-                j = col.q_j.pop()
-                col_j = self.col[j]
-
-                # Attach the newly completed item to available customers:
-                # missing(I, X/Ys, K) += missing(I, X/[Y|Ys], J) * complete(J, Y, K)
-                Q = col.q_complete[j]
-                while Q:
-                    Y = Q.pop()
-                    y = col.chart[j,Y]
-                    for (I, X, Ys) in col_j.waiting_for[Y]:
-                        self._update(col, I, X, Ys[1:], col_j.chart[I,X,Ys] * y)
-
-            if k < N:
-
-                token = sentence[k]
-
-                next_col = Column(k+1, self.cfg.R.chart())
-                self.col.append(next_col)
-
-                Q = col.q_incomplete
-                while Q:
-                    (I, X, Ys) = Q.popleft()
-                    Y = Ys[0]
-                    if self.cfg.is_terminal(Y):
-                        # SCAN
-                        # missing(I, X/Ys, K) += missing(I, X/[Y|Ys], J) * word(J, Y, K)
-                        if Y == token:
-                            self._update(next_col, I, X, Ys[1:], col.chart[I, X, Ys])
-                    else:
-                        # PREDICT
-                        # missing(K, X/Ys, K) += rule(X -> Ys) needed only if needs(X, K), is_leftcorner(X, W), word(K, W, K)
-                        self._predict(col, Y, token)
+        for k in range(N):
+            self.col.append(self.next_column(self.col[k], sentence[k]))
 
         return self.col[N].chart[0, self.cfg.S]
+
+    def next_column(self, prev_col, token):
+
+        # proceed to next item set only if there are items waiting on the queue
+        if len(prev_col.q_incomplete) == 0 and len(prev_col.q_complete) == 0:
+            return self.cfg.R.zero
+
+        next_col = Column(prev_col.k + 1, self.cfg.R.chart())
+
+        Q = prev_col.q_incomplete
+        while Q:
+            (I, X, Ys) = Q.popleft()
+            Y = Ys[0]
+            if self.cfg.is_terminal(Y):
+                # SCAN: missing(I, X/Ys, K) += missing(I, X/[Y|Ys], J) * word(J, Y, K)
+                if Y == token:
+                    self._update(next_col, I, X, Ys[1:], prev_col.chart[I, X, Ys])
+            else:
+                # PREDICT: missing(K, X/Ys, K) += rule(X -> Ys) needed only if needs(X, K), is_leftcorner(X, W), word(K, W, K)
+                self._predict(prev_col, Y, token)
+
+        # ATTACH: missing(I, X/Ys, K) += missing(I, X/[Y|Ys], J) * complete(J, Y, K)
+        while next_col.q_j:
+            j = next_col.q_j.pop()
+            col_j = self.col[j]
+            Q = next_col.q_complete[j]
+            while Q:
+                Y = Q.pop()
+                y = next_col.chart[j,Y]
+                for (I, X, Ys) in col_j.waiting_for[Y]:
+                    self._update(next_col, I, X, Ys[1:], col_j.chart[I,X,Ys] * y)
+
+        return next_col
 
     def _predict(self, col, X, token):
         if X in col.predicted: return

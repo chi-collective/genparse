@@ -327,6 +327,16 @@ class CFG:
         A.N |= self.N
         return A
 
+    def _unary_graph_transpose(self):
+        # compute the matrix closure of the unary rules, so we can unfold them
+        # into the preterminal and binary rules.
+        A = WeightedGraph(self.R)
+        for r in self:
+            if len(r.body) == 1 and self.is_nonterminal(r.body[0]):
+                A[r.body[0], r.head] += r.w
+        A.N |= self.N
+        return A
+    
     def unaryremove(self):
         "Return an equivalent grammar with no unary rules."
 
