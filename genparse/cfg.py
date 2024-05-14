@@ -4,7 +4,7 @@ import itertools
 
 from arsenal import Integerizer, colors
 from collections import defaultdict, Counter, namedtuple
-from functools import cached_property, lru_cache
+from functools import cached_property
 from itertools import product
 
 from genparse.linear import WeightedGraph
@@ -99,6 +99,7 @@ class CFG:
         self.N = {S}    # nonterminals
         self.S = S      # unique start symbol
         self.rules = [] # rules
+        self._trim_cache = [None, None]
 
     def __repr__(self):
         return 'Grammar {\n%s\n}' % '\n'.join(f'  {r}' for r in self)
@@ -240,9 +241,12 @@ class CFG:
     def treesum(self, **kwargs):
         return self.agenda(**kwargs)[self.S]
 
-    @lru_cache(None)
     def trim(self, bottomup_only=False):
         "Return an equivalent grammar with no dead or useless nonterminals or rules."
+
+        if self._trim_cache[bottomup_only] is not None:
+            return self._trim_cache[bottomup_only]
+
         C = set(self.V)
         C.update(e.head for e in self.rules if len(e.body) == 0)
 
@@ -275,7 +279,8 @@ class CFG:
                         T.add(b)
                         agenda.add(b)
 
-        return self._trim(T)
+        self._trim_cache[bottomup_only] = self._trim(T)
+        return self._trim_cache[bottomup_only]
 
     def cotrim(self):
         return self.trim(bottomup_only=True)
@@ -336,7 +341,7 @@ class CFG:
                 A[r.body[0], r.head] += r.w
         A.N |= self.N
         return A
-    
+
     def unaryremove(self):
         "Return an equivalent grammar with no unary rules."
 

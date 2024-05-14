@@ -4,9 +4,8 @@ such as byte-pair encoding (BPE).
 """
 import numpy as np
 from arsenal import colors
-from collections import defaultdict, Counter
 from genparse import Float, FST, EPSILON, EOS
-from genparse.util import display_table, HTML
+from genparse.util import display_table
 
 
 fmt = lambda x: ''.join(x) or 'ε'
@@ -187,7 +186,7 @@ def char2bpe_wfst(S, renumber=True):
 #     return m.renumber
 
 
-def segmentation_pfst(contexts, alphabet, canonical, debug=False, trim=True):
+def segmentation_pfst(contexts, alphabet, canonical, trim=True):
     """Probabilistic FST segmentation model; returns a model that satsified the
     conditions in`run_segmentation_test` for all input strings `x` over the
     alphabet.

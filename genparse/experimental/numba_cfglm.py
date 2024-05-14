@@ -227,7 +227,6 @@ from genparse.cfglm import add_EOS, EOS
 
 from arsenal import colors
 from arsenal.maths import sample_dict
-from functools import lru_cache
 from collections import defaultdict
 
 

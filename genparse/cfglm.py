@@ -64,7 +64,7 @@ class CFGLM:
     # than CFGLM, which is meant to semiring-friendly.
     @classmethod
     def from_string(cls, x, semiring=Float, **kwargs):
-        return cls(locally_normalize(CFG.from_string(x, Float), **kwargs))
+        return cls(locally_normalize(CFG.from_string(x, semiring), **kwargs))
 
     def chart(self, prefix):
         c = self._chart.get(prefix)

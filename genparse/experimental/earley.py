@@ -108,13 +108,26 @@ class Earley:
 
     def PREDICT(self, prev_col, token, Q):
         # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with lookahead to prune
+
+        if 0:
+            predicted = set()
+            for r in self.cfg:
+                Y = r.body[0]
+                item = (prev_col.k, r.head, r.body)
+                was = prev_col.chart[item]
+                if was == self.cfg.R.zero:
+                    prev_col.waiting_for[Y].add(item)
+                    if Y not in predicted:
+                        Q.append(Y)
+                prev_col.chart[item] = was + r.w
+            return
+
         predicted = set()
         while Q:
             X = Q.pop()
             if X in predicted: continue
             predicted.add(X)
             for r in self._predict_filter(token, X):
-
                 Y = r.body[0]
                 item = (prev_col.k, X, r.body)
                 was = prev_col.chart[item]

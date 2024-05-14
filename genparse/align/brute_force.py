@@ -1,9 +1,7 @@
 from arsenal import colors
-from arsenal.maths import sample_dict
-from collections import Counter, deque
+from collections import deque
 
-from genparse import Float, Chart, EOS, SPACER, ERROR
-from genparse.util import normalize
+from genparse import Float
 
 
 # TODO: use A^* to break ties (ambiguity); order fringe by probability
@@ -18,7 +16,7 @@ def pullback(lm, qs, decode=''.join, init=(), verbose=False):
     #m = WFSA()
     #m.add_I((), 1)
 
-    total = Counter()
+    total = Float.chart()
     k = len(qs)
     Q = deque([(1, init)])
     while Q:
@@ -66,6 +64,4 @@ def pullback(lm, qs, decode=''.join, init=(), verbose=False):
     #display(m)
     #display(m.min.threshold(1e-8))
 
-    return Chart(Float, total)
-
-
+    return total

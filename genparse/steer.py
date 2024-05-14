@@ -4,9 +4,7 @@ Language model steering methods
 import numpy as np
 import asyncio
 import warnings
-
 from arsenal.maths import sample_dict
-from functools import lru_cache
 
 from genparse.lm import LM
 from genparse.cfglm import EOS
@@ -74,7 +72,6 @@ class LocalProduct(LM):
             p *= self.p_next(ys[:t])[ys[t]]
         return p
 
-    @lru_cache(None)
     def p_next(self, prefix):
 
         ys = tuple(prefix)

@@ -4,8 +4,6 @@ Language models go here
 
 import numpy as np
 import torch
-from functools import lru_cache
-from collections import Counter
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from genparse import Float
 
@@ -32,6 +30,7 @@ class LLM(LM):
     def __init__(self, model):
         self.model = model
         self.model.eval()   # Set the model in "evaluation mode"
+        self._cache = {}
 
     def __call__(self, input_ids):
         if isinstance(input_ids, list): input_ids = torch.LongTensor([input_ids])
@@ -41,19 +40,25 @@ class LLM(LM):
         token_lprobs = torch.gather(lprobs, 2, input_ids.unsqueeze(-1)).squeeze(-1)
         return np.exp(torch.sum(token_lprobs, dim=-1).item())
 
-    @lru_cache(None)
     def get_state(self, prefix):
         assert isinstance(prefix, tuple)
         if len(prefix) == 0:
             return None
+
         else:
+            value = self._cache.get(prefix, None)
+            if value is not None: return value
+
             prev_state = self.get_state(prefix[:-1])
             #input_ids = torch.LongTensor([list(prefix)])
             input_ids = torch.LongTensor([prefix[-1]])
-            return self.model(input_ids=input_ids,
-                              labels=input_ids,
-                              past_key_values=None if prev_state is None else prev_state.past_key_values,
-                              use_cache=True)
+            value = self.model(input_ids=input_ids,
+                               labels=input_ids,
+                               past_key_values=None if prev_state is None else prev_state.past_key_values,
+                               use_cache=True)
+
+            self._cache[prefix] = value
+            return value
 
     # TODO: handle padding and EOS more carefully.
     def p_next(self, input_ids):

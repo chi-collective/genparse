@@ -1,5 +1,5 @@
 from arsenal.maths import sample_dict
-from genparse import SPACER, EOS
+from genparse import ERROR, SPACER, EOS
 from genparse.util import normalize
 
 

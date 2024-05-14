@@ -162,7 +162,6 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
         particles (list[hfppl.modeling.Model]): The completed particles after inference.
     """
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
-    weights = [0.0 for _ in range(n_particles)]
 
     for particle in particles: particle.start()
 

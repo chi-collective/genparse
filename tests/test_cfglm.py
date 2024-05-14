@@ -8,29 +8,10 @@ from genparse import CFG, Float, Real, CFGLM, Chart
 from genparse.cfglm import add_EOS
 
 from arsenal import colors
-from arsenal.maths import sample_dict
-from functools import lru_cache
-from collections import defaultdict
 
 
 def fast_posterior(cfg, prefix):
     return CFGLM(cfg).p_next(tuple(prefix))
-
-
-#def test_cfglm():
-#    lm = CFGLM(add_EOS(genparse.examples.papa))
-#    ys = []
-#    for _ in range(10):
-#        q = lm.p_next(tuple(ys))
-#        Q = {k: v.score for k, v in q.items()}
-#        y = sample_dict(Q)
-#        assert sum(Q.values()) > 0
-#        print(ys)
-#        print(q)
-#        print(colors.yellow % colors.arrow.r, colors.green % y)
-#        if y == EOS: break
-#        ys.append(y)
-#    return ys
 
 
 def next_token_weights_slow(cfg, prefix):

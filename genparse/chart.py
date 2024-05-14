@@ -119,7 +119,7 @@ class Chart(dict):
         return out
 
     # TODO: the more general version of this method is join
-    def compare(self, other, *, domain=None, tol=None):
+    def compare(self, other, *, domain=None):
         import pandas as pd
         if not isinstance(other, Chart): other = self.semiring.chart(other)
         if domain is None: domain = self.keys() | other.keys()
