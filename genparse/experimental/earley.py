@@ -1,6 +1,4 @@
-from collections import defaultdict, deque, namedtuple
-from queue import PriorityQueue
-from arsenal.datastructures.bucketqueue import BucketQueue
+from collections import defaultdict
 from arsenal.datastructures.pdict import pdict
 
 
@@ -82,12 +80,7 @@ class Earley:
 
         # initialize bookkeeping structures
         self.col = [Column(0, self.cfg.R.chart())]
-        self.col[0].waiting_for[self.cfg.S] = []
-#        self.col[0].predicted.add(self.cfg.S)
-#        for r in self._predict_filter(sentence[0], self.cfg.S):
-#            self._update(self.col[0], 0, r.head, r.body, r.w)
-
-        self.PREDICT(self.col[0], sentence[0])
+        self.PREDICT(self.col[0], sentence[0], [self.cfg.S])
 
         for k in range(N):
             self.col.append(self.next_column(self.col[k], sentence[k], sentence[k+1] if k+1 < len(sentence) else None))
@@ -113,13 +106,12 @@ class Earley:
 
         # PREDICT (based on one step of lookahead)
         if next_token is not None:
-            self.PREDICT(next_col, next_token)
+            self.PREDICT(next_col, next_token, list(next_col.waiting_for))
 
         return next_col
 
-    def PREDICT(self, prev_col, token):
+    def PREDICT(self, prev_col, token, Q):
         # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with lookahead to prune
-        Q = list(prev_col.waiting_for)
         predicted = set()
         while Q:
             X = Q.pop()
