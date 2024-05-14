@@ -72,7 +72,7 @@ class Earley:
 
         # return if empty string
         if N == 0:
-            return self.cfg.null_weight_start()
+            return sum(r.w for r in self.cfg.rhs[self.cfg.S] if r.body == ())
 
         # initialize bookkeeping structures
         self.col = [Column(0, self.cfg.R.chart())]
