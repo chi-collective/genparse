@@ -1,6 +1,7 @@
 from collections import defaultdict, deque, namedtuple
 from queue import PriorityQueue
 from arsenal.datastructures.bucketqueue import BucketQueue
+from arsenal.datastructures.pdict import pdict
 
 
 class Column:
@@ -12,16 +13,9 @@ class Column:
         self.chart = chart
 
         # track the left-most missing item
-        self.waiting_for = defaultdict(list)
+        self.waiting_for = defaultdict(set)
 
-        # separate queues for complete and incomplete items
-        self.q_complete = defaultdict(BucketQueue)
-
-        # priority queue over positions I in `Column` K.
-        self.q_j = BucketQueue()
-
-        # set of nonterminals that have already been predicted in this column
-        self.predicted = set()
+        self.Q = pdict()
 
 
 class PredictFilter:
@@ -88,9 +82,10 @@ class Earley:
 
         # initialize bookkeeping structures
         self.col = [Column(0, self.cfg.R.chart())]
-        self.col[0].predicted.add(self.cfg.S)
-        for r in self._predict_filter(sentence[0], self.cfg.S):
-            self._update(self.col[0], 0, r.head, r.body, r.w)
+        self.col[0].waiting_for[self.cfg.S] = []
+#        self.col[0].predicted.add(self.cfg.S)
+#        for r in self._predict_filter(sentence[0], self.cfg.S):
+#            self._update(self.col[0], 0, r.head, r.body, r.w)
 
         self.PREDICT(self.col[0], sentence[0])
 
@@ -108,15 +103,13 @@ class Earley:
             self._update(next_col, I, X, Ys[1:], prev_col.chart[I, X, Ys])
 
         # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
-        while next_col.q_j:
-            j = next_col.q_j.pop()
+        Q = next_col.Q
+        while Q:
+            (j,Y) = Q.pop()
             col_j = self.col[j]
-            Q = next_col.q_complete[j]
-            while Q:
-                Y = Q.pop()
-                y = next_col.chart[j,Y]
-                for (I, X, Ys) in col_j.waiting_for[Y]:
-                    self._update(next_col, I, X, Ys[1:], col_j.chart[I,X,Ys] * y)
+            y = next_col.chart[j,Y]
+            for (I, X, Ys) in col_j.waiting_for[Y]:
+                self._update(next_col, I, X, Ys[1:], col_j.chart[I,X,Ys] * y)
 
         # PREDICT (based on one step of lookahead)
         if next_token is not None:
@@ -126,20 +119,21 @@ class Earley:
 
     def PREDICT(self, prev_col, token):
         # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with lookahead to prune
-        Q = deque(list(prev_col.waiting_for))
+        Q = list(prev_col.waiting_for)
+        predicted = set()
         while Q:
-            X = Q.popleft()
-            if self.cfg.is_terminal(X) or X in prev_col.predicted: continue
-            prev_col.predicted.add(X)
+            X = Q.pop()
+            if X in predicted: continue
+            predicted.add(X)
             for r in self._predict_filter(token, X):
-                #self._update(prev_col, prev_col.k, Y, r.body, r.w)
 
                 Y = r.body[0]
                 item = (prev_col.k, X, r.body)
                 was = prev_col.chart[item]
                 if was == self.cfg.R.zero:
-                    prev_col.waiting_for[Y].append(item)
-                    Q.append(Y)
+                    prev_col.waiting_for[Y].add(item)
+                    if Y not in predicted:
+                        Q.append(Y)
                 prev_col.chart[item] = was + r.w
 
     def _update(self, col, I, X, Ys, value):
@@ -148,8 +142,10 @@ class Earley:
             # Items of the form phrase(I, X/[], K)
             was = col.chart[I,X]
             if was == self.cfg.R.zero:
-                col.q_j[I] = k if I == k else (k-I-1)
-                col.q_complete[I][X] = self.order[X]
+#                col.q_j[I] = k if I == k else (k-I-1)
+#                col.q_complete[I][X] = self.order[X]
+                col.Q[I,X] = (k if I == k else (k-I-1), self.order[X])
+
             col.chart[I,X] = was + value
 
         else:
@@ -157,5 +153,5 @@ class Earley:
             item = (I, X, Ys)
             was = col.chart[item]
             if was == self.cfg.R.zero:
-                col.waiting_for[Ys[0]].append(item)
+                col.waiting_for[Ys[0]].add(item)
             col.chart[item] = was + value
