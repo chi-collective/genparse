@@ -3,16 +3,12 @@ from arsenal.datastructures.pdict import pdict
 
 
 class Column:
+    __slots__ = ('k', 'chart', 'waiting_for', 'Q')
+
     def __init__(self, k, chart):
-
         self.k = k
-
-        # item values
         self.chart = chart
-
-        # track the left-most missing item
         self.waiting_for = defaultdict(set)
-
         self.Q = pdict()
 
 
@@ -134,10 +130,7 @@ class Earley:
             # Items of the form phrase(I, X/[], K)
             was = col.chart[I,X]
             if was == self.cfg.R.zero:
-#                col.q_j[I] = k if I == k else (k-I-1)
-#                col.q_complete[I][X] = self.order[X]
                 col.Q[I,X] = (k if I == k else (k-I-1), self.order[X])
-
             col.chart[I,X] = was + value
 
         else:
