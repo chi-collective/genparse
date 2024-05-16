@@ -127,27 +127,34 @@ class TokenTrieApproximation:
 
         exits = Float.chart()
 
+        if verbosity > 1: print(colors.line(80))
         while True:
 
             p1 = curr.p_next()
             p2 = self.guide.p_next(context + ''.join(path)).trim()
+
+            # booleanized
             p2 = Float.chart({x: 1 for x in p2})
-#            print(p2)
+            #print(p2)
+
+            if None in p1:
+                exits[''.join(path)] = curr.children[None]._mass
+                if verbosity > 1: print(colors.blue % "ADDED EXIT", repr(''.join(path)), 'prob=', P)
 
             _q = (p1 * p2).trim()
+
+            if verbosity > 1:
+                print(colors.yellow % 'calling context=', repr(''.join(context)))
+                print(colors.yellow % 'partial token=', repr(''.join(path)))
+                if not _q:
+                    print('llm (top 10) =', p1.top(10))
+                    print('guide (top 10) =', p2.top(10))
+                print('_q (top 10) =', _q.top(10))
 
             if not _q:
                 break
 
             q = _q.normalize()
-
-            if verbosity > 1:
-                print(colors.yellow % 'partial token=', repr(''.join(path)))
-                print(colors.yellow % 'calling context=', repr(''.join(context)))
-                if not q or verbosity > 2:
-                    print('llm=',p1)
-                    print('guide=',p2)
-                print('q=',q)
 
             a = draw(q)
             P *= q[a]
@@ -156,16 +163,12 @@ class TokenTrieApproximation:
 
             curr = curr.children[a]
 
-#            print(colors.orange % 'action', repr(a), 'context', repr(''.join(path)))
+            if verbosity > 1: print(colors.orange % 'action', repr(a), 'context', repr(''.join(path)))
 
             path.append(a)
 
-            # XXX: Warning the BPE vocabulary is not prefix closed!
-            # XXX: It's possible that we should pick the stop by *only* the llm probability
-            if None in p1:
-                exits[''.join(path)] = P
-#            print("ADDED EXIT", repr(''.join(path)), 'prob=', P)
-
+#        if not exits:
+#            from IPython import embed; embed()
 
         # Sample the end-of-token marker in hindsight
 #        print('exits (unnormalized):', exits)
@@ -174,7 +177,7 @@ class TokenTrieApproximation:
 #        if len(exits) == 0:
 #            self._guided_sample_trie(root, context, draw=draw, verbosity=verbosity)
 
-#        print(colors.light.green % 'exits:', exits)
+#        print(colors.light.green % 'exits (normalized):', exits)
 
         path = draw(exits)
 
@@ -194,6 +197,8 @@ def test_llm_trie_approximation():
 
     import numpy as np
     np.random.seed(0)
+    import random
+    random.seed(0)
 
     pcfg = CFGLM(locally_normalize(LarkStuff(r"""
 
@@ -208,14 +213,21 @@ def test_llm_trie_approximation():
 
     token_trie_approx = TokenTrieApproximation(llm, pcfg)
     tracer = TraceSWOR()
+    W = Float.chart()
     for _ in range(10):
         with tracer:
             print('----------------------------------')
             with timeit('complete sample'):
-                ys = token_trie_approx.sample(prompt, max_tokens=50,
-                                              draw=tracer,
-                                              verbosity=1)
+                ys, q = token_trie_approx.sample(prompt, max_tokens=50,
+                                                 draw=tracer, prob=True,
+                                                 verbosity=1)
+
+            score = llm(ys) * pcfg(ys + EOS)
+            W[ys] += score / q
+
             print(colors.light.yellow % 'sample:', ys)
+
+            print(W.normalize())
 
 
 def test_the_linguistic_said():
@@ -227,6 +239,8 @@ def test_the_linguistic_said():
 
     import numpy as np
     np.random.seed(0)
+    import random
+    random.seed(0)
 
     pcfg = CFGLM(locally_normalize(LarkStuff(r"""
 
@@ -237,9 +251,20 @@ def test_the_linguistic_said():
 //        | /[iI][ ]like[ ]to[ ]dance/
 //        | /Colorless[ ]green[ ]ideas[ ]sleep[ ]furiously/
 
-    """).char_cfg(.99), tol=1e-100))
+    """).char_cfg(.9999), tol=1e-300))
 
-    print(''.join(pcfg.sample()))
+    #print(''.join(pcfg.sample()))
+
+#    from genparse.semiring import Log
+#    tmp = pcfg.cfg.spawn(R = Log)
+#    for r in pcfg.cfg:
+#        tmp.add(Log(np.log(r.w)), r.head, *r.body)
+#    lpcfg = CFGLM(tmp)
+
+#    x = 'Noam Chomsky famously wrote, "One of the most outrageous things about Modernity has always been muckraking in human nature; it has deceptively distorted the way in which one views human rights by making dece'
+#    lp = lpcfg.p_next(x)
+#    pp = pcfg.p_next(x)
+#    from IPython import embed; embed()
 
     prompt = ' '
     llm = GreedilyTokenizedLLM("gpt2")

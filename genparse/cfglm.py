@@ -154,8 +154,9 @@ def extend_chart(cfg, chart, prefix):
     new[k][cfg.S] += nullary
 
     # Preterminal
+    tmp = new[k-1]
     for r in terminal[prefix[k-1]]:
-        new[k-1][r.head] += r.w
+        tmp[r.head] += r.w
 
     # Binary rules
     for span in range(2, k+1):
