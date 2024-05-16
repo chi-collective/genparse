@@ -7,6 +7,7 @@ from arsenal.maths import sample_dict
 from collections import defaultdict
 
 from genparse.cfg import _gen_nt, CFG
+from genparse.lm import LM
 from genparse.semiring import Float
 
 
@@ -40,7 +41,7 @@ def locally_normalize(self, **kwargs):
     return new
 
 
-class CFGLM:
+class CFGLM(LM):
 
     def __init__(self, cfg, renumber=True):
         if EOS not in cfg.V: cfg = add_EOS(cfg)
@@ -59,6 +60,17 @@ class CFGLM:
         self.pfg.r_y_xz = r_y_xz = defaultdict(list)
         for r in self.pfg._cnf[2]:  # binary rules
             r_y_xz[r.body[0]].append(r)
+
+        super().__init__(eos = EOS)
+
+    def __call__(self, x):
+        assert x[-1] == EOS
+        # the quantity below is equivalent to `self.cfg(x)`
+        return self.chart(x)[len(x)][0][self.pfg.S]
+
+    def p_next(self, prefix):
+        chart = self.chart(prefix)
+        return next_token_weights(self.pfg, chart, prefix)
 
     # TODO: should probably be PCFGLM class, which is tied to semifields, rather
     # than CFGLM, which is meant to semiring-friendly.
@@ -83,27 +95,6 @@ class CFGLM:
             chart = self.chart(prefix[:-1])
             last_chart = extend_chart(self.pfg, chart, prefix)
             return chart + [last_chart]    # TODO: avoid list addition here as it is not constant time!
-
-    def p_next(self, prefix):
-        chart = self.chart(prefix)
-        return next_token_weights(self.pfg, chart, prefix)
-
-    def __call__(self, x):
-        assert x[-1] == EOS
-        # the quantity below is equivalent to `self.cfg(x)`
-        return self.chart(x)[len(x)][0][self.pfg.S]
-
-    def sample(self, draw=sample_dict, prob=False, verbose=False):
-        ys = ()
-        P = 1.0
-        while True:
-            p = self.p_next(ys).normalize()
-            if verbose: print(ys)
-            y = draw(p)
-            P *= p[y]
-            if y == EOS:
-                return (ys, P) if prob else ys
-            ys = ys + (y,)
 
 
 def next_token_weights(cfg, chart, prefix, alpha=False):

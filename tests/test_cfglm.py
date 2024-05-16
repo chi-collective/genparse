@@ -102,6 +102,12 @@ def test_new_papa():
         assert have.metric(want) <= 1e-5
 
 
+def test_sample():
+    cfg = CFGLM(genparse.examples.papa)
+    sample = cfg.sample(prob=True)
+    print(sample)
+
+
 if __name__ == '__main__':
     from arsenal import testing_framework
     testing_framework(globals())

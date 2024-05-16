@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from genparse import Float
+from arsenal.maths import sample_dict
 
 
 # In the most abstract case, an LM is a probability distribution over strings
@@ -14,6 +15,9 @@ from genparse import Float
 # chain rule of probability, nuances aside).
 class LM:
 
+    def __init__(self, eos):
+        self.eos = eos
+
     def __call__(self, ys):
         "Compute the probability of a complete string"
         raise NotImplementedError()
@@ -21,6 +25,23 @@ class LM:
     def p_next(self, prefix):
         "Compute the distribution over the next token given the `prefix`."
         raise NotImplementedError()
+
+    def sample(self, ys=(), draw=sample_dict, prob=False, verbose=0, max_tokens=np.inf):
+        P = 1.0
+        t = 0
+        while True:
+            p = self.p_next(ys).normalize()
+            y = draw(p) if t <= max_tokens else self.eos
+            P *= p[y]
+            t += 1
+            if verbose:
+                if y == self.eos:
+                    print()
+                else:
+                    print(y, end='')
+            if y == self.eos:
+                return (ys, P) if prob else ys
+            ys = ys + (y,)
 
 
 class LLM(LM):
@@ -93,18 +114,21 @@ class NoCacheLLM(LM):
         return lprobs[0,-1,:]  # return the conditional distribution of just the last token
 
 
-class GreedilyTokenizedLLM:
+class GreedilyTokenizedLLM(LM):
 
     def __init__(self, name):
         self.tokenizer = AutoTokenizer.from_pretrained(name)
         self._model = AutoModelForCausalLM.from_pretrained(name)
         self.model = LLM(self._model)
+        self._decode = [self.tokenizer.decode([i]) for i in range(self.tokenizer.vocab_size)]
+        super().__init__(eos = self.tokenizer.eos_token)
 
     def __call__(self, xs):
         return self.model(self.tokenizer.encode(xs))
 
     def p_next(self, xs, top=None):
-        # TODO: support token healing and/or constrained generation to get a valid token sequence
+        # TODO: support token healing and/or constrained generation to get a
+        # valid token sequence; see `p_next_healing`.
         assert isinstance(xs, str)
         tokens = self.tokenizer.encode(xs)
         _p = self.model.p_next(tokens).numpy()
@@ -114,9 +138,26 @@ class GreedilyTokenizedLLM:
             top_p = _p.argsort()[-top:]
         pp = Float.chart()
         for i in reversed(top_p):
-            x = self.tokenizer.decode([i])
+            x = self._decode[i]
             pp[x] = _p[i]
         return pp
+
+    def sample(self, ys='', draw=sample_dict, prob=False, verbose=0, max_tokens=np.inf, join=str.__add__):
+        P = 1.0
+        t = 0
+        while True:
+            p = self.p_next(ys).normalize()
+            y = draw(p) if t <= max_tokens else self.eos
+            P *= p[y]
+            t += 1
+            if verbose:
+                if y == self.eos:
+                    print()
+                else:
+                    print(y, end='')
+            if y == self.eos:
+                return (ys, P) if prob else ys
+            ys = join(ys, y)
 
 #    def p_next_healing(self, xs, top=10):
 #        # TODO: support token healing and/or hindsight sampling to get a valid token sequence
