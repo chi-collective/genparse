@@ -140,8 +140,8 @@ class Earley:
                     # FORWARD PASS:
                     # next_col.chart[I, X, Ys[1:]] += col_j.chart[I,X,Ys] * next_col.chart[j,Y]
 
-                    item = (I, X) if len(Ys) == 1 else (I, X, Ys[1:])
-                    d_next_col_chart[j, Y] += col_j.chart[I, X, Ys] * d_next_col_chart[item]
+                    if len(Ys) != 1: continue
+                    d_next_col_chart[j, Y] += col_j.chart[I, X, Ys] * d_next_col_chart[I, X]
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         q = self.cfg.R.chart()
@@ -157,87 +157,3 @@ class Earley:
                 q[v] += chart[-1].chart[I, X, Ys] * d_next_col_chart[item]
 
         return q
-
-
-
-
-import genparse.examples
-from genparse import add_EOS, CFG, CFGLM, Float
-from arsenal import colors
-
-
-def test_new_abcdx():
-
-    cfg = add_EOS(CFG.from_string("""
-
-    1: S -> a b c d
-    1: S -> a b c x
-    1: S -> a b x x
-    1: S -> a x x x
-    1: S -> x x x x
-
-    """, Float))
-
-    cfglm = CFGLM(cfg)
-    earley = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove())
-
-    for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
-        print()
-        print(colors.light.blue % prefix)
-        want = cfglm.p_next(prefix)     # Annoyingly shifted over
-        print(want)
-        have = earley.p_next(prefix)
-        print(have)
-        err = have.metric(want)
-        print(colors.mark(err <= 1e-5))
-        assert err <= 1e-5, err
-
-
-
-def test_new_palindrome():
-
-    cfg = add_EOS(genparse.examples.palindrome_ab)
-
-    cfglm = CFGLM(cfg)
-    earley = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove())
-
-    for prefix in ['', 'a', 'ab']:
-        print()
-        print(colors.light.blue % prefix)
-        want = cfglm.p_next(prefix)
-        print(want)
-        have = earley.p_next(prefix)
-        print(have)
-        err = have.metric(want)
-        print(colors.mark(err <= 1e-5))
-        assert err <= 1e-5
-
-
-def test_new_papa():
-
-    cfg = add_EOS(genparse.examples.papa)
-
-    cfglm = CFGLM(cfg)
-    earley = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove())
-
-    for prefix in [
-            [],
-            ['papa'],
-            ['papa', 'ate'],
-            ['papa', 'ate', 'the'],
-            ['papa', 'ate', 'the', 'caviar'],
-    ]:
-        prefix = tuple(prefix)
-        print()
-        print(colors.light.blue % (prefix,))
-        want = cfglm.p_next(prefix)
-        print(want)
-        have = earley.p_next(prefix)
-        print(have)
-        print(colors.mark(have.metric(want) <= 1e-5))
-        assert have.metric(want) <= 1e-5
-
-
-if __name__ == '__main__':
-    from arsenal import testing_framework
-    testing_framework(globals())

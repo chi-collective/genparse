@@ -1,8 +1,11 @@
 import numpy as np
 import time
+from arsenal import colors
 
+from genparse import examples
 from genparse import CFG
-from genparse.semiring import Float, MaxTimes
+from genparse import add_EOS, CFG, CFGLM, Float
+from genparse.semiring import MaxTimes
 from genparse.experimental.earley import Earley
 
 
@@ -27,18 +30,16 @@ def test_cycles():
 
     """, Float)
 
-    print(cfg.unarycycleremove())
+    #print(cfg.unarycycleremove())
 
     earley = Earley(cfg.unarycycleremove())
-    print(earley.order)
-    print(earley('c'))
+    #print(earley.order)
 
-    print(cfg('c'))
+    assert_equal(earley('c'), cfg('c'))
 
 
 def test_papa():
-    import genparse.examples
-    cfg = genparse.examples.papa
+    cfg = examples.papa
 
     earley = Earley(cfg.nullaryremove(binarize=False).unarycycleremove())
 
@@ -59,8 +60,7 @@ def test_papa():
 
 
 def test_palindrome():
-    import genparse.examples
-    cfg = genparse.examples.palindrome_ab
+    cfg = examples.palindrome_ab
 
     earley = Earley(cfg.nullaryremove(binarize=False).unarycycleremove())
 
@@ -81,8 +81,7 @@ def test_palindrome():
 
 
 def test_catalan():
-    import genparse.examples
-    cfg = genparse.examples.catalan
+    cfg = examples.catalan
 
     earley = Earley(cfg.nullaryremove(binarize=False).unarycycleremove())
 
@@ -279,6 +278,77 @@ def test_parse_ambiguous_maxtimes():
     assert_equal(earley("a"), MaxTimes(0.5))
     assert_equal(earley("a+a"), MaxTimes(0.1))
     assert_equal(earley("a+a+a"), MaxTimes(0.02))
+
+
+def test_p_next_new_abcdx():
+
+    cfg = add_EOS(CFG.from_string("""
+
+    1: S -> a b c d
+    1: S -> a b c x
+    1: S -> a b x x
+    1: S -> a x x x
+    1: S -> x x x x
+
+    """, Float))
+
+    cfglm = CFGLM(cfg)
+    earley = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove())
+
+    for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
+        print()
+        print(colors.light.blue % prefix)
+        want = cfglm.p_next(prefix)     # Annoyingly shifted over
+        print(want)
+        have = earley.p_next(prefix)
+        print(have)
+        err = have.metric(want)
+        print(colors.mark(err <= 1e-5))
+        assert err <= 1e-5, err
+
+
+def test_p_next_palindrome():
+
+    cfg = add_EOS(examples.palindrome_ab)
+
+    cfglm = CFGLM(cfg)
+    earley = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove())
+
+    for prefix in ['', 'a', 'ab']:
+        print()
+        print(colors.light.blue % prefix)
+        want = cfglm.p_next(prefix)
+        print(want)
+        have = earley.p_next(prefix)
+        print(have)
+        err = have.metric(want)
+        print(colors.mark(err <= 1e-5))
+        assert err <= 1e-5
+
+
+def test_p_next_papa():
+
+    cfg = add_EOS(examples.papa)
+
+    cfglm = CFGLM(cfg)
+    earley = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove())
+
+    for prefix in [
+            [],
+            ['papa'],
+            ['papa', 'ate'],
+            ['papa', 'ate', 'the'],
+            ['papa', 'ate', 'the', 'caviar'],
+    ]:
+        prefix = tuple(prefix)
+        print()
+        print(colors.light.blue % (prefix,))
+        want = cfglm.p_next(prefix)
+        print(want)
+        have = earley.p_next(prefix)
+        print(have)
+        print(colors.mark(have.metric(want) <= 1e-5))
+        assert have.metric(want) <= 1e-5
 
 
 if __name__ == '__main__':
