@@ -66,8 +66,9 @@ class Earley:
         next_col = Column(prev_cols[-1].k + 1, self.cfg.R.chart())
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
-        for I, X, Ys in prev_cols[-1].waiting_for[token]:
-            self._update(next_col, I, X, Ys[1:], prev_cols[-1].chart[I, X, Ys])
+        prev_col = prev_cols[-1]
+        for I, X, Ys in prev_col.waiting_for[token]:
+            self._update(next_col, I, X, Ys[1:], prev_col.chart[I, X, Ys])
 
         # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
         Q = next_col.Q
@@ -96,12 +97,12 @@ class Earley:
             prev_col.chart[item] = was + r.w
 
     def _update(self, col, I, X, Ys, value):
-        k = col.k
+        K = col.k
         if Ys == ():
             # Items of the form phrase(I, X/[], K)
             was = col.chart[I,X]
             if was == self.cfg.R.zero:
-                col.Q[I,X] = (k if I == k else (k-I-1), self.order[X])
+                col.Q[I,X] = (K if I == K else (K-I-1), self.order[X])
             col.chart[I,X] = was + value
 
         else:
@@ -132,28 +133,29 @@ class Earley:
 
         # TODO: It should be possible to improve the sparsity in the (j, Y)
         # loops here.  The key is to reverse the order of the forward method.
-        for j in range(len(chart)):
-            col_j = chart[j]
+        for J in range(len(chart)):
+            col_J = chart[J]
             for Y in reversed(sorted(self.cfg.N, key=lambda Y: self.order[Y])):
-                for (I, X, Ys) in col_j.waiting_for[Y]:
+                for (I, X, Ys) in col_J.waiting_for[Y]:
+                    if len(Ys) != 1: continue
 
                     # FORWARD PASS:
                     # next_col.chart[I, X, Ys[1:]] += col_j.chart[I,X,Ys] * next_col.chart[j,Y]
 
-                    if len(Ys) != 1: continue
-                    d_next_col_chart[j, Y] += col_j.chart[I, X, Ys] * d_next_col_chart[I, X]
+                    d_next_col_chart[J, Y] += col_J.chart[I, X, Ys] * d_next_col_chart[I, X]
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         q = self.cfg.R.chart()
-        VV = set(chart[-1].waiting_for)
+        prev_col = chart[-1]
+        VV = set(prev_col.waiting_for)
         VV = VV & self.cfg.V
         for v in VV:
-            for I, X, Ys in chart[-1].waiting_for[v]:   # consider all possible tokens here
+            for I, X, Ys in prev_col.waiting_for[v]:   # consider all possible tokens here
+                if len(Ys) != 1: continue
 
                 # FORWARD PASS:
                 # next_col.chart[I, X, Ys[1:]] += prev_cols[-1].chart[I, X, Ys]
-                if len(Ys) != 1: continue
 
-                q[v] += chart[-1].chart[I, X, Ys] * d_next_col_chart[I, X]
+                q[v] += prev_col.chart[I, X, Ys] * d_next_col_chart[I, X]
 
         return q

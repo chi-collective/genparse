@@ -28,19 +28,20 @@ def test_basic_aligned_model_arithmetic():
     """)
 
     with timeit('grammar setup'):
-        foo = lark_stuff.char_cfg(.9)
-        foo = locally_normalize(foo, tol=1e-100).trim()
-        assert len(foo) > 0
+        cfg = lark_stuff.char_cfg(.9)
+        cfg = locally_normalize(cfg, tol=1e-100).trim()
     with timeit('cfglm setup'):
         # the base character-level CFG language model
-        lm = CFGLM(foo)
+#        lm = CFGLM(cfg)
+
+        from genparse.experimental.earley import Earley
+        lm = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove())
 
     with timeit('tokenizer setup'):
         H = hf_tokenizer()
 
     with timeit('CharAlignedCFGLM setup'):
         bpe_lm = CharAlignedCFGLM(lm=lm, words={x for _, x in H.pairs}, eos=H.tokenizer.eos_token)
-
 
     #===========================================================================
     # [2024-04-29 Mon] OPTIMIZATIONS: Tianyu provided the follow contexts, which
