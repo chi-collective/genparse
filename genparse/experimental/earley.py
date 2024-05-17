@@ -152,8 +152,8 @@ class Earley:
 
                 # FORWARD PASS:
                 # next_col.chart[I, X, Ys[1:]] += prev_cols[-1].chart[I, X, Ys]
+                if len(Ys) != 1: continue
 
-                item = (I, X) if len(Ys) == 1 else (I, X, Ys[1:])
-                q[v] += chart[-1].chart[I, X, Ys] * d_next_col_chart[item]
+                q[v] += chart[-1].chart[I, X, Ys] * d_next_col_chart[I, X]
 
         return q
