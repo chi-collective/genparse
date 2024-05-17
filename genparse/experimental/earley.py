@@ -12,130 +12,88 @@ class Column:
         self.Q = pdict()
 
 
-class PredictFilter:
-
-    def __init__(self, cfg):
-        self.cfg = cfg
-
-        R = defaultdict(list)
-        P = defaultdict(set)  # parent table
-        for r in cfg:
-            A = r.head
-            if len(r.body) == 0: continue
-            B = r.body[0]
-            R[A,B].append(r)
-            P[B].add(A)
-        self.P = P
-        self.R = R
-
-        self.prediction = {}
-        for token in cfg.V:
-            ancestors = self._ancestry(token)
-            for B in ancestors:
-                tmp = []
-                for A in ancestors[B]:
-                    tmp.extend(self.R[B, A])
-                self.prediction[token, B] = tmp
-
-    def _ancestry(self, w):
-        S = defaultdict(set)
-        stack = [w]
-        while stack:
-            Y = stack.pop(0)
-            for X in self.P[Y]:
-                if Y not in S[X]:
-                    stack.append(X)
-                    S[X].add(Y)
-        return S
-
-    def __call__(self, token, B):
-        return self.prediction.get((token, B), [])
-
-
 class Earley:
     """
     Implements a semiring-weighted version Earley's algorithm that runs in O(N^3|G|) time.
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
-    __slots__ = ('cfg', 'order', 'col', '_predict_filter')
+    __slots__ = ('cfg', 'order', '_chart')
 
     def __init__(self, cfg):
         assert not cfg.has_nullary() and not cfg.has_unary_cycle()
+        self._chart = {}
         self.cfg = cfg
-        self.col = None
         self.order = cfg._unary_graph_transpose().buckets
-        self._predict_filter = PredictFilter(cfg)
 
-    def __call__(self, sentence):
-        N = len(sentence)
+    def __call__(self, x):
+        N = len(x)
 
         # return if empty string
         if N == 0:
             return sum(r.w for r in self.cfg.rhs[self.cfg.S] if r.body == ())
 
         # initialize bookkeeping structures
-        self.col = [Column(0, self.cfg.R.chart())]
-        self.PREDICT(self.col[0], sentence[0], [self.cfg.S])
+        self._chart[()] = [Column(0, self.cfg.R.chart())]
+        self.PREDICT(self._chart[()][0])
 
-        for k in range(N):
-            self.col.append(self.next_column(self.col[k], sentence[k], sentence[k+1] if k+1 < len(sentence) else None))
+        col = self.chart(x)
 
-        return self.col[N].chart[0, self.cfg.S]
+        return col[N].chart[0, self.cfg.S]
 
-    def next_column(self, prev_col, token, next_token):
+    def chart(self, x):
+        x = tuple(x)
+        c = self._chart.get(x)
+        if c is None:
+            self._chart[x] = c = self._compute_chart(x)
+        return c
 
-        next_col = Column(prev_col.k + 1, self.cfg.R.chart())
+    def _compute_chart(self, x):
+        if len(x) == 0:
+            chart = [Column(0, self.cfg.R.chart())]
+            self.PREDICT(chart[0])
+            return chart
+        else:
+            chart = self.chart(x[:-1])
+            last_chart = self.next_column(chart, x[-1])
+            return chart + [last_chart]    # TODO: avoid list addition here as it is not constant time!
 
-        # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y, K)
-        for I, X, Ys in prev_col.waiting_for[token]:
-            self._update(next_col, I, X, Ys[1:], prev_col.chart[I, X, Ys])
+    def p_next(self, prefix):
+        return self.next_token_weights(self.chart(prefix))
+
+    def next_column(self, prev_cols, token):
+
+        next_col = Column(prev_cols[-1].k + 1, self.cfg.R.chart())
+
+        # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
+        for I, X, Ys in prev_cols[-1].waiting_for[token]:
+            self._update(next_col, I, X, Ys[1:], prev_cols[-1].chart[I, X, Ys])
 
         # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
         Q = next_col.Q
         while Q:
             (j,Y) = Q.pop()
-            col_j = self.col[j]
+            col_j = prev_cols[j]
             y = next_col.chart[j,Y]
             for (I, X, Ys) in col_j.waiting_for[Y]:
                 self._update(next_col, I, X, Ys[1:], col_j.chart[I,X,Ys] * y)
 
-        # PREDICT (based on one step of lookahead)
-        if next_token is not None:
-            self.PREDICT(next_col, next_token, list(next_col.waiting_for))
+        self.PREDICT(next_col)
 
         return next_col
 
-    def PREDICT(self, prev_col, token, Q):
+    def PREDICT(self, prev_col):
         # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with lookahead to prune
-
-        if 0:
-            predicted = set()
-            for r in self.cfg:
-                Y = r.body[0]
-                item = (prev_col.k, r.head, r.body)
-                was = prev_col.chart[item]
-                if was == self.cfg.R.zero:
-                    prev_col.waiting_for[Y].add(item)
-                    if Y not in predicted:
-                        Q.append(Y)
-                prev_col.chart[item] = was + r.w
-            return
-
+        k = prev_col.k
         predicted = set()
-        while Q:
-            X = Q.pop()
-            if X in predicted: continue
-            predicted.add(X)
-            for r in self._predict_filter(token, X):
-                Y = r.body[0]
-                item = (prev_col.k, X, r.body)
-                was = prev_col.chart[item]
-                if was == self.cfg.R.zero:
-                    prev_col.waiting_for[Y].add(item)
-                    if Y not in predicted:
-                        Q.append(Y)
-                prev_col.chart[item] = was + r.w
+        for r in self.cfg:
+            if r.body == (): continue
+            Y = r.body[0]
+            item = (k, r.head, r.body)
+            was = prev_col.chart[item]
+            if was == self.cfg.R.zero:
+                prev_col.waiting_for[Y].add(item)
+            prev_col.chart[item] = was + r.w
 
     def _update(self, col, I, X, Ys, value):
         k = col.k
@@ -153,3 +111,133 @@ class Earley:
             if was == self.cfg.R.zero:
                 col.waiting_for[Ys[0]].add(item)
             col.chart[item] = was + value
+
+    def next_token_weights(self, chart):
+        "An O(N²) time algorithm to the total weight of a each next-token extension."
+
+        # set output adjoint to 1; (we drop the empty parens for completed items)
+        d_next_col_chart = self.cfg.R.chart()
+        d_next_col_chart[0, self.cfg.S] += self.cfg.R.one
+
+        # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
+
+        # loop thru the nodes in reverse order that we popped them
+        #next_col = chart[-1]
+        #k = next_col.k
+        #sort_key = lambda x: (k if x[0] == k else (k-x[0]-1), self.order[x[1]])
+
+        # TODO: we might need case analysis below that distinguishes complete
+        # vs. incomplete updates
+        #print(self.order)
+
+        # TODO: It should be possible to improve the sparsity in the (j, Y)
+        # loops here.  The key is to reverse the order of the forward method.
+        for j in range(len(chart)):
+            col_j = chart[j]
+            for Y in reversed(sorted(self.cfg.N, key=lambda Y: self.order[Y])):
+                for (I, X, Ys) in col_j.waiting_for[Y]:
+
+                    # FORWARD PASS:
+                    # next_col.chart[I, X, Ys[1:]] += col_j.chart[I,X,Ys] * next_col.chart[j,Y]
+
+                    item = (I, X) if len(Ys) == 1 else (I, X, Ys[1:])
+                    d_next_col_chart[j, Y] += col_j.chart[I, X, Ys] * d_next_col_chart[item]
+
+        # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
+        q = self.cfg.R.chart()
+        VV = set(chart[-1].waiting_for)
+        VV = VV & self.cfg.V
+        for v in VV:
+            for I, X, Ys in chart[-1].waiting_for[v]:   # consider all possible tokens here
+
+                # FORWARD PASS:
+                # next_col.chart[I, X, Ys[1:]] += prev_cols[-1].chart[I, X, Ys]
+
+                item = (I, X) if len(Ys) == 1 else (I, X, Ys[1:])
+                q[v] += chart[-1].chart[I, X, Ys] * d_next_col_chart[item]
+
+        return q
+
+
+
+
+import genparse.examples
+from genparse import add_EOS, CFG, CFGLM, Float
+from arsenal import colors
+
+
+def test_new_abcdx():
+
+    cfg = add_EOS(CFG.from_string("""
+
+    1: S -> a b c d
+    1: S -> a b c x
+    1: S -> a b x x
+    1: S -> a x x x
+    1: S -> x x x x
+
+    """, Float))
+
+    cfglm = CFGLM(cfg)
+    earley = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove())
+
+    for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
+        print()
+        print(colors.light.blue % prefix)
+        want = cfglm.p_next(prefix)     # Annoyingly shifted over
+        print(want)
+        have = earley.p_next(prefix)
+        print(have)
+        err = have.metric(want)
+        print(colors.mark(err <= 1e-5))
+        assert err <= 1e-5, err
+
+
+
+def test_new_palindrome():
+
+    cfg = add_EOS(genparse.examples.palindrome_ab)
+
+    cfglm = CFGLM(cfg)
+    earley = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove())
+
+    for prefix in ['', 'a', 'ab']:
+        print()
+        print(colors.light.blue % prefix)
+        want = cfglm.p_next(prefix)
+        print(want)
+        have = earley.p_next(prefix)
+        print(have)
+        err = have.metric(want)
+        print(colors.mark(err <= 1e-5))
+        assert err <= 1e-5
+
+
+def test_new_papa():
+
+    cfg = add_EOS(genparse.examples.papa)
+
+    cfglm = CFGLM(cfg)
+    earley = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove())
+
+    for prefix in [
+            [],
+            ['papa'],
+            ['papa', 'ate'],
+            ['papa', 'ate', 'the'],
+            ['papa', 'ate', 'the', 'caviar'],
+    ]:
+        prefix = tuple(prefix)
+        print()
+        print(colors.light.blue % (prefix,))
+        want = cfglm.p_next(prefix)
+        print(want)
+        have = earley.p_next(prefix)
+        print(have)
+        print(colors.mark(have.metric(want) <= 1e-5))
+        assert have.metric(want) <= 1e-5
+
+
+if __name__ == '__main__':
+    from arsenal import testing_framework
+    testing_framework(globals())
