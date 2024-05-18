@@ -9,21 +9,28 @@ from genparse import Float
 from arsenal.maths import sample_dict
 
 
-# In the most abstract case, an LM is a probability distribution over strings
-# from some alphabet that sums to one.  The `p_next` part is an additional part
-# that depends on a specific factorization (many factorizations exist by the
-# chain rule of probability, nuances aside).
 class LM:
+    """We say that p: V* → [0,1] is a language model if p is a probability
+    distribution over strings from some alphabet V of tokens.
 
-    def __init__(self, eos):
+    Every language model admits a left-to-right factorization `p_next`
+
+    p(x_1 x_2 ⋯ x_T) = p_next(x_1) p_next(x_2 | x_1) ⋯ p(x_T | x_1 ⋯ x_{T-1}) p(EOS | x_1 ⋯ x_T)
+
+    We call `p_next` the (conditional) distribution over the next token.
+
+    """
+
+    def __init__(self, V, eos):
         self.eos = eos
+        self.V = V
 
     def __call__(self, ys):
-        "Compute the probability of a complete string"
+        "Compute the probability of a complete string."
         raise NotImplementedError()
 
     def p_next(self, prefix):
-        "Compute the distribution over the next token given the `prefix`."
+        "Compute the (conditional) distribution over the next token given the `prefix`."
         raise NotImplementedError()
 
     def sample(self, ys=(), draw=sample_dict, prob=False, verbose=0, max_tokens=np.inf):
@@ -52,6 +59,9 @@ class LLM(LM):
         self.model = model
         self.model.eval()   # Set the model in "evaluation mode"
         self._cache = {}
+
+        # TODO: add the vocabulary and EOS symbols!
+#        super().__init__(set(range()), eos=eos)
 
     def __call__(self, input_ids):
         if isinstance(input_ids, list): input_ids = torch.LongTensor([input_ids])
@@ -102,10 +112,12 @@ class NoCacheLLM(LM):
         self.model = model
         self.model.eval()   # Set the model in "evaluation mode"
 
+        # TODO: Add vocabulary and EOS
+#        super().__init__(set(range()), eos=eos)
+
     def __call__(self, input_ids):
         raise NotImplementedError()
 
-    # TODO: handle padding and EOS more carefully.
     def p_next(self, input_ids):
         if isinstance(input_ids, (tuple, list)): input_ids = torch.LongTensor([input_ids])
         with torch.no_grad():
@@ -121,7 +133,7 @@ class GreedilyTokenizedLLM(LM):
         self._model = AutoModelForCausalLM.from_pretrained(name)
         self.model = LLM(self._model)
         self._decode = [self.tokenizer.decode([i]) for i in range(self.tokenizer.vocab_size)]
-        super().__init__(eos = self.tokenizer.eos_token)
+        super().__init__(V = set(self._decode), eos = self.tokenizer.eos_token)
 
     def __call__(self, xs):
         return self.model(self.tokenizer.encode(xs))
@@ -142,6 +154,7 @@ class GreedilyTokenizedLLM(LM):
             pp[x] = _p[i]
         return pp
 
+    # TODO: why isn't this inherited from the LM base class?
     def sample(self, ys='', draw=sample_dict, prob=False, verbose=0, max_tokens=np.inf, join=str.__add__):
         P = 1.0
         t = 0

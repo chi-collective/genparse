@@ -61,7 +61,7 @@ class CFGLM(LM):
         for r in self.pfg._cnf[2]:  # binary rules
             r_y_xz[r.body[0]].append(r)
 
-        super().__init__(eos = EOS)
+        super().__init__(V = cfg.V, eos = EOS)
 
     def __call__(self, x):
         assert x[-1] == EOS
