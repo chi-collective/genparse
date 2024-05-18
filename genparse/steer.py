@@ -64,9 +64,12 @@ class LocalProduct(LM):
     def __init__(self, lm1, lm2):
         self.lm1 = lm1
         self.lm2 = lm2
+        assert lm1.V == lm2.V
+        assert lm1.eos == lm2.eos
+        super().__init__(V = lm1.V, eos = lm1.eos)
 
     def __call__(self, ys):    # TODO: use log probs instead?
-        assert ys[-1] == EOS
+        assert ys[-1] == self.eos
         p = 1
         for t in range(len(ys)):
             p *= self.p_next(ys[:t])[ys[t]]
