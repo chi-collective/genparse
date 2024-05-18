@@ -128,9 +128,6 @@ class TokenTrieApproximation:
         curr = root
         path = []
         P = 1
-        P1 = 1
-        P2 = 1
-
         exits = Float.chart()
 
         if verbosity > 1: print(colors.line(80))
@@ -164,9 +161,6 @@ class TokenTrieApproximation:
 
             a = draw(q)
             P *= q[a]
-            P1 *= p1[a]
-            P2 *= p2[a]
-
             curr = curr.children[a]
 
             if verbosity > 1: print(colors.orange % 'action', repr(a), 'context', repr(''.join(path)))
