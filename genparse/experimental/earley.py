@@ -1,15 +1,18 @@
 from collections import defaultdict
+from arsenal import colors
 from arsenal.datastructures.pdict import pdict
+from orderedset import OrderedSet
 
 
 class Column:
-    __slots__ = ('k', 'chart', 'waiting_for', 'Q')
+    __slots__ = ('k', 'chart', 'waiting_for', 'Q', 'very_close')
 
     def __init__(self, k, chart):
         self.k = k
         self.chart = chart
         self.waiting_for = defaultdict(set)
         self.Q = pdict()
+        self.very_close = []
 
 
 class Earley:
@@ -73,11 +76,11 @@ class Earley:
         # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
         Q = next_col.Q
         while Q:
-            (j,Y) = Q.pop()
-            col_j = prev_cols[j]
-            y = next_col.chart[j,Y]
-            for (I, X, Ys) in col_j.waiting_for[Y]:
-                self._update(next_col, I, X, Ys[1:], col_j.chart[I,X,Ys] * y)
+            (J,Y) = Q.pop()
+            col_J = prev_cols[J]
+            y = next_col.chart[J,Y]
+            for (I, X, Ys) in col_J.waiting_for[Y]:
+                self._update(next_col, I, X, Ys[1:], col_J.chart[I,X,Ys] * y)
 
         self.PREDICT(next_col)
 
@@ -94,6 +97,10 @@ class Earley:
             was = prev_col.chart[item]
             if was == self.cfg.R.zero:
                 prev_col.waiting_for[Y].add(item)
+
+                if len(r.body) == 1:
+                    prev_col.very_close.append(item)
+
             prev_col.chart[item] = was + r.w
 
     def _update(self, col, I, X, Ys, value):
@@ -111,6 +118,10 @@ class Earley:
             was = col.chart[item]
             if was == self.cfg.R.zero:
                 col.waiting_for[Ys[0]].add(item)
+
+                if len(Ys) == 1:
+                    col.very_close.append(item)
+
             col.chart[item] = was + value
 
     def next_token_weights(self, chart):
@@ -122,32 +133,63 @@ class Earley:
 
         # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
 
-        # TODO: It should be possible to improve the sparsity in the (j, Y)
+        # Directly applying the gradient transformation, we get
+        #
+        # ∇phrase(0, s/[], K) += 1
+        # ∇phrase(J, Y/[], K) += phrase(I, X/[Y|Ys], J) * ∇phrase(I, X/Ys, K)
+        #
+        # Some quick analysis reveals that the `Ys` list must always be [], and
+        # that K is always equal to the final column.  We specialize the program
+        # below:
+        #
+        # ∇phrase(0, s/[], K) += 1
+        # ∇phrase(J, Y/[], K) += phrase(I, X/[Y], J) * ∇phrase(I, X/[], K)
+        #
+        # We can abbreviate the names:
+        #
+        # q(0, s) += 1
+        # q(J, Y) += phrase(I, X/[Y], J) * q(I, X)
+        #
+        # These items satisfy (I > J) and (X > Y) where the latter is the
+        # nonterminal ordering.
+
+        # TODO: It should be possible to improve the sparsity in the (J, Y)
         # loops here.  The key is to reverse the order of the forward method.
+
         for J in range(len(chart)):
-            col_J = chart[J]
-            for Y in reversed(sorted(self.cfg.N, key=lambda Y: self.order[Y])):
-                for (I, X, Ys) in col_J.waiting_for[Y]:
-                    if len(Ys) != 1: continue
-                    if col_J.chart[I, X, Ys] == self.cfg.R.zero: continue
+#            print(colors.yellow % 'very close:', J, '::', chart[J].very_close)
 
-                    # FORWARD PASS:
-                    # next_col[I, X, Ys[1:]] += col_j.chart[I,X,Ys] * next_col.chart[J,Y]
+#        #for J in sorted({J for J, Y in chart[-1].C} | {len(chart)-1}):
+#        #    Ys = set(chart[J].waiting_for) & self.cfg.N
+#            YY = self.cfg.N
+#            for Y in reversed(sorted(YY, key=lambda Y: self.order[Y])):
+#                for (I, X, Ys) in chart[J].waiting_for[Y]:
 
-                    d_next_col_chart[J, Y] += col_J.chart[I, X, Ys] * d_next_col_chart[I, X]
+            for (I,X,Ys) in sorted(chart[J].very_close, key=lambda item: (self.order.get(item[2][0], -1)), reverse=True):
+
+                    assert len(Ys) == 1
+                    if chart[J].chart[I, X, Ys] == self.cfg.R.zero: continue
+                    if d_next_col_chart[I, X] == self.cfg.R.zero: continue
+                    Y = Ys[0]
+                    if self.cfg.is_terminal(Y): continue
+
+                    #tmp.append((J,Y,I,X))
+                    d_next_col_chart[J, Y] += chart[J].chart[I, X, Ys] * d_next_col_chart[I, X]
+
+                    #foo = (I, X, (Y,))
+                    #print(colors.mark(foo in chart[J].very_close), foo)
+                    #assert foo in chart[J].very_close
+
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         q = self.cfg.R.chart()
-        prev_col = chart[-1]
-        VV = set(prev_col.waiting_for)
-        VV = VV & self.cfg.V
-        for v in VV:
-            for I, X, Ys in prev_col.waiting_for[v]:   # consider all possible tokens here
-                if len(Ys) != 1: continue
+        col = chart[-1]
+        for I, X, Ys in col.very_close:   # consider all possible tokens here
+            if self.cfg.is_nonterminal(Ys[0]): continue
 
-                # FORWARD PASS:
-                # next_col.chart[I, X, Ys[1:]] += prev_cols[-1].chart[I, X, Ys]
+            # FORWARD PASS:
+            # next_col.chart[I, X, Ys[1:]] += prev_cols[-1].chart[I, X, Ys]
 
-                q[v] += prev_col.chart[I, X, Ys] * d_next_col_chart[I, X]
+            q[Ys[0]] += col.chart[I, X, Ys] * d_next_col_chart[I, X]
 
         return q
