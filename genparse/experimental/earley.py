@@ -122,15 +122,6 @@ class Earley:
 
         # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
 
-        # loop thru the nodes in reverse order that we popped them
-        #next_col = chart[-1]
-        #k = next_col.k
-        #sort_key = lambda x: (k if x[0] == k else (k-x[0]-1), self.order[x[1]])
-
-        # TODO: we might need case analysis below that distinguishes complete
-        # vs. incomplete updates
-        #print(self.order)
-
         # TODO: It should be possible to improve the sparsity in the (j, Y)
         # loops here.  The key is to reverse the order of the forward method.
         for J in range(len(chart)):
@@ -138,9 +129,10 @@ class Earley:
             for Y in reversed(sorted(self.cfg.N, key=lambda Y: self.order[Y])):
                 for (I, X, Ys) in col_J.waiting_for[Y]:
                     if len(Ys) != 1: continue
+                    if col_J.chart[I, X, Ys] == self.cfg.R.zero: continue
 
                     # FORWARD PASS:
-                    # next_col.chart[I, X, Ys[1:]] += col_j.chart[I,X,Ys] * next_col.chart[j,Y]
+                    # next_col[I, X, Ys[1:]] += col_j.chart[I,X,Ys] * next_col.chart[J,Y]
 
                     d_next_col_chart[J, Y] += col_J.chart[I, X, Ys] * d_next_col_chart[I, X]
 
