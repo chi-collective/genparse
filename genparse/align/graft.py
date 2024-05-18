@@ -71,6 +71,7 @@ class CharAlignedCFGLM:
             if p_x == 0: continue
             yield (context + x, p_x)
 
+    # TODO: this should fall out of the base LM class
     def sample(self, draw=sample_dict, prob=False, chunked=False, verbose=False):
         context = ''
         chunks = []
