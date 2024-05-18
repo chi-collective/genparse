@@ -79,6 +79,27 @@ NUMBER: /\d+/
 WS: /[ \t\f\r\n]/
 """
 
+# minot variation on `grammar1` that further restricts whitespace
+iql_small = r"""
+start: "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
+EOS: "</s>"
+select_expr: STAR | select_list
+bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
+bool_expr: var "=" value | var ">" value | var "<" value
+from_expr: "data"
+orderby_expr: var_list WS "ASC" | var_list WS "DESC"
+select_list: select_var ("," WS select_var)*
+var_list: var ("," WS var)*
+select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
+var: "age" | "gender" | "year" | "state_color" | "zipcode" | "vote" | "race_ethnicity"
+value: NUMBER | "red" | "blue" | "white" | "black" | "latino" | "republican" | "democrat" | "male" | "female"
+STAR: "*"
+NUMBER: /\d+/
+//WS: /[ \t\f\r\n]/
+WS: " "
+"""
+
+
 restricted_sql = r"""
 start: query_expr "</s>"
 
@@ -143,4 +164,25 @@ boolean: "true" -> true
 
 %import common.WS
 %ignore WS
+"""
+
+
+arith = r"""
+start: WS sum "</s>" | NAME "=" sum "</s>"
+
+sum: product | sum "+" product | sum MINUS product
+
+product: atom
+    | product "*" atom
+    | product "/" atom
+
+atom: NUMBER
+        | MINUS atom
+        | NAME
+        | "(" sum ")"
+
+MINUS: /[\-]/
+NUMBER: /[\-+]?\d{1,3}(\.\d{1,3})?/
+WS: /[ \t\f\r\n]/
+NAME: /[a-zA-Z_]{1,5}/
 """
