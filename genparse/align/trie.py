@@ -173,21 +173,14 @@ class TokenTrieApproximation:
 
             path.append(a)
 
-#        if not exits:
-#            from IPython import embed; embed()
-
         # Sample the end-of-token marker in hindsight
-#        print('exits (unnormalized):', exits)
         exits = exits.normalize()
 
-#        if len(exits) == 0:
-#            self._guided_sample_trie(root, context, draw=draw, verbosity=verbosity)
-
-#        print(colors.light.green % 'exits (normalized):', exits)
+        if verbosity > 1: print(colors.light.green % 'p exits:', exits)
 
         path = draw(exits)
 
-#        print(colors.orange % 'picked exit', repr(path))
+        if verbosity > 1: print(colors.orange % 'picked exit', repr(path))
 
         P *= exits[path]
 
