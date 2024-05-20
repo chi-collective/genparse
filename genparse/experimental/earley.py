@@ -21,13 +21,17 @@ class Earley:
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
-    __slots__ = ('cfg', 'order', '_chart')
+#    __slots__ = ('cfg', 'order', '_chart')
 
     def __init__(self, cfg):
         assert not cfg.has_nullary() and not cfg.has_unary_cycle()
         self._chart = {}
         self.cfg = cfg
         self.order = cfg._unary_graph_transpose().buckets
+
+
+        self.CLOSE = defaultdict(set)
+
 
     def __call__(self, x):
         N = len(x)
@@ -101,6 +105,14 @@ class Earley:
                 if len(r.body) == 1:
                     prev_col.very_close.append(item)
 
+
+                    # very_close[J]((I,X,Ys)) = phrase(I,X/[Y],J)
+                    #
+                    # (I,X) -> (J,Y)
+
+                    self.CLOSE[k, r.head].add((k, Y))
+
+
             prev_col.chart[item] = was + r.w
 
     def _update(self, col, I, X, Ys, value):
@@ -121,6 +133,9 @@ class Earley:
 
                 if len(Ys) == 1:
                     col.very_close.append(item)
+
+                    self.CLOSE[I, X].add((col.k, Ys[0]))
+
 
             col.chart[item] = was + value
 
@@ -156,29 +171,47 @@ class Earley:
         # TODO: It should be possible to improve the sparsity in the (J, Y)
         # loops here.  The key is to reverse the order of the forward method.
 
-        for J in range(len(chart)):
-#            print(colors.yellow % 'very close:', J, '::', chart[J].very_close)
+#        for J in range(len(chart)):
+##            print(colors.yellow % 'very close:', J, '::', chart[J].very_close)
+##
+##        #for J in sorted({J for J, Y in chart[-1].C} | {len(chart)-1}):
+##        #    Ys = set(chart[J].waiting_for) & self.cfg.N
+##            YY = self.cfg.N
+##            for Y in reversed(sorted(YY, key=lambda Y: self.order[Y])):
+##                for (I, X, Ys) in chart[J].waiting_for[Y]:
+#
+#            for (I,X,Ys) in sorted(chart[J].very_close, key=lambda item: (-item[0], self.order.get(item[2][0], -1)), reverse=True):
+#
+#                #assert len(Ys) == 1
+#                #assert chart[J].chart[I, X, Ys] != self.cfg.R.zero
+#
+#                if d_next_col_chart[I, X] == self.cfg.R.zero: continue
+#                Y = Ys[0]
+#                if self.cfg.is_terminal(Y): continue
+#
+#                #tmp.append((J,Y,I,X))
+##                d_next_col_chart[J, Y] += chart[J].chart[I, X, Ys] * d_next_col_chart[I, X]
+#
+#                #foo = (I, X, (Y,))
+#                #print(colors.mark(foo in chart[J].very_close), foo)
+#                #assert foo in chart[J].very_close
 
-#        #for J in sorted({J for J, Y in chart[-1].C} | {len(chart)-1}):
-#        #    Ys = set(chart[J].waiting_for) & self.cfg.N
-#            YY = self.cfg.N
-#            for Y in reversed(sorted(YY, key=lambda Y: self.order[Y])):
-#                for (I, X, Ys) in chart[J].waiting_for[Y]:
+        tmp = pdict()
+        tmp[0, self.cfg.S] = (0, -self.order[self.cfg.S])
+        while tmp:
+            (I,X) = tmp.pop()
 
-            for (I,X,Ys) in sorted(chart[J].very_close, key=lambda item: (self.order.get(item[2][0], -1)), reverse=True):
+            for J,Y in self.CLOSE[I,X]:
+                if self.cfg.is_terminal(Y): continue
 
-                    assert len(Ys) == 1
-                    if chart[J].chart[I, X, Ys] == self.cfg.R.zero: continue
-                    if d_next_col_chart[I, X] == self.cfg.R.zero: continue
-                    Y = Ys[0]
-                    if self.cfg.is_terminal(Y): continue
+                # TODO: this might be inefficient as it might point to other
+                # columns :-/ We might be able to work around this by sorting on J.
+                if J >= len(chart): continue
 
-                    #tmp.append((J,Y,I,X))
-                    d_next_col_chart[J, Y] += chart[J].chart[I, X, Ys] * d_next_col_chart[I, X]
+                #tmp.append((J,Y,I,X))
+                d_next_col_chart[J, Y] += chart[J].chart[I, X, (Y,)] * d_next_col_chart[I, X]
 
-                    #foo = (I, X, (Y,))
-                    #print(colors.mark(foo in chart[J].very_close), foo)
-                    #assert foo in chart[J].very_close
+                tmp[J, Y] = (J, -self.order[Y])
 
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)

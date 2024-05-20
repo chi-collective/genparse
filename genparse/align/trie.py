@@ -4,50 +4,62 @@ from genparse import EOS, ERROR, Float
 from arsenal import colors, timeit
 
 
-SKELETON = None
+class TokenTrieApproximation:
 
-class NextTokenTrie:
-    """
-    Convert a flat probability distribution over strings into a trie-structured
-    distribution over characters and an end-of-token marker (`None`).
-    """
+    def __init__(self, llm, guide):
+        self.llm = llm
+        self.guide = guide
 
-    def __init__(self, p_next_token, llm_eos):
-        self.p_next_token = p_next_token
-        self.llm_eos = llm_eos
-        self.root = self._make_trie(p_next_token)
+        self.llm_eos = llm.eos
+        self.make_skeleton(llm.V)
 
-    def _make_trie(self, words):
+    def _update_trie(self, words):
 
-        global SKELETON
-        if SKELETON is None:
-            self.make_skeleton(words)
+        word2leaf = self.word2leaf
 
-        (root, word2leaf) = SKELETON
-
-        for word in words:
-            mass = words[word]
+        for word, mass in words.items():
             if word == self.llm_eos:
                 word = EOS
             leaf = word2leaf[word]
             leaf.mass = leaf._mass = mass
 
-        # push mass up from the leaves; uses DFS traversal
-        self._propagate_mass(root)
+        self._propagate_mass(self.root)
 
-        return root
+        return self.root
+
+#    def _propagate_mass(self, ordering):
+#        for node in ordering:
+#            mass = 0
+#            for child in node.children.values():
+#                mass += child.mass
+#            node.mass = node._mass = mass
+
+#    def _order(self, node):
+#        mass = 0
+#        for a in node.children:
+#            if a is None:
+#                pass
+#            else:
+#                yield from self._order(node.children[a])
+#        yield node
+
+#    def show(self, **kwargs):
+#        _kwargs = dict(fmt_edge = lambda x,a,y: f'{a}/{y.mass/x.mass:.2g}',
+#                       fmt_node=lambda x: f'{x.mass:.2g}')
+#        _kwargs.update(**kwargs)
+#        return self.root.graphviz(**_kwargs)
 
     def make_skeleton(self, words):
-        # TODO: For efficiency, we should use trie skeleton and propagate the values
-        #
-        # build the probability tree; assigning mass to the leaves
-        global SKELETON
+        # For efficiency, we use trie skeleton and propagate values on it.
         root = Node(mass=None, parent=None, children={})
 
         word2leaf = {}
         for word in sorted(words):
-            mass = words[word]
             # rename the EOS token so that it matches the guide's EOS token.
+
+            # TODO: I am not sure if this is the correct way to handle EOS as
+            # the actual token won't hit this when we used work2leaf
+
             if word == self.llm_eos: word = EOS     # TODO: harded coded guide's EOS token
             curr = root
             for letter in list(word) + [None]:
@@ -55,11 +67,12 @@ class NextTokenTrie:
                     curr.children[letter] = Node(mass=None, parent=curr, children={})
                 curr = curr.children[letter]
             curr.children = None
-            curr.mass = curr._mass = mass
+            curr.mass = curr._mass = None
             word2leaf[word] = curr
 
-        SKELETON = (root, word2leaf)
-        return SKELETON
+        self.root = root
+        self.word2leaf = word2leaf
+        #self.ordering = list(self._order(root))
 
     def _propagate_mass(self, node):
         mass = 0
@@ -71,19 +84,6 @@ class NextTokenTrie:
         node.mass = node._mass = mass
         return mass
 
-    def show(self, **kwargs):
-        _kwargs = dict(fmt_edge = lambda x,a,y: f'{a}/{y.mass/x.mass:.2g}',
-                       fmt_node=lambda x: f'{x.mass:.2g}')
-        _kwargs.update(**kwargs)
-        return self.root.graphviz(**_kwargs)
-
-
-class TokenTrieApproximation:
-
-    def __init__(self, llm, guide):
-        self.llm = llm
-        self.guide = guide
-
     def sample(self, prompt, max_tokens=float('inf'), prob=False, **kwargs):
 
         verbosity = kwargs.get('verbosity', 0)
@@ -93,9 +93,12 @@ class TokenTrieApproximation:
         t = 0
         while True:
 
-            p1 = self.llm.p_next(prompt + context).normalize()
-            p1_trie = NextTokenTrie(p1, self.llm.eos)
-            ys, P_ys = self._guided_sample_trie(p1_trie.root, context, **kwargs)
+            p1 = self.llm.p_next(prompt + context)
+
+            # Convert a flat probability distribution over strings into a trie-structured
+            # distribution over characters and an end-of-token marker (`None`).
+            p1_trie_root = self._update_trie(p1)
+            ys, P_ys = self._guided_sample_trie(p1_trie_root, context, **kwargs)
             t += 1
 
             if t >= max_tokens:

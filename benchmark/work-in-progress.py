@@ -123,6 +123,7 @@ def test_trie_align_iql_small():
     u = Float.chart({w: 1/h for _, w in H.pairs})
     class MockLLM:
         eos = H.tokenizer.eos_token
+        V = set(u)
         def p_next(self, context): return u
 
 
