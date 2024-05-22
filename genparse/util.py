@@ -128,7 +128,7 @@ class LarkStuff:
     """
     Utility class for leveraging the lark parsing library.
     """
-    def __init__(self, grammar):
+    def __init__(self, grammar, cnf=False):
         import lark
         self.raw_grammar = grammar
 
@@ -137,10 +137,18 @@ class LarkStuff:
         lark_grammar = builder.build()
         terminals, rules, ignores = lark_grammar.compile(["start"], set())
 
-        self.parser = lark.parsers.cyk.Parser(rules)
-        self.instance = lark.Lark(grammar, lexer='basic', parser='cyk')
-        self.lex = self.instance.lex
-        self.rules = self.parser.grammar.rules
+        if cnf:
+            self.parser = lark.parsers.cyk.Parser(rules)
+            self.instance = lark.Lark(grammar, lexer='basic', parser='cyk')
+            self.lex = self.instance.lex
+            self.rules = self.parser.grammar.rules
+
+        else:
+            #self.parser = lark.parsers.earley.Parser(rules)
+            self.instance = lark.Lark(grammar, parser='earley')
+            self.lex = self.instance.lex
+            self.rules = rules
+
         self.terminals = terminals
         self.ignores = ignores
 
@@ -173,7 +181,12 @@ class LarkStuff:
     def convert(self):
         "Convert the lark grammar into a `genparse.CFG` grammar."
         from genparse import CFG, Rule, Float
-        rules = [Rule(1, r.lhs.name, tuple(y.name for y in r.rhs)) for r in self.rules]
+
+        try:
+            rules = [Rule(1, r.lhs.name, tuple(y.name for y in r.rhs)) for r in self.rules]
+        except AttributeError:
+            rules = [Rule(1, r.origin.name, tuple(y.name for y in r.expansion)) for r in self.rules]
+
         lhs_count = Counter([r.head for r in rules])
         cfg = CFG(R=Float, S="start", V={t.name for t in self.terminals})
         for r in rules:

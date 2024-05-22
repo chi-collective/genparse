@@ -4,6 +4,7 @@ from arsenal.maths import compare
 from collections import Counter
 
 from genparse.util import LarkStuff
+from genparse.experimental.earley import Earley
 from genparse import CFGLM, locally_normalize
 
 
@@ -46,7 +47,7 @@ def test_tokenization_basics():
 
 def test_parsing_basics():
 
-    lark_stuff = LarkStuff(grammar1)
+    lark_stuff = LarkStuff(grammar1, cnf=True)
 
     text = 'SELECT state_color FROM data </s>'
     tokens = list(lark_stuff.lex(text))
@@ -62,6 +63,29 @@ def test_parsing_basics():
     tokens = ['WS', 'SELECT', 'WS', 'ZIPCODE', 'WS', 'FROM', 'WS', 'DATA']
 
     assert g.prefix_weight(tokens) > 0
+
+    ####
+    # Now, we repeat the same as above without CNF conversion
+    #
+    # NOTE: the grammars are unfortunately not equivalent because of how we
+    # assigned them weights.
+
+    lark_stuff = LarkStuff(grammar1, cnf=False)
+
+    text = 'SELECT state_color FROM data </s>'
+    tokens = list(lark_stuff.lex(text))
+
+    g = lark_stuff.convert().renumber()
+
+    tokens = ['WS', 'SELECT', 'WS', 'ZIPCODE', 'WS', 'FROM', 'WS', 'DATA', 'WS', 'EOS']
+
+    assert Earley(g.unarycycleremove().renumber())(tokens) > 0
+
+    #print(g.cnf.prefix_grammar.trim().cnf)
+    tokens = ['WS', 'SELECT', 'WS', 'ZIPCODE', 'WS', 'FROM', 'WS', 'DATA']
+
+    assert Earley(g.prefix_grammar.renumber().nullaryremove().unarycycleremove())(tokens) > 0
+
 
 
 def test_char_level_cfg():

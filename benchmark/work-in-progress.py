@@ -1,19 +1,25 @@
+import numpy as np
+import random
+from arsenal import timeit, colors
+from time import time
+
 from genparse.util import LarkStuff, hf_tokenizer
 from genparse import CFGLM, locally_normalize, Float, add_EOS, EOS
 from genparse.align import CharAlignedCFGLM
 from genparse.align.trie import TokenTrieApproximation
 from genparse.experimental.earley import Earley
 from genparse.inference import TraceSWOR
-from arsenal import timeit, colors
-from time import time
 
 from example_grammars import arith, iql_small
 
 
 def test_basic_aligned_model_arithmetic():
 
+    np.random.seed(0)
+    random.seed(0)
+
     with timeit('grammar setup'):
-        cfg = add_EOS(locally_normalize(LarkStuff(arith).char_cfg(.9), tol=1e-100).trim())
+        cfg = add_EOS(locally_normalize(LarkStuff(arith, cnf=False).char_cfg(.9), tol=1e-100).trim())
 
     with timeit('cfglm setup'):
         # the base character-level CFG language model
@@ -54,16 +60,56 @@ def test_basic_aligned_model_arithmetic():
         print('time/output:', took / len(p))
 
 
-def test_graft_align_iql_small():
+def test_trie_align_arith():
+
+    np.random.seed(0)
+    random.seed(0)
 
     with timeit('lark conversion'):
-        cfg = add_EOS(locally_normalize(LarkStuff(iql_small).char_cfg(.99), tol=1e-100).trim())
+        cfg = add_EOS(locally_normalize(LarkStuff(arith, cnf=False).char_cfg(.99), tol=1e-100).trim())
 
     with timeit('tokenizer setup'):
         H = hf_tokenizer()
 
-    with timeit('CFGLM setup'):
-        lm1 = CFGLM(cfg)
+    #with timeit('CFGLM setup'):
+    #    lm1 = CFGLM(cfg)
+
+    with timeit('Earley setup'):
+        guide = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
+
+    h = len(H.pairs)
+    u = Float.chart({w: 1/h for _, w in H.pairs})
+    class MockLLM:
+        eos = H.tokenizer.eos_token
+        V = set(u)
+        def p_next(self, context): return u
+
+
+    mock_llm = MockLLM()
+    with timeit('TokenTrieApproximation setup'):
+        proposal = TokenTrieApproximation(mock_llm, guide)
+
+    tracer = TraceSWOR()
+    samples = []
+    for _ in range(10):
+        with tracer:
+            samples.append(proposal.sample(prompt='', max_tokens=1000, verbosity=1, draw=tracer))
+            print(samples[-1])
+
+
+def test_graft_align_iql_small():
+
+    np.random.seed(0)
+    random.seed(0)
+
+    with timeit('lark conversion'):
+        cfg = add_EOS(locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(.99), tol=1e-100).trim())
+
+    with timeit('tokenizer setup'):
+        H = hf_tokenizer()
+
+    #with timeit('CFGLM setup'):
+    #    lm1 = CFGLM(cfg)
 
     with timeit('Earley setup'):
         lm = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
@@ -107,14 +153,17 @@ def test_graft_align_iql_small():
 
 def test_trie_align_iql_small():
 
+    np.random.seed(0)
+    random.seed(0)
+
     with timeit('lark conversion'):
-        cfg = add_EOS(locally_normalize(LarkStuff(iql_small).char_cfg(.99), tol=1e-100).trim())
+        cfg = add_EOS(locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(.99), tol=1e-100).trim())
 
     with timeit('tokenizer setup'):
         H = hf_tokenizer()
 
-    with timeit('CFGLM setup'):
-        lm1 = CFGLM(cfg)
+    #with timeit('CFGLM setup'):
+    #    lm1 = CFGLM(cfg)
 
     with timeit('Earley setup'):
         guide = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
