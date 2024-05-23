@@ -149,16 +149,18 @@ class GreedilyTokenizedLLM(LM):
             top_p = _p.argsort()[-top:]
         pp = Float.chart()
         for i in reversed(top_p):
-            x = self._decode[i]
-            pp[x] = _p[i]
-        return pp
+            pp[self._decode[i]] = _p[i]
+        if top is None:
+            return pp
+        else:
+            return pp.normalize()
 
     # TODO: why isn't this inherited from the LM base class?
     def sample(self, ys='', draw=sample_dict, prob=False, verbose=0, max_tokens=np.inf, join=str.__add__):
         P = 1.0
         t = 0
         while True:
-            p = self.p_next(ys).normalize()
+            p = self.p_next(ys)
             y = draw(p) if t <= max_tokens else self.eos
             P *= p[y]
             t += 1

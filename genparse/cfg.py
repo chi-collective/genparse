@@ -218,6 +218,13 @@ class CFG:
                                        for y in r.body)))
         return new
 
+    def map_values(self, f, R):
+        "return a new grammar that is the result of applying `f: self.R -> R` to each rule's weight."
+        new = self.spawn(R=R)
+        for r in self:
+            new.add(f(r.w), r.head, *r.body)
+        return new
+
     def assert_equal(self, other, verbose=False, throw=True):
         assert verbose or throw
         if isinstance(other, str): other = self.__class__.from_string(other, self.R)

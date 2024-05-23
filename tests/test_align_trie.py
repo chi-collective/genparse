@@ -7,6 +7,7 @@ from genparse.inference import TraceSWOR
 from genparse import CFGLM, locally_normalize, Float, EOS
 from genparse.lm import GreedilyTokenizedLLM
 from genparse.align.trie import TokenTrieApproximation
+from genparse import Boolean
 
 
 def test_llm_trie_approximation():
@@ -36,11 +37,25 @@ def test_llm_trie_approximation():
                                                  verbosity=1)
 
             score = llm(ys) * pcfg(ys + EOS)
+            print('weight:', score, '/', q)
             W[ys] += score / q
 
             print(colors.light.yellow % 'sample:', ys)
 
             print(W.normalize())
+
+
+class BoolMaskCFGLM:
+
+    def __init__(self, pcfg):
+        self.model = CFGLM(pcfg.cfg.map_values(lambda x: Boolean(x>0), Boolean))
+
+    def p_next(self, context):
+        p = self.model.p_next(context).trim()
+        return Float.chart({w: 1 for w in p})
+
+    def __call__(self, context):
+        return float(self.model(context) != Boolean.zero)
 
 
 def test_chomsky_said():
@@ -57,6 +72,17 @@ def test_chomsky_said():
 //        | /Colorless[ ]green[ ]ideas[ ]sleep[ ]furiously/
 
     """).char_cfg(.9999), tol=1e-300))
+
+    # TODO: we can improve this model considerably by encoding the max length
+    # into the CFG as it will push backward the constraint that `."` needs to be
+    # generated.  Currently, most of the samples generated have weight zero
+    # because of the '."' technicality!  Encoding the constraint exactly might
+    # be a bit of a challenge as the set of tokens of length <= T is an
+    # expensive constraint to encoded exactly.  But, we can approximate with
+    # something simpler like the number of white spaces in many settings.
+
+    # XXX: we are using the boolean CFG instead of the PCFG
+    pcfg = BoolMaskCFGLM(pcfg)
 
     #print(''.join(pcfg.sample()))
 
@@ -77,23 +103,17 @@ def test_chomsky_said():
     W = Float.chart()
 
     token_trie_approx = TokenTrieApproximation(llm, pcfg)
-#    tracer = TraceSWOR()
-    tracer = sample_dict
     for _ in range(10):
-#        with tracer:
-            print('----------------------------------')
-            with timeit('complete sample'):
-                ys, q = token_trie_approx.sample(prompt, max_tokens=50,
-                                                 draw=tracer, prob=True,
-                                                 verbosity=1)
-            score = llm(ys) * pcfg(ys + EOS)
-            W[ys] += score / q
+        print('----------------------------------')
+        with timeit('complete sample'):
+            ys, q = token_trie_approx.sample(prompt, max_tokens=100, prob=True, verbosity=1)
+        score = llm(ys) * pcfg(ys + EOS)
+        print('weight:', score, '/', q, '=', score / q)
+        W[ys] += score / q
 
-            print(q)
+        print(colors.light.yellow % 'sample:', ys)
 
-            print(colors.light.yellow % 'sample:', ys)
-
-            print(W.normalize())
+        print(W.normalize())
 
 
 if __name__ == '__main__':
