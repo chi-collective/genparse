@@ -66,10 +66,10 @@ def test_chomsky_said():
 
     start: /Noam[ ]Chomsky[ ]famously[ ]wrote,[ ]"/ expr /\."/
 
-    expr: /[A-Za-z0-9,; ]+/
-//    expr: /[Tt]ime[ ]flies[ ]like[ ]an[ ]arrow/
-//        | /[iI][ ]like[ ]to[ ]dance/
-//        | /Colorless[ ]green[ ]ideas[ ]sleep[ ]furiously/
+//    expr: /[A-Za-z0-9,; ]+/
+    expr: /[Tt]ime[ ]flies[ ]like[ ]an[ ]arrow/
+        | /[iI][ ]like[ ]to[ ]dance/
+        | /[cC]olorless[ ]green[ ]ideas[ ]sleep[ ]furiously/
 
     """).char_cfg(.9999), tol=1e-300))
 
@@ -105,7 +105,7 @@ def test_chomsky_said():
     token_trie_approx = TokenTrieApproximation(llm, pcfg)
     for _ in range(10):
         print('----------------------------------')
-        with timeit('complete sample'):
+        with timeit('sample'):
             ys, q = token_trie_approx.sample(prompt, max_tokens=100, prob=True, verbosity=1)
         score = llm(ys) * pcfg(ys + EOS)
         print('weight:', score, '/', q, '=', score / q)

@@ -32,7 +32,9 @@ class TokenTrieApproximation:
         self.guide = guide
 
         self.llm_eos = llm.eos
-        self.make_skeleton(llm.V)
+        (self.root, self.word2leaf) = self.make_skeleton(llm.V)
+
+        #self.ordering = list(self._order(self.root))
 
     def _update_trie(self, words):
 
@@ -45,11 +47,12 @@ class TokenTrieApproximation:
             leaf.mass = leaf._mass = mass
 
         self._propagate_mass(self.root)
+#        self._propagate_mass_loop()
 
         return self.root
 
-#    def _propagate_mass(self, ordering):
-#        for node in ordering:
+#    def _propagate_mass_loop(self):
+#        for node in self.ordering:
 #            mass = 0
 #            for child in node.children.values():
 #                mass += child.mass
@@ -91,9 +94,7 @@ class TokenTrieApproximation:
             curr.mass = curr._mass = None
             word2leaf[word] = curr
 
-        self.root = root
-        self.word2leaf = word2leaf
-        #self.ordering = list(self._order(root))
+        return (root, word2leaf)
 
     def _propagate_mass(self, node):
         mass = 0
