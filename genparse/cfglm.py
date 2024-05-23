@@ -3,7 +3,6 @@ Fast computation of the posterior distrubtion over the next word in a WCFG langu
 """
 
 from arsenal import colors
-from arsenal.maths import sample_dict
 from collections import defaultdict
 
 from genparse.cfg import _gen_nt, CFG

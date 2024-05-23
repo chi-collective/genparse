@@ -7,24 +7,24 @@ from arsenal import colors, timeit
 class TokenTrieApproximation:
     """
     Proposal distribution that combines an `llm` (token-based LM) and `guide` (character-based LM).
-    
-    The way that samples are generated is that we 
+
+    The way that samples are generated is that we
     (1) materialize the next-token distribution `llm.p_next(context)`
     (2) convert it into a character-level trie augmented with an end-of-token marker.
     (3) sample a path in the trie (starting at its root) which takes the local product of the
         trie distribution and the guide, excluding the end-of-token.
     (4) given the path, we then sample an end-of-token anywhere along the path.
-    
-    The reason why we like this proposal distribution is its efficiency: in practice, `p_llm` is one big 
+
+    The reason why we like this proposal distribution is its efficiency: in practice, `p_llm` is one big
     batched evaluation, that is given by a blackbox model, and `p_guide` is a CFGLM.  Although, any given
-    call to p_guide is fast, calling it for every token is very slow - even with GPU parallelism.  This 
-    proposal distrbution avoid making a huge number of calls to p_guide (as in `CharAlignedCFGLM`) by 
+    call to p_guide is fast, calling it for every token is very slow - even with GPU parallelism.  This
+    proposal distrbution avoid making a huge number of calls to p_guide (as in `CharAlignedCFGLM`) by
     *sampling* paths in the character-trie rather than *enumerating* them.
-    
-    We could probably improve this generative procees by collapsing the post-path sampling of exits, 
-    but it would probably require the cost that we are trying to avoid!  (That is probably deeply connected 
+
+    We could probably improve this generative procees by collapsing the post-path sampling of exits,
+    but it would probably require the cost that we are trying to avoid!  (That is probably deeply connected
     with `CharAlignedCFGLM`, but we haven't worked out the precise connection.)
-    
+
     """
 
     def __init__(self, llm, guide):
@@ -130,7 +130,7 @@ class TokenTrieApproximation:
 
             if ERROR in ys:
                 print(colors.light.red % 'error case')
-                context += y
+                context += ys
                 break
 
             if EOS == ys:

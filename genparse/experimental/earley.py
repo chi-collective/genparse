@@ -1,7 +1,5 @@
 from collections import defaultdict
-from arsenal import colors
 from arsenal.datastructures.pdict import pdict
-from orderedset import OrderedSet
 
 
 class Column:
@@ -91,7 +89,6 @@ class Earley:
     def PREDICT(self, prev_col):
         # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with lookahead to prune
         k = prev_col.k
-        predicted = set()
         zero = self.cfg.R.zero
         for r in self.cfg:
             if r.body == (): continue
@@ -104,7 +101,6 @@ class Earley:
                 if len(r.body) == 1:
                     if self.cfg.is_terminal(Y):
                         prev_col.very_close_terminal.append(item)
-
                     else:
                         # very_close[J]((I,X,Ys)) = phrase(I,X/[Y],J)
                         #

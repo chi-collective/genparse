@@ -81,7 +81,6 @@ class LLM(LM):
             if value is not None: return value
 
             prev_state = self.get_state(prefix[:-1])
-            #input_ids = torch.LongTensor([list(prefix)])
             input_ids = torch.LongTensor([prefix[-1]])
             value = self.model(input_ids=input_ids,
                                labels=input_ids,
@@ -211,7 +210,7 @@ class MockLLM(LM):
             eos = eos,
             V = V,
         )
-    def p_next(self, context):
+    def p_next(self, _):
         return self._p
 
     def __call__(self, x):

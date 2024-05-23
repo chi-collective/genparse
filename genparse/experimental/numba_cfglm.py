@@ -8,7 +8,7 @@ from arsenal import colors
 from arsenal.maths import sample_dict
 from collections import defaultdict
 
-from genparse.cfg import _gen_nt, CFG
+from genparse.cfg import _gen_nt, CFG, add_EOS, EOS
 from genparse.semiring import Float
 
 
@@ -222,12 +222,11 @@ def numba_next_token_weights(N, T, chart, prefix, start_index):
 
 import genparse
 import genparse.examples
-from genparse import CFG, Float
-from genparse.cfglm import add_EOS, EOS
+#from genparse import CFG, Float
 
-from arsenal import colors
-from arsenal.maths import sample_dict
-from collections import defaultdict
+#from arsenal import colors
+#from arsenal.maths import sample_dict
+#from collections import defaultdict
 
 
 def fast_posterior(cfg, prefix):
