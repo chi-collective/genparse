@@ -98,7 +98,7 @@ class TokenTrieApproximation:
         self.mass = np.zeros(len(children))
         self.word2leaf = word2leaf
         self.jump = [
-            list(sorted(x.values()))
+            tuple(sorted(x.values()))
             for x in children
         ]
         self.ordering = list(self._order(self.root))
@@ -156,11 +156,15 @@ class TokenTrieApproximation:
         if verbosity > 1: print(colors.line(80))
         while True:
 
-            p1 = Float.chart((a, mass[c]/mass[curr]) for a, c in children[curr].items())
+            children_curr = children[curr]
+            mass_curr = mass[curr]
+
+            p1 = Float.chart((a, mass[c]/mass_curr) for a, c in children_curr.items())
+
             p2 = self.guide.p_next(context + ''.join(path)).trim()
 
             if None in p1:
-                exits[''.join(path)] = mass[children[curr][None]]
+                exits[''.join(path)] = mass[children_curr[None]]
                 if verbosity > 1: print(colors.blue % "ADDED EXIT", repr(''.join(path)), 'prob=', P)
 
             _q = (p1 * p2).trim()
@@ -180,7 +184,7 @@ class TokenTrieApproximation:
 
             a = draw(q)
             P *= q[a]
-            curr = children[curr][a]
+            curr = children_curr[a]
 
             if verbosity > 1: print(colors.orange % 'action', repr(a), 'context', repr(''.join(path)))
 
