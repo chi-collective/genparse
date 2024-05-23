@@ -1,17 +1,8 @@
+import numpy as np
 from arsenal.maths import sample_dict
 #from genparse.inference import Node
 from genparse import ERROR, Float
 from arsenal import colors, timeit
-
-class Node:
-    __slots__ = ('mass', 'children')
-
-    def __init__(self, mass, children=None):
-        self.mass = mass
-        self.children = children
-
-    def p_next(self):
-        return Float.chart((a, c.mass/self.mass) for a, c in self.children.items())
 
 
 class TokenTrieApproximation:
@@ -42,44 +33,34 @@ class TokenTrieApproximation:
         self.guide = guide
 
         self.llm_eos = llm.eos
-        (self.root, self.word2leaf) = self.make_skeleton(llm.V)
-
-        self.ordering = list(self._order(self.root))
-
-    def about(self):
-        print('internal trie nodes:', len(self.ordering))
-        print('leaves:', len(self.word2leaf))
-        print('ratio:', len(self.ordering) / len(self.word2leaf))
-        print('avg branching:', sum(len(x.children) for x in self.ordering)/len(self.ordering))
-        print('max branching:', max(len(x.children) for x in self.ordering if x != self.root))
-        print('longest word:', max(len(w) for w in self.word2leaf))
+        self.make_skeleton(llm.V)
 
     def _update_trie(self, words):
 
         words[self.guide.eos] = words[self.llm_eos]
 
         for word, leaf in self.word2leaf.items():
-            leaf.mass = words[word]
+            self.mass[leaf] = words[word]
 
-        self._propagate_mass(self.root)
-#        self._propagate_mass_loop()
+        self._propagate_mass_loop()
 
         return self.root
 
-#    def _propagate_mass_loop(self):
-#        for node in self.ordering:
-#            mass = 0
-#            for child in node.children.values():
-#                mass += child.mass
-#            node.mass = mass
+    def _propagate_mass_loop(self):
+        mass = self.mass; jump = self.jump
+        for node in self.ordering:
+            m = 0
+            for child in jump[node]:
+                m += mass[child]
+            mass[node] = m
 
     def _order(self, node):
         mass = 0
-        for a in node.children:
+        for a in self.children[node]:
             if a is None:
                 pass
             else:
-                yield from self._order(node.children[a])
+                yield from self._order(self.children[node][a])
         yield node
 
 #    def show(self, **kwargs):
@@ -89,10 +70,12 @@ class TokenTrieApproximation:
 #        return self.root.graphviz(**_kwargs)
 
     def make_skeleton(self, words):
-        # For efficiency, we use trie skeleton and propagate values on it.
-        root = Node(mass=None, children={})
 
         word2leaf = {}
+        children = {}
+        root = 0
+        children = [{}]
+
         for word in sorted(words):
             if word == self.llm_eos: word = self.guide.eos
 
@@ -101,23 +84,24 @@ class TokenTrieApproximation:
 
             curr = root
             for letter in word:
-                if letter not in curr.children:
-                    curr.children[letter] = Node(mass=None, children={})
-                curr = curr.children[letter]
-            curr.children[None] = last = Node(mass=None, children=None)
+                if letter not in children[curr]:
+                    children[curr][letter] = len(children)
+                    children.append({})
+                curr = children[curr][letter]
+
+            children[curr][None] = last = len(children)
+            children.append({})
             word2leaf[word] = last
 
-        return (root, word2leaf)
-
-    def _propagate_mass(self, node):
-        mass = 0
-        for a, child in node.children.items():
-            if a is None:
-                mass += child.mass
-            else:
-                mass += self._propagate_mass(child)
-        node.mass = mass
-        return mass
+        self.root = root
+        self.children = children
+        self.mass = np.zeros(len(children))
+        self.word2leaf = word2leaf
+        self.jump = [
+            list(sorted(x.values()))
+            for x in children
+        ]
+        self.ordering = list(self._order(self.root))
 
     def sample(self, prompt, max_tokens=float('inf'), prob=False, verbosity=0, **kwargs):
 
@@ -166,14 +150,17 @@ class TokenTrieApproximation:
         P = 1
         exits = Float.chart()
 
+        children = self.children
+        mass = self.mass
+
         if verbosity > 1: print(colors.line(80))
         while True:
 
-            p1 = curr.p_next()
+            p1 = Float.chart((a, mass[c]/mass[curr]) for a, c in children[curr].items())
             p2 = self.guide.p_next(context + ''.join(path)).trim()
 
             if None in p1:
-                exits[''.join(path)] = curr.children[None].mass
+                exits[''.join(path)] = mass[children[curr][None]]
                 if verbosity > 1: print(colors.blue % "ADDED EXIT", repr(''.join(path)), 'prob=', P)
 
             _q = (p1 * p2).trim()
@@ -193,7 +180,7 @@ class TokenTrieApproximation:
 
             a = draw(q)
             P *= q[a]
-            curr = curr.children[a]
+            curr = children[curr][a]
 
             if verbosity > 1: print(colors.orange % 'action', repr(a), 'context', repr(''.join(path)))
 
