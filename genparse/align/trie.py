@@ -1,7 +1,17 @@
 from arsenal.maths import sample_dict
-from genparse.inference import Node
-from genparse import EOS, ERROR, Float
+#from genparse.inference import Node
+from genparse import ERROR, Float
 from arsenal import colors, timeit
+
+class Node:
+    __slots__ = ('mass', 'children')
+
+    def __init__(self, mass, children=None):
+        self.mass = mass
+        self.children = children
+
+    def p_next(self):
+        return Float.chart((a, c.mass/self.mass) for a, c in self.children.items())
 
 
 class TokenTrieApproximation:
@@ -34,17 +44,22 @@ class TokenTrieApproximation:
         self.llm_eos = llm.eos
         (self.root, self.word2leaf) = self.make_skeleton(llm.V)
 
-        #self.ordering = list(self._order(self.root))
+        self.ordering = list(self._order(self.root))
+
+    def about(self):
+        print('internal trie nodes:', len(self.ordering))
+        print('leaves:', len(self.word2leaf))
+        print('ratio:', len(self.ordering) / len(self.word2leaf))
+        print('avg branching:', sum(len(x.children) for x in self.ordering)/len(self.ordering))
+        print('max branching:', max(len(x.children) for x in self.ordering if x != self.root))
+        print('longest word:', max(len(w) for w in self.word2leaf))
 
     def _update_trie(self, words):
 
-        word2leaf = self.word2leaf
+        words[self.guide.eos] = words[self.llm_eos]
 
-        for word, mass in words.items():
-            if word == self.llm_eos:
-                word = EOS
-            leaf = word2leaf[word]
-            leaf.mass = leaf._mass = mass
+        for word, leaf in self.word2leaf.items():
+            leaf.mass = words[word]
 
         self._propagate_mass(self.root)
 #        self._propagate_mass_loop()
@@ -56,16 +71,16 @@ class TokenTrieApproximation:
 #            mass = 0
 #            for child in node.children.values():
 #                mass += child.mass
-#            node.mass = node._mass = mass
+#            node.mass = mass
 
-#    def _order(self, node):
-#        mass = 0
-#        for a in node.children:
-#            if a is None:
-#                pass
-#            else:
-#                yield from self._order(node.children[a])
-#        yield node
+    def _order(self, node):
+        mass = 0
+        for a in node.children:
+            if a is None:
+                pass
+            else:
+                yield from self._order(node.children[a])
+        yield node
 
 #    def show(self, **kwargs):
 #        _kwargs = dict(fmt_edge = lambda x,a,y: f'{a}/{y.mass/x.mass:.2g}',
@@ -75,40 +90,36 @@ class TokenTrieApproximation:
 
     def make_skeleton(self, words):
         # For efficiency, we use trie skeleton and propagate values on it.
-        root = Node(mass=None, parent=None, children={})
+        root = Node(mass=None, children={})
 
         word2leaf = {}
         for word in sorted(words):
-            # rename the EOS token so that it matches the guide's EOS token.
+            if word == self.llm_eos: word = self.guide.eos
 
-            # TODO: I am not sure if this is the correct way to handle EOS as
-            # the actual token won't hit this when we used work2leaf
+            # Filter LLM tokens that are illegal under the cfg
+            if not (set(word) <= self.guide.V): continue
 
-            if word == self.llm_eos: word = EOS     # TODO: harded coded guide's EOS token
             curr = root
-            for letter in list(word) + [None]:
+            for letter in word:
                 if letter not in curr.children:
-                    curr.children[letter] = Node(mass=None, parent=curr, children={})
+                    curr.children[letter] = Node(mass=None, children={})
                 curr = curr.children[letter]
-            curr.children = None
-            curr.mass = curr._mass = None
-            word2leaf[word] = curr
+            curr.children[None] = last = Node(mass=None, children=None)
+            word2leaf[word] = last
 
         return (root, word2leaf)
 
     def _propagate_mass(self, node):
         mass = 0
-        for a in node.children:
+        for a, child in node.children.items():
             if a is None:
-                mass += node.children[a].mass
+                mass += child.mass
             else:
-                mass += self._propagate_mass(node.children[a])
-        node.mass = node._mass = mass
+                mass += self._propagate_mass(child)
+        node.mass = mass
         return mass
 
-    def sample(self, prompt, max_tokens=float('inf'), prob=False, **kwargs):
-
-        verbosity = kwargs.get('verbosity', 0)
+    def sample(self, prompt, max_tokens=float('inf'), prob=False, verbosity=0, **kwargs):
 
         context = ''
         P = 1
@@ -120,11 +131,11 @@ class TokenTrieApproximation:
             # Convert a flat probability distribution over tokens into a trie-structured
             # distribution over characters and an end-of-token marker (`None`).
             p1_trie_root = self._update_trie(p1)
-            ys, P_ys = self._guided_sample_trie(p1_trie_root, context, **kwargs)
+            ys, P_ys = self._guided_sample_trie(p1_trie_root, context, verbosity=verbosity, **kwargs)
             t += 1
 
             if t >= max_tokens:
-                ys = EOS
+                ys = self.guide.eos
                 P_ys = 1
 
             P *= P_ys
@@ -134,7 +145,7 @@ class TokenTrieApproximation:
                 context += ys
                 break
 
-            if EOS == ys:
+            if self.guide.eos == ys:
                 if verbosity > 0:
                     print()
                 break
@@ -161,12 +172,8 @@ class TokenTrieApproximation:
             p1 = curr.p_next()
             p2 = self.guide.p_next(context + ''.join(path)).trim()
 
-            # booleanized
-            #p2 = Float.chart({x: 1 for x in p2})
-            #print(p2)
-
             if None in p1:
-                exits[''.join(path)] = curr.children[None]._mass
+                exits[''.join(path)] = curr.children[None].mass
                 if verbosity > 1: print(colors.blue % "ADDED EXIT", repr(''.join(path)), 'prob=', P)
 
             _q = (p1 * p2).trim()
