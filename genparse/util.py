@@ -5,38 +5,26 @@ from IPython.display import display, HTML
 
 
 class hf_tokenizer:
-    def __init__(self, name='gpt2'):
+
+    def __init__(self, name='gpt2', **kwargs):
         from transformers import AutoTokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(name)
-        self.pairs = [(i, self.tokenizer.decode([i]))
-                      for i in range(self.tokenizer.vocab_size)]
+
+        if name == 'codellama':
+            name = "codellama/CodeLlama-7b-Instruct-hf"
+            _kwargs = dict(use_fast=True, prefix_token=None, middle_token=None,
+                           suffix_token=None, eot_token=None, fill_token=None)
+            _kwargs.update(**kwargs)
+
+        self.tokenizer = AutoTokenizer.from_pretrained(name, **kwargs)
+
+        self.decode = [self.tokenizer.decode([i]) for i in range(self.tokenizer.vocab_size)]
+        self.pairs = list(enumerate(self.decode))
+        self.eos = self.tokenizer.eos_token
 
     @cached_property
     def fst(self):
         from genparse.segmentation import bpe_wfst
         return bpe_wfst(self.pairs)
-
-
-# Warning: untested
-#class hf_tokenizer_codellama:
-#    def __init__(self):
-#        from transformers import AutoTokenizer
-#        model_name = "codellama/CodeLlama-7b-Instruct-hf"
-#        self.tokenizer = AutoTokenizer.from_pretrained(
-#            model_name,
-#            use_fast=True,
-#            prefix_token=None,
-#            middle_token=None,
-#            suffix_token=None,
-#            eot_token=None,
-#            fill_token=None,
-#        )
-#        self.pairs = [(i, tokenizer.decode([i])) for i in range(self.tokenizer.vocab_size)]
-#
-#    @cached_property
-#    def fst(self):
-#        from genparse.segmentation import bpe_wfst
-#        return bpe_wfst(self.pairs)
 
 
 def normalize(p):

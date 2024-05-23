@@ -3,17 +3,18 @@ import random
 from arsenal import timeit, colors
 from time import time
 
-from genparse.util import LarkStuff, hf_tokenizer
+from genparse.util import LarkStuff
 from genparse import CFGLM, locally_normalize, Float, add_EOS, EOS
 from genparse.align import CharAlignedCFGLM
 from genparse.align.trie import TokenTrieApproximation
 from genparse.experimental.earley import Earley
 from genparse.inference import TraceSWOR
+from genparse.lm import make_mock_llm
 
 from example_grammars import arith, iql_small
 
 
-def test_basic_aligned_model_arithmetic():
+def test_graft_arith():
 
     np.random.seed(0)
     random.seed(0)
@@ -26,11 +27,10 @@ def test_basic_aligned_model_arithmetic():
 #        lm = CFGLM(cfg)
         lm = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
 
-    with timeit('tokenizer setup'):
-        H = hf_tokenizer()
+    mock_llm = make_mock_llm()
 
     with timeit('CharAlignedCFGLM setup'):
-        proposal = CharAlignedCFGLM(lm=lm, words={x for _, x in H.pairs}, eos=H.tokenizer.eos_token)
+        proposal = CharAlignedCFGLM(lm=lm, words=mock_llm.V, eos=mock_llm.eos)
 
     #===========================================================================
     # [2024-04-29 Mon] OPTIMIZATIONS: Tianyu provided the follow contexts, which
@@ -60,7 +60,7 @@ def test_basic_aligned_model_arithmetic():
         print('time/output:', took / len(p))
 
 
-def test_trie_align_arith():
+def test_trie_arith():
 
     np.random.seed(0)
     random.seed(0)
@@ -68,24 +68,14 @@ def test_trie_align_arith():
     with timeit('lark conversion'):
         cfg = add_EOS(locally_normalize(LarkStuff(arith, cnf=False).char_cfg(.99), tol=1e-100).trim())
 
-    with timeit('tokenizer setup'):
-        H = hf_tokenizer()
-
     #with timeit('CFGLM setup'):
     #    lm1 = CFGLM(cfg)
 
     with timeit('Earley setup'):
         guide = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
 
-    h = len(H.pairs)
-    u = Float.chart({w: 1/h for _, w in H.pairs})
-    class MockLLM:
-        eos = H.tokenizer.eos_token
-        V = set(u)
-        def p_next(self, context): return u
+    mock_llm = make_mock_llm()
 
-
-    mock_llm = MockLLM()
     with timeit('TokenTrieApproximation setup'):
         proposal = TokenTrieApproximation(mock_llm, guide)
 
@@ -97,7 +87,7 @@ def test_trie_align_arith():
             print(samples[-1])
 
 
-def test_graft_align_iql_small():
+def test_graft_iql_small():
 
     np.random.seed(0)
     random.seed(0)
@@ -105,8 +95,7 @@ def test_graft_align_iql_small():
     with timeit('lark conversion'):
         cfg = add_EOS(locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(.99), tol=1e-100).trim())
 
-    with timeit('tokenizer setup'):
-        H = hf_tokenizer()
+    mock_llm = make_mock_llm()
 
     #with timeit('CFGLM setup'):
     #    lm1 = CFGLM(cfg)
@@ -115,8 +104,7 @@ def test_graft_align_iql_small():
         lm = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
 
     with timeit('CharAlignedCFGLM setup'):
-        proposal = CharAlignedCFGLM(lm=lm, words={x for _, x in H.pairs},
-                                  eos=H.tokenizer.eos_token)
+        proposal = CharAlignedCFGLM(lm=lm, words=mock_llm.V, eos=mock_llm.eos)
 
     #===============================================================================
     # [2024-04-28 Sun] CKY optimizations:
@@ -151,16 +139,15 @@ def test_graft_align_iql_small():
             print(samples[-1])
 
 
-def test_trie_align_iql_small():
+def test_trie_iql_small():
 
     np.random.seed(0)
     random.seed(0)
 
+    mock_llm = make_mock_llm()
+
     with timeit('lark conversion'):
         cfg = add_EOS(locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(.99), tol=1e-100).trim())
-
-    with timeit('tokenizer setup'):
-        H = hf_tokenizer()
 
     #with timeit('CFGLM setup'):
     #    lm1 = CFGLM(cfg)
@@ -168,15 +155,6 @@ def test_trie_align_iql_small():
     with timeit('Earley setup'):
         guide = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
 
-    h = len(H.pairs)
-    u = Float.chart({w: 1/h for _, w in H.pairs})
-    class MockLLM:
-        eos = H.tokenizer.eos_token
-        V = set(u)
-        def p_next(self, context): return u
-
-
-    mock_llm = MockLLM()
     with timeit('TokenTrieApproximation setup'):
         proposal = TokenTrieApproximation(mock_llm, guide)
 

@@ -190,3 +190,30 @@ class GreedilyTokenizedLLM(LM):
 #                pp[x] = _p[i]
 #                if len(pp) > top: break
 #        return pp
+
+
+from functools import lru_cache
+@lru_cache(None)
+def make_mock_llm(**kwargs):
+    from genparse.util import hf_tokenizer
+    H = hf_tokenizer(**kwargs)
+    return MockLLM(V = H.decode, eos = H.eos)
+
+
+class MockLLM(LM):
+    """
+    Uniform distribution over next token; used for testing.
+    """
+    def __init__(self, V, eos):
+        n = len(V)
+        self._p = Float.chart({w: 1/n for w in V})
+        super().__init__(
+            eos = eos,
+            V = V,
+        )
+    def p_next(self, context):
+        return self._p
+
+    def __call__(self, x):
+        assert x[-1] == self.eos
+        return (1/len(self.V))**len(x)

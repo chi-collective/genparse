@@ -51,10 +51,10 @@ class CFGLM(LM):
 
         if renumber:
             self.cfg = cfg.renumber()
-            self.pfg = cfg.cnf.prefix_grammar.cnf.renumber().cnf
+            self.pfg = self.cfg.cnf.prefix_grammar.cnf.renumber().cnf
         else:
             self.cfg = cfg
-            self.pfg = cfg.cnf.prefix_grammar.cnf
+            self.pfg = self.cfg.cnf.prefix_grammar.cnf
 
         # TODO: this is is a quick hack; clean this up.
         self.pfg.r_y_xz = r_y_xz = defaultdict(list)
