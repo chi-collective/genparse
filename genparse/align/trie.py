@@ -32,52 +32,35 @@ class TokenTrieApproximation:
         self.llm = llm
         self.guide = guide
 
-        self.llm_eos = llm.eos
-        self.make_skeleton(llm.V)
+        self._init_trie(llm.V)
 
     def _update_trie(self, words):
-
-        words[self.guide.eos] = words[self.llm_eos]
-
-        for word, leaf in self.word2leaf.items():
-            self.mass[leaf] = words[word]
-
-        self._propagate_mass_loop()
-
-        return self.root
-
-    def _propagate_mass_loop(self):
         mass = self.mass; jump = self.jump
+
+        # update leaves
+        for word, leaf in self.word2leaf.items():
+            mass[leaf] = words[word]
+        # convert llm.eos to guide.eos
+        mass[self.word2leaf[self.guide.eos]] = words[self.llm.eos]
+
+        # update internal nodes (in bottom up order)
         for node in self.ordering:
             m = 0
             for child in jump[node]:
                 m += mass[child]
             mass[node] = m
 
-    def _order(self, node):
-        mass = 0
-        for a in self.children[node]:
-            if a is None:
-                pass
-            else:
-                yield from self._order(self.children[node][a])
-        yield node
-
-#    def show(self, **kwargs):
-#        _kwargs = dict(fmt_edge = lambda x,a,y: f'{a}/{y.mass/x.mass:.2g}',
-#                       fmt_node=lambda x: f'{x.mass:.2g}')
-#        _kwargs.update(**kwargs)
-#        return self.root.graphviz(**_kwargs)
-
-    def make_skeleton(self, words):
+    def _init_trie(self, words):
 
         word2leaf = {}
         children = {}
         root = 0
         children = [{}]
 
-        for word in sorted(words):
-            if word == self.llm_eos: word = self.guide.eos
+        for word in words:
+
+            # coerce llm.eos to guide.eos
+            if word == self.llm.eos: word = self.guide.eos
 
             # Filter LLM tokens that are illegal under the cfg
             if not (set(word) <= self.guide.V): continue
@@ -97,51 +80,48 @@ class TokenTrieApproximation:
         self.children = children
         self.mass = np.zeros(len(children))
         self.word2leaf = word2leaf
-        self.jump = [
-            tuple(sorted(x.values()))
-            for x in children
-        ]
+        self.jump = [tuple(sorted(x.values())) for x in children]
         self.ordering = list(self._order(self.root))
 
-    def sample(self, prompt, max_tokens=float('inf'), prob=False, verbosity=0, **kwargs):
+    def _order(self, node):
+        "Topological ordering of nodes beneath `node`."
+        mass = 0
+        for a in self.children[node]:
+            if a is None:
+                pass
+            else:
+                yield from self._order(self.children[node][a])
+        yield node
+
+    def sample(self, prompt, max_tokens=float('inf'), verbosity=0, **kwargs):
 
         context = ''
         P = 1
         t = 0
         while True:
 
-            p1 = self.llm.p_next(prompt + context)
+            self._update_trie(self.llm.p_next(prompt + context))
 
-            # Convert a flat probability distribution over tokens into a trie-structured
-            # distribution over characters and an end-of-token marker (`None`).
-            p1_trie_root = self._update_trie(p1)
-            ys, P_ys = self._guided_sample_trie(p1_trie_root, context, verbosity=verbosity, **kwargs)
+            token, p_token = self._guided_sample_trie(self.root, context, verbosity=verbosity, **kwargs)
             t += 1
 
             if t >= max_tokens:
-                ys = self.guide.eos
-                P_ys = 1
+                token = self.guide.eos
+                p_token = 1
 
-            P *= P_ys
+            P *= p_token
 
-            if ERROR in ys:
-                print(colors.light.red % 'error case')
-                context += ys
-                break
-
-            if self.guide.eos == ys:
+            if self.guide.eos == token:
                 if verbosity > 0:
                     print()
                 break
 
-            y = ''.join(ys)
-
             if verbosity > 0:
-                print(colors.cyan % y, end=colors.magenta % '|')
+                print(colors.cyan % token, end=colors.magenta % '|')
 
-            context += y
+            context += token
 
-        return (context, P) if prob else context
+        return (context, P)
 
     def _guided_sample_trie(self, root, context, draw=sample_dict, verbosity=0):
 

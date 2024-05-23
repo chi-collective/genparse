@@ -30,7 +30,7 @@ def test_llm_trie_approximation():
     for _ in range(10):
         print('----------------------------------')
         with timeit('sample'):
-            ys, q = proposal.sample(prompt, max_tokens=50, prob=True, verbosity=1)
+            ys, q = proposal.sample(prompt, verbosity=1)
 
         score = llm(ys) * pcfg(ys + EOS)
         print('weight:', score, '/', q)
@@ -64,7 +64,9 @@ def test_chomsky_said():
     # expensive constraint to encoded exactly.  But, we can approximate with
     # something simpler like the number of white spaces in many settings.
 
-    # XXX: we are using the boolean CFG instead of the PCFG
+    # XXX: we are using the boolean CFG instead of the PCFG; the PCFG is running
+    # into numerical underflow.  We need to use the log-semiring or a rescaling
+    # trick in ethe Earley parser.
     pcfg = BoolMaskCFGLM(pcfg.cfg)
 
     #print(''.join(pcfg.sample()))
@@ -89,7 +91,7 @@ def test_chomsky_said():
     for _ in range(10):
         print('----------------------------------')
         with timeit('sample'):
-            ys, q = proposal.sample(prompt, max_tokens=100, prob=True, verbosity=1)
+            ys, q = proposal.sample(prompt, verbosity=1)
         score = llm(ys) * pcfg(ys + EOS)
         print('weight:', score, '/', q, '=', score / q)
         W[ys] += score / q
