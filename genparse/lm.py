@@ -15,7 +15,7 @@ class LM:
 
     Every language model admits a left-to-right factorization `p_next`
 
-    p(x_1 x_2 ⋯ x_T) = p_next(x_1) p_next(x_2 | x_1) ⋯ p(x_T | x_1 ⋯ x_{T-1}) p(EOS | x_1 ⋯ x_T)
+    p(x_1 x_2 ⋯ x_T) = p_next(x_1) p_next(x_2 | x_1) ⋯ p_next(x_T | x_1 ⋯ x_{T-1}) p_next(EOS | x_1 ⋯ x_T)
 
     We call `p_next` the (conditional) distribution over the next token.
 
@@ -29,7 +29,7 @@ class LM:
         "Compute the probability of a complete string."
         raise NotImplementedError()
 
-    def p_next(self, prefix):
+    def p_next(self, context):
         "Compute the (conditional) distribution over the next token given the `prefix`."
         raise NotImplementedError()
 

@@ -7,7 +7,7 @@ from collections import defaultdict
 
 from genparse.cfg import _gen_nt, CFG
 from genparse.lm import LM
-from genparse.semiring import Float
+from genparse.semiring import Float, Boolean
 
 
 #EOS = '$EOS'
@@ -38,6 +38,22 @@ def locally_normalize(self, **kwargs):
         if Z[r.head] == 0: continue
         new.add(r.w * Z.product(r.body) / Z[r.head], r.head, *r.body)
     return new
+
+
+class BoolMaskCFGLM(LM):
+    "LM-like interface for Boolean-masking CFG models."
+
+    def __init__(self, cfg):
+        if cfg.R != Boolean: cfg = cfg.map_values(lambda x: Boolean(x>0), Boolean)
+        self.model = CFGLM(cfg)
+        super().__init__(eos = self.model.eos, V = self.model.V)
+
+    def p_next(self, context):
+        p = self.model.p_next(context).trim()
+        return Float.chart({w: 1 for w in p})
+
+    def __call__(self, context):
+        return float(self.model(context) != Boolean.zero)
 
 
 class CFGLM(LM):

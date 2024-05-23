@@ -3,11 +3,11 @@ import random
 from arsenal import timeit, colors
 from arsenal.maths import sample_dict
 from genparse.util import LarkStuff
-from genparse.inference import TraceSWOR
 from genparse import CFGLM, locally_normalize, Float, EOS
 from genparse.lm import GreedilyTokenizedLLM
 from genparse.align.trie import TokenTrieApproximation
 from genparse import Boolean
+from genparse.cfglm import BoolMaskCFGLM
 
 
 def test_llm_trie_approximation():
@@ -25,37 +25,20 @@ def test_llm_trie_approximation():
 
     llm.sample('My name is', verbose=1, max_tokens=10)
 
-    token_trie_approx = TokenTrieApproximation(llm, pcfg)
-    tracer = TraceSWOR()
+    proposal = TokenTrieApproximation(llm, pcfg)
     W = Float.chart()
     for _ in range(10):
-        with tracer:
-            print('----------------------------------')
-            with timeit('complete sample'):
-                ys, q = token_trie_approx.sample(prompt, max_tokens=50,
-                                                 draw=tracer, prob=True,
-                                                 verbosity=1)
+        print('----------------------------------')
+        with timeit('sample'):
+            ys, q = proposal.sample(prompt, max_tokens=50, prob=True, verbosity=1)
 
-            score = llm(ys) * pcfg(ys + EOS)
-            print('weight:', score, '/', q)
-            W[ys] += score / q
+        score = llm(ys) * pcfg(ys + EOS)
+        print('weight:', score, '/', q)
+        W[ys] += score / q
 
-            print(colors.light.yellow % 'sample:', ys)
+        print(colors.light.yellow % 'sample:', ys)
 
-            print(W.normalize())
-
-
-class BoolMaskCFGLM:
-
-    def __init__(self, pcfg):
-        self.model = CFGLM(pcfg.cfg.map_values(lambda x: Boolean(x>0), Boolean))
-
-    def p_next(self, context):
-        p = self.model.p_next(context).trim()
-        return Float.chart({w: 1 for w in p})
-
-    def __call__(self, context):
-        return float(self.model(context) != Boolean.zero)
+        print(W.normalize())
 
 
 def test_chomsky_said():
@@ -82,7 +65,7 @@ def test_chomsky_said():
     # something simpler like the number of white spaces in many settings.
 
     # XXX: we are using the boolean CFG instead of the PCFG
-    pcfg = BoolMaskCFGLM(pcfg)
+    pcfg = BoolMaskCFGLM(pcfg.cfg)
 
     #print(''.join(pcfg.sample()))
 
@@ -102,11 +85,11 @@ def test_chomsky_said():
 
     W = Float.chart()
 
-    token_trie_approx = TokenTrieApproximation(llm, pcfg)
+    proposal = TokenTrieApproximation(llm, pcfg)
     for _ in range(10):
         print('----------------------------------')
         with timeit('sample'):
-            ys, q = token_trie_approx.sample(prompt, max_tokens=100, prob=True, verbosity=1)
+            ys, q = proposal.sample(prompt, max_tokens=100, prob=True, verbosity=1)
         score = llm(ys) * pcfg(ys + EOS)
         print('weight:', score, '/', q, '=', score / q)
         W[ys] += score / q
