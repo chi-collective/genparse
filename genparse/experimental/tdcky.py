@@ -57,11 +57,11 @@ class ExactTensorDecomp:
         self._chart = {}
 
     def __call__(self, xs):
-        (b, _, _) = self.chart(xs)
+        (b, _) = self.chart(xs)
         return b[len(xs)][0][self.S]
 
     def p_next(self, prefix):
-        (_, by, _) = self.chart(prefix)
+        (_, by) = self.chart(prefix)
         return self.next_token_weights(by, prefix)
 
     def chart(self, prefix):
@@ -73,19 +73,17 @@ class ExactTensorDecomp:
 
     def _compute_chart(self, prefix):
         if len(prefix) == 0:
-            (b_0, by_0, bz_0) = self.extend_chart(prefix, None)
+            (b_0, by_0) = self.extend_chart(prefix, None)
             return (
                 [b_0],
                 [by_0],
-                [bz_0],
             )
         else:
-            (b, by, bz) = self.chart(prefix[:-1])
-            (b_K, by_K, bz_K) = self.extend_chart(prefix, by)
+            (b, by) = self.chart(prefix[:-1])
+            (b_K, by_K) = self.extend_chart(prefix, by)
             return (
                 b + [b_K],
                 by + [by_K],
-                bz + [bz_K],
             )
 
     def extend_chart(self, xs, by):
@@ -129,59 +127,7 @@ class ExactTensorDecomp:
             by_K[I] = y @ b_K[I]
             bz_K[I] = z @ b_K[I]
 
-        return (b_K, by_K, bz_K)
-
-#    def extend_chart(self, xs, b, by, bz):
-#
-#        K = len(xs)
-#        x = self.x
-#        y = self.y
-#        z = self.z
-#        Rank = self.Rank
-#        NT = self.NT
-#        nullary = self.nullary
-#        terminal = self.terminal
-#
-#        b_K = np.zeros((K+1, NT))
-#        by_K = np.zeros((K+1, Rank))
-#        bz_K = np.zeros((K+1, Rank))
-#
-#        if K == 0:
-#            # nullary rule
-#            b_K[K] = np.zeros(NT)
-#            b_K[K][self.S] += nullary
-#
-#        if K > 0:
-#            # preterminal rules
-#            I = K-1
-#            b_K[I] = np.zeros(NT)
-#            for r in terminal[xs[K-1]]:
-#                b_K[I][r.head] += r.w
-#
-#            for X in range(NT):
-#                for R in range(Rank):
-#                    by_K[I][R] += y[R,X] * b_K[I][X]
-#                    bz_K[I][R] += z[R,X] * b_K[I][X]
-#
-#        for span in range(2, K+1):
-#            I = K - span
-#
-#            # this is batched matrix multiplication
-#            tmp = np.zeros(Rank)
-#            for J in range(I + 1, K):
-#                for R in range(Rank):
-#                    tmp[R] += by[J][I][R] * bz_K[J][R]
-#
-#            for R in range(Rank):
-#                for X in range(NT):
-#                    b_K[I][X] += tmp[R] * x[R,X]
-#
-#            for R in range(Rank):
-#                for X in range(NT):
-#                    by_K[I][R] += y[R,X] * b_K[I][X]
-#                    bz_K[I][R] += z[R,X] * b_K[I][X]
-#
-#        return (b_K, by_K, bz_K)
+        return (b_K, by_K)
 
     # TODO: vectorize
     def next_token_weights(self, by, prefix):   # XXX: why is _b unused?
@@ -198,10 +144,6 @@ class ExactTensorDecomp:
         D_bz_K = np.zeros((K, Rank))
 
         D_b_K[0][self.S] += 1
-
-        #b_K = b[K-1]
-        #by_K = by[K-1]
-        #bz_K = bz[K-1]
 
         for span in reversed(range(2, K+1)):
             I = K - span
@@ -329,7 +271,7 @@ def test_new_papa():
         print()
         print(colors.light.blue % repr(' '.join(prefix)))
 
-        (_, by, _) = decomp.chart(prefix)
+        (_, by) = decomp.chart(prefix)
         have = decomp.next_token_weights(by, prefix)
 
         want = cfglm.p_next(prefix)
