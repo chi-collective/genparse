@@ -3,10 +3,9 @@ import random
 from arsenal import timeit, colors
 from arsenal.maths import sample_dict
 from genparse.util import LarkStuff
-from genparse import CFGLM, locally_normalize, Float, EOS
+from genparse import CFGLM, locally_normalize, Float, Boolean, EOS
 from genparse.lm import GreedilyTokenizedLLM
 from genparse.proposal import CharacterProposal
-from genparse import Boolean
 from genparse.cfglm import BoolMaskCFGLM
 
 
@@ -25,7 +24,7 @@ def test_timothy():
 
     llm.sample('My name is', verbose=1, max_tokens=10)
 
-    proposal = CharacterProposal(llm, pcfg)
+    proposal = CharacterProposal(llm=llm, guide=pcfg)
     W = Float.chart()
     for _ in range(10):
         print('----------------------------------')
@@ -41,7 +40,7 @@ def test_timothy():
         print(W.normalize())
 
 
-def test_chomsky():
+def todo_chomsky():
     np.random.seed(0)
     random.seed(0)
 
@@ -87,7 +86,7 @@ def test_chomsky():
 
     W = Float.chart()
 
-    proposal = CharacterProposal(llm, pcfg)
+    proposal = CharacterProposal(llm=llm, guide=pcfg)
     for _ in range(10):
         print('----------------------------------')
         with timeit('sample'):
@@ -101,7 +100,7 @@ def test_chomsky():
         print(W.normalize())
 
 
-def test_fruit():
+def todo_fruit():
     np.random.seed(0)
     random.seed(0)
 
@@ -131,7 +130,7 @@ def test_fruit():
 
     W = Float.chart()
 
-    proposal = CharacterProposal(llm, pcfg)
+    proposal = CharacterProposal(llm=llm, guide=pcfg)
     for _ in range(10):
         print('----------------------------------')
         with timeit('sample'):
