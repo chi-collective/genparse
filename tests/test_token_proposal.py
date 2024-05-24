@@ -1,7 +1,16 @@
 from genparse.util import LarkStuff, hf_tokenizer
 from genparse import CFGLM, add_EOS, locally_normalize
+from genparse.lm import make_mock_llm
 from genparse.proposal import TokenProposal
 from arsenal import timeit, colors
+
+
+# TODO: test equivalence of `traverse_trie` and `traverse_naive`.
+#def traverse_naive(self, context):
+#    for x in self.words:
+#        p_x = self.guide.pfg(context + x)  # prefix weight of context + x
+#        if p_x == 0: continue
+#        yield (context + x, p_x)
 
 
 def test_basic_aligned_model_iql_small():
@@ -29,25 +38,25 @@ def test_basic_aligned_model_iql_small():
     foo = locally_normalize(foo, tol=1e-100).trim()
     assert len(foo) > 0
 
-    H = hf_tokenizer()
+    llm = make_mock_llm()
 
     # the base character-level CFG language model
-    lm = CFGLM(add_EOS(foo))
+    guide = CFGLM(add_EOS(foo))
 
-    bpe_lm = TokenProposal(lm=lm, words={x for _, x in H.pairs}, eos=H.tokenizer.eos_token)
+    proposal = TokenProposal(guide=guide, llm=llm)
 
     with timeit('took'):
 
-        p = bpe_lm.p_next('')
+        p = proposal.p_next('')
         print(p)
         assert p.keys() == {'S', 'SE', 'SELECT'}
 
-        p = bpe_lm.p_next('SELECT * FROM data')
+        p = proposal.p_next('SELECT * FROM data')
         print(p)
         assert p.keys() == {' ', ' <', ' </', ' G', ' W', ' O', ' GR', ' WH', ' OR',
                             ' GROUP', ' WHERE', ' ORDER'}
 
-        p = bpe_lm.p_next('SELECT age FROM data')
+        p = proposal.p_next('SELECT age FROM data')
         print(p)
         assert p.keys() == {' ', ' <', ' </', ' G', ' W', ' O', ' GR', ' WH', ' OR',
                             ' GROUP', ' WHERE', ' ORDER'}

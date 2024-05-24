@@ -19,11 +19,11 @@ def test_graft_arith():
 
     cfg = add_EOS(locally_normalize(LarkStuff(arith, cnf=False).char_cfg(.9), tol=1e-100).trim())
 
-    lm = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
+    guide = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
 
-    mock_llm = make_mock_llm()
+    llm = make_mock_llm()
 
-    proposal = TokenProposal(lm=lm, words=mock_llm.V, eos=mock_llm.eos)
+    proposal = TokenProposal(guide=guide, llm=llm)
 
     #===========================================================================
     # [2024-04-29 Mon] OPTIMIZATIONS: Tianyu provided the follow contexts, which
@@ -31,8 +31,8 @@ def test_graft_arith():
     #
     #===========================================================================
     contexts = [
-        #'Bey',
-        #'BeyAk',
+        'Bey',
+        'BeyAk',
         'BeyAk=-',
         #'BeyAk=-amide',
         #'BeyAk=-amide*',
@@ -62,9 +62,9 @@ def test_trie_arith():
 
     guide = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
 
-    mock_llm = make_mock_llm()
+    llm = make_mock_llm()
 
-    proposal = CharacterProposal(mock_llm, guide)
+    proposal = CharacterProposal(llm=llm, guide=guide)
 
     samples = []
     for _ in range(10):
@@ -79,11 +79,11 @@ def test_graft_iql_small():
 
     cfg = add_EOS(locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(.99), tol=1e-100).trim())
 
-    mock_llm = make_mock_llm()
+    llm = make_mock_llm()
 
-    lm = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
+    guide = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
 
-    proposal = TokenProposal(lm=lm, words=mock_llm.V, eos=mock_llm.eos)
+    proposal = TokenProposal(llm=llm, guide=guide)
 
     #===============================================================================
     # [2024-04-28 Sun] CKY optimizations:
@@ -121,13 +121,13 @@ def test_trie_iql_small():
     np.random.seed(0)
     random.seed(0)
 
-    mock_llm = make_mock_llm()
+    llm = make_mock_llm()
 
     cfg = add_EOS(locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(.99), tol=1e-100).trim())
 
     guide = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
 
-    proposal = CharacterProposal(mock_llm, guide)
+    proposal = CharacterProposal(llm=llm, guide=guide)
 
     samples = []
     for _ in range(10):

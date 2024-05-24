@@ -1,5 +1,11 @@
 from arsenal.maths import sample_dict
+from genparse import Float
 
+
+# TODO: It's tempting to require proposal distributions to implement the `LM`
+# interface, but it might be different to correctly implement `__call__` and
+# `p_next` as proposal distributions may only be distributions over sample paths
+# rather than character strings.  That appears to be a significant difference.
 
 # TODO: Make the token-id sequences available as well as the character
 # sequences.  Using the character sequences is useful the CFGLM caching, so we
@@ -11,35 +17,21 @@ class TokenProposal:
     used in the common byte-pair encoding (BPE) schemes of large language models.
     """
 
-    def __init__(self, lm, words, eos):
+    def __init__(self, *, llm, guide):
 
-        # TODO: Correctly handle the possibility that the word model and lm may
-        # have different EOS symbols. To accomodate this, we just we need
-        # something that converts them that they don't have to be equal strings.
-        # This will just amount to some special cases.
-        assert eos in words
+        self.llm = llm
+        self.guide = guide
 
-        self.lm = lm
-        self.words = words
-        self.eos = eos
+        self.V = llm.V
+
         self._end = object()
-        self.trie = self.make_trie(words)
-
-#        self.c = {}
-#        self._counts('', self.trie)
-
-#    def _counts(self, prefix, node):
-#        "Compute the number of continuations under `node`"
-#        total = sum(
-#            1 if x == self._end else self._counts(prefix + x, node[x])
-#            for x in node
-#        )
-#        self.c[prefix] = total
-#        return total
+        self.trie = self.make_trie(self.V)
+        self._p_llm = None
 
     def make_trie(self, words):
         root = dict()
         for word in words:
+            if word == self.llm.eos: word = self.guide.eos
             curr = root
             for letter in word:
                 curr = curr.setdefault(letter, {})
@@ -48,31 +40,24 @@ class TokenProposal:
 
     def p_next(self, context):
         t = len(context)
-        return self.lm.cfg.R.chart(
+        self._p_llm = self.llm.p_next(context)
+        self._p_llm[self.guide.eos] = self._p_llm[self.llm.eos]
+        return Float.chart(
             # strip the common length-t prefix
-            (k[t:], v) for k,v in self.traverse_trie(context, self.trie, 1)
+            (k[t:], v) for k,v in self.traverse_trie(context, '', self.trie, 1)
         ).normalize()
 
-    def traverse_trie(self, context, node, P):
-        p = self.lm.p_next(context)
+    def traverse_trie(self, context, token, node, P):
+        p = self.guide.p_next(context)
         for x in node:
             if x == self._end:
-                yield (context, P)
-#                yield (context, self.lm.pfg(context))
+                yield (context, P * self._p_llm[token])
                 continue
             P_x = P * p[x]
             if P_x == 0: continue
-            yield from self.traverse_trie(context + x, node[x], P_x)
+            yield from self.traverse_trie(context + x, token + x, node[x], P_x)
 
-    # TODO: test equivalence of `traverse_trie` and `traverse_naive`.
-    def traverse_naive(self, context):
-        for x in self.words:
-            p_x = self.lm.pfg(context + x)  # prefix weight of context + x
-            if p_x == 0: continue
-            yield (context + x, p_x)
-
-    # TODO: this should fall out of the base LM class
-    def sample(self, draw=sample_dict, prob=False, chunked=False, verbose=False):
+    def sample(self, draw=sample_dict, chunked=False, verbose=False):
         context = ''
         chunks = []
         P = 1
@@ -81,15 +66,10 @@ class TokenProposal:
             p = self.p_next(context).normalize()
             y = draw(p)
             P *= p[y]
-            if y == self.eos: break
+            if y == self.guide.eos: break
             chunks.append(y)
             context += y
-            # TODO: this is an ugly hack the arises from sloppy handling of EOS.
-            # To handle this cleanly we just need to align the EOS in the LM and
-            # the EOS in words.
-            if context.endswith('</s>'): break
         if verbose: print(repr(context))
         value = context
         if chunked: value = tuple(chunks)
-        if prob: value = (value, P)
-        return value
+        return (value, P)

@@ -28,7 +28,7 @@ class CharacterProposal:
 
     """
 
-    def __init__(self, llm, guide):
+    def __init__(self, *, llm, guide):
         self.llm = llm
         self.guide = guide
 
