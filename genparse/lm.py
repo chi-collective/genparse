@@ -56,6 +56,12 @@ class LLM(LM):
     This is a simple class that wraps HuggingFace transformers with support for automatic caching.
     """
     def __init__(self, model):
+
+        if torch.cuda.is_available():
+            print("GPU is available")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.to(self.device)
+
         self.model = model
         self.model.eval()   # Set the model in "evaluation mode"
         self._cache = {}
@@ -66,6 +72,7 @@ class LLM(LM):
     def __call__(self, input_ids):
         if isinstance(input_ids, list): input_ids = torch.LongTensor([input_ids])
         with torch.no_grad():
+            input_ids = input_ids.to(self.device)
             outputs = self.model(input_ids=input_ids, labels=input_ids)
             lprobs = torch.nn.functional.log_softmax(outputs.logits, dim=-1)
         token_lprobs = torch.gather(lprobs, 2, input_ids.unsqueeze(-1)).squeeze(-1)
@@ -81,9 +88,9 @@ class LLM(LM):
             if value is not None: return value
 
             prev_state = self.get_state(prefix[:-1])
-            input_ids = torch.LongTensor([prefix[-1]])
-            value = self.model(input_ids=input_ids,
-                               labels=input_ids,
+            input_ids = torch.LongTensor([prefix[-1]]).to(self.device)
+
+            value = self.model(input_ids=input_ids, labels=input_ids,
                                past_key_values=None if prev_state is None else prev_state.past_key_values,
                                use_cache=True)
 
@@ -142,7 +149,7 @@ class GreedilyTokenizedLLM(LM):
         # valid token sequence; see `p_next_healing`.
         assert isinstance(xs, str)
         tokens = self.tokenizer.encode(xs)
-        _p = self.model.p_next(tokens).numpy()
+        _p = self.model.p_next(tokens).cpu().numpy()
         if top is None:
             top_p = _p.argsort()
         else:

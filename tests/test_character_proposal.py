@@ -29,7 +29,7 @@ def test_timothy():
     for _ in range(10):
         print('----------------------------------')
         with timeit('sample'):
-            ys, q = proposal.sample(prompt, verbosity=1)
+            ys, q = proposal.sample(prompt, verbosity=1, max_tokens=50)
 
         score = llm(ys) * pcfg(ys + EOS)
         print('weight:', score, '/', q)

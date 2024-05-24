@@ -2,7 +2,7 @@ import numpy as np
 from arsenal.maths import sample_dict
 #from genparse.inference import Node
 from genparse import ERROR, Float
-from arsenal import colors, timeit
+from arsenal import colors, timeit, timers
 
 
 class CharacterProposal:
@@ -33,6 +33,7 @@ class CharacterProposal:
         self.guide = guide
 
         self._init_trie(llm.V)
+        self.timer = timers()
 
     def _update_trie(self, words):
         mass = self.mass; jump = self.jump
@@ -100,9 +101,12 @@ class CharacterProposal:
         t = 0
         while True:
 
-            self._update_trie(self.llm.p_next(prompt + context))
+            with self.timer['llm']:
+                p_llm = self.llm.p_next(prompt + context)
 
-            token, p_token = self._guided_sample_trie(self.root, context, verbosity=verbosity, **kwargs)
+            with self.timer['guided-sample']:
+                self._update_trie(p_llm)
+                token, p_token = self._guided_sample_trie(self.root, context, verbosity=verbosity, **kwargs)
             t += 1
 
             if t >= max_tokens:
@@ -120,6 +124,8 @@ class CharacterProposal:
                 print(colors.cyan % token, end=colors.magenta % '|')
 
             context += token
+
+        self.timer.compare()
 
         return (context, P)
 
