@@ -102,6 +102,8 @@ def test_chomsky():
 
 
 def test_fruit():
+    np.random.seed(0)
+    random.seed(0)
 
     pcfg = CFGLM(locally_normalize(LarkStuff(r"""
     start: (|" ") sentence

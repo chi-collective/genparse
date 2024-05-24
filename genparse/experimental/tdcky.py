@@ -6,7 +6,6 @@ import numpy as np
 from genparse import CFG, Float, add_EOS
 import genparse.examples
 from arsenal import colors
-from collections import defaultdict
 from arsenal import Integerizer
 
 # https://github.com/google-deepmind/synjax/blob/master/synjax/_src/constituency_tensor_decomposition_pcfg.py
@@ -62,8 +61,8 @@ class ExactTensorDecomp:
         return b[len(xs)][0][self.S]
 
     def p_next(self, prefix):
-        (b, by, bz) = self.chart(prefix)
-        return self.next_token_weights(b, by, bz, prefix)
+        (_, by, _) = self.chart(prefix)
+        return self.next_token_weights(by, prefix)
 
     def chart(self, prefix):
         c = self._chart.get(prefix)
@@ -74,7 +73,7 @@ class ExactTensorDecomp:
 
     def _compute_chart(self, prefix):
         if len(prefix) == 0:
-            (b_0, by_0, bz_0) = self.extend_chart(prefix, None, None, None)
+            (b_0, by_0, bz_0) = self.extend_chart(prefix, None)
             return (
                 [b_0],
                 [by_0],
@@ -82,14 +81,14 @@ class ExactTensorDecomp:
             )
         else:
             (b, by, bz) = self.chart(prefix[:-1])
-            (b_K, by_K, bz_K) = self.extend_chart(prefix, b, by, bz)
+            (b_K, by_K, bz_K) = self.extend_chart(prefix, by)
             return (
                 b + [b_K],
                 by + [by_K],
                 bz + [bz_K],
             )
 
-    def extend_chart(self, xs, b, by, bz):
+    def extend_chart(self, xs, by):
 
         K = len(xs)
         x = self.x
@@ -185,14 +184,13 @@ class ExactTensorDecomp:
 #        return (b_K, by_K, bz_K)
 
     # TODO: vectorize
-    def next_token_weights(self, b, by, bz, prefix):
+    def next_token_weights(self, by, prefix):   # XXX: why is _b unused?
         K = len(prefix) + 1  # change to upper case to match the forward pass
 
         x = self.x
         y = self.y
         z = self.z
         Rank, NT = x.shape
-        nullary = self.nullary
         terminal = self.terminal
 
         D_b_K = np.zeros((K, NT))
@@ -201,9 +199,9 @@ class ExactTensorDecomp:
 
         D_b_K[0][self.S] += 1
 
-        b_K = b[K-1]
-        by_K = by[K-1]
-        bz_K = bz[K-1]
+        #b_K = b[K-1]
+        #by_K = by[K-1]
+        #bz_K = bz[K-1]
 
         for span in reversed(range(2, K+1)):
             I = K - span
@@ -278,7 +276,7 @@ def test_cky():
 #    import genparse.cfglm
 #    prefix = 'bab'
 #    b, by, bz = decomp.chart(prefix)
-#    q = decomp.next_token_weights(b, by, bz, prefix)
+#    q = decomp.next_token_weights(by, prefix)
 #    print('have=', q)
 
 #    want = genparse.cfglm.CFGLM(cfg).p_next(prefix)
@@ -331,7 +329,8 @@ def test_new_papa():
         print()
         print(colors.light.blue % repr(' '.join(prefix)))
 
-        have = decomp.next_token_weights(*decomp.chart(prefix), prefix)
+        (_, by, _) = decomp.chart(prefix)
+        have = decomp.next_token_weights(by, prefix)
 
         want = cfglm.p_next(prefix)
         print(want)
