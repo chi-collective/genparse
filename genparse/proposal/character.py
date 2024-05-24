@@ -5,7 +5,7 @@ from genparse import ERROR, Float
 from arsenal import colors, timeit
 
 
-class TokenTrieApproximation:
+class CharacterProposal:
     """
     Proposal distribution that combines an `llm` (token-based LM) and `guide` (character-based LM).
 

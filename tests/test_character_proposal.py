@@ -5,12 +5,12 @@ from arsenal.maths import sample_dict
 from genparse.util import LarkStuff
 from genparse import CFGLM, locally_normalize, Float, EOS
 from genparse.lm import GreedilyTokenizedLLM
-from genparse.align.trie import TokenTrieApproximation
+from genparse.proposal import CharacterProposal
 from genparse import Boolean
 from genparse.cfglm import BoolMaskCFGLM
 
 
-def test_llm_trie_approximation():
+def test_timothy():
     np.random.seed(0)
     random.seed(0)
 
@@ -25,7 +25,7 @@ def test_llm_trie_approximation():
 
     llm.sample('My name is', verbose=1, max_tokens=10)
 
-    proposal = TokenTrieApproximation(llm, pcfg)
+    proposal = CharacterProposal(llm, pcfg)
     W = Float.chart()
     for _ in range(10):
         print('----------------------------------')
@@ -41,7 +41,7 @@ def test_llm_trie_approximation():
         print(W.normalize())
 
 
-def test_chomsky_said():
+def test_chomsky():
     np.random.seed(0)
     random.seed(0)
 
@@ -87,7 +87,49 @@ def test_chomsky_said():
 
     W = Float.chart()
 
-    proposal = TokenTrieApproximation(llm, pcfg)
+    proposal = CharacterProposal(llm, pcfg)
+    for _ in range(10):
+        print('----------------------------------')
+        with timeit('sample'):
+            ys, q = proposal.sample(prompt, verbosity=1)
+        score = llm(ys) * pcfg(ys + EOS)
+        print('weight:', score, '/', q, '=', score / q)
+        W[ys] += score / q
+
+        print(colors.light.yellow % 'sample:', ys)
+
+        print(W.normalize())
+
+
+def test_fruit():
+
+    pcfg = CFGLM(locally_normalize(LarkStuff(r"""
+    start: (|" ") sentence
+
+    sentence: noun verb noun
+            | noun verb "like" noun
+
+    noun: det adj? NOUN
+    verb: VERB
+    adj: ADJ
+    det: "a" | "the"
+
+    NOUN: "flies" | "banana" | "fruit"
+    VERB: "like" | "flies"
+    ADJ: "smelly"
+
+    """).char_cfg(.99, ignore='[ ]?'), tol=1e-100))
+
+    pcfg = BoolMaskCFGLM(pcfg.cfg)
+
+
+    prompt = 'The following is a favorite sentence among linguists:'
+
+    llm = GreedilyTokenizedLLM("gpt2")
+
+    W = Float.chart()
+
+    proposal = CharacterProposal(llm, pcfg)
     for _ in range(10):
         print('----------------------------------')
         with timeit('sample'):

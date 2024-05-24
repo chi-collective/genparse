@@ -1,5 +1,6 @@
 from collections import defaultdict
 from arsenal.datastructures.pdict import pdict
+from genparse.cfglm import EOS
 
 
 class Column:
@@ -19,7 +20,7 @@ class Earley:
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
-    __slots__ = ('cfg', 'order', '_chart', 'CLOSE')
+    __slots__ = ('cfg', 'order', '_chart', 'CLOSE', 'V', 'eos')
 
     def __init__(self, cfg):
         assert not cfg.has_nullary() and not cfg.has_unary_cycle()
@@ -28,6 +29,8 @@ class Earley:
         self.order = cfg._unary_graph_transpose().buckets
 
         self.CLOSE = defaultdict(lambda: defaultdict(set))
+        self.V = self.cfg.V
+        self.eos = EOS
 
     def __call__(self, x):
         N = len(x)

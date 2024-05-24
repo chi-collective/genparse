@@ -5,10 +5,8 @@ from time import time
 
 from genparse.util import LarkStuff
 from genparse import CFGLM, locally_normalize, Float, add_EOS, EOS
-from genparse.align import CharAlignedCFGLM
-from genparse.align.trie import TokenTrieApproximation
+from genparse.proposal import TokenProposal, CharacterProposal
 from genparse.experimental.earley import Earley
-from genparse.inference import TraceSWOR
 from genparse.lm import make_mock_llm
 
 from example_grammars import arith, iql_small
@@ -19,18 +17,13 @@ def test_graft_arith():
     np.random.seed(0)
     random.seed(0)
 
-    with timeit('grammar setup'):
-        cfg = add_EOS(locally_normalize(LarkStuff(arith, cnf=False).char_cfg(.9), tol=1e-100).trim())
+    cfg = add_EOS(locally_normalize(LarkStuff(arith, cnf=False).char_cfg(.9), tol=1e-100).trim())
 
-    with timeit('cfglm setup'):
-        # the base character-level CFG language model
-#        lm = CFGLM(cfg)
-        lm = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
+    lm = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
 
     mock_llm = make_mock_llm()
 
-    with timeit('CharAlignedCFGLM setup'):
-        proposal = CharAlignedCFGLM(lm=lm, words=mock_llm.V, eos=mock_llm.eos)
+    proposal = TokenProposal(lm=lm, words=mock_llm.V, eos=mock_llm.eos)
 
     #===========================================================================
     # [2024-04-29 Mon] OPTIMIZATIONS: Tianyu provided the follow contexts, which
@@ -65,26 +58,18 @@ def test_trie_arith():
     np.random.seed(0)
     random.seed(0)
 
-    with timeit('lark conversion'):
-        cfg = add_EOS(locally_normalize(LarkStuff(arith, cnf=False).char_cfg(.99), tol=1e-100).trim())
+    cfg = add_EOS(locally_normalize(LarkStuff(arith, cnf=False).char_cfg(.99), tol=1e-100).trim())
 
-    #with timeit('CFGLM setup'):
-    #    lm1 = CFGLM(cfg)
-
-    with timeit('Earley setup'):
-        guide = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
+    guide = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
 
     mock_llm = make_mock_llm()
 
-    with timeit('TokenTrieApproximation setup'):
-        proposal = TokenTrieApproximation(mock_llm, guide)
+    proposal = CharacterProposal(mock_llm, guide)
 
-    tracer = TraceSWOR()
     samples = []
     for _ in range(10):
-        with tracer:
-            samples.append(proposal.sample(prompt='', max_tokens=1000, verbosity=1, draw=tracer))
-            print(samples[-1])
+        samples.append(proposal.sample(prompt='', max_tokens=1000, verbosity=1))
+        print(samples[-1])
 
 
 def test_graft_iql_small():
@@ -92,19 +77,13 @@ def test_graft_iql_small():
     np.random.seed(0)
     random.seed(0)
 
-    with timeit('lark conversion'):
-        cfg = add_EOS(locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(.99), tol=1e-100).trim())
+    cfg = add_EOS(locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(.99), tol=1e-100).trim())
 
     mock_llm = make_mock_llm()
 
-    #with timeit('CFGLM setup'):
-    #    lm1 = CFGLM(cfg)
+    lm = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
 
-    with timeit('Earley setup'):
-        lm = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
-
-    with timeit('CharAlignedCFGLM setup'):
-        proposal = CharAlignedCFGLM(lm=lm, words=mock_llm.V, eos=mock_llm.eos)
+    proposal = TokenProposal(lm=lm, words=mock_llm.V, eos=mock_llm.eos)
 
     #===============================================================================
     # [2024-04-28 Sun] CKY optimizations:
@@ -131,12 +110,10 @@ def test_graft_iql_small():
         assert p.keys() == {' ', ' <', ' </', ' G', ' W', ' O', ' GR', ' WH', ' OR',
                             ' GROUP', ' WHERE', ' ORDER'}
 
-    tracer = TraceSWOR()
     samples = []
     for _ in range(10):
-        with tracer:
-            samples.append(proposal.sample(draw=tracer, chunked=True))
-            print(samples[-1])
+        samples.append(proposal.sample(chunked=True))
+        print(samples[-1])
 
 
 def test_trie_iql_small():
@@ -146,24 +123,16 @@ def test_trie_iql_small():
 
     mock_llm = make_mock_llm()
 
-    with timeit('lark conversion'):
-        cfg = add_EOS(locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(.99), tol=1e-100).trim())
+    cfg = add_EOS(locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(.99), tol=1e-100).trim())
 
-    #with timeit('CFGLM setup'):
-    #    lm1 = CFGLM(cfg)
+    guide = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
 
-    with timeit('Earley setup'):
-        guide = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
+    proposal = CharacterProposal(mock_llm, guide)
 
-    with timeit('TokenTrieApproximation setup'):
-        proposal = TokenTrieApproximation(mock_llm, guide)
-
-    tracer = TraceSWOR()
     samples = []
     for _ in range(10):
-        with tracer:
-            samples.append(proposal.sample(prompt='', max_tokens=1000, verbosity=1, draw=tracer))
-            print(samples[-1])
+        samples.append(proposal.sample(prompt='', max_tokens=1000, verbosity=1))
+        print(samples[-1])
 
 
 if __name__ == '__main__':

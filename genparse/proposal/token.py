@@ -4,7 +4,7 @@ from arsenal.maths import sample_dict
 # TODO: Make the token-id sequences available as well as the character
 # sequences.  Using the character sequences is useful the CFGLM caching, so we
 # should not dispense with it!
-class CharAlignedCFGLM:
+class TokenProposal:
     """
     This class implements a simple strategy for "aligning" a character-level
     CFG language model to a vocabulary of character chunks, such as those

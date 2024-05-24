@@ -1,6 +1,6 @@
 from genparse.util import LarkStuff, hf_tokenizer
 from genparse import CFGLM, add_EOS, locally_normalize
-from genparse.align import CharAlignedCFGLM
+from genparse.proposal import TokenProposal
 from arsenal import timeit, colors
 
 
@@ -34,7 +34,7 @@ def test_basic_aligned_model_iql_small():
     # the base character-level CFG language model
     lm = CFGLM(add_EOS(foo))
 
-    bpe_lm = CharAlignedCFGLM(lm=lm, words={x for _, x in H.pairs}, eos=H.tokenizer.eos_token)
+    bpe_lm = TokenProposal(lm=lm, words={x for _, x in H.pairs}, eos=H.tokenizer.eos_token)
 
     with timeit('took'):
 
