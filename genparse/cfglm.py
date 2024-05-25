@@ -87,11 +87,12 @@ class CFGLM(LM):
         chart = self.chart(prefix)
         return next_token_weights(self.pfg, chart, prefix)
 
-    # TODO: should probably be PCFGLM class, which is tied to semifields, rather
-    # than CFGLM, which is meant to semiring-friendly.
     @classmethod
     def from_string(cls, x, semiring=Float, **kwargs):
         return cls(locally_normalize(CFG.from_string(x, semiring), **kwargs))
+
+    def assert_pcfg(self, verbose=False):
+        assert pcfg_check(self.cfg, verbose=verbose)
 
     def chart(self, prefix):
         c = self._chart.get(prefix)
@@ -229,12 +230,14 @@ def explode(cfg):
     return new
 
 
-def pcfg_check(cfg):
+def pcfg_check(cfg, verbose=True):
     chart = cfg.agenda()
     if all((0 <= v <= 1.000001) for v in chart.values()):
-        print(colors.mark(True), 'PCFG')
+        if verbose: print(colors.mark(True), 'PCFG')
+        return True
     else:
-        print(colors.mark(False), 'PCFG', chart.__str__(style_value=lambda k, v: v if abs(1 - v) <= 1e-5 else (colors.light.red % v)))
+        if verbose: print(colors.mark(False), 'PCFG', chart.__str__(style_value=lambda k, v: v if abs(1 - v) <= 1e-5 else (colors.light.red % v)))
+        return False
 
 
 def cfg_check_bounded(cfg, ub=1.000001, lb=0):

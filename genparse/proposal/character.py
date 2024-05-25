@@ -1,8 +1,8 @@
 import numpy as np
 from arsenal.maths import sample_dict
 #from genparse.inference import Node
-from genparse import ERROR, Float
-from arsenal import colors, timeit, timers
+from genparse import Float
+from arsenal import colors, timers
 
 
 class CharacterProposal:
@@ -86,7 +86,6 @@ class CharacterProposal:
 
     def _order(self, node):
         "Topological ordering of nodes beneath `node`."
-        mass = 0
         for a in self.children[node]:
             if a is None:
                 pass
