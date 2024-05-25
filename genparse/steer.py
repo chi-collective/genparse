@@ -68,7 +68,7 @@ class LocalProduct(LM):
         assert lm1.eos == lm2.eos
         super().__init__(V = lm1.V, eos = lm1.eos)
 
-    def __call__(self, ys):    # TODO: use log probs instead?
+    def __call__(self, ys):
         assert ys[-1] == self.eos
         p = 1
         for t in range(len(ys)):
@@ -76,8 +76,6 @@ class LocalProduct(LM):
         return p
 
     def p_next(self, prefix):
-
-        ys = tuple(prefix)
         p1 = self.lm1.p_next(ys)
         p2 = self.lm2.p_next(ys)
 
@@ -132,11 +130,14 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
             p1 = p1.normalize()
             p2 = p2.normalize()
 
-            q = p1 * p2
+            #assert np.allclose(p1.sum(), 1), p1.sum()
+            #assert np.allclose(p2.sum(), 1), p2.sum()
 
-            Z = q.sum()
+            q_ = p1 * p2
 
-            q = normalize(q)
+            Z = q_.sum()
+
+            q = q_.normalize()
 
             if len(ys) > MAX_LENGTH:
                 warnings.warn('force </s>')
