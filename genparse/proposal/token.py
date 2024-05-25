@@ -12,10 +12,17 @@ from genparse import Float
 # sequences.  Using the character sequences is useful the CFGLM caching, so we
 # should not dispense with it!
 class TokenProposal:
-    """
-    This class implements a simple strategy for "aligning" a character-level
-    CFG language model to a vocabulary of character chunks, such as those
-    used in the common byte-pair encoding (BPE) schemes of large language models.
+    """Proposal distribution that combines an `llm` and `guide`.  Let Y be the set
+    of tokens and ∑ the set of characters.  We assume that llm is a distrbution
+    over Y* and guide is a distribution over ∑*.
+
+    We sample the next token y ∈ Y given ys ∈Y* according the following
+    distrbution:
+
+      q(y | ys) \propto p_llm(y | ys) * p_guide(φ(y) | φ(ys))
+
+    where φ: Y* → ∑* maps token strings to characters.
+
     """
 
     def __init__(self, *, llm, guide):
@@ -28,7 +35,7 @@ class TokenProposal:
         self._prompt = None
 
     def make_trie(self, words):
-        root = dict()
+        root = {}
         for word in words:
             if word == self.llm.eos: word = self.guide.eos
             curr = root
@@ -40,9 +47,7 @@ class TokenProposal:
     def _p_next(self, context):
         self._p_llm = self.llm.p_next(self._prompt + context)
         self._p_llm[self.guide.eos] = self._p_llm[self.llm.eos]
-        return Float.chart(
-            (t, v) for t, v in self.traverse_trie(context, '', self.trie, 1)
-        ).normalize()
+        return Float.chart(self.traverse_trie(context, '', self.trie, 1)).normalize()
 
     def traverse_trie(self, context, token, node, P):
         p = self.guide.p_next(context)
