@@ -19,7 +19,7 @@ class TokenProposal:
     We sample the next token y ∈ Y given ys ∈Y* according the following
     distrbution:
 
-      q(y | ys) \propto p_llm(y | ys) * p_guide(φ(y) | φ(ys))
+      q(y | ys) ∝ p_llm(y | ys) * p_guide(φ(y) | φ(ys))
 
     where φ: Y* → ∑* maps token strings to characters.
 
