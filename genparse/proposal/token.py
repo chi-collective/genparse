@@ -19,12 +19,9 @@ class TokenProposal:
     """
 
     def __init__(self, *, llm, guide):
-
         self.llm = llm
         self.guide = guide
-
         self.V = llm.V
-
         self._end = None
         self.trie = self.make_trie(self.V)
         self._p_llm = None
@@ -41,12 +38,10 @@ class TokenProposal:
         return root
 
     def _p_next(self, context):
-        t = len(context)
         self._p_llm = self.llm.p_next(self._prompt + context)
         self._p_llm[self.guide.eos] = self._p_llm[self.llm.eos]
         return Float.chart(
-            # strip the common length-t prefix
-            (token, v) for token, v in self.traverse_trie(context, '', self.trie, 1)
+            (t, v) for t, v in self.traverse_trie(context, '', self.trie, 1)
         ).normalize()
 
     def traverse_trie(self, context, token, node, P):
