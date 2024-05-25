@@ -1,4 +1,5 @@
 from arsenal.maths import sample_dict
+from arsenal import colors
 from genparse import Float
 
 
@@ -27,6 +28,7 @@ class TokenProposal:
         self._end = object()
         self.trie = self.make_trie(self.V)
         self._p_llm = None
+        self._prompt = None
 
     def make_trie(self, words):
         root = dict()
@@ -40,7 +42,7 @@ class TokenProposal:
 
     def p_next(self, context):
         t = len(context)
-        self._p_llm = self.llm.p_next(context)
+        self._p_llm = self.llm.p_next(self._prompt + context)
         self._p_llm[self.guide.eos] = self._p_llm[self.llm.eos]
         return Float.chart(
             # strip the common length-t prefix
@@ -57,19 +59,25 @@ class TokenProposal:
             if P_x == 0: continue
             yield from self.traverse_trie(context + x, token + x, node[x], P_x)
 
-    def sample(self, draw=sample_dict, chunked=False, verbose=False):
+    def sample(self, prompt='', draw=sample_dict, chunked=False, max_tokens=float('inf'), verbosity=False):
+        self._prompt = prompt
         context = ''
         chunks = []
         P = 1
+        t = 0
         while True:
-            if verbose: print(repr(context))
+            t += 1
             p = self.p_next(context).normalize()
-            y = draw(p)
+            y = draw(p) if t <= max_tokens else self.guide.eos
             P *= p[y]
             if y == self.guide.eos: break
             chunks.append(y)
             context += y
-        if verbose: print(repr(context))
+            if verbosity > 0: print(colors.cyan % y, end=colors.magenta % '|')
+
         value = context
         if chunked: value = tuple(chunks)
+
+        if verbosity > 0: print()
+
         return (value, P)
