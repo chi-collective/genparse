@@ -25,7 +25,7 @@ class TokenProposal:
 
         self.V = llm.V
 
-        self._end = object()
+        self._end = None
         self.trie = self.make_trie(self.V)
         self._p_llm = None
         self._prompt = None
@@ -40,20 +40,20 @@ class TokenProposal:
             curr[self._end] = self._end
         return root
 
-    def p_next(self, context):
+    def _p_next(self, context):
         t = len(context)
         self._p_llm = self.llm.p_next(self._prompt + context)
         self._p_llm[self.guide.eos] = self._p_llm[self.llm.eos]
         return Float.chart(
             # strip the common length-t prefix
-            (k[t:], v) for k,v in self.traverse_trie(context, '', self.trie, 1)
+            (token, v) for token, v in self.traverse_trie(context, '', self.trie, 1)
         ).normalize()
 
     def traverse_trie(self, context, token, node, P):
         p = self.guide.p_next(context)
         for x in node:
             if x == self._end:
-                yield (context, P * self._p_llm[token])
+                yield (token, P * self._p_llm[token])
                 continue
             P_x = P * p[x]
             if P_x == 0: continue
@@ -67,17 +67,14 @@ class TokenProposal:
         t = 0
         while True:
             t += 1
-            p = self.p_next(context).normalize()
+            p = self._p_next(context).normalize()
             y = draw(p) if t <= max_tokens else self.guide.eos
             P *= p[y]
             if y == self.guide.eos: break
             chunks.append(y)
             context += y
             if verbosity > 0: print(colors.cyan % y, end=colors.magenta % '|')
-
         value = context
         if chunked: value = tuple(chunks)
-
         if verbosity > 0: print()
-
         return (value, P)

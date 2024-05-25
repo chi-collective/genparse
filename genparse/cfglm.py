@@ -41,9 +41,10 @@ def locally_normalize(self, **kwargs):
 
 
 class BoolMaskCFGLM(LM):
-    "LM-like interface for Boolean-masking CFG models."
+    "LM-like interface for Boolean-masking CFG models; uses CKY for inference."
 
     def __init__(self, cfg):
+        if EOS not in cfg.V: cfg = add_EOS(cfg)
         if cfg.R != Boolean: cfg = cfg.map_values(lambda x: Boolean(x>0), Boolean)
         self.model = CFGLM(cfg)
         super().__init__(eos = self.model.eos, V = self.model.V)
@@ -53,16 +54,37 @@ class BoolMaskCFGLM(LM):
         return Float.chart({w: 1 for w in p})
 
     def __call__(self, context):
+        assert x[-1] == EOS
+        return float(self.model(context) != Boolean.zero)
+
+
+class EarleyBoolMaskCFGLM(LM):
+    "LM-like interface for Boolean-masking CFG models; uses Earley's algorithm for inference."
+
+    def __init__(self, cfg):
+        if EOS not in cfg.V: cfg = add_EOS(cfg)
+        if cfg.R != Boolean: cfg = cfg.map_values(lambda x: Boolean(x>0), Boolean)
+        self.model = Earley(cfg.prefix_grammar.renumber().nullaryremove().unarycycleremove().renumber())
+        super().__init__(eos = self.model.eos, V = self.model.V)
+
+    def p_next(self, context):
+        p = self.model.p_next(context).trim()
+        return Float.chart({w: 1 for w in p})
+
+    def __call__(self, context):
+        assert x[-1] == EOS
         return float(self.model(context) != Boolean.zero)
 
 
 class CFGLM(LM):
+    """
+    Probabilistic Context-Free Grammar Language Model.
+
+    Uses CKY and the prefix grammar transformation for efficient inference.
+    """
 
     def __init__(self, cfg, renumber=True):
         if EOS not in cfg.V: cfg = add_EOS(cfg)
-
-        # cache columns of the chart indexed by prefix
-        self._chart = {}
 
         if renumber:
             self.cfg = cfg.renumber()
@@ -71,21 +93,16 @@ class CFGLM(LM):
             self.cfg = cfg
             self.pfg = self.cfg.cnf.prefix_grammar.cnf
 
-        # TODO: this is is a quick hack; clean this up.
-        self.pfg.r_y_xz = r_y_xz = defaultdict(list)
-        for r in self.pfg._cnf[2]:  # binary rules
-            r_y_xz[r.body[0]].append(r)
+        self.model = IncrementalCKY(self.pfg)
 
         super().__init__(V = cfg.V, eos = EOS)
 
     def __call__(self, x):
         assert x[-1] == EOS
-        # the quantity below is equivalent to `self.cfg(x)`
-        return self.chart(x)[len(x)][0][self.pfg.S]
+        return self.model(x)
 
     def p_next(self, prefix):
-        chart = self.chart(prefix)
-        return next_token_weights(self.pfg, chart, prefix)
+        return self.model.p_next(prefix)
 
     @classmethod
     def from_string(cls, x, semiring=Float, **kwargs):
@@ -93,6 +110,28 @@ class CFGLM(LM):
 
     def assert_pcfg(self, verbose=False):
         assert pcfg_check(self.cfg, verbose=verbose)
+
+
+class IncrementalCKY:
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.S = cfg.S
+
+        # cache columns of the chart indexed by prefix
+        self._chart = {}
+
+        [self.nullary, self.terminal, binary] = cfg._cnf
+        r_y_xz = defaultdict(list)
+        for r in binary:  # binary rules
+            r_y_xz[r.body[0]].append(r)
+        self.r_y_xz = r_y_xz
+
+    def __call__(self, x):
+        return self.chart(x)[len(x)][0][self.S]
+
+    def p_next(self, prefix):
+        return self.next_token_weights(self.chart(prefix), prefix)
 
     def chart(self, prefix):
         c = self._chart.get(prefix)
@@ -103,92 +142,88 @@ class CFGLM(LM):
 
     def _compute_chart(self, prefix):
         if len(prefix) == 0:
-            tmp = [defaultdict(self.pfg.R.chart)]
-            tmp[0][0][self.pfg.S] = self.pfg('')
+            tmp = [defaultdict(self.cfg.R.chart)]
+            tmp[0][0][self.cfg.S] = self.nullary
             return tmp
         else:
             chart = self.chart(prefix[:-1])
-            last_chart = extend_chart(self.pfg, chart, prefix)
+            last_chart = self.extend_chart(chart, prefix)
             return chart + [last_chart]    # TODO: avoid list addition here as it is not constant time!
 
+    def next_token_weights(self, chart, prefix):
+        """
+        An O(N²) time algorithm to the total weight of a each next-token
+        extension of `prefix`.
+        """
+        k = len(prefix) + 1
 
-def next_token_weights(cfg, chart, prefix, alpha=False):
-    """
-    An O(N²) time algorithm to the total weight of a each next-token
-    extension of `prefix`.
-    """
-    k = len(prefix) + 1
+        cfg = self.cfg
+        terminal = self.terminal
+        r_y_xz = self.r_y_xz
 
-    (_, terminal, _) = cfg._cnf
-    r_y_xz = cfg.r_y_xz
+        # the code below is just backprop / outside algorithm
+        α = defaultdict(cfg.R.chart)
+        α[0][cfg.S] += cfg.R.one
 
-    # the code below is just backprop / outside algorithm
-    α = defaultdict(cfg.R.chart)
-    α[0][cfg.S] += cfg.R.one
+        # Binary rules
+        for span in reversed(range(2, k + 1)):
+            i = k - span
+            α_i = α[i]
+            for j in range(i + 1, k):
+                chart_ij = chart[j][i]
 
-    # Binary rules
-    for span in reversed(range(2, k + 1)):
-        i = k - span
-        α_i = α[i]
-        for j in range(i + 1, k):
-            chart_ij = chart[j][i]
+                α_j = α[j]
+                for Y, y in chart_ij.items():
+                    for r in r_y_xz[Y]:
+                        X = r.head
+                        Z = r.body[1]
+                        α_j[Z] += r.w * y * α_i[X]
 
-            α_j = α[j]
-            for Y, y in chart_ij.items():
-                for r in r_y_xz[Y]:
-                    X = r.head
-                    Z = r.body[1]
-                    α_j[Z] += r.w * y * α_i[X]
+        # Preterminal
+        q = cfg.R.chart()
+        tmp = α[k-1]
+        for w in cfg.V:
+            for r in terminal[w]:
+                q[w] += r.w * tmp[r.head]
 
-    # Preterminal
-    q = cfg.R.chart()
-    tmp = α[k-1]
-    for w in cfg.V:
-        for r in terminal[w]:
-            q[w] += r.w * tmp[r.head]
-
-    if alpha:
-        return q, α
-    else:
         return q
 
+    def extend_chart(self, chart, prefix):
+        """
+        An O(N²) time algorithm to extend to the `chart` with the last token
+        appearing at the end of `prefix`; returns a new chart column.
+        """
+        k = len(prefix)
 
-def extend_chart(cfg, chart, prefix):
-    """
-    An O(N²) time algorithm to extend to the `chart` with the last token
-    appearing at the end of `prefix`; returns a new chart column.
-    """
-    k = len(prefix)
+        cfg = self.cfg
+        r_y_xz = self.r_y_xz
 
-    (nullary, terminal, _) = cfg._cnf
-    r_y_xz = cfg.r_y_xz
+        new = defaultdict(cfg.R.chart)
 
-    new = defaultdict(cfg.R.chart)
+        # Nullary
+        new[k][cfg.S] += self.nullary
 
-    # Nullary
-    new[k][cfg.S] += nullary
+        # Preterminal
+        tmp = new[k-1]
+        for r in self.terminal[prefix[k-1]]:
+            tmp[r.head] += r.w
 
-    # Preterminal
-    tmp = new[k-1]
-    for r in terminal[prefix[k-1]]:
-        tmp[r.head] += r.w
+        # Binary rules
+        for span in range(2, k+1):
+            i = k - span
+            new_i = new[i]
+            for j in range(i + 1, k):
+                chart_ij = chart[j][i]
+                new_j = new[j]
+                for Y, y in chart_ij.items():
+                    for r in r_y_xz[Y]:
+                        X = r.head
+                        Z = r.body[1]
+                        z = new_j[Z]
+                        x = r.w * y * z
+                        new_i[X] += x
 
-    # Binary rules
-    for span in range(2, k+1):
-        i = k - span
-        new_i = new[i]
-        for j in range(i + 1, k):
-            chart_ij = chart[j][i]
-            new_j = new[j]
-            for Y, y in chart_ij.items():
-                for r in r_y_xz[Y]:
-                    X = r.head
-                    Z = r.body[1]
-                    z = new_j[Z]
-                    x = r.w * y * z
-                    new_i[X] += x
-
-    return new
+        return new
 
 
 def add_EOS(cfg):
