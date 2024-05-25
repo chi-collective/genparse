@@ -1,10 +1,10 @@
 from arsenal.maths import sample_dict
-from arsenal import colors
+from arsenal import colors, timers
 from genparse import Float
 
 
 # TODO: It's tempting to require proposal distributions to implement the `LM`
-# interface, but it might be different to correctly implement `__call__` and
+# interface, but it might be difficult to correctly implement `__call__` and
 # `p_next` as proposal distributions may only be distributions over sample paths
 # rather than character strings.  That appears to be a significant difference.
 
@@ -33,6 +33,7 @@ class TokenProposal:
         self.trie = self.make_trie(self.V)
         self._p_llm = None
         self._prompt = None
+        self.timer = timers()
 
     def make_trie(self, words):
         root = {}
@@ -45,9 +46,11 @@ class TokenProposal:
         return root
 
     def _p_next(self, context):
-        self._p_llm = self.llm.p_next(self._prompt + context)
+        with self.timer['llm']:
+            self._p_llm = self.llm.p_next(self._prompt + context)
         self._p_llm[self.guide.eos] = self._p_llm[self.llm.eos]
-        return Float.chart(self.traverse_trie(context, '', self.trie, 1)).normalize()
+        with self.timer['cfg+trie']:
+            return Float.chart(self.traverse_trie(context, '', self.trie, 1)).normalize()
 
     def traverse_trie(self, context, token, node, P):
         p = self.guide.p_next(context)
@@ -67,9 +70,13 @@ class TokenProposal:
         t = 0
         while True:
             t += 1
-            p = self._p_next(context).normalize()
-            y = draw(p) if t <= max_tokens else self.guide.eos
-            P *= p[y]
+            if t <= max_tokens:
+                p = self._p_next(context).normalize()
+                y = draw(p)
+                P *= p[y]
+            else:
+                y = self.guide.eos
+                P *= 1   # deterministic
             if y == self.guide.eos: break
             chunks.append(y)
             context += y
@@ -77,4 +84,5 @@ class TokenProposal:
         value = context
         if chunked: value = tuple(chunks)
         if verbosity > 0: print()
+        self.timer.compare()
         return (value, P)

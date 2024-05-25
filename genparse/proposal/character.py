@@ -31,7 +31,6 @@ class CharacterProposal:
     def __init__(self, *, llm, guide):
         self.llm = llm
         self.guide = guide
-
         self._init_trie(llm.V)
         self.timer = timers()
 
@@ -94,38 +93,26 @@ class CharacterProposal:
         yield node
 
     def sample(self, prompt, max_tokens=float('inf'), verbosity=0, **kwargs):
-
         context = ''
         P = 1
         t = 0
         while True:
-
-            with self.timer['llm']:
-                p_llm = self.llm.p_next(prompt + context)
-
-            with self.timer['guided-sample']:
-                self._update_trie(p_llm)
-                token, p_token = self._guided_sample_trie(self.root, context, verbosity=verbosity, **kwargs)
             t += 1
-
-            if t >= max_tokens:
+            if t <= max_tokens:
+                with self.timer['llm']:
+                    p_llm = self.llm.p_next(prompt + context)
+                with self.timer['cfg+trie']:
+                    self._update_trie(p_llm)
+                    token, p_token = self._guided_sample_trie(self.root, context, verbosity=verbosity, **kwargs)
+            else:
                 token = self.guide.eos
                 p_token = 1
-
             P *= p_token
-
-            if self.guide.eos == token:
-                if verbosity > 0:
-                    print()
-                break
-
-            if verbosity > 0:
-                print(colors.cyan % token, end=colors.magenta % '|')
-
+            if self.guide.eos == token: break
+            if verbosity > 0: print(colors.cyan % token, end=colors.magenta % '|')
             context += token
-
+        if verbosity > 0: print()
         self.timer.compare()
-
         return (context, P)
 
     def _guided_sample_trie(self, root, context, draw=sample_dict, verbosity=0):

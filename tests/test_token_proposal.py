@@ -3,6 +3,7 @@ from genparse import CFGLM, add_EOS, locally_normalize
 from genparse.lm import make_mock_llm
 from genparse.proposal import TokenProposal
 from arsenal import timeit, colors
+from genparse.experimental.earley import Earley
 
 
 # TODO: test equivalence of `traverse_trie` and `traverse_naive`.
@@ -14,8 +15,15 @@ from arsenal import timeit, colors
 
 
 def test_basic_aligned_model_iql_small():
+    import random
+    import numpy as np
+    np.random.seed(0)
+    random.seed(0)
 
-    lark_stuff = LarkStuff(r"""
+    llm = make_mock_llm()
+
+    # the base character-level CFG language model
+    cfg = add_EOS(locally_normalize(LarkStuff(r"""
     start: "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
     EOS: "</s>"
     select_expr: STAR | select_list
@@ -32,16 +40,10 @@ def test_basic_aligned_model_iql_small():
     NUMBER: /\d+/
     //WS: /[ \t\f\r\n]/
     WS: " "
-    """)
+    """).char_cfg(.9), tol=1e-100).trim())
 
-    foo = lark_stuff.char_cfg(.1)
-    foo = locally_normalize(foo, tol=1e-100).trim()
-    assert len(foo) > 0
-
-    llm = make_mock_llm()
-
-    # the base character-level CFG language model
-    guide = CFGLM(add_EOS(foo))
+    guide = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
+    #guide = CFGLM(cfg)
 
     proposal = TokenProposal(guide=guide, llm=llm)
 
@@ -62,6 +64,8 @@ def test_basic_aligned_model_iql_small():
         print(p)
         assert p.keys() == {' ', ' <', ' </', ' G', ' W', ' O', ' GR', ' WH', ' OR',
                             ' GROUP', ' WHERE', ' ORDER'}
+
+    print(proposal.sample())
 
 
 if __name__ == '__main__':

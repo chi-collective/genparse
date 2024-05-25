@@ -54,7 +54,7 @@ class BoolMaskCFGLM(LM):
         return Float.chart({w: 1 for w in p})
 
     def __call__(self, context):
-        assert x[-1] == EOS
+        assert context[-1] == EOS
         return float(self.model(context) != Boolean.zero)
 
 
@@ -72,7 +72,7 @@ class EarleyBoolMaskCFGLM(LM):
         return Float.chart({w: 1 for w in p})
 
     def __call__(self, context):
-        assert x[-1] == EOS
+        assert context[-1] == EOS
         return float(self.model(context) != Boolean.zero)
 
 
