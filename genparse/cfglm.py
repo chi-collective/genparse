@@ -64,7 +64,7 @@ class EarleyBoolMaskCFGLM(LM):
     def __init__(self, cfg):
         if EOS not in cfg.V: cfg = add_EOS(cfg)
         if cfg.R != Boolean: cfg = cfg.map_values(lambda x: Boolean(x>0), Boolean)
-        self.model = Earley(cfg.prefix_grammar.renumber().nullaryremove().unarycycleremove().renumber())
+        self.model = Earley(cfg.prefix_grammar)
         super().__init__(eos = self.model.eos, V = self.model.V)
 
     def p_next(self, context):

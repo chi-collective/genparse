@@ -3,14 +3,37 @@ from arsenal.datastructures.pdict import pdict
 from genparse.cfglm import EOS
 
 
+from genparse.lm import LM
+from genparse import add_EOS, EOS
+class EarleyLM(LM):
+
+    def __init__(self, cfg):
+        if EOS not in cfg.V: cfg = add_EOS(cfg)
+        self.model = Earley(cfg.prefix_grammar)
+        super().__init__(V = cfg.V, eos = EOS)
+
+    def p_next(self, context):
+        return self.model.p_next(context)
+
+    def __call__(self, context):
+        assert context[-1] == EOS
+        return self.p_next(context[:-1])[EOS]
+
+
 class Column:
     __slots__ = ('k', 'chart', 'waiting_for', 'Q', 'very_close_terminal')
 
     def __init__(self, k, chart):
         self.k = k
         self.chart = chart
+
+        # Within column J, this datastructure maps nonterminals Y to a set of items
+        #   Y => {(I, X, Ys) | phrase(I,X/[Y],J) ≠ 0}
         self.waiting_for = defaultdict(set)
+
+        # priority queue used when first filling the column
         self.Q = pdict()
+
         self.very_close_terminal = []
 
 
@@ -23,14 +46,23 @@ class Earley:
     __slots__ = ('cfg', 'order', '_chart', 'CLOSE', 'V', 'eos')
 
     def __init__(self, cfg):
-        assert not cfg.has_nullary() and not cfg.has_unary_cycle()
-        self._chart = {}
+
+        cfg = cfg.nullaryremove().unarycycleremove().renumber()
         self.cfg = cfg
+
+        # cache of chart columns
+        self._chart = {}
+
+        # Topological ordering on the grammar symbols so that we process unary
+        # rules in a topological order.
         self.order = cfg._unary_graph_transpose().buckets
 
+        # The `CLOSE` index is used in the `p_next` computation.  It is a data
+        # structure implements the following function:
+        #
+        #   (I,X) => {(J,Y) | phrase(I,X/[Y],J) ≠ 0, Y ∈ cfg.N}
+        #
         self.CLOSE = defaultdict(lambda: defaultdict(set))
-        self.V = self.cfg.V
-        self.eos = EOS
 
     def __call__(self, x):
         N = len(x)
@@ -136,7 +168,6 @@ class Earley:
                         self.CLOSE[I, X][col.k].add(Y)
 
             col.chart[item] = was + value
-
 
     # We have derived the `next_token_weights` algorithm by backpropagation on
     # the program with respect to the item `phrase(0, s, K)`.

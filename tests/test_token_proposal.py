@@ -3,7 +3,7 @@ from genparse import CFGLM, add_EOS, locally_normalize
 from genparse.lm import make_mock_llm
 from genparse.proposal import TokenProposal
 from arsenal import timeit, colors
-from genparse.experimental.earley import Earley
+from genparse.experimental.earley import EarleyLM
 
 
 # TODO: test equivalence of `traverse_trie` and `traverse_naive`.
@@ -42,7 +42,7 @@ def test_basic_aligned_model_iql_small():
     WS: " "
     """).char_cfg(.9), tol=1e-100).trim())
 
-    guide = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove().renumber())
+    guide = EarleyLM(cfg)
     #guide = CFGLM(cfg)
 
     proposal = TokenProposal(guide=guide, llm=llm)

@@ -6,7 +6,7 @@ from genparse import examples
 from genparse import CFG
 from genparse import add_EOS, CFG, CFGLM, Float
 from genparse.semiring import MaxTimes
-from genparse.experimental.earley import Earley
+from genparse.experimental.earley import Earley, EarleyLM
 
 
 def test_cycles():
@@ -30,9 +30,7 @@ def test_cycles():
 
     """, Float)
 
-    #print(cfg.unarycycleremove())
-
-    earley = Earley(cfg.unarycycleremove())
+    earley = Earley(cfg)
     #print(earley.order)
 
     assert_equal(earley('c'), cfg('c'))
@@ -41,7 +39,7 @@ def test_cycles():
 def test_papa():
     cfg = examples.papa
 
-    earley = Earley(cfg.nullaryremove(binarize=False).unarycycleremove())
+    earley = Earley(cfg)
 
     x = 'papa ate the caviar'.split()
     want = cfg(x)
@@ -62,7 +60,7 @@ def test_papa():
 def test_palindrome():
     cfg = examples.palindrome_ab
 
-    earley = Earley(cfg.nullaryremove(binarize=False).unarycycleremove())
+    earley = Earley(cfg)
 
     x = ''
     want = cfg(x)
@@ -83,7 +81,7 @@ def test_palindrome():
 def test_catalan():
     cfg = examples.catalan
 
-    earley = Earley(cfg.nullaryremove(binarize=False).unarycycleremove())
+    earley = Earley(cfg)
 
     x = ''
     want = cfg(x)
@@ -293,7 +291,7 @@ def test_p_next_new_abcdx():
     """, Float))
 
     cfglm = CFGLM(cfg)
-    earley = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove())
+    earley = EarleyLM(cfg)
 
     for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
         print()
@@ -312,7 +310,7 @@ def test_p_next_palindrome():
     cfg = add_EOS(examples.palindrome_ab)
 
     cfglm = CFGLM(cfg)
-    earley = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove())
+    earley = EarleyLM(cfg)
 
     for prefix in ['', 'a', 'ab']:
         print()
@@ -331,7 +329,7 @@ def test_p_next_papa():
     cfg = add_EOS(examples.papa)
 
     cfglm = CFGLM(cfg)
-    earley = Earley(cfg.prefix_grammar.nullaryremove().unarycycleremove())
+    earley = EarleyLM(cfg)
 
     for prefix in [
             [],

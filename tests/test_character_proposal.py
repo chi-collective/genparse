@@ -65,7 +65,7 @@ def todo_chomsky():
 
     # XXX: we are using the boolean CFG instead of the PCFG; the PCFG is running
     # into numerical underflow.  We need to use the log-semiring or a rescaling
-    # trick in ethe Earley parser.
+    # trick in the Earley parser.
     pcfg = BoolMaskCFGLM(pcfg.cfg)
 
     #print(''.join(pcfg.sample()))

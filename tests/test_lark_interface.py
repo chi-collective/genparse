@@ -79,12 +79,12 @@ def test_parsing_basics():
 
     tokens = ['WS', 'SELECT', 'WS', 'ZIPCODE', 'WS', 'FROM', 'WS', 'DATA', 'WS', 'EOS']
 
-    assert Earley(g.unarycycleremove().renumber())(tokens) > 0
+    assert Earley(g)(tokens) > 0
 
     #print(g.cnf.prefix_grammar.trim().cnf)
     tokens = ['WS', 'SELECT', 'WS', 'ZIPCODE', 'WS', 'FROM', 'WS', 'DATA']
 
-    assert Earley(g.prefix_grammar.renumber().nullaryremove().unarycycleremove())(tokens) > 0
+    assert Earley(g.prefix_grammar)(tokens) > 0
 
 
 
