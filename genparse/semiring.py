@@ -1,6 +1,6 @@
 import numpy as np
 from genparse.chart import Chart
-
+from decimal import Decimal, getcontext
 
 class Semiring:
 
@@ -102,6 +102,8 @@ Entropy.zero = Entropy(0.0, 0.0)
 Entropy.one = Entropy(1.0, 0.0)
 
 
+
+
 class Boolean(Semiring):
 
     def __init__(self, x):
@@ -174,6 +176,35 @@ class Float:
     def star(self):          return 1/(1-self)
     @classmethod
     def from_string(cls, x): return float(x)
+    def metric(x,y):     # pylint: disable=no-self-argument
+        if x == np.inf == y: return 0
+        return abs(x - y)
+    @classmethod
+    def chart(cls, *args, **kwargs):
+        return Chart(cls, *args, **kwargs)
+    zero = 0
+    one = 1
+
+class F128:
+    def star(self):          return 1/(1-self)
+    @classmethod
+    def from_string(cls, x): return np.float128(x)
+    def metric(x,y):     # pylint: disable=no-self-argument
+        if x == np.inf == y: return 0
+        return abs(x - y)
+    @classmethod
+    def chart(cls, *args, **kwargs):
+        return Chart(cls, *args, **kwargs)
+    zero = 0
+    one = 1
+
+getcontext().prec = 77
+class D256:
+    def star(self):          return 1/(1-self)
+    @classmethod
+    def from_string(cls, x): 
+        return Decimal(x)
+    
     def metric(x,y):     # pylint: disable=no-self-argument
         if x == np.inf == y: return 0
         return abs(x - y)
