@@ -63,7 +63,7 @@ class CharacterProposal:
             if word == self.llm.eos: word = self.guide.eos
 
             # Filter LLM tokens that are illegal under the cfg
-            if not (set(word) <= self.guide.V): continue
+            if not (set(word) <= self.guide.V) or word == "": continue
 
             curr = root
             for letter in word:
@@ -103,7 +103,9 @@ class CharacterProposal:
                     p_llm = self.llm.p_next(prompt + context)
                 with self.timer['cfg+trie']:
                     self._update_trie(p_llm)
-                    token, p_token = self._guided_sample_trie(self.root, context, verbosity=verbosity, **kwargs)
+                    token, p_token, _, _ = self._guided_sample_trie(
+                        self.root, context, verbosity=verbosity, **kwargs
+                    )
             else:
                 token = self.guide.eos
                 p_token = 1
@@ -115,11 +117,25 @@ class CharacterProposal:
         self.timer.compare()
         return (context, P)
 
+    async def sample_next_token(self, prompt, context, verbosity=0, compare_time=False, **kwargs):
+        with self.timer['llm']:
+            p_llm = await self.llm.p_next(prompt + context)
+        with self.timer['cfg+trie']:
+            self._update_trie(p_llm)
+            (path, llm_prob, guide_prob, proposal_prob) = self._guided_sample_trie(
+                self.root, context, verbosity=verbosity, **kwargs
+            )
+        if compare_time:
+            self.timer.compare()
+        return (path, llm_prob, guide_prob, proposal_prob)
+
     def _guided_sample_trie(self, root, context, draw=sample_dict, verbosity=0):
 
         curr = root
         path = []
-        P = 1
+        llm_prob = 1
+        guide_prob = 1
+        proposal_prob = 1
         exits = Float.chart()
 
         children = self.children
@@ -135,9 +151,10 @@ class CharacterProposal:
 
             p2 = self.guide.p_next(context + ''.join(path)).trim()
 
+
             if None in p1:
                 exits[''.join(path)] = mass[children_curr[None]]
-                if verbosity > 1: print(colors.blue % "ADDED EXIT", repr(''.join(path)), 'prob=', P)
+                if verbosity > 1: print(colors.blue % "ADDED EXIT", repr(''.join(path)), 'prob=', proposal_prob)
 
             _q = (p1 * p2).trim()
 
@@ -155,7 +172,9 @@ class CharacterProposal:
             q = _q.normalize()
 
             a = draw(q)
-            P *= q[a]
+            llm_prob *= p1[a] 
+            guide_prob *= p2[a]
+            proposal_prob *= q[a]
             curr = children_curr[a]
 
             if verbosity > 1: print(colors.orange % 'action', repr(a), 'context', repr(''.join(path)))
@@ -171,6 +190,7 @@ class CharacterProposal:
 
         if verbosity > 1: print(colors.orange % 'picked exit', repr(path))
 
-        P *= exits[path]
+        proposal_prob *= exits[path]
 
-        return (path, P)
+        return (path, llm_prob, guide_prob, proposal_prob)
+
