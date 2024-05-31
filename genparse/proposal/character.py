@@ -28,6 +28,18 @@ class CharacterProposal:
 
     """
 
+    __slots__ = (
+        'root',
+        'children',
+        'mass',
+        'word2leaf',
+        'jump',
+        'ordering',
+        'llm',
+        'guide',
+        'timer',
+    )
+
     def __init__(self, *, llm, guide):
         self.llm = llm
         self.guide = guide
@@ -128,6 +140,24 @@ class CharacterProposal:
         if compare_time:
             self.timer.compare()
         return (path, llm_prob, guide_prob, proposal_prob)
+
+    def __deepcopy__(self, memo):
+        cpy = type(self).__new__(type(self))
+
+        # the only thing that needs a real copy is the mass array
+        cpy.mass = self.mass.copy()
+
+        # pass the other member variables thru
+        cpy.root = self.root
+        cpy.children = self.children
+        cpy.word2leaf = self.word2leaf
+        cpy.jump = self.jump
+        cpy.ordering = self.ordering
+        cpy.llm = self.llm
+        cpy.guide = self.guide
+        cpy.timer = self.timer
+
+        return cpy
 
     def _guided_sample_trie(self, root, context, draw=sample_dict, verbosity=0):
 

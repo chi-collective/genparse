@@ -62,10 +62,11 @@ class EarleyBoolMaskCFGLM(LM):
     "LM-like interface for Boolean-masking CFG models; uses Earley's algorithm for inference."
 
     def __init__(self, cfg):
+        from genparse.experimental.earley import Earley
         if EOS not in cfg.V: cfg = add_EOS(cfg)
         if cfg.R != Boolean: cfg = cfg.map_values(lambda x: Boolean(x>0), Boolean)
         self.model = Earley(cfg.prefix_grammar)
-        super().__init__(eos = self.model.eos, V = self.model.V)
+        super().__init__(eos = EOS, V = cfg.V)
 
     def p_next(self, context):
         p = self.model.p_next(context).trim()
