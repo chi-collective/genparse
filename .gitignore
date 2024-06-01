@@ -14,3 +14,4 @@ htmlcov
 dist/*
 profile.html
 profile.json
+*.log
