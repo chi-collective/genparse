@@ -4,15 +4,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 # COMMENT THESE OUT IF YOU ARE NOT ME
-sys.path.append("/home/mila/b/benjamin.lebrun/genparse")
-os.environ["HF_HOME"] = os.path.join(os.environ["SCRATCH"], "hf_cache")
+#sys.path.append("/home/mila/b/benjamin.lebrun/genparse")
+#os.environ["HF_HOME"] = os.path.join(os.environ["SCRATCH"], "hf_cache")
 
 from hfppl import Model, CachedCausalLM, LMContext, smc_standard, smc_steer
 from hfppl.distributions import TokenCategorical
 from transformers import AutoTokenizer, AutoModel
 
 import genparse
-from genparse.cfglm import BoolMaskCFGLM
+from genparse.cfglm import BoolMaskCFGLM, EarleyBoolMaskCFGLM
 from genparse.util import LarkStuff
 from genparse import EOS, Float
 from arsenal.maths import sample_dict, logsumexp
@@ -56,7 +56,7 @@ def main():
     Q: Write a SQL query that returns white voters' average age for each state color. 
     A:"""
 
-    guide = BoolMaskCFGLM(
+    guide = EarleyBoolMaskCFGLM(
         LarkStuff(
             r"""
                 start: WS? "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
@@ -109,6 +109,10 @@ def main():
                 self.finish()
                 return
 
+        def immutable_properties(self):
+            return ['llm', 'prompt', 'guide', 'compare_token']
+
+
     class GreedilyTokenizedLLM:
         def __init__(self, llm, tokenizer):
             self.tokenizer = tokenizer
@@ -146,8 +150,8 @@ def main():
 
     genparse_llm = GreedilyTokenizedLLM(hfppl_llm, tokenizer)
     proposal = CharacterProposal(llm=genparse_llm, guide=guide)
-    steering_model = SteeringModel(genparse_llm, guide, proposal, prompt, 10, compare_time=False)
-    particles = asyncio.run(smc_standard(steering_model, n_particles=2))
+    steering_model = SteeringModel(genparse_llm, guide, proposal, prompt, 100, compare_time=False)
+    particles = asyncio.run(smc_standard(steering_model, n_particles=3))
     
     '''
     LLM = hfppl_llm
