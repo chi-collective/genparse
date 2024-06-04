@@ -138,7 +138,7 @@ class GreedilyTokenizedLLM(LM):
         self.tokenizer = AutoTokenizer.from_pretrained(name)
         self._model = AutoModelForCausalLM.from_pretrained(name)
         self.model = LLM(self._model)
-        self._decode = [self.tokenizer.decode([i]) for i in range(self.tokenizer.vocab_size)]
+        self._decode = [self.tokenizer.convert_ids_to_tokens(i).replace('Ġ', ' ') for i in range(self.tokenizer.vocab_size)]
         super().__init__(V = set(self._decode), eos = self.tokenizer.eos_token)
 
     def __call__(self, xs):

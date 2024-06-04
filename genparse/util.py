@@ -17,7 +17,16 @@ class hf_tokenizer:
 
         self.tokenizer = AutoTokenizer.from_pretrained(name, **kwargs)
 
-        self.decode = [self.tokenizer.decode([i]) for i in range(self.tokenizer.vocab_size)]
+        # there are many ways to extract the string representations of each
+        # token from the HF tokenizers.
+
+        # tokenizer.convert_ids_to_tokens
+        self.decode = [self.tokenizer.convert_ids_to_tokens(i).replace('Ġ', ' ') for i in range(self.tokenizer.vocab_size)]
+
+        # string <-> token id mappings
+        #self.str2int = dict(self.tokenizer.vocab)
+        #self.int2str = {v: k for k, v in self.tokenizer.vocab.items()}
+
         self.pairs = list(enumerate(self.decode))
         self.eos = self.tokenizer.eos_token
 
@@ -39,7 +48,7 @@ def bpe2term_approx(tokenizer, bpe_sequence):
     from genparse import FST, Float
     # approximate the transducer using a single canonical path;
     # UPDATE: the unpruned answer should match this - it's the uncertainty over bpe that's tricky
-    c = tuple(([b], tokenizer.decode([b])) for b in bpe_sequence)
+    c = tuple(([b], tokenizer.convert_ids_to_tokens(b).replace('Ġ', ' ')) for b in bpe_sequence)
     tmp = FST.from_pairs([([], '')], Float)
     for pair in c:
         tmp = tmp * FST.from_pairs([pair], Float)
