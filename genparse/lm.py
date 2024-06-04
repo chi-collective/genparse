@@ -138,7 +138,9 @@ class GreedilyTokenizedLLM(LM):
         self.tokenizer = AutoTokenizer.from_pretrained(name)
         self._model = AutoModelForCausalLM.from_pretrained(name)
         self.model = LLM(self._model)
-        self._decode = [self.tokenizer.decode([i]) for i in range(self.tokenizer.vocab_size)]
+
+        bos_len    = len(self.tokenizer.decode([self.tokenizer.bos_token_id]))
+        self._decode = [self.tokenizer.decode([self.tokenizer.bos_token_id,i])[bos_len:] for i in range(len(self.tokenizer.vocab))]
         super().__init__(V = set(self._decode), eos = self.tokenizer.eos_token)
 
     def __call__(self, xs):
@@ -198,6 +200,47 @@ class GreedilyTokenizedLLM(LM):
 #                pp[x] = _p[i]
 #                if len(pp) > top: break
 #        return pp
+
+class AsyncGreedilyTokenizedLLM(LM):
+    """
+    This is a simple class which wraps HFPPL CachedCausalLMs. 
+    Caching is done by HFPPL.
+    """
+    def __init__(self, llm, tokenizer):
+        """
+        Args:
+            llm (hfppl.llms.CachedCausalLM): The HFPPL CachedCausalLM.
+            tokenizer: The underlying HuggingFace tokenizer.
+        """
+        self.tokenizer = tokenizer
+        self._model = llm
+        self._decode = llm.vocab
+        super().__init__(V = set(self._decode), eos = self.tokenizer.eos_token)
+
+    def __call__(self, xs):
+        return self.model(self.tokenizer.encode(xs))
+
+    async def p_next(self, xs, top=None):
+        return await self._p_next(xs, top=top)
+
+    async def _p_next(self, xs, top=None):
+        assert isinstance(xs, str)
+        tokens = self.tokenizer.encode(xs)
+
+        _logp = await self._model.next_token_logprobs(tokens)
+        _p = np.exp(_logp)
+
+        if top is None:
+            top_p = _p.argsort()
+        else:
+            top_p = _p.argsort()[-top:]
+        pp = Float.chart()
+        for i in reversed(top_p):
+            pp[self._decode[i]] = _p[i]
+        if top is None:
+            return pp
+        else:
+            return pp.normalize()
 
 
 from functools import lru_cache
