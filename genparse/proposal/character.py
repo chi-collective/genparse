@@ -135,7 +135,7 @@ class CharacterProposal:
         with self.timer['cfg+trie']:
             self._update_trie(p_llm)
             (path, llm_prob, guide_prob, proposal_prob) = self._guided_sample_trie(
-                self.root, context, verbosity=verbosity, **kwargs
+                self.root, context, llm_probs=p_llm, verbosity=verbosity, **kwargs
             )
         if compare_time:
             self.timer.compare()
@@ -159,11 +159,12 @@ class CharacterProposal:
 
         return cpy
 
-    def _guided_sample_trie(self, root, context, draw=sample_dict, verbosity=0):
+    def _guided_sample_trie(
+        self, root, context, llm_probs, draw=sample_dict, verbosity=0
+    ):
 
         curr = root
         path = []
-        llm_prob = 1
         guide_prob = 1
         proposal_prob = 1
         exits = Float.chart()
@@ -180,7 +181,6 @@ class CharacterProposal:
             p1 = Float.chart((a, mass[c]/mass_curr) for a, c in children_curr.items())
 
             p2 = self.guide.p_next(context + ''.join(path)).trim()
-
 
             if None in p1:
                 exits[''.join(path)] = mass[children_curr[None]]
@@ -202,7 +202,6 @@ class CharacterProposal:
             q = _q.normalize()
 
             a = draw(q)
-            llm_prob *= p1[a] 
             guide_prob *= p2[a]
             proposal_prob *= q[a]
             curr = children_curr[a]
@@ -222,5 +221,87 @@ class CharacterProposal:
 
         proposal_prob *= exits[path]
 
+        llm_prob = llm_probs[path]
+
         return (path, llm_prob, guide_prob, proposal_prob)
 
+    def _enumerate_paths(self, context):
+        # Used for debugging 
+        # MAKE SURE TO CALL proposal._update_trie(p_llm) BEFORE RUNNING
+
+        curr = self.root
+        children = self.children
+        mass = self.mass
+        paths = []
+        exits = Float.chart()
+
+        def _enum_paths(
+            chars, trace, children_curr, mass_curr, proposal_prob, exits
+        ):
+            p1 = Float.chart(
+                (a, mass[c]/mass_curr) for a, c in children_curr.items()
+            )
+            p2 = self.guide.p_next(context + ''.join(chars)).trim()
+
+            if None in p1:
+                exits[''.join(chars)] = mass[children_curr[None]]
+
+            _q = (p1 * p2).trim()
+
+            if not _q:
+                # no more paths to explore
+                exits = exits.normalize()
+                these_paths = []
+                for (token, exit_p) in exits.items():
+                    new_trace = trace.copy()
+                    new_trace.append({
+                        'name' : 'exit',
+                        'outcome' : token,
+                        'prob' : exit_p,
+                        'dist' : exits
+                    })
+                    these_paths.append({
+                        'token' : token, 
+                        'proposal_prob' : proposal_prob * exit_p,
+                        'trace' : new_trace
+                    })
+                return these_paths
+            else:
+                # keep exploring paths
+                q = _q.normalize()
+                for (a, q_prob) in q.items():
+                    curr = children_curr[a]
+                    new_chars = chars.copy()
+                    new_chars.append(a)
+
+                    new_exits = exits.copy()
+
+                    new_trace = trace.copy()
+                    new_trace.append({
+                        'name' : f'char {len(new_chars)}',
+                        'outcome' : a,
+                        'prob' : q_prob,
+                        'dist' : q
+                    })
+                    paths.extend(
+                        _enum_paths(
+                            chars=new_chars,
+                            trace=new_trace,
+                            children_curr=children[curr],
+                            mass_curr=mass[curr],
+                            proposal_prob=proposal_prob * q_prob,
+                            exits=new_exits
+                        )
+                    )
+                return []
+
+        _enum_paths(
+            chars=[], 
+            children_curr=children[curr],
+            mass_curr=mass[curr],
+            proposal_prob=1, 
+            exits=exits,
+            trace=[]
+        )
+
+        return {p['token'] : p for p in paths}
