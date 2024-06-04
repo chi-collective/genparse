@@ -43,11 +43,11 @@ class Earley:
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
-    __slots__ = ('cfg', 'order', '_chart', 'CLOSE', 'V', 'eos')
+    __slots__ = ('cfg', 'order', '_chart', 'CLOSE', 'V', 'eos', '_initial_column')
 
     def __init__(self, cfg):
 
-        cfg = cfg.nullaryremove(binarize=False).unarycycleremove().renumber()
+        cfg = cfg.nullaryremove(binarize=True).unarycycleremove().renumber()
         self.cfg = cfg
 
         # cache of chart columns
@@ -64,6 +64,10 @@ class Earley:
         #
         self.CLOSE = defaultdict(lambda: defaultdict(set))
 
+        col = Column(0, self.cfg.R.chart())
+        self.PREDICT(col)
+        self._initial_column = col
+
     def __call__(self, x):
         N = len(x)
 
@@ -72,12 +76,11 @@ class Earley:
             return sum(r.w for r in self.cfg.rhs[self.cfg.S] if r.body == ())
 
         # initialize bookkeeping structures
-        self._chart[()] = [Column(0, self.cfg.R.chart())]
-        self.PREDICT(self._chart[()][0])
+        self._chart[()] = [col] = [self._initial_column]
 
-        col = self.chart(x)
+        cols = self.chart(x)
 
-        return col[N].chart[0, self.cfg.S]
+        return cols[N].chart[0, self.cfg.S]
 
     def chart(self, x):
         x = tuple(x)
@@ -88,9 +91,7 @@ class Earley:
 
     def _compute_chart(self, x):
         if len(x) == 0:
-            chart = [Column(0, self.cfg.R.chart())]
-            self.PREDICT(chart[0])
-            return chart
+            return [self._initial_column]
         else:
             chart = self.chart(x[:-1])
             last_chart = self.next_column(chart, x[-1])
