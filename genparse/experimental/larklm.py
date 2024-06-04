@@ -25,6 +25,12 @@ class LarkGuide(LM):
         else:
             return self.next_token_pattern(x) == regex.compile('')
 
+    # TODO: It's probably much more efficient to sample a token from the LLM and
+    # then check if it is legal rather than to eagerly compute the entire mask.
+    # If the token is illegal, we can zero out its probability and renormalize.
+    # I suppose that has the issue that we don't know the exact sampling
+    # probability without doing the eager computation -- this is basically the
+    # same issue as our token vs character based proposal distrbution.
     def p_next(self, prefix):
         pattern = self.next_token_pattern(prefix)
         p = Float.chart()
