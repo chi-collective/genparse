@@ -135,7 +135,7 @@ class CharacterProposal:
         with self.timer['cfg+trie']:
             self._update_trie(p_llm)
             (path, llm_prob, guide_prob, proposal_prob) = self._guided_sample_trie(
-                self.root, context, llm_probs=p_llm, verbosity=verbosity, **kwargs
+                self.root, context, verbosity=verbosity, **kwargs
             )
         if compare_time:
             self.timer.compare()
@@ -160,7 +160,7 @@ class CharacterProposal:
         return cpy
 
     def _guided_sample_trie(
-        self, root, context, llm_probs, draw=sample_dict, verbosity=0
+        self, root, context, draw=sample_dict, verbosity=0
     ):
 
         curr = root
@@ -221,7 +221,7 @@ class CharacterProposal:
 
         proposal_prob *= exits[path]
 
-        llm_prob = llm_probs[path]
+        llm_prob = mass[self.word2leaf[path]]
 
         return (path, llm_prob, guide_prob, proposal_prob)
 
