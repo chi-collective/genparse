@@ -1,5 +1,8 @@
 from arsenal.maths import sample_dict
 from arsenal import colors, timers
+from arsenal.datastructures.pdict import pdict
+from arsenal.iterextras import take
+
 from genparse import Float
 from genparse.proposal.trie import TokenCharacterTrie
 
@@ -44,52 +47,78 @@ class TokenProposal(TokenCharacterTrie):
 
         super().__init__(words, old_eos = llm.eos, new_eos = guide.eos)
 
-    def _p_next(self, context):
+    def _p_next(self, context, K=None):
         with self.timer['llm']:
             p_llm = self.llm.p_next(self._prompt + context)
 
         with self.timer['cfg+trie']:
-            self._update_trie(p_llm)
-            return Float.chart(self.traverse_trie(context, '', self.root, 1)).normalize()
+            return Float.chart(take(K, self.traverse_trie(context, p_llm))).normalize()
 
-#    def traverse_trie(self, context, token, node, P):
-#        p = self.guide.p_next(context)
-#        children_node = self.children[node]
-#        for x in children_node:
-#            if x is None:
-#                yield (token, P * children_node[None])
-#                continue
-#            P_x = P * p[x]
-#            if P_x == 0: continue
-#            yield from self.traverse_trie(context + x, token + x, children_node[x], P_x)
+    def _update_internal(self):
+        # overrides base method.  Takes max rather than sum of internal nodes
+        jump = self.jump; mass = self.mass
+        for node in self.ordering:
+            m = 0
+            for child in jump[node]:
+                m = max(m, mass[child])
+            mass[node] = m
 
-    def traverse_trie(self, context, token, node, P):
+    def traverse_trie(self, context, p_llm):
+        """
+        This method will lazily enumerate the nodes in the intersection of `p_llm` and
+        and the `guide` for the given context.
 
-        agenda = [(context, token, node, P)]
+        Here intersection means
+
+          guide.p(token | context) * llm.p(token | context) for tokens ∈ llm.V
+
+        """
+
+        # update the trie with the llm's distribution of next token `p_llm`.
+        self._update_trie(p_llm)
+
+        agenda = pdict()
+        P = Float.chart()
+
+        # initial conditions
+        (token, node) = ('', self.root)
+        agenda[token, node] = 0
+        P[node] = 1
 
         while agenda:
 
-            #item = max(agenda, key = lambda x: x[3] * self.mass[x[2]])
-            #agenda.remove(item)
-            item = agenda.pop()
+            (token, node) = agenda.pop()
 
-            (context, token, node, P) = item
-
-            p = self.guide.p_next(context)
+            # Efficiently compute guide.p(x | context + token) for x ∈ guide.V.
+            # These are individal characters that are aligned with the trie.
+            p = self.guide.p_next(context + token)
 
             children_node = self.children[node]
             for x in children_node:
 
                 if x is None:
-                    yield (token, P * self.mass[self.children[node][None]])
+
+                    #print(f'>>> {P[node] * self.mass[children_node[None]]:.20f} {token!r}')
+
+                    yield (token, P[node] * self.mass[children_node[None]])
                     continue
 
-                P_x = P * p[x]
+                y = children_node[x]
 
-                if P_x > 0:
-                    agenda.append((context + x, token + x, children_node[x], P_x))
+                P[y] = P_y = P[node] * p[x]
 
-    def sample(self, prompt='', draw=sample_dict, chunked=False, max_tokens=float('inf'), verbosity=False):
+                if P_y > 0:
+                    agenda[token + x, y] = -P_y * self.mass[y]
+
+    def sample(
+        self,
+        prompt = '',
+        draw = sample_dict,
+        chunked = False,
+        max_tokens = float('inf'),
+        verbosity = False,
+        K = None,
+    ):
         self._prompt = prompt
         context = ''
         chunks = []
@@ -98,7 +127,7 @@ class TokenProposal(TokenCharacterTrie):
         while True:
             t += 1
             if t <= max_tokens:
-                p = self._p_next(context).normalize()
+                p = self._p_next(context, K=K).normalize()
                 y = draw(p)
                 P *= p[y]
             else:

@@ -48,14 +48,19 @@ class TokenCharacterTrie:
         self.ordering = list(self._order(self.root))
 
     def _update_trie(self, words):
-        mass = self.mass; jump = self.jump
+        self._update_leaves(words)
+        self._update_internal()
 
+    def _update_leaves(self, words):
         # update leaves
+        mass = self.mass; jump = self.jump
         for word, leaf in self.word2leaf.items():
             mass[leaf] = words[word]
         # convert llm.eos to guide.eos
         mass[self.word2leaf[self.new_eos]] = words[self.old_eos]
 
+    def _update_internal(self, words):
+        mass = self.mass; jump = self.jump
         # update internal nodes (in bottom up order)
         for node in self.ordering:
             m = 0
