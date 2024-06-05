@@ -109,8 +109,8 @@ class EarleyScale:
         if len(x) == 0:
             chart = [Column(0, self.cfg.R.chart())]
 
-            chart[0].rescale=[self.cfg.R.from_string('1')]
-            chart[0].prefix_probability=[self.cfg.R.from_string('1')]
+            chart[0].rescale = [self.cfg.R.from_string('1')]
+            chart[0].prefix_probability = self.cfg.R.from_string('1')
             self.PREDICT(chart[0])
             return chart
         else:
@@ -143,11 +143,11 @@ class EarleyScale:
 
         if self.strategy == "RANDOM":
             next_col.rescale = prev_col.rescale + [random.randint(10,100)]
-        elif self.strategy == "AUTOMATIC":
-            next_col.prefix_probability = prev_col.prefix_probability + \
-                  [next_col.chart[0,self.cfg.S]/ total(prev_col.rescale)] # recompute the prefix probability
+        elif self.strategy == "AUTOMATIC":        
+            next_col.prefix_probability = next_col.chart[0,self.cfg.S]/ total(prev_col.rescale) # recompute the prefix probability
             next_col.rescale = prev_col.rescale + \
-                [next_col.prefix_probability[-2]/next_col.prefix_probability[-1]] # Pp(x_0 ..x_i-1)/Pp(x_0 ..x_i x_i+1)
+                [prev_col.prefix_probability/next_col.prefix_probability] # Pp(x_0 ..x_i-1)/Pp(x_0 ..x_i x_i+1)
+
         elif self.strategy == 'NONE':
             next_col.rescale = prev_col.rescale
         else:
