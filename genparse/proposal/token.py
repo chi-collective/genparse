@@ -12,17 +12,12 @@ from genparse.proposal.trie import TokenCharacterTrie
 # `p_next` as proposal distributions may only be distributions over sample paths
 # rather than character strings.  That appears to be a significant difference.
 
-# TODO: Make the token-id sequences available as well as the character
-# sequences.  Using the character sequences is useful the CFGLM caching, so we
-# should not dispense with it!
-
-
 class TokenProposal(TokenCharacterTrie):
     """Proposal distribution that combines an `llm` and `guide`.  Let Y be the set
     of tokens and ∑ the set of characters.  We assume that llm is a distrbution
     over Y* and guide is a distribution over ∑*.
 
-    We sample the next token y ∈ Y given ys ∈Y* according the following
+    We sample the next token y ∈ Y given ys ∈ Y* according the following
     distrbution:
 
       q(y | ys) ∝ p_llm(y | ys) * p_guide(φ(y) | φ(ys))
