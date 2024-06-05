@@ -7,6 +7,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from genparse import Float
 from arsenal.maths import sample_dict
+from genparse.tokenization import decode_tokenizer_vocab
 
 
 class LM:
@@ -138,11 +139,7 @@ class GreedilyTokenizedLLM(LM):
         self.tokenizer = AutoTokenizer.from_pretrained(name)
         self._model = AutoModelForCausalLM.from_pretrained(name)
         self.model = LLM(self._model)
-
-#        bos_len    = len(self.tokenizer.decode([self.tokenizer.bos_token_id]))
-#        self._decode = [self.tokenizer.decode([self.tokenizer.bos_token_id,i])[bos_len:] for i in range(len(self.tokenizer.vocab))]
-
-        self._decode = [self.tokenizer.convert_ids_to_tokens(i).replace('Ġ', ' ') for i in range(self.tokenizer.vocab_size)]
+        self._decode = decode_tokenizer_vocab(self.tokenizer)
         super().__init__(V = set(self._decode), eos = self.tokenizer.eos_token)
 
     def __call__(self, xs):
@@ -216,7 +213,7 @@ class AsyncGreedilyTokenizedLLM(LM):
         """
         self.tokenizer = tokenizer
         self._model = llm
-        self._decode = llm.vocab
+        self._decode = decode_tokenizer_vocab(self.tokenizer)
         super().__init__(V = set(self._decode), eos = self.tokenizer.eos_token)
 
     def __call__(self, xs):
