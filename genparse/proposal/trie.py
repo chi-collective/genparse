@@ -59,7 +59,7 @@ class TokenCharacterTrie:
         # convert llm.eos to guide.eos
         mass[self.word2leaf[self.new_eos]] = words[self.old_eos]
 
-    def _update_internal(self, words):
+    def _update_internal(self):
         mass = self.mass; jump = self.jump
         # update internal nodes (in bottom up order)
         for node in self.ordering:
