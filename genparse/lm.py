@@ -79,6 +79,9 @@ class LLM(LM):
         token_lprobs = torch.gather(lprobs, 2, input_ids.unsqueeze(-1)).squeeze(-1)
         return np.exp(torch.sum(token_lprobs, dim=-1).item())
 
+    async def next_token_logprobs(self, xs):
+        return self.p_next(xs).log()
+
     def get_state(self, prefix):
         assert isinstance(prefix, tuple)
         if len(prefix) == 0:
@@ -200,9 +203,10 @@ class GreedilyTokenizedLLM(LM):
 #                if len(pp) > top: break
 #        return pp
 
+
 class AsyncGreedilyTokenizedLLM(LM):
     """
-    This is a simple class which wraps HFPPL CachedCausalLMs. 
+    This is a simple class which wraps HFPPL CachedCausalLMs.
     Caching is done by HFPPL.
     """
     def __init__(self, llm, tokenizer):
@@ -219,10 +223,10 @@ class AsyncGreedilyTokenizedLLM(LM):
     def __call__(self, xs):
         return self.model(self.tokenizer.encode(xs))
 
-    async def p_next(self, xs, top=None):
-        return await self._p_next(xs, top=top)
+    async def next_token_logprobs(self, xs, top=None):
+        return self.p_next(xs, top=top).map_values(np.log)
 
-    async def _p_next(self, xs, top=None):
+    async def p_next(self, xs, top=None):
         assert isinstance(xs, str)
         tokens = self.tokenizer.encode(xs)
 
@@ -261,6 +265,7 @@ class MockLLM(LM):
             eos = eos,
             V = V,
         )
+
     def p_next(self, _):
         return self._p
 

@@ -26,12 +26,13 @@ class TokenProposal(TokenCharacterTrie):
 
     """
 
-    def __init__(self, *, llm, guide):
+    def __init__(self, *, llm, guide, K=None):
         self.llm = llm
         self.guide = guide
-        self.V = llm.V
         self._prompt = None
+        self._p_guide = None
         self.timer = timers()
+        self.K = K
 
         # Filter LLM tokens that are illegal under the cfg
         words = {
@@ -49,6 +50,24 @@ class TokenProposal(TokenCharacterTrie):
         with self.timer['cfg+trie']:
             return Float.chart(take(K, self.traverse_trie(context, p_llm))).normalize()
 
+    async def sample_next_token(self, prompt, context, verbosity=0, compare_time=False, **kwargs):
+
+        with self.timer['llm']:
+            p_llm = await self.llm.p_next(prompt + context)
+
+        with self.timer['cfg+trie']:
+
+            Q = Float.chart(take(self.K, self.traverse_trie(context, p_llm))).normalize()
+            token = sample_dict(Q)
+
+            llm_prob = p_llm[self.old_eos if token == self.new_eos else token]
+            guide_prob = self._p_guide[token]
+
+        if compare_time:
+            self.timer.compare()
+
+        return (token, llm_prob, guide_prob, Q[token])
+
     def _update_internal(self):
         # overrides base method.  Takes max rather than sum of internal nodes
         jump = self.jump; mass = self.mass
@@ -57,6 +76,29 @@ class TokenProposal(TokenCharacterTrie):
             for child in jump[node]:
                 m = max(m, mass[child])
             mass[node] = m
+
+    def __deepcopy__(self, memo):
+        cpy = type(self).__new__(type(self))
+
+        # the only thing that needs a real copy is the mass array
+        cpy.mass = self.mass.copy()
+        cpy._p_guide = self._p_guide if self._p_guide is None else self._p_guide.copy()
+
+        # pass the other member variables thru
+        cpy.root = self.root
+        cpy.children = self.children
+        cpy.word2leaf = self.word2leaf
+        cpy.jump = self.jump
+        cpy.ordering = self.ordering
+        cpy.llm = self.llm
+        cpy.guide = self.guide
+        cpy.timer = self.timer
+        cpy.old_eos = self.old_eos
+        cpy.new_eos = self.new_eos
+        cpy._prompt = self._prompt
+        cpy.K = self.K
+
+        return cpy
 
     def traverse_trie(self, context, p_llm):
         """
@@ -80,6 +122,8 @@ class TokenProposal(TokenCharacterTrie):
         agenda[token, node] = 0
         P[node] = 1
 
+        self._p_guide = {}
+
         while agenda:
 
             (token, node) = agenda.pop()
@@ -94,6 +138,8 @@ class TokenProposal(TokenCharacterTrie):
                 if x is None:
 
                     #print(f'>>> {P[node] * self.mass[children_node[None]]:.20f} {token!r}')
+
+                    self._p_guide[token] = P[node]
 
                     yield (token, P[node] * self.mass[children_node[None]])
                     continue
