@@ -95,6 +95,10 @@ class Earley:
             C *= c.rescale
         return C
 
+    def log_rescale(self, cols, I, K):
+        "returns the product of the rescaling coefficients for `cols[I:K]`."
+        return sum(np.log(c.rescale) for c in cols[I:K])
+
     def chart(self, x):
         x = tuple(x)
         c = self._chart.get(x)
@@ -112,6 +116,11 @@ class Earley:
 
     def p_next(self, prefix):
         return self.next_token_weights(self.chart(prefix))
+
+    def logp(self, x):
+        cols = self.chart(x)
+        N = len(x)
+        return np.log(cols[N].chart[0, self.cfg.S]) - self.log_rescale(cols, 0, N)
 
     def next_column(self, prev_cols, token):
 
