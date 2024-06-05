@@ -1,11 +1,12 @@
 import numpy as np
 from arsenal.maths import sample_dict
-#from genparse.inference import Node
-from genparse import Float
 from arsenal import colors, timers
 
+from genparse import Float
+from genparse.proposal.trie import TokenCharacterTrie
 
-class CharacterProposal:
+
+class CharacterProposal(TokenCharacterTrie):
     """
     Proposal distribution that combines an `llm` (token-based LM) and `guide` (character-based LM).
 
@@ -38,71 +39,23 @@ class CharacterProposal:
         'llm',
         'guide',
         'timer',
+        'old_eos',
+        'new_eos',
     )
 
     def __init__(self, *, llm, guide):
         self.llm = llm
         self.guide = guide
-        self._init_trie(llm.V)
         self.timer = timers()
 
-    def _update_trie(self, words):
-        mass = self.mass; jump = self.jump
+        # Filter LLM tokens that are illegal under the cfg
+        words = {
+            word
+            for word in llm.V
+            if set(word) <= self.guide.V or word == llm.eos
+        }
 
-        # update leaves
-        for word, leaf in self.word2leaf.items():
-            mass[leaf] = words[word]
-        # convert llm.eos to guide.eos
-        mass[self.word2leaf[self.guide.eos]] = words[self.llm.eos]
-
-        # update internal nodes (in bottom up order)
-        for node in self.ordering:
-            m = 0
-            for child in jump[node]:
-                m += mass[child]
-            mass[node] = m
-
-    def _init_trie(self, words):
-
-        word2leaf = {}
-        children = {}
-        root = 0
-        children = [{}]
-
-        for word in words:
-
-            # coerce llm.eos to guide.eos
-            if word == self.llm.eos: word = self.guide.eos
-
-            # Filter LLM tokens that are illegal under the cfg
-            if not (set(word) <= self.guide.V) or word == "": continue
-
-            curr = root
-            for letter in word:
-                if letter not in children[curr]:
-                    children[curr][letter] = len(children)
-                    children.append({})
-                curr = children[curr][letter]
-
-            children[curr][None] = last = len(children)
-            children.append({})
-            word2leaf[word] = last
-
-        self.root = root
-        self.children = children
-        self.mass = np.zeros(len(children))
-        self.word2leaf = word2leaf
-        self.jump = [tuple(sorted(x.values())) for x in children]
-        self.ordering = list(self._order(self.root))
-
-    def _order(self, node):
-        "Topological ordering of nodes beneath `node`."
-        for a in self.children[node]:
-            if a is None:
-                pass
-            else:
-                yield from self._order(self.children[node][a])
-        yield node
+        super().__init__(words, old_eos = llm.eos, new_eos = guide.eos)
 
     def sample(self, prompt, max_tokens=float('inf'), verbosity=0, **kwargs):
         context = ''
@@ -156,6 +109,8 @@ class CharacterProposal:
         cpy.llm = self.llm
         cpy.guide = self.guide
         cpy.timer = self.timer
+        cpy.old_eos = self.old_eos
+        cpy.new_eos = self.new_eos
 
         return cpy
 
@@ -226,7 +181,7 @@ class CharacterProposal:
         return (path, llm_prob, guide_prob, proposal_prob)
 
     def _enumerate_paths(self, context):
-        # Used for debugging 
+        # Used for debugging
         # MAKE SURE TO CALL proposal._update_trie(p_llm) BEFORE RUNNING
 
         curr = self.root
@@ -261,7 +216,7 @@ class CharacterProposal:
                         'dist' : exits
                     })
                     these_paths.append({
-                        'token' : token, 
+                        'token' : token,
                         'proposal_prob' : proposal_prob * exit_p,
                         'trace' : new_trace
                     })
@@ -296,10 +251,10 @@ class CharacterProposal:
                 return []
 
         _enum_paths(
-            chars=[], 
+            chars=[],
             children_curr=children[curr],
             mass_curr=mass[curr],
-            proposal_prob=1, 
+            proposal_prob=1,
             exits=exits,
             trace=[]
         )
