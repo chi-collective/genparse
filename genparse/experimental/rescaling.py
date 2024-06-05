@@ -143,8 +143,11 @@ class EarleyScale:
 
         if self.strategy == "RANDOM":
             next_col.rescale = prev_col.rescale + [random.randint(10,100)]
-        elif self.strategy == "AUTOMATIC":        
-            next_col.prefix_probability = next_col.chart[0,self.cfg.S]/ total(prev_col.rescale) # recompute the prefix probability
+        elif self.strategy == "AUTOMATIC":
+            # next_col.prefix_probability = next_col.chart[0,self.cfg.S]/ total(prev_col.rescale) # recompute the prefix probability
+            # next_col.rescale = prev_col.rescale + \
+            #     [prev_col.prefix_probability/next_col.prefix_probability] # Pp(x_0 ..x_i-1)/Pp(x_0 ..x_i x_i+1)        
+            next_col.prefix_probability = next_col.chart[0,self.cfg.S]/ prev_col.rescale[-1] # recompute the prefix probability
             next_col.rescale = prev_col.rescale + \
                 [prev_col.prefix_probability/next_col.prefix_probability] # Pp(x_0 ..x_i-1)/Pp(x_0 ..x_i x_i+1)
 
