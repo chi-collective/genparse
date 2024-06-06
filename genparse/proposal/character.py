@@ -259,4 +259,4 @@ class CharacterProposal(TokenCharacterTrie):
             trace=[]
         )
 
-        return {p['token'] : p for p in paths}
+        return paths
