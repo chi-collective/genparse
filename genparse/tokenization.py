@@ -37,9 +37,7 @@ def decode_tokenizer_vocab(tokenizer):
     # `mapping` maps ids in `all_special_ids` to the null string, so we convert those using HF.
     # TODO: change this
     return [
-        mapping.map(i).decode("utf-8") 
-        if not (i in tokenizer.all_special_ids) else tokenizer.convert_ids_to_tokens(i)
-        for i in range(tokenizer.vocab_size)
+        mapping.map(i).decode("utf-8") for i in range(tokenizer.vocab_size)
     ]
 
 ###### The following code was taken directly from https://github.com/epfl-dlab/transformers-CFG/blob/main/transformers_cfg/tokenization/mapping.py 
@@ -56,9 +54,6 @@ class Mapping:
         return self._length
 
     def _map(self, token_id: int) -> str:
-        # This is the case for BOS,
-        if token_id in self.special:
-            return ""
         # if token_id is tensor, convert it to int
         if hasattr(token_id, "item"):
             token_id = token_id.item()
@@ -80,6 +75,10 @@ class BBPEMapping(Mapping):
         raw_token = super()._map(token_id)
         if raw_token.startswith("Ġ"):
             raw_token = raw_token.replace("Ġ", " ")
+        if raw_token.startswith("Ċ"):
+            raw_token = raw_token.replace("Ċ", "\n")
+        if raw_token.startswith("ĉ"):
+            raw_token = raw_token.replace("ĉ", "\t")
         return raw_token
 
 
@@ -124,6 +123,9 @@ class BPEMapping(Mapping):
         if self.last_token_id is not None and self.last_token_id == self.bos_token_id:
             at_bos = True
         self.last_token_id = token_id
+        if raw_token.startswith("<0x"):
+            hex_value = raw_token[4:-1]
+            raw_token = chr(int(hex_value, 16))
         if raw_token.startswith("▁"):
             raw_token = raw_token.replace("▁", " ")
             if at_bos:
