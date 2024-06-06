@@ -23,7 +23,7 @@ def test_token_arith():
 
     llm = make_mock_llm()
 
-    proposal = TokenProposal(guide=guide, llm=llm)
+    proposal = TokenProposal(guide=guide, llm=llm, K=5)
 
     samples = []
     for _ in range(10):
@@ -61,7 +61,7 @@ def test_token_iql_small():
 
     guide = EarleyLM(cfg)
 
-    proposal = TokenProposal(llm=llm, guide=guide)
+    proposal = TokenProposal(llm=llm, guide=guide, K=5)
 
     samples = []
     for _ in range(10):
