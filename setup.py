@@ -20,6 +20,7 @@ setup(
         'rich',
         'lark',
         'arsenal @ git+https://github.com/timvieira/arsenal',
+        'hfppl @ git+https://github.com/probcomp/hfppl'
     ],
     authors = [
         'Tim Vieira',

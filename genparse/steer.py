@@ -4,7 +4,7 @@ Language model steering methods
 import numpy as np
 import asyncio
 import warnings
-from arsenal.maths import sample_dict
+from arsenal.maths import sample_dict, logsumexp
 
 from genparse.lm import LM
 from genparse.cfglm import EOS
@@ -168,3 +168,102 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
         return asyncio.run(smc_standard(Particle(), n_particles=n_particles))
     else:
         raise AssertionError(METHOD)
+
+#____________________________________________________________________________________
+# Approximate inference with HFPPL
+# This code is still experimental and actively being developed
+# TODO: write tests
+
+from genparse import EOS
+from hfppl import Model
+
+class HFPPLParticle(Model):
+    """ 
+    Simple HFPPL model (particle). 
+    TODO: Create a proposal interface to make this class reusable. 
+        I think this class should be essentially hidden to the user and only be used by the HFPPLSampler.
+    """
+    def __init__(self, llm, guide, proposal, prompt, max_tokens, verbosity=0):
+        super().__init__()
+        self.llm = llm
+        self.guide = guide
+        self.prompt = prompt
+        self.context = []
+        self.proposal = proposal 
+        self.max_tokens = max_tokens
+        self.verbosity = verbosity
+
+    async def step(self):
+        (token, llm_prob, guide_prob, proposal_prob) = await self.proposal.sample_next_token(
+            prompt=self.prompt, context=''.join(self.context), compare_time=(self.verbosity > 1)
+        )
+        self.context.append(token)
+        self.weight += np.log(llm_prob) + np.log(guide_prob) - np.log(proposal_prob)
+        self.max_tokens -= 1
+
+        if self.verbosity > 0:
+            print(f"`{token}` : {''.join(self.context)} : {self.weight}")
+
+        if token == self.llm.eos or self.max_tokens == 0 or token == EOS:
+            self.finish()
+            return
+        
+    def immutable_properties(self):
+        return ['llm', 'prompt', 'guide', 'verbosity']
+    
+    def __repr__(self):
+        return f"`{'' if not self.context else self.context[-1]}` : {''.join(self.context)} : {self.weight}"
+
+    def __str__(self):
+        return ''.join(self.context)
+
+class HFPPLSampler:
+    def __init__(self, llm, guide):
+        """ 
+        Args:
+            llm (AsyncGreedilyTokenizedLLM) 
+            guide (LM) 
+        """
+        self.llm = llm
+        self.guide = guide
+
+    def run_inference(
+        self, prompt, proposal, method, n_particles, n_beam=None, max_tokens=float('inf'), verbosity=0
+    ):
+        model = HFPPLParticle(
+            llm=self.llm, 
+            guide=self.guide, 
+            prompt=prompt, 
+            proposal=proposal, 
+            max_tokens=max_tokens, 
+            verbosity=verbosity
+        )
+
+        if method == "smc-steer":
+            assert not n_beam is None
+            particles = asyncio.run(smc_steer(model, n_particles=n_particles, n_beam=n_beam))
+        elif method == "smc-standard":
+            particles = asyncio.run(smc_standard(model, n_particles=n_particles))
+        else:
+            ValueError(f"Unknown inference method: {method}. Must be either `smc-steer` or `smc-standard`.")
+
+        return ParticleApproximation(particles)
+
+class ParticleApproximation:
+    def __init__(self, particles):
+        self.particles = particles
+        self.log_weights = [p.weight for p in self.particles]
+        self.log_ml = logsumexp(self.log_weights) - np.log(len(self.log_weights))
+        self._compute_posterior()
+
+    def _compute_posterior(self):
+        self.posterior = Float.chart()
+        for p in self.particles:
+            self.posterior[str(p)] += np.exp(p.weight)
+        self.posterior = self.posterior.normalize()
+
+    def sample(self, n=None, draw=sample_dict):
+        if n is None:
+            return draw(self.posterior)
+        else:
+            return [draw(self.posterior) for _ in range(n)]
