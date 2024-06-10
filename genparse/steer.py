@@ -8,7 +8,7 @@ from arsenal.maths import sample_dict, logsumexp
 
 from genparse.lm import LM
 from genparse.cfglm import EOS
-from genparse.inference import importance_sampling, smc_standard, smc_steer, TraceSWOR
+from genparse.inference import importance_sampling, smc_standard, smc_steer, smc_standard_record, TraceSWOR
 from genparse.util import normalize, format_table
 from genparse import Float
 
@@ -201,7 +201,7 @@ class HFPPLParticle(Model):
         self.weight += np.log(llm_prob) + np.log(guide_prob) - np.log(proposal_prob)
         self.max_tokens -= 1
 
-        if self.verbosity > 0:
+        if self.verbosity > 1:
             print(f"`{token}` : {''.join(self.context)} : {self.weight}")
 
         if token == self.llm.eos or self.max_tokens == 0 or token == EOS:
@@ -222,7 +222,10 @@ class HFPPLSampler:
         """ 
         Args:
             llm (AsyncGreedilyTokenizedLLM) 
-            guide (LM) 
+            guide (LM)
+        Returns:
+            particle_approximation (ParticleApproximation)
+            record (dict | NoneType): information about the run
         """
         self.llm = llm
         self.guide = guide
@@ -242,12 +245,17 @@ class HFPPLSampler:
         if method == "smc-steer":
             assert not n_beam is None
             particles = asyncio.run(smc_steer(model, n_particles=n_particles, n_beam=n_beam))
+            record = None
         elif method == "smc-standard":
             particles = asyncio.run(smc_standard(model, n_particles=n_particles))
+            record = None
+        elif method == "smc-standard-record":
+            particles, record = asyncio.run(smc_standard_record(model, n_particles=n_particles))
         else:
-            ValueError(f"Unknown inference method: {method}. Must be either `smc-steer` or `smc-standard`.")
+            raise ValueError(f"Unknown inference method: {method}. Must be either `smc-steer` or `smc-standard` or `smc-standard-record`.")
 
-        return ParticleApproximation(particles)
+        return ParticleApproximation(particles), record
+
 
 class ParticleApproximation:
     def __init__(self, particles):
