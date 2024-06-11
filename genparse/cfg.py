@@ -403,7 +403,7 @@ class CFG:
 
         return new
 
-    def nullaryremove(self, binarize=True, **kwargs):
+    def nullaryremove(self, binarize=True, trim=True, **kwargs):
         """
         Return an equivalent grammar with no nullary rules except for one at the
         start symbol.
@@ -412,7 +412,8 @@ class CFG:
         # in this rule so it is really important to binarize.
         if binarize: self = self.binarize()
         self = self.separate_start()
-        return self._push_null_weights(self.null_weight(), **kwargs)
+        tmp = self._push_null_weights(self.null_weight(), **kwargs)
+        return tmp.trim() if trim else tmp
 
     def null_weight(self):
         """
