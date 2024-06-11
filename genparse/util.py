@@ -261,9 +261,14 @@ def expand_case_insensitive(r):
         if not matches:
             return r
         for m in matches:
+            fix_sugar=False
+            if any(x in m for x in ("[a-z]","[A-Z]","[a-zA-Z]")):
+                fix_sugar=True
             m=m.split("(?i:")[-1]
             r=r.replace(f"(?i:{m})",safe_expand(m))
-
+            if fix_sugar:
+                r=r.replace("[[aA]-[zZ]]","[a-zA-Z]")
+                r=r.replace("[[aA]-[zZ][aA]-[zZ]]","[a-zA-Z]")
 
 def regex_to_greenery(regex, ignore = ''):
     """
