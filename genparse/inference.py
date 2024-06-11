@@ -212,12 +212,12 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5):
     step_num = 1
     
     record = {
-        'step' : [],
-        'contexts' : [],
-        'weights' : [],
-        'resample?' : [],
-        'parents' : [],
-        'average weight' : [],
+        'step' : [0],
+        'context' : [[p.context.copy() for p in particles]],
+        'weight' : [[p.weight for p in particles]],
+        'resample?' : [False],
+        'parent' : [[i for i, _ in enumerate(particles)]],
+        'average weight' : [0.0],
     }
     
     while any(map(lambda p: not p.done_stepping(), particles)):
@@ -241,12 +241,13 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5):
                 print(f"├ Particle {i} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}")
             print(f"│ Step {step_num} average weight: {avg_weight:.4f}")
         
-        record['contexts'].append([p.context.copy() for p in particles])
-        record['weights'].append([p.weight for p in particles])
+        record['context'].append([p.context.copy() for p in particles])
+        record['weight'].append([p.weight for p in particles])
         record["average weight"].append(avg_weight)
         
         # Resample if necessary
-        if -logsumexp(weights_normalized * 2) < np.log(ess_threshold) + np.log(n_particles):
+#         if -logsumexp(weights_normalized * 2) < np.log(ess_threshold) + np.log(n_particles):
+        if step_num // 2 == 0:
             # Alternative implementation uses a multinomial distribution and only makes n-1 copies, reusing existing one, but fine for now
             probs = np.exp(weights_normalized)
 #             particles = [copy.deepcopy(particles[np.random.choice(range(len(particles)), p=probs)]) for _ in range(n_particles)]
@@ -254,7 +255,7 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5):
             particles = [copy.deepcopy(particles[i]) for i in resampled_indices]
             
             record["resample?"] += [True]
-            record["parents"].append(resampled_indices)
+            record["parent"].append(resampled_indices)
     
             for p in particles:
                 p.weight = avg_weight
@@ -262,7 +263,7 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5):
                 print(f"└╼  Resampling! Weights all set to = {avg_weight:.4f}.")
         else:
             record["resample?"].append(False)
-            record["parents"].append([i for i, _ in enumerate(particles)])
+            record["parent"].append([i for i, _ in enumerate(particles)])
             if verbosity>0:
                 print("└╼")
 
