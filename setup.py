@@ -16,7 +16,7 @@ setup(
         'frozendict',
         'transformers',
         'torch',
-        'greenery',
+        'greenery>=4.2.1',
         'rich',
         'lark',
         'arsenal @ git+https://github.com/timvieira/arsenal',
@@ -25,6 +25,7 @@ setup(
     authors = [
         'Tim Vieira',
         'Clemente Pasti',
+        'Ben LeBrun',
     ],
     readme=open('README.md').read(),
     scripts=[],
