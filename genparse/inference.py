@@ -246,8 +246,7 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5):
         record["average weight"].append(avg_weight)
         
         # Resample if necessary
-#         if -logsumexp(weights_normalized * 2) < np.log(ess_threshold) + np.log(n_particles):
-        if step_num // 2 == 0:
+        if -logsumexp(weights_normalized * 2) < np.log(ess_threshold) + np.log(n_particles):
             # Alternative implementation uses a multinomial distribution and only makes n-1 copies, reusing existing one, but fine for now
             probs = np.exp(weights_normalized)
 #             particles = [copy.deepcopy(particles[np.random.choice(range(len(particles)), p=probs)]) for _ in range(n_particles)]
