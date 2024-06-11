@@ -190,6 +190,7 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
 
 #_______________________________________________________________________________
 #  Modified version of the above, to keep a record of information about the run.
+#  Should be identical
 
 
 async def smc_standard_record(model, n_particles, ess_threshold=0.5):
@@ -209,16 +210,18 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5):
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
     # weights, in log space
     weights = [0.0 for _ in range(n_particles)]
-    step_num = 1
     
+    # Initialize record dict
     record = {
         'step' : [0],
         'context' : [[p.context.copy() for p in particles]],
         'weight' : [[p.weight for p in particles]],
         'resample?' : [False],
-        'parent' : [[i for i, _ in enumerate(particles)]],
+        'resampled as' : [[i for i, _ in enumerate(particles)]],
         'average weight' : [0.0],
     }
+    
+    step_num = 1
     
     while any(map(lambda p: not p.done_stepping(), particles)):
     
@@ -238,8 +241,8 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5):
         avg_weight = total_weight - np.log(n_particles)
         if verbosity>0:
             for i, p in enumerate(particles):
-                print(f"├ Particle {i} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}")
-            print(f"│ Step {step_num} average weight: {avg_weight:.4f}")
+                print(f"├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}")
+            print(f"│ Step {step_num:3d} average weight: {avg_weight:.4f}")
         
         record['context'].append([p.context.copy() for p in particles])
         record['weight'].append([p.weight for p in particles])
@@ -250,19 +253,21 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5):
             # Alternative implementation uses a multinomial distribution and only makes n-1 copies, reusing existing one, but fine for now
             probs = np.exp(weights_normalized)
 #             particles = [copy.deepcopy(particles[np.random.choice(range(len(particles)), p=probs)]) for _ in range(n_particles)]
+            # resampling: sample indices to copy
             resampled_indices = [np.random.choice(range(len(particles)), p=probs) for _ in range(n_particles)]
+            resampled_indices.sort()
             particles = [copy.deepcopy(particles[i]) for i in resampled_indices]
             
             record["resample?"] += [True]
-            record["parent"].append(resampled_indices)
+            record["resampled as"].append(resampled_indices)
     
             for p in particles:
                 p.weight = avg_weight
             if verbosity>0:
-                print(f"└╼  Resampling! Weights all set to = {avg_weight:.4f}.")
+                print(f"└╼  Resampling! {resampled_indices}. Weights all set to = {avg_weight:.4f}.")
         else:
             record["resample?"].append(False)
-            record["parent"].append([i for i, _ in enumerate(particles)])
+            record["resampled as"].append([i for i, _ in enumerate(particles)])
             if verbosity>0:
                 print("└╼")
 
