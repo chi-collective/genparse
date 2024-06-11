@@ -216,6 +216,17 @@ def test_char_lm_basics3():
     assert set(v.trim().keys()) == {' ', 'b'}
 
 
+def test_case_insensitive():
+    grammar = r"""
+    start: WS? "SELECT"i WS
+    WS: /[ ]/
+    """
+
+    guide = CFGLM(locally_normalize(LarkStuff(grammar).char_cfg(0.99)))
+
+    assert guide.p_next("").trim().keys() == {"S","s"," "}
+    assert guide.p_next("S").trim().keys() == {"E","e"}
+    assert guide.p_next("s").trim().keys() == {"E","e"}
 
 if __name__ == '__main__':
     from arsenal import testing_framework

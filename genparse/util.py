@@ -236,6 +236,23 @@ def regex_to_greenery(regex, ignore = ''):
     finite-state machine (FSM).
     """
     import greenery
+
+    def expand_case_insensitive(r):
+        """
+        Lark accepts case-insensitive terminals of the form `".*"i`
+        In python re syntax, these compile to `(?i:.*)`
+        This function desugars the latter into a format supported by greenery.
+        """
+        import re
+        p = "(\(\?i\:)(.*)(\))"
+        m = re.match(p, r)
+        if m:
+            s = m.groups()[1]
+            r = f'({"".join(f"[{c.lower()}{c.upper()}]" if c.isalpha() else c for c in s)})'
+        return r
+    
+    regex = expand_case_insensitive(regex)
+
     # Patch: note that greenery does not escape spaces but both the `re` and `lark` do.
     return greenery.parse(regex.replace("\\ ", " ") + ignore).to_fsm()
 
