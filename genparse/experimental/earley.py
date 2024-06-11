@@ -1,10 +1,13 @@
 from collections import defaultdict
 from arsenal.datastructures.pdict import pdict
 from genparse.cfglm import EOS
+from genparse.linear import WeightedGraph
 from functools import lru_cache
 
 from genparse.lm import LM
-from genparse import add_EOS, EOS
+from genparse import add_EOS, EOS, Boolean
+
+
 class EarleyLM(LM):
 
     def __init__(self, cfg):
@@ -41,7 +44,7 @@ class Earley:
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
-    __slots__ = ('cfg', 'order', '_chart', 'V', 'eos', '_initial_column')
+    __slots__ = ('cfg', 'order', '_chart', 'V', 'eos', '_initial_column', 'R')
 
     def __init__(self, cfg):
 
@@ -54,6 +57,15 @@ class Earley:
         # Topological ordering on the grammar symbols so that we process unary
         # rules in a topological order.
         self.order = cfg._unary_graph_transpose().buckets
+
+        # left-corner graph
+        R = WeightedGraph(Boolean)
+        for r in cfg:
+            if len(r.body) == 0: continue
+            A = r.head
+            B = r.body[0]
+            R[A,B] += Boolean.one
+        self.R = R
 
         col = Column(0, self.cfg.R.chart())
         self.PREDICT(col)
@@ -114,17 +126,41 @@ class Earley:
         return next_col
 
     def PREDICT(self, prev_col):
-        # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with lookahead to prune
+        # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with some filtering heuristics
         k = prev_col.k
         zero = self.cfg.R.zero
-        for r in self.cfg:
-            if r.body == (): continue
-            Y = r.body[0]
-            item = (k, r.head, r.body)
-            was = prev_col.chart[item]
-            if was == zero:
-                prev_col.waiting_for[Y].add(item)
-            prev_col.chart[item] = was + r.w
+        prev_col_chart = prev_col.chart
+        prev_col_waiting_for = prev_col.waiting_for
+
+        # Filtering heuristic: Don't create the predicted item (K, X, [...], K)
+        # unless there exists an item that wants the X item that it may
+        # eventually provide.  In other words, for predicting this item to be
+        # useful there must be an item of the form (I, X', [X, ...], K) in this
+        # column for which lc(X', X) is true.
+        if prev_col.k == 0:
+            targets = {self.cfg.S}
+        else:
+            targets = set(prev_col.waiting_for)
+
+        reachable = set(targets)
+        agenda = list(targets)
+        while agenda:
+            X = agenda.pop()
+            for Y in self.R.outgoing[X]:
+                if Y not in reachable:
+                    reachable.add(Y)
+                    agenda.append(Y)
+
+        for X in reachable:
+            for r in self.cfg.rhs[X]:
+                Ys = r.body
+                if Ys == (): continue
+                item = (k, X, Ys)
+                was = prev_col_chart[item]
+                if was == zero:
+                    Y = Ys[0]
+                    prev_col_waiting_for[Y].add(item)
+                prev_col_chart[item] = was + r.w
 
     def _update(self, col, I, X, Ys, value):
         K = col.k
@@ -180,144 +216,6 @@ class Earley:
     # g(W,I,X) += phrase(I,X / [Y],J) * g(W,J,Y).
     # g(W,I,X) += phrase(I,X / [W],J) * len(J) * terminal(W).
     #
-#    def next_token_weights(self, chart):
-#        "An O(N²) time algorithm to the total weight of a each next-token extension."
-#
-#        N = len(chart)
-#        order = self.order
-#        #CLOSE = self.CLOSE
-#
-#
-#
-#        # The `CLOSE` index is used in the `p_next` computation.  It is a data
-#        # structure implementing the following function:
-#        #
-#        #   (I,X) => {(J,Y) | phrase(I,X/[Y],J) ≠ 0, Y ∈ cfg.N}
-#        #
-#        CLOSE = defaultdict(lambda: defaultdict(set))
-#        very_close_terminal = []
-#
-#        for col in chart:
-#            for item in col.chart:
-#                if len(item) != 3: continue
-#                (I, X, Ys) = item
-#                if len(Ys) == 1:
-#                    Y = Ys[0]
-#                    if self.cfg.is_terminal(Y):
-#                        if col.k == N-1:
-#                            very_close_terminal.append(item)
-#                    else:
-#                        CLOSE[I, X][col.k].add(Y)
-#
-#        # set output adjoint to 1; (we drop the empty parens for completed items)
-#        d_next_col_chart = self.cfg.R.chart()
-#        d_next_col_chart[0, self.cfg.S] += self.cfg.R.one
-#
-#        tmp_J = pdict()
-#        tmp_J_Y = [pdict() for _ in range(N)]
-#
-#        tmp_J[0] = 0
-#
-#        tmp_J_Y[0][self.cfg.S] = -order[self.cfg.S]
-#
-#        zero = self.cfg.R.zero
-#
-#        while tmp_J:
-#            I = tmp_J.pop()
-#
-#            xxx = tmp_J_Y[I]
-#
-#            #already_popped = set()
-#            while xxx:
-#
-#                X = xxx.pop()
-#
-#                #assert X not in already_popped
-#                #already_popped.add(X)
-#
-#                value = d_next_col_chart[I, X]
-#
-#                #assert value != zero
-#
-#                close_IX = CLOSE[I, X]
-#
-#                for J in sorted(close_IX):   # TODO: more efficient to maintain sorted?
-#
-#                    if J >= N:
-#                        break
-#
-#                    chart_J_chart = chart[J].chart
-#
-#                    yyy = tmp_J_Y[J]
-#                    pushed = False
-#                    for Y in close_IX[J]:
-#
-#                        #if self.cfg.is_terminal(Y): continue
-#                        #assert self.cfg.is_nonterminal(Y)
-#
-#                        #tmp.append((J,Y,I,X))
-#                        new_value = chart_J_chart[I, X, (Y,)] * value
-#                        if new_value != zero:
-#                            d_next_col_chart[J, Y] += new_value
-#
-#                            yyy[Y] = -order[Y]
-#                            pushed = True
-#
-#                    if pushed:
-#                        tmp_J[J] = J
-#
-#        # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
-#        q = self.cfg.R.chart()
-#        col = chart[-1]
-#        for I, X, Ys in very_close_terminal:   # consider all possible tokens here
-#            #assert self.cfg.is_nonterminal(Ys[0])
-#
-#            # FORWARD PASS:
-#            # next_col.chart[I, X, Ys[1:]] += prev_cols[-1].chart[I, X, Ys]
-#
-#            q[Ys[0]] += col.chart[I, X, Ys] * d_next_col_chart[I, X]
-#
-#        return q
-
-#    def next_token_weights(self, chart):
-#        "An O(N²) time algorithm to the total weight of a each next-token extension."
-#
-#        # set output adjoint to 1; (we drop the empty parens for completed items)
-#        d_next_col_chart = self.cfg.R.chart()
-#        d_next_col_chart[0, self.cfg.S] += self.cfg.R.one
-#
-#        # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
-#
-#        # TODO: It should be possible to improve the sparsity in the (j, Y)
-#        # loops here.  The key is to reverse the order of the forward method.
-#        for J in range(len(chart)):
-#            col_J = chart[J]
-#            for Y in reversed(sorted(self.cfg.N, key=lambda Y: self.order[Y])):
-#                for (I, X, Ys) in col_J.waiting_for[Y]:
-#                    if len(Ys) != 1: continue
-#                    if col_J.chart[I, X, Ys] == self.cfg.R.zero: continue
-#
-#                    # FORWARD PASS:
-#                    # next_col[I, X, Ys[1:]] += col_j.chart[I,X,Ys] * next_col.chart[J,Y]
-#
-#                    d_next_col_chart[J, Y] += col_J.chart[I, X, Ys] * d_next_col_chart[I, X]
-#
-#        # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
-#        q = self.cfg.R.chart()
-#        prev_col = chart[-1]
-#        VV = set(prev_col.waiting_for)
-#        VV = VV & self.cfg.V
-#        for v in VV:
-#            for I, X, Ys in prev_col.waiting_for[v]:   # consider all possible tokens here
-#                if len(Ys) != 1: continue
-#
-#                # FORWARD PASS:
-#                # next_col.chart[I, X, Ys[1:]] += prev_cols[-1].chart[I, X, Ys]
-#
-#                q[v] += prev_col.chart[I, X, Ys] * d_next_col_chart[I, X]
-#
-#        return q
-
     def next_token_weights(self, chart):
 
         # Let's try a backward chaining algorithm

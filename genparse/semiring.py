@@ -113,10 +113,16 @@ class Boolean(Semiring):
         return Boolean.one
 
     def __add__(self, other):
-        return Boolean(self.score or other.score)
+        if self.score or other.score:
+            return Boolean.one
+        else:
+            return Boolean.zero
 
     def __mul__(self, other):
-        return Boolean(other.score and self.score)
+        if self.score and other.score:
+            return Boolean.one
+        else:
+            return Boolean.zero
 
     def __repr__(self):
         return f"{self.score}"
@@ -202,9 +208,8 @@ getcontext().prec = 77
 class D256:
     def star(self):          return 1/(1-self)
     @classmethod
-    def from_string(cls, x): 
+    def from_string(cls, x):
         return Decimal(x)
-    
     def metric(x,y):     # pylint: disable=no-self-argument
         if x == np.inf == y: return 0
         return abs(x - y)
