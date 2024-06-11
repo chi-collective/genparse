@@ -3,7 +3,7 @@ import numpy as np
 from arsenal.maths import compare
 from collections import Counter
 
-from genparse.util import LarkStuff
+from genparse.util import LarkStuff, expand_case_insensitive
 from genparse.experimental.earley import Earley
 from genparse import CFGLM, locally_normalize
 
@@ -216,6 +216,44 @@ def test_char_lm_basics3():
     assert set(v.trim().keys()) == {' ', 'b'}
 
 
+def test_case_insensitive_char_proposal():
+    grammar = r"""
+    start: WS? "SELECT"i WS
+    WS: /[ ]/
+    """
+
+    guide = CFGLM(locally_normalize(LarkStuff(grammar).char_cfg(0.99)))
+
+    assert guide.p_next("").trim().keys() == {"S","s"," "}
+    assert guide.p_next("S").trim().keys() == {"E","e"}
+    assert guide.p_next("s").trim().keys() == {"E","e"}
+
+
+def test_case_insensitive_expansion():
+
+    assert expand_case_insensitive("AND")=="AND"
+    assert expand_case_insensitive("(?i:AND)")=="[aA][nN][dD]"
+
+    assert expand_case_insensitive("[aA][nN][dD]")=="[aA][nN][dD]"
+    assert expand_case_insensitive("(?i:[aA][nN][dD])")=="[aA][nN][dD]"
+
+    assert expand_case_insensitive("(?i:AND|OR)")=="[aA][nN][dD]|[oO][rR]"
+    assert expand_case_insensitive("(?i:[aA][nN][dD]|OR)")=="[aA][nN][dD]|[oO][rR]"
+    assert expand_case_insensitive("(?i:AND)|(?i:OR)")=="[aA][nN][dD]|[oO][rR]"
+
+    assert expand_case_insensitive("(?i:[aA][nN][d)")=="[aA][nN][[dD]"
+    assert expand_case_insensitive("(?i:[aA][nN][dD)")=="[aA][nN][[dD][dD]"
+    assert expand_case_insensitive("(?i:[aA][nN][dE])")=="[aA][nN][[dD][eE]]"
+    assert expand_case_insensitive("(?i:[aA][nN][dDE])")=="[aA][nN][[dD][dD][eE]]"
+
+    assert expand_case_insensitive("(?i:(?i:AND))")=="[aA][nN][dD]"
+    assert expand_case_insensitive("(?i:(?i:(?i:AND)))")=="[aA][nN][dD]"
+    assert expand_case_insensitive("(?i:(?i:(?i:AND)))(?i:(?i:AND))(?i:AND)")=="[aA][nN][dD][aA][nN][dD][aA][nN][dD]"
+    assert expand_case_insensitive("(?i:(?i:(?i:AND)|(?i:OR)))")=="[aA][nN][dD]|[oO][rR]"
+
+    sql_example_input = '(?:(?:(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))(?:(?:[ \t\x0c\r\n])+(?i:OUTER))?|(?i:INNER)|(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))|(?i:(?:(?i:OUTER))?))(?:[ \t\x0c\r\n])+)?(?i:JOIN)[ ]?'
+    sql_example_output = '(?:(?:(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])(?:(?:[ \t\x0c\r\n])+[oO][uU][tT][eE][rR])?|[iI][nN][nN][eE][rR]|(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])|(?:[oO][uU][tT][eE][rR]?))(?:[ \t\x0c\r\n])+)?[jJ][oO][iI][nN][ ]?'
+    assert expand_case_insensitive(sql_example_input)==sql_example_output
 
 if __name__ == '__main__':
     from arsenal import testing_framework

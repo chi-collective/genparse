@@ -229,6 +229,41 @@ class LarkStuff:
 #            if token_type not in self.ignores:
 #                yield token_type, token_value
 
+def expand_case_insensitive(r):
+    """
+    Lark accepts case-insensitive terminals of the form `".*"i`
+    In python re syntax, these compile to `(?i:.*)`
+    This function desugars the latter into a format supported by greenery.
+    """
+    import re
+    
+    def safe_expand(m):
+        """only expand alphabetic characters that have not yet been expanded"""
+        expand=""; last=""; ptr=0
+        while True:
+            if ptr<len(m):
+                c=m[ptr]
+                if c.isalpha():
+                    if last=="[":
+                        if ptr+2<len(m):
+                            if m[ptr+1]+m[ptr+2]==c.upper()+"]": expand+=c+m[ptr+1]; ptr+=1;
+                            else: expand+=f"[{c.lower()}{c.upper()}]"
+                        else: expand+=f"[{c.lower()}{c.upper()}]"
+                    else: expand+=f"[{c.lower()}{c.upper()}]"
+                else: expand+=c
+                last=c; ptr+=1
+            else: break
+        return expand
+
+    pattern = "\(\?i\:([^\)]*)\)"
+    while True:
+        matches = set(re.findall(pattern, r))
+        if not matches:
+            return r
+        for m in matches:
+            m=m.split("(?i:")[-1]
+            r=r.replace(f"(?i:{m})",safe_expand(m))
+
 
 def regex_to_greenery(regex, ignore = ''):
     """
@@ -236,6 +271,9 @@ def regex_to_greenery(regex, ignore = ''):
     finite-state machine (FSM).
     """
     import greenery
+
+    regex = expand_case_insensitive(regex)
+
     # Patch: note that greenery does not escape spaces but both the `re` and `lark` do.
     return greenery.parse(regex.replace("\\ ", " ") + ignore).to_fsm()
 
