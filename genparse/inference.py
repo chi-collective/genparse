@@ -161,9 +161,13 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
     Returns:
         particles (list[hfppl.modeling.Model]): The completed particles after inference.
     """
+    verbosity = model.verbosity if hasattr(model,"verbosity") else 0
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
 
     for particle in particles: particle.start()
+
+    if verbosity>0:
+        step_num = 1
 
     while (any(map(lambda p: not p.done_stepping(), particles))):
         # Step each particle
@@ -172,18 +176,31 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
         await asyncio.gather(*[p.step() for p in particles if not p.done_stepping()])
 
         # Normalize weights
-        W = np.array([p.weight for p in particles])
-        w_sum = logsumexp(W)
-        normalized_weights = W - w_sum
+        weights = np.array([p.weight for p in particles])
+        total_weight = logsumexp(weights)
+        normalized_weights = weights - total_weight
+
+        if verbosity>0:
+            for i, p in enumerate(particles):
+                print(f"├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}")
+            avg_weight = total_weight - np.log(n_particles)
+            print(f"│ Step {step_num:3d} average weight: {avg_weight:.4f}")
+            step_num += 1
 
         # Resample if necessary
         if -logsumexp(normalized_weights * 2) < np.log(ess_threshold) + np.log(n_particles):
             # Alternative implementation uses a multinomial distribution and only makes n-1 copies, reusing existing one, but fine for now
             probs = np.exp(normalized_weights)
             particles = [copy.deepcopy(particles[np.random.choice(range(len(particles)), p=probs)]) for _ in range(n_particles)]
-            avg_weight = w_sum - np.log(n_particles)
+            avg_weight = total_weight - np.log(n_particles)
             for p in particles:
                 p.weight = avg_weight
+            
+            if verbosity>0:
+                print(f"└╼  Resampling! Weights all set to = {avg_weight:.4f}.")
+        else:
+            if verbosity>0:
+                print("└╼")
 
     return particles
 
