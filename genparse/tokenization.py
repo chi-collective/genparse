@@ -1,5 +1,5 @@
 """
-Tools for tokenization. 
+Tools for tokenization.
 
 TODO: write tests for this
 
@@ -8,39 +8,40 @@ TODO: write tests for this
 from typing import Dict, List
 
 def get_tokenizer_mapping(tokenizer):
-    """ 
+    """
         Very similar to get_mapping in transformers_cfg.tokenization.mapping
         but with special case to handle codellama tokenizer.
     """
+    name = tokenizer.__class__.__name__.lower()
     if (
-        "gpt2" in tokenizer.__class__.__name__.lower()
-        or "bloom" in tokenizer.__class__.__name__.lower()
-        or "pretrainedtokenizer" in tokenizer.__class__.__name__.lower()
-        or "codegen" in tokenizer.__class__.__name__.lower()
-        or "gptneox" in tokenizer.__class__.__name__.lower()
+        "gpt2" in name
+        or "bloom" in name
+        or "pretrainedtokenizer" in name
+        or "codegen" in name
+        or "gptneox" in name
     ):
         return BBPEMapping(tokenizer)
-    elif "codellama" in tokenizer.__class__.__name__.lower():
+    elif "codellama" in name:
         return BPEMapping(tokenizer)
-    elif "t5" in tokenizer.__class__.__name__.lower():
+    elif "t5" in name:
         return BPEMapping(tokenizer)
-    elif "llama" in tokenizer.__class__.__name__.lower():
+    elif "llama" in name:
         return LlamaBPEMapping(tokenizer)
-    elif "xglm" in tokenizer.__class__.__name__.lower():
+    elif "xglm" in name:
         return UniGramMapping(tokenizer)
     else:
         raise ValueError(f"Unknown tokenizer type: {tokenizer.__class__.__name__}")
 
 def decode_tokenizer_vocab(tokenizer):
     mapping = get_tokenizer_mapping(tokenizer)
-    
+
     # `mapping` maps ids in `all_special_ids` to the null string, so we convert those using HF.
     # TODO: change this
     return [
         mapping.map(i).decode("utf-8") for i in range(tokenizer.vocab_size)
     ]
 
-###### The following code was taken directly from https://github.com/epfl-dlab/transformers-CFG/blob/main/transformers_cfg/tokenization/mapping.py 
+###### The following code was taken directly from https://github.com/epfl-dlab/transformers-CFG/blob/main/transformers_cfg/tokenization/mapping.py
 
 class Mapping:
     def __init__(self, tokenizer):
