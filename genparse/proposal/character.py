@@ -64,9 +64,9 @@ class CharacterProposal(TokenCharacterTrie):
         while True:
             t += 1
             if t <= max_tokens:
-                with self.timer['llm']:
+                with self.timer['llm'](t=len(context)):
                     p_llm = self.llm.p_next(prompt + context)
-                with self.timer['cfg+trie']:
+                with self.timer['cfg+trie'](t=len(context)):
                     self._update_trie(p_llm)
                     token, p_token, _, _ = self._guided_sample_trie(
                         self.root, context, verbosity=verbosity, **kwargs
@@ -83,9 +83,9 @@ class CharacterProposal(TokenCharacterTrie):
         return (context, P)
 
     async def sample_next_token(self, prompt, context, verbosity=0, compare_time=False, **kwargs):
-        with self.timer['llm']:
+        with self.timer['llm'](t=len(context)):
             p_llm = await self.llm.p_next(prompt + context)
-        with self.timer['cfg+trie']:
+        with self.timer['cfg+trie'](t=len(context)):
             self._update_trie(p_llm)
             (path, llm_prob, guide_prob, proposal_prob) = self._guided_sample_trie(
                 self.root, context, verbosity=verbosity, **kwargs
