@@ -251,7 +251,7 @@ class HFPPLSampler:
             record = None
         elif method == "smc-standard":
             if return_record:
-                particles, record = asyncio.run(smc_standard_record(model, n_particles=n_particles))
+                particles, record = asyncio.run(smc_standard_record(model, n_particles=n_particles, return_record=return_record))
             else:
                 particles = asyncio.run(smc_standard(model, n_particles=n_particles))
                 record = None
