@@ -12,6 +12,9 @@ from genparse import Float
 from arsenal import Integerizer, colors
 from arsenal.maths import sample, logsumexp, softmax
 
+from .util import format_table
+from .record import SMCRecord
+
 #_______________________________________________________________________________
 #
 # The importance sampling method below is an async equivalent of the following
@@ -161,9 +164,12 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
     Returns:
         particles (list[hfppl.modeling.Model]): The completed particles after inference.
     """
+    verbosity = model.verbosity if hasattr(model,"verbosity") else 0
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
 
     for particle in particles: particle.start()
+
+    if verbosity>0: step_num = 1
 
     while (any(map(lambda p: not p.done_stepping(), particles))):
         # Step each particle
@@ -172,20 +178,123 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
         await asyncio.gather(*[p.step() for p in particles if not p.done_stepping()])
 
         # Normalize weights
-        W = np.array([p.weight for p in particles])
-        w_sum = logsumexp(W)
-        normalized_weights = W - w_sum
+        weights = np.array([p.weight for p in particles])
+        total_weight = logsumexp(weights)
+        normalized_weights = weights - total_weight
+
+        if verbosity>0:
+            for i, p in enumerate(particles):
+                print(f"├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}")
+            avg_weight = total_weight - np.log(n_particles)
+            print(f"│ Step {step_num:3d} average weight: {avg_weight:.4f}")
+            step_num += 1
 
         # Resample if necessary
         if -logsumexp(normalized_weights * 2) < np.log(ess_threshold) + np.log(n_particles):
             # Alternative implementation uses a multinomial distribution and only makes n-1 copies, reusing existing one, but fine for now
             probs = np.exp(normalized_weights)
             particles = [copy.deepcopy(particles[np.random.choice(range(len(particles)), p=probs)]) for _ in range(n_particles)]
-            avg_weight = w_sum - np.log(n_particles)
+            avg_weight = total_weight - np.log(n_particles)
+            for p in particles:
+                p.weight = avg_weight
+            
+            if verbosity>0: print(f"└╼  Resampling! Weights all set to = {avg_weight:.4f}.")
+        else:
+            if verbosity>0: print("└╼")
+
+    return particles
+
+
+#_______________________________________________________________________________
+#  Modified version of the above, to keep a record of information about the run.
+#  Should be identical
+
+async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_record=True):
+    """
+    Standard sequential Monte Carlo algorithm with multinomial resampling.
+    
+    Args:
+        model (hfppl.modeling.Model): The model to perform inference on.
+        n_particles (int): Number of particles to execute concurrently.
+        ess_threshold (float): Effective sample size below which resampling is triggered, given as a fraction of `n_particles`.
+    
+    Returns:
+        particles (list[hfppl.modeling.Model]): The completed particles after inference.
+        record (SMCRecord): Information about inference run history.
+    """
+    verbosity = model.verbosity if hasattr(model,"verbosity") else 0
+    particles = [copy.deepcopy(model) for _ in range(n_particles)]
+
+    for particle in particles: particle.start()
+    
+    # Initialize record dict
+    record = SMCRecord({
+        'step' : [0],
+        'context' : [[p.context.copy() for p in particles]],
+        'weight' : [[p.weight for p in particles]],
+        'resample?' : [False],
+        'resampled as' : [[i for i, _ in enumerate(particles)]],
+        'average weight' : [0.0],
+    }) if return_record else None
+    
+    if return_record or verbosity>0: step_num = 1
+    
+    while any(map(lambda p: not p.done_stepping(), particles)):
+    
+        if return_record: record['step'].append(step_num)
+            
+        # Step each particle
+        for p in particles:
+            p.untwist()
+        await asyncio.gather(*[p.step() for p in particles if not p.done_stepping()])
+        
+        # Normalize weights
+        weights = [p.weight for p in particles]
+        total_weight = logsumexp(np.array(weights))
+        weights_normalized = weights - total_weight
+
+        # Compute log average weight (used if resampling, else only for record)
+        avg_weight = total_weight - np.log(n_particles)
+        if verbosity>0:
+            for i, p in enumerate(particles):
+                print(f"├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}")
+            print(f"│ Step {step_num:3d} average weight: {avg_weight:.4f}")
+        
+        if return_record: 
+            record['context'].append([p.context.copy() for p in particles])
+            record['weight'].append(weights)
+            record["average weight"].append(avg_weight)
+        
+        # Resample if necessary
+        if -logsumexp(weights_normalized * 2) < np.log(ess_threshold) + np.log(n_particles):
+            # Alternative implementation uses a multinomial distribution and only makes n-1 copies, reusing existing one, but fine for now
+            probs = np.exp(weights_normalized)
+            
+            if return_record or verbosity>0:
+                # resampling: sample indices to copy
+                resampled_indices = [np.random.choice(range(len(particles)), p=probs) for _ in range(n_particles)]
+                resampled_indices.sort()
+                particles = [copy.deepcopy(particles[i]) for i in resampled_indices]
+                record["resample?"] += [True]
+                record["resampled as"].append(resampled_indices)
+            else:
+                particles = [copy.deepcopy(particles[np.random.choice(range(len(particles)), p=probs)]) for _ in range(n_particles)]
+
             for p in particles:
                 p.weight = avg_weight
 
-    return particles
+            if verbosity>0: print(f"└╼  Resampling! {resampled_indices}. Weights all set to = {avg_weight:.4f}.")
+        else:
+            if return_record: 
+                record["resample?"].append(False)
+                record["resampled as"].append([i for i, _ in enumerate(particles)])
+
+            if verbosity>0: print("└╼")
+        
+        if return_record or verbosity>0: step_num += 1
+
+
+    return particles, record
 
 
 #_______________________________________________________________________________
