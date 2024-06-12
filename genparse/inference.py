@@ -12,6 +12,9 @@ from genparse import Float
 from arsenal import Integerizer, colors
 from arsenal.maths import sample, logsumexp, softmax
 
+from .util import format_table
+from .record import SMCRecord
+
 #_______________________________________________________________________________
 #
 # The importance sampling method below is an async equivalent of the following
@@ -206,7 +209,6 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
 #  Modified version of the above, to keep a record of information about the run.
 #  Should be identical
 
-
 async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_record=True):
     """
     Standard sequential Monte Carlo algorithm with multinomial resampling.
@@ -218,7 +220,7 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
     
     Returns:
         particles (list[hfppl.modeling.Model]): The completed particles after inference.
-        record (dict): Information about inference run history.
+        record (SMCRecord): Information about inference run history.
     """
     verbosity = model.verbosity if hasattr(model,"verbosity") else 0
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
@@ -226,14 +228,14 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
     for particle in particles: particle.start()
     
     # Initialize record dict
-    record = {
+    record = SMCRecord({
         'step' : [0],
         'context' : [[p.context.copy() for p in particles]],
         'weight' : [[p.weight for p in particles]],
         'resample?' : [False],
         'resampled as' : [[i for i, _ in enumerate(particles)]],
         'average weight' : [0.0],
-    } if return_record else None
+    }) if return_record else None
     
     if return_record or verbosity>0: step_num = 1
     
