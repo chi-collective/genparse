@@ -255,7 +255,7 @@ def expand_case_insensitive(r):
             else: break
         return expand
 
-    pattern = "\(\?i\:([^\)]*)\)"
+    pattern = r"\(\?i\:([^\)]*)\)"
     while True:
         matches = set(re.findall(pattern, r))
         if not matches:
