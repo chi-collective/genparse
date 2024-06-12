@@ -231,7 +231,8 @@ class HFPPLSampler:
         self.guide = guide
 
     def run_inference(
-        self, prompt, proposal, method, n_particles, n_beam=None, max_tokens=float('inf'), verbosity=0
+        self, prompt, proposal, method, n_particles, n_beam=None, max_tokens=float('inf'),
+        verbosity=0, return_record=False
     ):
         model = HFPPLParticle(
             llm=self.llm, 
@@ -244,15 +245,18 @@ class HFPPLSampler:
 
         if method == "smc-steer":
             assert not n_beam is None
+            if return_record:
+                raise Warning("Record not yet implemented for smc-steer")
             particles = asyncio.run(smc_steer(model, n_particles=n_particles, n_beam=n_beam))
             record = None
         elif method == "smc-standard":
-            particles = asyncio.run(smc_standard(model, n_particles=n_particles))
-            record = None
-        elif method == "smc-standard-record":
-            particles, record = asyncio.run(smc_standard_record(model, n_particles=n_particles))
+            if return_record:
+                particles, record = asyncio.run(smc_standard_record(model, n_particles=n_particles))
+            else:
+                particles = asyncio.run(smc_standard(model, n_particles=n_particles))
+                record = None
         else:
-            raise ValueError(f"Unknown inference method: {method}. Must be either `smc-steer` or `smc-standard` or `smc-standard-record`.")
+            raise ValueError(f"Unknown inference method: {method}. Must be either `smc-steer` or `smc-standard`.")
 
         return ParticleApproximation(particles), record
 
