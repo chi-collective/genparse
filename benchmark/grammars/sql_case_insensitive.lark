@@ -43,7 +43,7 @@ query_expr: select [ "ORDER"i "BY"i (order_by_expr ",")*  order_by_expr] [ "LIMI
 
 select: "SELECT"i [SELECT_CONSTRAINT] [(select_expr ",")*] select_expr "FROM"i [(from_expr ",")*] from_expr [ "WHERE"i where_expr ] [ "GROUP"i"BY"i [(groupby_expr ",")*] groupby_expr ] [ "HAVING"i having_expr] [ "WINDOW"i window_expr ]
 
-where_expr: bool_expression
+where_expr: bool_expression | name "LIKE"i literal //ADD LIKE CLAUSES
 
 select_expr.0: expression_math [ [ "AS"i ] alias ] -> select_expression
 
@@ -64,7 +64,7 @@ from_item: name [ [ "AS"i ] alias ] -> table
 subquery: ( "(" (query_expr | join | cross_join) ")" ) [ [ "AS"i ] alias ]
 
 cross_join: from_item "CROSS"i "JOIN"i from_item
-join: from_item JOIN_EXPR from_item [ "ON"bool_expression ] -> join_expression
+join: from_item JOIN_EXPR from_item [ "ON"i bool_expression ] -> join_expression
 
 JOIN_EXPR.5: (JOIN_TYPE WS)? "JOIN"i
 JOIN_TYPE: "INNER"i | "OUTER"i? | JOIN_DIRECTION (WS "OUTER"i)? | JOIN_DIRECTION
@@ -76,7 +76,8 @@ JOIN_DIRECTION: "FULL"i | "LEFT"i | "RIGHT"i
                | "CASE"i(when_then)+ "ELSE"i expression_math "END"i -> case_expression
                | "CAST"i"(" expression_math "AS"i TYPENAME ")" -> as_type
                | "CAST"i"(" literal "AS"i TYPENAME ")" -> literal_cast
-               | AGGREGATION /\s?\(/ expression_math /\)\s?/ -> sql_aggregation //| AGGREGATION expression_math ")" [window_form] -> sql_aggregation CHANGED AGG
+               //| AGGREGATION /\s?\(/ expression_math /\)\s?/ -> sql_aggregation 
+               | AGGREGATION expression_math /\s?\)/ [window_form] -> sql_aggregation
                | "RANK"i"(" ")" window_form -> rank_expression
                | "DENSE_RANK"i"(" ")" window_form -> dense_rank_expression
                | "COALESCE"i"(" [(expression_math ",")*] expression_math ")" -> coalesce_expression
@@ -103,7 +104,7 @@ order: expression_math ["ASC"i] -> order_asc
           | expression_math "DESC"i-> order_desc
 
 column_name: [name "."] name
-?expression_product: expression_parens
+?expression_product: expression_parens 
                   | expression_product "*" expression_parens -> expression_mul
                   | expression_product "/" expression_parens -> expression_div
 
@@ -138,7 +139,7 @@ TYPENAME:  "object"
          | "date"
          | "category"
          | "string"
-AGGREGATION: "sum"i | "avg"i | "min"i | "max"i | "count"i"distinct"i| "count"i
+AGGREGATION: /(sum|SUM)\s?\(/ | /(avg|AVG)\s?\(/ | /(min|MIN)\s?\(/ | /(max|MAX)\s?\(/ | "count"i /\s?\(\s?(distinct|DISTINCT)/ | /(count|COUNT)\s?\(/
 alias: name -> alias_string
 _window_name: name
 limit_count: integer_ -> limit_count
@@ -165,7 +166,7 @@ subquery_in: expression_math "IN"i subquery
 not_in_expr: expression_math "NOT"i"IN"i subquery // TOO RESTRICTIVE (subquery are possible expression_math terms)??
 ?literal: boolean -> bool
        | number_expr -> number
-       | /'([^'])+'|''/ -> string
+       | /'([^'])*'/ -> string
        | timestamp_expression -> timestamp_expression
 boolean: "true"-> true
        | "false"-> false
@@ -191,8 +192,10 @@ SECONDS: /[0-9]{2}/
 name: CNAME | ESCAPED_STRING
 MINUS: /[\-]/
 
-_STRING_INNER: /([^"\\]|\\.)*?/
-ESCAPED_STRING: "\"" _STRING_INNER "\""
+//_STRING_INNER: /([^"\\]|\\.)*?/ 
+_STRING_INNER: CNAME // TOO CONSTRAINED ?????
+//ESCAPED_STRING: "\"" _STRING_INNER "\""
+ESCAPED_STRING: /[\"']/ _STRING_INNER /[\"']/
 
 NUMBER: /((([0-9])+(e|E)((\\+|\\-))?([0-9])+|(([0-9])+\\.(([0-9])+)?|\\.([0-9])+)((e|E)((\\+|\\-))?([0-9])+)?)|([0-9])+)/
 
