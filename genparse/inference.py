@@ -275,7 +275,6 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
                 particles = [copy.deepcopy(particles[i]) for i in resampled_indices]
                 record["resample?"] += [True]
                 record["resampled as"].append(resampled_indices)
-                step_num += 1
             else:
                 particles = [copy.deepcopy(particles[np.random.choice(range(len(particles)), p=probs)]) for _ in range(n_particles)]
 
@@ -289,6 +288,8 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
                 record["resampled as"].append([i for i, _ in enumerate(particles)])
 
             if verbosity>0: print("└╼")
+        
+        if return_record or verbosity>0: step_num += 1
 
 
     return particles, record
