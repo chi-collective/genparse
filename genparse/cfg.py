@@ -116,7 +116,7 @@ class CFG:
             line = line.strip()
             if not line or line.startswith(comment): continue
             try:
-                [(w, lhs, rhs)] = re.findall('(.*):\s*(\S+)\s*→\s*(.*)$', line)
+                [(w, lhs, rhs)] = re.findall(r'(.*):\s*(\S+)\s*→\s*(.*)$', line)
                 lhs = lhs.strip()
                 rhs = rhs.strip().split()
                 for x in rhs:
