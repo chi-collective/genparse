@@ -44,18 +44,18 @@ class TokenProposal(TokenCharacterTrie):
         super().__init__(words, old_eos = llm.eos, new_eos = guide.eos)
 
     def _p_next(self, context, K=None):
-        with self.timer['llm']:
+        with self.timer['llm'](t=len(context)):
             p_llm = self.llm.p_next(self._prompt + context)
 
-        with self.timer['cfg+trie']:
+        with self.timer['cfg+trie'](t=len(context)):
             return Float.chart(take(K, self.traverse_trie(context, p_llm))).normalize()
 
     async def sample_next_token(self, prompt, context, verbosity=0, compare_time=False, **kwargs):
 
-        with self.timer['llm']:
+        with self.timer['llm'](t=len(context)):
             p_llm = await self.llm.p_next(prompt + context)
 
-        with self.timer['cfg+trie']:
+        with self.timer['cfg+trie'](t=len(context)):
 
             Q = Float.chart(take(self.K, self.traverse_trie(context, p_llm))).normalize()
             token = sample_dict(Q)
