@@ -20,7 +20,8 @@ setup(
         'rich',
         'lark',
         'arsenal @ git+https://github.com/timvieira/arsenal',
-        'hfppl @ git+https://github.com/probcomp/hfppl'
+        'hfppl @ git+https://github.com/probcomp/hfppl',
+        "jsons",  # for spider benchmarking
     ],
     authors = [
         'Tim Vieira',

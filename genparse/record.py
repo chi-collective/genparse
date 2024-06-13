@@ -7,9 +7,16 @@ class SMCRecord(dict):
     For storing and visualizing information about a run of SMC (an ad-hoc trace).
 
     Methods:
-        plot(self):
+        __init__(self):
             Initializes the SMCRecord instance. Accepts any positional and keyword arguments
             that are valid for the built-in dict class.
+        
+        to_df(self, process=True):
+            Transforms record to pandas dataframe. If process==True, adds additional columns that may be useful
+
+        plot_particles_trajectory():
+            Experimental plotting function for whole record
+            Requires `plotly` to be installed.
     """
 
     def __init__(self, *args, **kwargs):
@@ -28,23 +35,24 @@ class SMCRecord(dict):
     def to_df(self, process=True):
         df = pd.DataFrame(self)
         if not process: return df
-        df['token'] = df['context'].apply(lambda r: [ri[-1] if len(ri)>0 else [] for ri in r ])
-        df['surprisal estimate'] = -1 * df['average weight'].diff() # incremental diff in avg weight (biased (over)estimator of marginalizing constant)
+        df['token'] = df['context'].apply(lambda x: [ri[-1] if len(ri)>0 else [] for ri in x])
+        df['change in w'] =  df['average weight'].diff() # incremental diff in avg weight (biased (over)estimator of marginalizing constant)
         return df
     
     def df_for_plotting(self):
         # Process the data for plotting. 
         recs = self.to_df(process=True).explode(['context','weight','resampled as','token']).reset_index(drop=True)
         recs['particle'] = recs.groupby(recs.index // self.n_particles).cumcount()
-        recs['context_string'] = recs['context'].apply(lambda r: ''.join(r[:-1]))
-        recs['exp_average weight'] = recs['average weight'].apply(lambda r: np.exp(r))
-        recs['exp_weight'] = recs['weight'].apply(lambda r: np.exp(r))
+        recs['context_string'] = recs['context'].apply(lambda x: ''.join(x[:-1]))
+        recs['exp_average weight'] = recs['average weight'].apply(lambda x: np.exp(x))
+        recs['exp_weight'] = recs['weight'].apply(lambda x: np.exp(x))
         recs['prop_exp_weight'] = recs['exp_weight'] / recs['exp_average weight']
         return recs
     
     def plot_particles_trajectory(self, opts=dict(), layout_opts=dict()):
         """
         Plot the particles' trajectory.
+        Requires plotly.
         """
 
         import plotly.express as px
@@ -56,21 +64,21 @@ class SMCRecord(dict):
         # pallette = px.colors.cyclical.IceFire
         color_map = {p: pallette[i % len(pallette)] for i, p in enumerate(d_['particle'].unique())}
 
+        # Plot the tokens (text) and weight (node size) for all particles and steps
         fig = px.scatter(
             d_, x="step", y="particle", size='prop_exp_weight', hover_name="token", color='resampled as', text='token',
-            hover_data=["context_string","weight", "resample?"], opacity=0.2,
-            # animation_frame="step",# animation_group='resampled as', 
+            # hover_data=["context_string","weight", "resample?"], 
+            opacity=0.2,
             color_discrete_map=color_map,
-            # range_x=range_x, width=width, height=height,
-            **opts
         )
 
+        # Get resample or no-resample steps, add vline on the resample ones
         resample_steps = d_[d_['resample?'] == True]['step'].unique()
         no_resample_steps = d_[d_['resample?'] == False]['step'].unique()
         for step in resample_steps:
             fig.add_vline(x=step, line_width=4, opacity=0.15, line_color="gray")
 
-        # Add lines to represent resampling
+        # Add lines connecting nodes between steps to represent resampling
         for resampled_as in d_['resampled as'].unique():
             resampled_as_data = d_[d_['resampled as'] == resampled_as]
             
@@ -85,14 +93,14 @@ class SMCRecord(dict):
                     fig.add_trace(go.Scatter(
                         x=[row['step'], row['step']+1], y=[row['particle'], row['particle']], 
                         mode='lines', line=dict(color='gray'), opacity=0.2, name=resampled_as, showlegend=False))
-
-            # for step in steps[:-1]:
-            #     for _, row in resampled_as_data[resampled_as_data['step'] == step].iterrows():
-            #         fig.add_trace(go.Scatter(
-            #             x=[row['step']+1/2, row['step']+1], y=[row['particle'], row['particle']],
-            #             mode='lines', line=dict(color='gray'), opacity=0.2, name=resampled_as, showlegend=False))
+                    
+        # Update layout
         fig.update_traces(textposition='middle right')
-        fig.update_layout(plot_bgcolor="#fff", showlegend=False, margin=dict(l=0, r=0, t=15, b=0), **layout_opts)
-        fig.update_yaxes(showticklabels=False, visible=False)
-
+        fig.update_layout(
+            plot_bgcolor="#fff", 
+            showlegend=False, 
+            margin=dict(l=0, r=0, t=15, b=20),
+            xaxis=dict(showticklabels=True),
+            yaxis=dict(showticklabels=False, visible=False)
+        )
         return fig
