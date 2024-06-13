@@ -244,20 +244,24 @@ class HFPPLSampler:
             verbosity=verbosity
         )
 
+        record = None
         if method == "smc-steer":
             assert not n_beam is None
             if return_record:
                 raise Warning("Record not yet implemented for smc-steer")
             particles = asyncio.run(smc_steer(model, n_particles=n_particles, n_beam=n_beam))
-            record = None
+\
         elif method == "smc-standard":
             if return_record:
                 particles, record = asyncio.run(smc_standard_record(model, n_particles=n_particles, return_record=return_record))
             else:
                 particles = asyncio.run(smc_standard(model, n_particles=n_particles))
-                record = None
+
+        elif method == 'importance-sampling':
+            particles = asyncio.run(importance_sampling(model, n_particles=n_particles))
+
         else:
-            raise ValueError(f"Unknown inference method: {method}. Must be either `smc-steer` or `smc-standard`.")
+            raise ValueError(f"Unknown inference method: {method}.")
 
         return ParticleApproximation(particles), record
 
