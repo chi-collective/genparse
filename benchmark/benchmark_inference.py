@@ -180,7 +180,7 @@ A:"""
 
     import pylab as pl
     pl.title(args)
-    pl.xlabel('|context| (characters)')
+    pl.xlabel('context size (characters)')
     pl.savefig('runtime.pdf')
     print('wrote to runtime.pdf')
     pl.show()
