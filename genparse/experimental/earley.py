@@ -71,6 +71,9 @@ class Earley:
         self.PREDICT(col)
         self._initial_column = col
 
+    def clear_cache(self):
+        self._chart.clear()
+        
     def __call__(self, x):
         N = len(x)
 

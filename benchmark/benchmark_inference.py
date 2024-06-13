@@ -2,6 +2,8 @@ import numpy as np
 import asyncio#, nest_asyncio; nest_asyncio.apply()
 from arsenal import timeit, colors
 
+import pickle
+
 from random import seed
 from torch import manual_seed
 from transformers import set_seed
@@ -51,7 +53,7 @@ elif args.model == 'codellama':
     assert torch.cuda.is_available()
 
     MODEL_ID = "codellama/CodeLlama-7b-Instruct-hf"
-    hfppl_llm = CachedCausalLM.from_pretrained(MODEL_ID, load_in_8bit=True)
+    hfppl_llm = CachedCausalLM.from_pretrained(MODEL_ID, load_in_8bit=False)
     tokenizer = AutoTokenizer.from_pretrained(
         MODEL_ID, use_fast=True, eot_token=None, fill_token=None,
         prefix_token=None, middle_token=None, suffix_token=None,
@@ -61,22 +63,8 @@ else:
     raise ValueError(args.model)
 
 
-prompts = [
-    "Write a SQL query that returns white voters' average age for each state color and sort the results.",
 
-    "Write a SQL query that shows the young republicans.",
-
-    "Write a SQL query that shows the old democrats in Williamsburg.",
-
-    "Write a SQL query that shows the oldest democrat in each red state.",
-
-    "Write a SQL query that shows the average age of red states vs blue states.",
-
-]
-
-def main():
-
-    prompt_template = """
+prompt_template = """
 You have access to a political survey data table named "data", which includes the following columns:
 - "age" (integer)
 - "gender" ("male" or "female"),
@@ -94,25 +82,42 @@ A: SELECT vote, zipcode, age FROM data ORDER BY age ASC </s>
 Q: %s
 A:"""
 
-    grammar = r"""
+grammar = r"""
 
-    start: WS? "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
-    EOS: "</s>"
-    select_expr: STAR | select_list
-    bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
-    bool_expr: var "=" value | var ">" value | var "<" value
-    from_expr: "data"
-    orderby_expr: var_list WS "ASC" | var_list WS "DESC"
-    select_list: select_var ("," WS select_var)*
-    var_list: var ("," WS var)*
-    select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
-    var: "age" | "gender" | "year" | "state_color" | "zipcode" | "vote" | "race_ethnicity"
-    value: NUMBER | "'red'" | "'blue'" | "'white'" | "'black'" | "'latino'" | "'republican'" | "'democrat'" | "'male'" | "'female'"
-    STAR: "*"
-    NUMBER: /\d+/
-    WS: /[ ]/
+start: WS? "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
+EOS: "</s>"
+select_expr: STAR | select_list
+bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
+bool_expr: var "=" value | var ">" value | var "<" value
+from_expr: "data"
+orderby_expr: var_list WS "ASC" | var_list WS "DESC"
+select_list: select_var ("," WS select_var)*
+var_list: var ("," WS var)*
+select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
+var: "age" | "gender" | "year" | "state_color" | "zipcode" | "vote" | "race_ethnicity"
+value: NUMBER | "'red'" | "'blue'" | "'white'" | "'black'" | "'latino'" | "'republican'" | "'democrat'" | "'male'" | "'female'"
+STAR: "*"
+NUMBER: /\d+/
+WS: /[ \n\r\t]+/
 
-    """
+"""
+
+
+prompts = [
+    "Write a SQL query that returns white voters' average age for each state color and sort the results.",
+
+    "Write a SQL query that shows the young republicans.",
+
+    "Write a SQL query that shows the old democrats in Williamsburg.",
+
+    "Write a SQL query that shows the oldest democrat in each red state.",
+
+    "Write a SQL query that shows the average age of red states vs blue states.",
+
+]
+
+def main():
+
 
     character_cfg = LarkStuff(grammar).char_cfg(.99, ignore='[ ]?')
 
@@ -173,7 +178,6 @@ A:"""
                 print(posterior.normalize())
 
     proposal.timer.plot_feature('t')
-    import pickle
     with open('runtime.pkl', 'wb') as f:
         pickle.dump(proposal.timer, f)
     print('wrote to runtime.pkl')

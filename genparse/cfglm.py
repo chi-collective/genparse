@@ -56,6 +56,9 @@ class BoolMaskCFGLM(LM):
     def __call__(self, context):
         assert context[-1] == EOS
         return float(self.model(context) != Boolean.zero)
+    
+    def clear_cache(self):
+        self.model.clear_cache()
 
 
 class EarleyBoolMaskCFGLM(LM):
@@ -75,6 +78,9 @@ class EarleyBoolMaskCFGLM(LM):
     def __call__(self, context):
         assert context[-1] == EOS
         return float(self.model(context) != Boolean.zero)
+
+    def clear_cache(self):
+        self.model.clear_cache()
 
 
 class CFGLM(LM):
@@ -112,6 +118,9 @@ class CFGLM(LM):
     def assert_pcfg(self, verbose=False):
         assert pcfg_check(self.cfg, verbose=verbose)
 
+    def clear_cache(self):
+        self.model.clear_cache()
+
 
 class IncrementalCKY:
 
@@ -128,6 +137,9 @@ class IncrementalCKY:
             r_y_xz[r.body[0]].append(r)
         self.r_y_xz = r_y_xz
 
+    def clear_cache(self):
+        self._chart.clear()
+        
     def __call__(self, x):
         return self.chart(x)[len(x)][0][self.S]
 

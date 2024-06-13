@@ -78,6 +78,9 @@ class LLM(LM):
             lprobs = torch.nn.functional.log_softmax(outputs.logits, dim=-1)
         token_lprobs = torch.gather(lprobs, 2, input_ids.unsqueeze(-1)).squeeze(-1)
         return np.exp(torch.sum(token_lprobs, dim=-1).item())
+    
+    def clear_cache(self):
+        self._cache.clear()
 
     async def next_token_logprobs(self, xs):
         return self.p_next(xs).log()
