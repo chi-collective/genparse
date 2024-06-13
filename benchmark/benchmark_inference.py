@@ -61,6 +61,19 @@ else:
     raise ValueError(args.model)
 
 
+prompts = [
+    "Write a SQL query that returns white voters' average age for each state color and sort the results.",
+
+    "Write a SQL query that shows the young republicans.",
+
+    "Write a SQL query that shows the old democrats in Williamsburg.",
+
+    "Write a SQL query that shows the oldest democrat in each red state.",
+
+    "Write a SQL query that shows the average age of red states vs blue states.",
+
+]
+
 def main():
 
     prompt_template = """
@@ -71,6 +84,7 @@ You have access to a political survey data table named "data", which includes th
 - "state_color" ("blue" or "red")
 - "zipcode" (integer)
 - "vote" ("democrat" or "republican")
+- "registered_party" ("democrat" or "republican")
 - "race_ethnicity" ("white", "black", or "latino").
 
 Q: Write a SQL query that shows individuals' age and gender, for people over 50 years old.
@@ -79,12 +93,6 @@ Q: Write a SQL query that shows individuals' vote and zipcode, ordered from lowe
 A: SELECT vote, zipcode, age FROM data ORDER BY age ASC </s>
 Q: %s
 A:"""
-
-    sql_prompt = "Write a SQL query that returns white voters' average age for each state color and sort the results."
-
-    sql_prompt = "Write a SQL query that shows the young republicans."
-
-    prompt = prompt_template % sql_prompt
 
     grammar = r"""
 
@@ -130,34 +138,39 @@ A:"""
     Particles = []
     for _ in range(args.reps):
 
-        particles, record = sampler.run_inference(
-            prompt=prompt,
-            proposal=proposal,
-            method=args.inference,
-            n_particles=args.particles,
-            max_tokens=args.max_tokens,
-            verbosity=args.verbosity,
-            return_record=True,
-        )
+        for sql_prompt in prompts:
 
-        if args.particles > 1 and record is not None:
-            fig = record.plot_particles_trajectory()
-            fig.write_html("viz.html")
-            print('wrote to viz.html')
+            prompt = prompt_template % sql_prompt
+            print(colors.cyan % colors.line(100))
+            print(colors.cyan % sql_prompt)
 
-        print(colors.yellow % 'character posterior')
-        posterior = Float.chart()
-        for p in particles:
-            posterior[''.join(p.context).strip()] += np.exp(p.weight)
+            particles, record = sampler.run_inference(
+                prompt=prompt,
+                proposal=proposal,
+                method=args.inference,
+                n_particles=args.particles,
+                max_tokens=args.max_tokens,
+                verbosity=args.verbosity,
+                return_record=True,
+            )
 
-        print(posterior.normalize())
+            if args.particles > 1 and record is not None:
+                fig = record.plot_particles_trajectory()
+                fig.write_html("viz.html")
+                print('wrote to viz.html')
 
-        print(colors.yellow % 'token posterior')
-        posterior = Float.chart()
-        for p in particles:
-            posterior[tuple(p.context)] += np.exp(p.weight)
+            print(colors.yellow % 'character posterior')
+            posterior = Float.chart()
+            for p in particles:
+                posterior[''.join(p.context).strip()] += np.exp(p.weight)
+            print(posterior.normalize())
 
-        print(posterior.normalize())
+            if 0:
+                print(colors.yellow % 'token posterior')
+                posterior = Float.chart()
+                for p in particles:
+                    posterior[tuple(p.context)] += np.exp(p.weight)
+                print(posterior.normalize())
 
     proposal.timer.plot_feature('t')
     import pickle
