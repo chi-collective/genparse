@@ -78,7 +78,7 @@ class LLM(LM):
             lprobs = torch.nn.functional.log_softmax(outputs.logits, dim=-1)
         token_lprobs = torch.gather(lprobs, 2, input_ids.unsqueeze(-1)).squeeze(-1)
         return np.exp(torch.sum(token_lprobs, dim=-1).item())
-    
+
     def clear_cache(self):
         self._cache.clear()
 
@@ -146,6 +146,7 @@ class GreedilyTokenizedLLM(LM):
         self._model = AutoModelForCausalLM.from_pretrained(name)
         self.model = LLM(self._model)
         self._decode = decode_tokenizer_vocab(self.tokenizer)
+        self._encode = {x: i for i, x in enumerate(self._decode)}
         super().__init__(V = set(self._decode), eos = self.tokenizer.eos_token)
 
     def __call__(self, xs):
@@ -157,17 +158,8 @@ class GreedilyTokenizedLLM(LM):
         assert isinstance(xs, str)
         tokens = self.tokenizer.encode(xs)
         _p = self.model.p_next(tokens).cpu().numpy()
-        if top is None:
-            top_p = _p.argsort()
-        else:
-            top_p = _p.argsort()[-top:]
-        pp = Float.chart()
-        for i in reversed(top_p):
-            pp[self._decode[i]] = _p[i]
-        if top is None:
-            return pp
-        else:
-            return pp.normalize()
+        assert top is None
+        return LazyProb(_p, self._encode, self._decode)
 
     # TODO: why isn't this inherited from the LM base class?
     def sample(self, ys='', draw=sample_dict, prob=False, verbose=0, max_tokens=np.inf, join=str.__add__):
@@ -216,7 +208,10 @@ class AsyncGreedilyTokenizedLLM(LM):
         self.tokenizer = tokenizer
         self._model = model
         self._model.batch_size = batch_size
+
         self._decode = decode_tokenizer_vocab(self.tokenizer)
+        self._encode = {x: i for i, x in enumerate(self._decode)}
+
         super().__init__(V = set(self._decode), eos = self.tokenizer.eos_token)
 
     @classmethod
@@ -227,7 +222,7 @@ class AsyncGreedilyTokenizedLLM(LM):
             model=CachedCausalLM.from_pretrained(name, load_in_8bit=True),
             batch_size=batch_size
         )
-    
+
     @classmethod
     def from_hf(cls, tokenizer, hf_model, batch_size):
         from hfppl import CachedCausalLM
@@ -250,17 +245,44 @@ class AsyncGreedilyTokenizedLLM(LM):
         _logp = await self._model.next_token_logprobs(tokens)
         _p = np.exp(_logp)
 
-        if top is None:
-            top_p = _p.argsort()
-        else:
-            top_p = _p.argsort()[-top:]
+        assert top is None
+        return LazyProb(_p, self._encode, self._decode)
+
+
+class LazyProb:
+
+    def __init__(self, _p: torch.tensor, encode: dict[str, int], decode: dict[int, str]):
+        self._p = _p
+        self._encode = encode
+        self._decode = decode
+
+    def keys(self):
+        return self._decode
+
+    def values(self):
+        return self._p
+
+    def items(self):
+        return zip(self._decode, self._p)
+
+    def __getitem__(self, token: str) -> float:
+        i = self._encode.get(token)
+        return self._p[i] if i is not None else 0
+
+    def materialize(self, top=None):
+        _p = self._p
+        _decode = self._decode
+
+        top_p = _p.argsort() if top is None else _p.argsort()[-top:]
+
         pp = Float.chart()
         for i in reversed(top_p):
-            pp[self._decode[i]] = _p[i]
-        if top is None:
-            return pp
-        else:
-            return pp.normalize()
+            pp[_decode[i]] = _p[i]
+
+        return pp if top is None else pp.normalize()
+
+    def __repr__(self):
+        return repr(self.materialize())
 
 
 from functools import lru_cache
