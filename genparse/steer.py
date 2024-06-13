@@ -178,9 +178,9 @@ from genparse import EOS
 from hfppl import Model
 
 class HFPPLParticle(Model):
-    """ 
-    Simple HFPPL model (particle). 
-    TODO: Create a proposal interface to make this class reusable. 
+    """
+    Simple HFPPL model (particle).
+    TODO: Create a proposal interface to make this class reusable.
         I think this class should be essentially hidden to the user and only be used by the HFPPLSampler.
     """
     def __init__(self, llm, guide, proposal, prompt, max_tokens, verbosity=0):
@@ -189,7 +189,7 @@ class HFPPLParticle(Model):
         self.guide = guide
         self.prompt = prompt
         self.context = []
-        self.proposal = proposal 
+        self.proposal = proposal
         self.max_tokens = max_tokens
         self.verbosity = verbosity
 
@@ -207,21 +207,22 @@ class HFPPLParticle(Model):
         if token == self.llm.eos or self.max_tokens == 0 or token == EOS:
             self.finish()
             return
-        
+
     def immutable_properties(self):
         return ['llm', 'prompt', 'guide', 'verbosity']
-    
+
     def __repr__(self):
         return f"`{'' if not self.context else self.context[-1]}` : {''.join(self.context)} : {self.weight}"
 
     def __str__(self):
         return ''.join(self.context)
 
+
 class HFPPLSampler:
     def __init__(self, llm, guide):
-        """ 
+        """
         Args:
-            llm (AsyncGreedilyTokenizedLLM) 
+            llm (AsyncGreedilyTokenizedLLM)
             guide (LM)
         Returns:
             particle_approximation (ParticleApproximation)
@@ -235,11 +236,11 @@ class HFPPLSampler:
         verbosity=0, return_record=False
     ):
         model = HFPPLParticle(
-            llm=self.llm, 
-            guide=self.guide, 
-            prompt=prompt, 
-            proposal=proposal, 
-            max_tokens=max_tokens, 
+            llm=self.llm,
+            guide=self.guide,
+            prompt=prompt,
+            proposal=proposal,
+            max_tokens=max_tokens,
             verbosity=verbosity
         )
 
@@ -267,6 +268,9 @@ class ParticleApproximation:
         self.log_weights = [p.weight for p in self.particles]
         self.log_ml = logsumexp(self.log_weights) - np.log(len(self.log_weights))
         self._compute_posterior()
+
+    def __iter__(self):
+        return iter(self.particles)
 
     def _compute_posterior(self):
         self.posterior = Float.chart()
