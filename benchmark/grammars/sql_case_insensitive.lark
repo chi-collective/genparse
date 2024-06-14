@@ -30,14 +30,14 @@
 //OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-start: set_expr -> final
+start: set_expr
 
 set_expr: query_expr
-        | set_expr "UNION"i ["DISTINCT"i] set_expr -> union_distinct
-        | set_expr "UNION"i "ALL"i set_expr -> union_all
-        | set_expr "INTERSECT"i ["DISTINCT"i] set_expr -> intersect_distinct
-        | set_expr "EXCEPT"i ["DISTINCT"i] set_expr -> except_distinct
-        | set_expr "EXCEPT"i "ALL"i set_expr -> except_all
+        | set_expr set_op set_expr
+        | set_expr set_op set_op_case set_expr
+
+set_op: "UNION"i | "INTERSECT"i | "EXCEPT"i
+set_op_case: "ALL"i | "DISTINCT"i
 
 query_expr: select [ "ORDER"i "BY"i (order_by_expr ",")*  order_by_expr] [ "LIMIT"i limit_count [ "OFFSET"i skip_rows ] ]
 
@@ -61,7 +61,7 @@ from_item: name [ [ "AS"i ] alias ] -> table
             | join -> join
             | cross_join -> cross_join_expression
             | subquery
-subquery: ( "(" (query_expr | join | cross_join) ")" ) [ [ "AS"i ] alias ]
+subquery: ( "(" (set_expr | join | cross_join) ")" ) [ [ "AS"i ] alias ]
 
 cross_join: from_item "CROSS"i "JOIN"i from_item
 join: from_item JOIN_EXPR from_item [ "ON"i bool_expression ] -> join_expression
