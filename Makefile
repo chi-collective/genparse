@@ -30,11 +30,17 @@ endif
 format : env
 	@$(ACTIVATE); black .
 
-## test      : run testing pipeline.
+## docs      : generate documentation with pdoc.
+.PHONY : docs
+docs : env html/docs/index.html
+html/docs/index.html : $(NAME)/*.py
+	@$(ACTIVATE); pdoc $(NAME) -o $(@D)
+
+## test      : run linting and tests.
 .PHONY : test
 test: black pylint pytest
 black : env
-	@$(ACTIVATE); # black --check .
+	@$(ACTIVATE); black --check .
 pylint : env html/pylint/index.html
 pytest : env html/coverage/index.html
 html/pylint/index.html : html/pylint/index.json

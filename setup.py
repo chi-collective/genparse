@@ -21,6 +21,7 @@ requirements = [
 test_requirements = [
     "black[jupyter]",
     "coverage",
+    "pdoc",
     'pylint',
     "pylint-exit",
     "pylint-json2html",
