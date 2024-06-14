@@ -251,11 +251,16 @@ def test_case_insensitive_expansion():
     assert expand_case_insensitive("(?i:(?i:(?i:AND)))(?i:(?i:AND))(?i:AND)")=="[aA][nN][dD][aA][nN][dD][aA][nN][dD]"
     assert expand_case_insensitive("(?i:(?i:(?i:AND)|(?i:OR)))")=="[aA][nN][dD]|[oO][rR]"
 
+    assert expand_case_insensitive("(?i:(AND|OR))")=="([aA][nN][dD]|[oO][rR])"
+    assert expand_case_insensitive("(?i:AND|(?i:OR))")=="[aA][nN][dD]|[oO][rR]"
+
     assert expand_case_insensitive("(?i:[a-z][A-Z][a-zA-z])")=="[a-zA-Z][a-zA-Z][a-zA-Z]"
     assert expand_case_insensitive("[a-z](?i:a[a-z]z)[a-z]")=="[a-z][aA][a-zA-Z][zZ][a-z]"
 
+    assert expand_case_insensitive("(?i:\d\s\d)")=="\d\s\d"
+
     sql_example_input = '(?:(?:(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))(?:(?:[ \t\x0c\r\n])+(?i:OUTER))?|(?i:INNER)|(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))|(?i:(?:(?i:OUTER))?))(?:[ \t\x0c\r\n])+)?(?i:JOIN)[ ]?'
-    sql_example_output = '(?:(?:(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])(?:(?:[ \t\x0c\r\n])+[oO][uU][tT][eE][rR])?|[iI][nN][nN][eE][rR]|(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])|(?:[oO][uU][tT][eE][rR]?))(?:[ \t\x0c\r\n])+)?[jJ][oO][iI][nN][ ]?'
+    sql_example_output = '(?:(?:(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])(?:(?:[ \t\x0c\r\n])+[oO][uU][tT][eE][rR])?|[iI][nN][nN][eE][rR]|(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])|(?:[oO][uU][tT][eE][rR])?)(?:[ \t\x0c\r\n])+)?[jJ][oO][iI][nN][ ]?'
     assert expand_case_insensitive(sql_example_input)==sql_example_output
 
 if __name__ == '__main__':
