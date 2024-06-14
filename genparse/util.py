@@ -235,40 +235,58 @@ def expand_case_insensitive(r):
     In python re syntax, these compile to `(?i:.*)`
     This function desugars the latter into a format supported by greenery.
     """
-    import re
-    
-    def safe_expand(m):
-        """only expand alphabetic characters that have not yet been expanded"""
-        expand=""; last=""; ptr=0
-        while True:
-            if ptr<len(m):
-                c=m[ptr]
-                if c.isalpha():
-                    if last=="[":
-                        if ptr+2<len(m):
-                            if m[ptr+1]+m[ptr+2]==c.upper()+"]": expand+=c+m[ptr+1]; ptr+=1;
-                            else: expand+=f"[{c.lower()}{c.upper()}]"
-                        else: expand+=f"[{c.lower()}{c.upper()}]"
-                    else: expand+=f"[{c.lower()}{c.upper()}]"
-                else: expand+=c
-                last=c; ptr+=1
-            else: break
-        return expand
-
-    pattern = r"\(\?i\:([^\)]*)\)"
+    end=len(r)
+    last3=("","","")
+    state=0
+    count=0
+    depth=0
+    ptr=0
+    out=""
+    fix_sugar = any(_ in r for _ in ("[a-z]","[A-Z]","[a-zA-Z]"))
     while True:
-        matches = set(re.findall(pattern, r))
-        if not matches:
-            return r
-        for m in matches:
-            fix_sugar=False
-            if any(x in m for x in ("[a-z]","[A-Z]","[a-zA-Z]")):
-                fix_sugar=True
-            m=m.split("(?i:")[-1]
-            r=r.replace(f"(?i:{m})",safe_expand(m))
+        if ptr==end:
             if fix_sugar:
-                r=r.replace("[[aA]-[zZ]]","[a-zA-Z]")
-                r=r.replace("[[aA]-[zZ][aA]-[zZ]]","[a-zA-Z]")
+                out=out.replace("[[aA]-[zZ]]","[a-zA-Z]").replace("[[aA]-[zZ][aA]-[zZ]]","[a-zA-Z]")
+            return out
+        c=r[ptr]
+        if state==0:
+            if c==":" and "".join(last3)=="(?i":
+                out=out[:-3]
+                state=1
+                count=1
+            else:
+                out+=c
+        elif state==1:
+            if c.isalpha():
+                if last3[2]=="\\":
+                    out+=c
+                else:
+                    out+=f"[{c.lower()}{c.upper()}]"
+            elif c==":" and "".join(last3)=="(?i":
+                out=out[:-6]
+                depth+=1
+            elif c=="]":
+                if "".join(last3)==f"[{last3[1].lower()}{last3[1].upper()}":
+                    out = out[:-8]+out[-7:-4]
+                else:
+                    out+=c
+            elif c=="(":
+                count+=1
+                out+=c
+            elif c==")":
+                count-=1
+                if count==0:
+                    state=0
+                elif count==depth:
+                    depth-=1
+                else:
+                    out+=c
+            else:
+                out+=c
+        else:
+            raise ValueError("invalid state")
+        last3=(last3[1],last3[2],c)
+        ptr+=1
 
 def regex_to_greenery(regex, ignore = ''):
     """
