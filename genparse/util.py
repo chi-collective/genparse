@@ -249,7 +249,7 @@ def expand_case_insensitive(r):
             else: out+=c
         elif state==1:
             if c.isalpha():
-                if last3[2]=="\\": out+=c
+                if last3[2]=="\\" and last3[1]!="\\": out+=c
                 else: out+=f"[{c.lower()}{c.upper()}]"
             elif c==":" and "".join(last3)=="(?i": out=out[:-6]; depth+=1
             elif c=="]":
