@@ -44,7 +44,7 @@ class TokenCharacterTrie:
         self.children = children
         self.mass = np.zeros(len(children))
         self.word2leaf = word2leaf
-        self.jump = [tuple(sorted(x.values())) for x in children]
+        self.jump = [list(sorted(x.values())) for x in children]
         self.ordering = list(self._order(self.root))
 
     def _update_trie(self, words):
@@ -53,7 +53,7 @@ class TokenCharacterTrie:
 
     def _update_leaves(self, words):
         # update leaves
-        mass = self.mass; jump = self.jump
+        mass = self.mass
         for word, leaf in self.word2leaf.items():
             mass[leaf] = words[word]
         # convert llm.eos to guide.eos

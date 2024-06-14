@@ -15,6 +15,17 @@ from genparse import Float
 #____________________________________________________________________________________
 #
 
+import random, numpy as np, torch, transformers
+def set_seed(seed):
+    random.seed(seed)
+    torch.manual_seed(seed)
+    transformers.set_seed(seed)
+    np.random.seed(seed)
+
+#____________________________________________________________________________________
+#
+
+
 class BruteForceGlobalProductOfExperts:
 
     def __init__(self, lm1, lm2, MAX_LENGTH):
@@ -233,8 +244,12 @@ class HFPPLSampler:
 
     def run_inference(
         self, prompt, proposal, method, n_particles, n_beam=None, max_tokens=float('inf'),
-        verbosity=0, return_record=False
+        verbosity=0, return_record=False, seed=None,
     ):
+
+        if seed is not None:        
+            set_seed(seed)
+
         model = HFPPLParticle(
             llm=self.llm,
             guide=self.guide,
@@ -250,7 +265,7 @@ class HFPPLSampler:
             if return_record:
                 raise Warning("Record not yet implemented for smc-steer")
             particles = asyncio.run(smc_steer(model, n_particles=n_particles, n_beam=n_beam))
-\
+
         elif method == "smc-standard":
             if return_record:
                 particles, record = asyncio.run(smc_standard_record(model, n_particles=n_particles, return_record=return_record))
