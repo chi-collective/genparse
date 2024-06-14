@@ -11,6 +11,7 @@ output
 venv
 .coverage
 htmlcov
+html
 dist/*
 profile.html
 profile.json
