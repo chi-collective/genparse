@@ -233,60 +233,37 @@ def expand_case_insensitive(r):
     """
     Lark accepts case-insensitive terminals of the form `".*"i`
     In python re syntax, these compile to `(?i:.*)`
-    This function desugars the latter into a format supported by greenery.
+    This function desugars the latter into a format supported by greenery,
+    Supporting arbitrary nesting of case insensitive contexts,
+    And does so in a single O(len(r)) scan.
     """
-    end=len(r)
-    last3=("","","")
-    state=0
-    count=0
-    depth=0
-    ptr=0
-    out=""
+    end=len(r); last3=("","",""); state=0; count=0; depth=0; ptr=0; out=""
     fix_sugar = any(_ in r for _ in ("[a-z]","[A-Z]","[a-zA-Z]"))
     while True:
         if ptr==end:
-            if fix_sugar:
-                out=out.replace("[[aA]-[zZ]]","[a-zA-Z]").replace("[[aA]-[zZ][aA]-[zZ]]","[a-zA-Z]")
+            if fix_sugar: out=out.replace("[[aA]-[zZ]]","[a-zA-Z]").replace("[[aA]-[zZ][aA]-[zZ]]","[a-zA-Z]")
             return out
         c=r[ptr]
         if state==0:
-            if c==":" and "".join(last3)=="(?i":
-                out=out[:-3]
-                state=1
-                count=1
-            else:
-                out+=c
+            if c==":" and "".join(last3)=="(?i": out=out[:-3]; state=1; count=1
+            else: out+=c
         elif state==1:
             if c.isalpha():
-                if last3[2]=="\\":
-                    out+=c
-                else:
-                    out+=f"[{c.lower()}{c.upper()}]"
-            elif c==":" and "".join(last3)=="(?i":
-                out=out[:-6]
-                depth+=1
+                if last3[2]=="\\": out+=c
+                else: out+=f"[{c.lower()}{c.upper()}]"
+            elif c==":" and "".join(last3)=="(?i": out=out[:-6]; depth+=1
             elif c=="]":
-                if "".join(last3)==f"[{last3[1].lower()}{last3[1].upper()}":
-                    out = out[:-8]+out[-7:-4]
-                else:
-                    out+=c
-            elif c=="(":
-                count+=1
-                out+=c
+                if "".join(last3)==f"[{last3[1].lower()}{last3[1].upper()}": out = out[:-8]+out[-7:-4]
+                else: out+=c
+            elif c=="(": count+=1; out+=c
             elif c==")":
                 count-=1
-                if count==0:
-                    state=0
-                elif count==depth:
-                    depth-=1
-                else:
-                    out+=c
-            else:
-                out+=c
-        else:
-            raise ValueError("invalid state")
-        last3=(last3[1],last3[2],c)
-        ptr+=1
+                if count==0: state=0
+                elif count==depth: depth-=1
+                else: out+=c
+            else: out+=c
+        else: raise ValueError("invalid state")
+        last3=(last3[1],last3[2],c); ptr+=1
 
 def regex_to_greenery(regex, ignore = ''):
     """
