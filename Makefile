@@ -19,8 +19,7 @@ update :
 .PHONY : env
 env : $(NAME).egg-info/
 $(NAME).egg-info/ : setup.py
-	@$(INSTALL) -e ".[test]"
-	pre-commit install
+	@$(INSTALL) -e ".[test]" && pre-commit install
 
 ## format    : format code style.
 .PHONY : format
@@ -42,5 +41,4 @@ pytest : env html/coverage/index.html
 html/coverage/index.html : html/pytest/report.html
 	@coverage html -d $(@D)
 html/pytest/report.html : $(NAME)/*.py tests/*.py
-	@coverage run --branch -m \
-	pytest --html=$@ --self-contained-html
+	@coverage run --branch -m pytest --html=$@ --self-contained-html

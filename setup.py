@@ -25,6 +25,7 @@ test_requirements = [
     'pdoc',
     'pre-commit',
     'pytest',
+    'pytest-html',
     'ruff',
 ]
 
