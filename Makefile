@@ -20,6 +20,7 @@ update :
 env : $(NAME).egg-info/
 $(NAME).egg-info/ : setup.py
 	@$(INSTALL) -e ".[test]"
+	pre-commit install
 
 ## format    : format code style.
 .PHONY : format

@@ -23,6 +23,7 @@ requirements = [
 test_requirements = [
     'coverage',
     'pdoc',
+    'pre-commit',
     'pytest',
     'ruff',
 ]
