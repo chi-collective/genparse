@@ -24,7 +24,7 @@ class TokenCharacterTrie:
         root = 0
         children = [{}]
 
-        for word in words:
+        for word in sorted(words):
 
             # coerce old eos to new eos
             if word == self.old_eos:
@@ -47,6 +47,33 @@ class TokenCharacterTrie:
         self.word2leaf = word2leaf
         self.jump = [list(sorted(x.values())) for x in children]
         self.ordering = list(self._order(self.root))
+
+    def rename(self, f):
+        N = len(self.mass)
+
+        new_root = f(self.root)
+        new_children = [{} for _ in range(N)]
+        new_mass = np.zeros(N)
+
+        nodes = range(N)
+
+        for x in nodes:
+            new_mass[f(x)] = self.mass[x]
+            for letter, y in self.children[x].items():
+                new_children[f(x)][letter] = f(y)
+
+        new_jump = [None for _ in range(N)]
+        for x in nodes:
+            new_jump[f(x)] = tuple(sorted(f(y) for y in self.jump[x]))
+
+        new_word2leaf = {w: f(x) for w, x in self.word2leaf.items()}
+        new_ordering = [f(x) for x in self.ordering]
+
+        self.root = new_root
+        self.jump = new_jump
+        self.children = new_children
+        self.word2leaf = new_word2leaf
+        self.ordering = new_ordering
 
     def _update_trie(self, words):
         self._update_leaves(words)
@@ -77,4 +104,10 @@ class TokenCharacterTrie:
                 pass
             else:
                 yield from self._order(self.children[node][a])
+        yield node
+
+    def _order_full(self, node):
+        "Topological ordering of nodes beneath `node`."
+        for a in self.children[node]:
+            yield from self._order_full(self.children[node][a])
         yield node

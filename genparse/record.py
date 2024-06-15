@@ -64,126 +64,13 @@ class SMCRecord(dict):
         recs["prop_exp_weight"] = recs["exp_weight"] / recs["exp_average weight"]
         return recs
 
-    def plotly1(self, xrange=None):
-
-        import plotly.express as px
-        import plotly.graph_objects as go
-
-        d_ = self.df_for_plotting()
-        if xrange:
-            d_ = d_[(d_["step"] > xrange[0]) & (d_["step"] <= xrange[1])]
-
-        # Define color palette
-        pallette = px.colors.n_colors(
-            "rgb(255, 0, 0)",
-            "rgb(0, 125, 255)",
-            len(d_["particle"].unique()),
-            colortype="rgb",
-        )
-        color_map = {
-            p: pallette[i % len(pallette)]
-            for i, p in enumerate(d_["particle"].unique())
-        }
-
-        # Initialize the figure
-        fig = go.Figure()
-
-        # Add scatter plot points
-        for resampled_as in d_["resampled as"].unique():
-            resampled_as_data = d_[d_["resampled as"] == resampled_as]
-            fig.add_trace(
-                go.Scatter(
-                    x=resampled_as_data["step"],
-                    y=resampled_as_data["particle"],
-                    mode="markers+text",
-                    marker=dict(
-                        size=np.sqrt(resampled_as_data["prop_exp_weight"] * 200),
-                        color=color_map[resampled_as],
-                        opacity=0.15,
-                    ),
-                    text=resampled_as_data["token"],
-                    hoverinfo="text",
-                    hovertext=resampled_as_data.apply(
-                        lambda row: (
-                            f"Token:    {'`<b>'+row['token']+'</b>`' if row['token'] else ''}<br>"
-                            + f"Context:  {row['context_string']}<br>"
-                            + f"Step {row['step']}; Avg weight = {row['average weight']:4f}<br>"
-                            + f"Particle {row['particle']}; Weight = {row['weight']:4f}<br>"
-                            + f"{'        ↳ resampled as particle '+str(row['resampled as']) if row['resample?'] else ''}"
-                        ),
-                        axis=1,
-                    ),
-                    showlegend=False,
-                )
-            )
-
-        # Get resample or no-resample steps, add vline on the resample ones
-        resample_steps = d_[d_["resample?"] == True]["step"].unique()
-        for step in resample_steps:
-            fig.add_vline(x=step, line_width=4, opacity=0.15, line_color="gray")
-
-        # Add lines connecting nodes between steps to represent resampling
-        for resampled_as in d_["resampled as"].unique():
-            resampled_as_data = d_[d_["resampled as"] == resampled_as]
-            for step in resample_steps:
-                for _, row in resampled_as_data[
-                    resampled_as_data["step"] == step
-                ].iterrows():
-                    fig.add_trace(
-                        go.Scatter(
-                            x=[row["step"], row["step"] + 1],
-                            y=[row["resampled as"], row["particle"]],
-                            mode="lines",
-                            line=dict(color=color_map[resampled_as]),
-                            opacity=0.3,
-                            name=resampled_as,
-                            showlegend=False,
-                        )
-                    )
-
-            for step in d_["step"].unique():
-                for _, row in resampled_as_data[
-                    resampled_as_data["step"] == step
-                ].iterrows():
-                    fig.add_trace(
-                        go.Scatter(
-                            x=[row["step"], row["step"] + 1],
-                            y=[row["particle"], row["particle"]],
-                            mode="lines",
-                            line=dict(color="gray"),
-                            opacity=0.15,
-                            name=resampled_as,
-                            showlegend=False,
-                        )
-                    )
-
-        # Update layout to include range slider
-
-        # fig.update_traces(textposition='middle right')
-        fig.update_layout(
-            plot_bgcolor="#fff",
-            showlegend=False,
-            margin=dict(l=0, r=0, t=15, b=0),
-            xaxis=dict(
-                # rangeslider=dict(
-                #     visible=True,
-                #     thickness=0.05,
-                #     range=[d_['step'].min(), d_['step'].max()]  # Set initial range
-                # )
-            ),
-            yaxis=dict(showticklabels=False, visible=False),
-        )
-
-        return fig
-
-    def plotly2(self, xrange=None, height=None, width=None):
+    def plotly(self, show_est_logprob=False, xrange=None, height=None, width=None):
 
         import plotly.express as px
         import plotly.graph_objects as go
         from plotly.subplots import make_subplots
 
         d_ = self.df_for_plotting()
-        fullrange = [d_["step"].min(), 100]
         if xrange:
             d_ = d_[(d_["step"] > xrange[0]) & (d_["step"] <= xrange[1])]
 
@@ -201,9 +88,9 @@ class SMCRecord(dict):
 
         # Initialize the figure
         fig = make_subplots(
-            rows=2,
+            rows=2 if show_est_logprob else 1,
             cols=1,
-            row_heights=[0.8, 0.2],
+            row_heights=[0.8, 0.2] if show_est_logprob else None,
             shared_xaxes=True,
             vertical_spacing=0.1,
             subplot_titles=("particles", "est. logprob (change in average weight)"),
@@ -235,20 +122,13 @@ class SMCRecord(dict):
                         axis=1,
                     ),
                     showlegend=False,
-                ),
-                row=1,
-                col=1,
+                )
             )
-
-        # Get resample or no-resample steps, add vline on the resample ones
-        resample_steps = d_[d_["resample?"] == True]["step"].unique()
-        for step in resample_steps:
-            fig.add_vline(x=step, line_width=4, opacity=0.15, line_color="gray")
 
         # Add lines connecting nodes between steps to represent resampling
         for resampled_as in d_["resampled as"].unique():
             resampled_as_data = d_[d_["resampled as"] == resampled_as]
-            for step in resample_steps:
+            for step in d_["step"].unique():
                 for _, row in resampled_as_data[
                     resampled_as_data["step"] == step
                 ].iterrows():
@@ -258,44 +138,31 @@ class SMCRecord(dict):
                             y=[row["resampled as"], row["particle"]],
                             mode="lines",
                             line=dict(color=color_map[resampled_as]),
-                            opacity=0.3,
+                            opacity=0.2,
                             name=resampled_as,
                             showlegend=False,
-                        ),
-                        row=1,
-                        col=1,
+                        )
                     )
 
-            for step in d_["step"].unique():
-                for _, row in resampled_as_data[
-                    resampled_as_data["step"] == step
-                ].iterrows():
-                    fig.add_trace(
-                        go.Scatter(
-                            x=[row["step"], row["step"] + 1],
-                            y=[row["particle"], row["particle"]],
-                            mode="lines",
-                            line=dict(color="gray"),
-                            opacity=0.15,
-                            name=resampled_as,
-                            showlegend=False,
-                        ),
-                        row=1,
-                        col=1,
-                    )
+        if show_est_logprob:
+            fig.append_trace(
+                go.Scatter(
+                    x=d_["step"],
+                    y=d_["change in w"],
+                    line=dict(color="green"),
+                    mode="lines+markers",
+                    hoverinfo="text",
+                    hovertext=d_.apply(lambda row: row["change in w"], axis=1),
+                ),
+                row=2,
+                col=1,
+            )
 
-        fig.append_trace(
-            go.Scatter(
-                x=d_["step"],
-                y=d_["change in w"],
-                line=dict(color="green"),
-                mode="lines+markers",
-                hoverinfo="text",
-                hovertext=d_.apply(lambda row: row["change in w"], axis=1),
-            ),
-            row=2,
-            col=1,
-        )
+            # # Get resample or no-resample steps, add vline on the resample ones
+            for step in d_[d_["resample?"]]["step"].unique():
+                fig.add_vline(
+                    x=step, line_width=4, opacity=0.15, line_color="gray", row=2
+                )
 
         # Update layout to include range slider
 
@@ -303,10 +170,9 @@ class SMCRecord(dict):
         fig.update_layout(
             plot_bgcolor="#fff",
             showlegend=False,
-            margin=dict(l=40, r=40, t=40, b=40),
+            margin=dict(l=10, r=10, t=40, b=10),
             height=height,
             width=width,
-            xaxis_range=fullrange,
             # xaxis=dict(
             #     rangeslider=dict(
             #         visible=True,
