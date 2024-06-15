@@ -13,10 +13,8 @@ context-free grammars with large language models.
 
 This library supports an automated build using [GNU Make](https://www.gnu.org/software/make/).
 
-Requirements: [Conda](https://docs.anaconda.com/free/miniconda/)
-
 ```bash
-make env # set up env and install dependencies
+make env # install dependencies in current env
 ```
 
 ```bash
