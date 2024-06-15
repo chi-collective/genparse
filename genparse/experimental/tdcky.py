@@ -18,9 +18,7 @@ from genparse.semiring import Float
 
 
 class ExactTensorDecomp:
-
     def __init__(self, cfg):
-
         cfg = cfg.cnf.renumber()
         (nullary, terminal, binary) = cfg._cnf
 
@@ -91,7 +89,6 @@ class ExactTensorDecomp:
             )
 
     def extend_chart(self, xs, by):
-
         K = len(xs)
         x = self.x
         y = self.y
@@ -191,7 +188,6 @@ class ExactTensorDecomp:
                 D_b_K[I][X] += z[R, X] * D_bz_K[I][R]
 
         for w in self.cfg.V:
-
             # for X in range(NT):
             #    for R in range(Rank):
             #        by_K[I][R] += y[R,X] * b_K[I][X]
@@ -204,7 +200,6 @@ class ExactTensorDecomp:
 
 
 def test_cky():
-
     cfg = CFG.from_string(
         """
     1: S ->  A B
@@ -240,25 +235,24 @@ def test_cky():
 
     all_ok = True
     for x in sorted(L, key=lambda x: (-L[x], x))[:20]:
-
-        with TIMER["td"]:
+        with TIMER['td']:
             have = decomp(x)
 
-        with TIMER["ordinary"]:
+        with TIMER['ordinary']:
             want = cfg(x)
 
         err = Float.metric(have, want)
         ok = err <= 1e-4
         all_ok &= ok
         if ok:
-            print(colors.mark(ok), repr("⋅".join(x)), want)
+            print(colors.mark(ok), repr('⋅'.join(x)), want)
         else:
             print(
                 colors.mark(ok),
-                repr("⋅".join(x)),
+                repr('⋅'.join(x)),
                 colors.red % have,
                 want,
-                "error",
+                'error',
                 err,
             )
     assert all_ok, [err, have, want]
@@ -267,7 +261,6 @@ def test_cky():
 
 
 def test_new_papa():
-
     from genparse import CFGLM
 
     cfg = add_EOS(genparse.examples.papa)
@@ -278,13 +271,13 @@ def test_new_papa():
 
     for prefix in [
         (),
-        ("papa",),
-        ("papa", "ate"),
-        ("papa", "ate", "the"),
-        ("papa", "ate", "the", "caviar"),
+        ('papa',),
+        ('papa', 'ate'),
+        ('papa', 'ate', 'the'),
+        ('papa', 'ate', 'the', 'caviar'),
     ]:
         print()
-        print(colors.light.blue % repr(" ".join(prefix)))
+        print(colors.light.blue % repr(' '.join(prefix)))
 
         (_, by) = decomp.chart(prefix)
         have = decomp.next_token_weights(by, prefix)
@@ -296,7 +289,7 @@ def test_new_papa():
         assert have.metric(want) <= 1e-5
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from arsenal import testing_framework
 
     testing_framework(globals())

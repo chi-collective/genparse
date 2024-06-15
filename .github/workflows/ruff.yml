@@ -1,4 +1,4 @@
-name:                  Black
+name:                  Linter
 
 on:
   push:
@@ -17,5 +17,5 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name:          run style checks
-        run:           make black
+      - name:          run linter
+        run:           make ruff

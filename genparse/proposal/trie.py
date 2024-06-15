@@ -2,20 +2,18 @@ import numpy as np
 
 
 class TokenCharacterTrie:
-
     __slots__ = (
-        "root",
-        "children",
-        "mass",
-        "word2leaf",
-        "jump",
-        "ordering",
-        "old_eos",
-        "new_eos",
+        'root',
+        'children',
+        'mass',
+        'word2leaf',
+        'jump',
+        'ordering',
+        'old_eos',
+        'new_eos',
     )
 
     def __init__(self, words, old_eos, new_eos):
-
         self.old_eos = old_eos
         self.new_eos = new_eos
 
@@ -25,7 +23,6 @@ class TokenCharacterTrie:
         children = [{}]
 
         for word in sorted(words):
-
             # coerce old eos to new eos
             if word == self.old_eos:
                 word = self.new_eos

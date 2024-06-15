@@ -23,7 +23,6 @@ from genparse.wfsa.base import WFSA
 
 
 def test_det():
-
     precision = 5
 
     # TODO: this is a quantized real class (see hash and equality methods)
@@ -60,28 +59,28 @@ def test_det():
     Real.zero = Real(0)
     Real.one = Real(1)
 
-    a = WFSA.lift("a", Real(3))
-    b = WFSA.lift("b", Real(5))
-    c = WFSA.lift("c", Real(7))
+    a = WFSA.lift('a', Real(3))
+    b = WFSA.lift('b', Real(5))
+    c = WFSA.lift('c', Real(7))
 
-    assert (a * b).determinize("ab") == Real(15)
-    assert (a * b).determinize("") == Real(0)
+    assert (a * b).determinize('ab') == Real(15)
+    assert (a * b).determinize('') == Real(0)
 
-    assert (a * b + a * c)("ab") == Real(15)
-    assert (a * b + a * c).push("ab") == Real(15)
-    assert (a * b + a * c).epsremove("ab") == Real(15)
+    assert (a * b + a * c)('ab') == Real(15)
+    assert (a * b + a * c).push('ab') == Real(15)
+    assert (a * b + a * c).epsremove('ab') == Real(15)
 
     D = (a * b + a * c).determinize
     print(D)
-    assert D("ab") == Real(15)
+    assert D('ab') == Real(15)
 
     M = (a * b + a * c).min_det
     print(M)
-    assert M("ab") == Real(15)
+    assert M('ab') == Real(15)
     print(M)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from arsenal import testing_framework
 
     testing_framework(globals())

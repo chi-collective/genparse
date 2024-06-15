@@ -8,7 +8,6 @@ from genparse.lm import LM
 
 
 class EarleyLM(LM):
-
     def __init__(self, cfg):
         if EOS not in cfg.V:
             cfg = add_EOS(cfg)
@@ -24,7 +23,7 @@ class EarleyLM(LM):
 
 
 class Column:
-    __slots__ = ("k", "chart", "waiting_for", "Q", "very_close_terminal", "rescale")
+    __slots__ = ('k', 'chart', 'waiting_for', 'Q', 'very_close_terminal', 'rescale')
 
     def __init__(self, k, chart):
         self.k = k
@@ -48,10 +47,9 @@ class Earley:
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
-    __slots__ = ("cfg", "order", "_chart", "CLOSE", "V", "eos", "_initial_column")
+    __slots__ = ('cfg', 'order', '_chart', 'CLOSE', 'V', 'eos', '_initial_column')
 
     def __init__(self, cfg):
-
         cfg = cfg.nullaryremove(binarize=True).unarycycleremove().renumber()
         self.cfg = cfg
 
@@ -125,7 +123,6 @@ class Earley:
         return np.log(cols[N].chart[0, self.cfg.S]) - self.log_rescale(cols, 0, N)
 
     def next_column(self, prev_cols, token):
-
         next_col = Column(prev_cols[-1].k + 1, self.cfg.R.chart())
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
@@ -262,7 +259,6 @@ class Earley:
 
             # already_popped = set()
             while xxx:
-
                 X = xxx.pop()
 
                 # assert X not in already_popped
@@ -275,7 +271,6 @@ class Earley:
                 close_IX = CLOSE[I, X]
 
                 for J in sorted(close_IX):  # TODO: more efficient to maintain sorted?
-
                     if J >= N:
                         break
 
@@ -284,7 +279,6 @@ class Earley:
                     yyy = tmp_J_Y[J]
                     pushed = False
                     for Y in close_IX[J]:
-
                         # if self.cfg.is_terminal(Y): continue
                         # assert self.cfg.is_nonterminal(Y)
 

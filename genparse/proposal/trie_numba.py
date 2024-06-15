@@ -5,21 +5,19 @@ import numpy as np
 
 
 class TokenCharacterTrie:
-
     __slots__ = (
-        "root",
-        "children",
-        "mass",
-        "word2leaf",
-        "jump",
-        "ordering",
-        "old_eos",
-        "new_eos",
-        "token_id_to_leaf",
+        'root',
+        'children',
+        'mass',
+        'word2leaf',
+        'jump',
+        'ordering',
+        'old_eos',
+        'new_eos',
+        'token_id_to_leaf',
     )
 
     def __init__(self, words, encode, old_eos, new_eos):
-
         self.old_eos = old_eos
         self.new_eos = new_eos
 
@@ -31,7 +29,6 @@ class TokenCharacterTrie:
         token_id_to_leaf = []
 
         for word in words:
-
             # coerce old eos to new eos
             _word = word
             if word == self.old_eos:
@@ -55,9 +52,7 @@ class TokenCharacterTrie:
         self.children = children
         self.mass = np.zeros(len(children), dtype=np.float64)
         self.word2leaf = word2leaf
-        self.jump = List(
-            [np.array(sorted(x.values()), dtype=np.int32) for x in children]
-        )
+        self.jump = List([np.array(sorted(x.values()), dtype=np.int32) for x in children])
         self.ordering = np.array(list(self._order(self.root)), np.int32)
 
         # Renumber the states of the trie so that they are named by a contiguous
@@ -135,7 +130,6 @@ def _update_trie_numba(
     token_id_to_leaf: numba.int32[:, :],
     ordering: numba.int32[:],
 ):
-
     # update leaves
     M = token_id_to_leaf.shape[0]
     for k in range(M):

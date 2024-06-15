@@ -3,23 +3,23 @@ from transformers import AutoTokenizer
 from genparse.tokenization import decode_tokenizer_vocab
 
 CASES = [
-    "state",
-    " state",
-    " SELECT state",
-    "\n",
-    "\t",
-    ".",
-    ":",
-    "+=",
+    'state',
+    ' state',
+    ' SELECT state',
+    '\n',
+    '\t',
+    '.',
+    ':',
+    '+=',
     'SELECT * FROM AIRPORTS WHERE city  =  "Anthony"	flight_2',
-    " SELECT count(*)  FROM FLIGHTS  AS T1 JOIN AIRPORTS AS T2  ON T1.DestAirport",
-    "  SELECT Name   FROM country WHERE IndepYear  >  1950	world_1  ",
+    ' SELECT count(*)  FROM FLIGHTS  AS T1 JOIN AIRPORTS AS T2  ON T1.DestAirport',
+    '  SELECT Name   FROM country WHERE IndepYear  >  1950	world_1  ',
 ]
 
 
 def test_codellama():
     tokenizer = AutoTokenizer.from_pretrained(
-        "codellama/CodeLlama-7b-Instruct-hf",
+        'codellama/CodeLlama-7b-Instruct-hf',
         use_fast=True,
         prefix_token=None,
         middle_token=None,
@@ -36,7 +36,7 @@ def test_codellama():
 
     for case in CASES:
         encd = tokenizer.encode(case)
-        have = "".join([decoded[i] for i in encd])
+        have = ''.join([decoded[i] for i in encd])
         want = tokenizer.decode(encd)
         assert want == have, [want, have, case]
 
@@ -46,7 +46,7 @@ def test_codellama():
 
 def test_gpt2():
     tokenizer = AutoTokenizer.from_pretrained(
-        "gpt2",
+        'gpt2',
         use_fast=True,
         prefix_token=None,
         middle_token=None,
@@ -63,14 +63,14 @@ def test_gpt2():
 
     for case in CASES:
         encd = tokenizer.encode(case)
-        have = "".join([decoded[i] for i in encd])
+        have = ''.join([decoded[i] for i in encd])
         want = tokenizer.decode(encd)
         assert want == have, [want, have, case]
 
 
 def test_t5():
     tokenizer = AutoTokenizer.from_pretrained(
-        "google-t5/t5-small",
+        'google-t5/t5-small',
         use_fast=True,
         prefix_token=None,
         middle_token=None,
@@ -92,13 +92,13 @@ def test_t5():
 
     for case in CASES:
         encd = tokenizer.encode(case)
-        have = "".join([decoded[i] for i in encd])
+        have = ''.join([decoded[i] for i in encd])
         want = tokenizer.decode(encd)
-        have = have[1:] if have.startswith(" ") else have
+        have = have[1:] if have.startswith(' ') else have
         assert want == have, [want, have, case]
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from arsenal import testing_framework
 
     testing_framework(globals())

@@ -6,12 +6,11 @@ from genparse.semiring import Boolean
 from genparse.wfsa import EPSILON, WFSA
 
 ε = EPSILON
-ε_1 = f"{EPSILON}₁"
-ε_2 = f"{EPSILON}₂"
+ε_1 = f'{EPSILON}₁'
+ε_2 = f'{EPSILON}₂'
 
 
 class FST(WFSA):
-
     def __init__(self, R):
         super().__init__(R=R)
 
@@ -148,15 +147,12 @@ class FST(WFSA):
             )  # rename epsilons on th left
 
     def _compose(self, other, coarsen=True):
-
         if coarsen and FST.PRUNING is not None:
             keep = FST.PRUNING(self, other)
             result = self._pruned_compose(other, keep, keep.keep_arc)
 
         else:
-            result = self._pruned_compose(
-                other, lambda x: True, lambda i, label, j: True
-            )
+            result = self._pruned_compose(other, lambda x: True, lambda i, label, j: True)
 
         return result
 

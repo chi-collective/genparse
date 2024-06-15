@@ -44,7 +44,6 @@ def next_token_weights_slow(cfg, prefix):
 
 
 def test_new_abcdx():
-
     cfg = add_EOS(
         CFG.from_string(
             """
@@ -60,7 +59,7 @@ def test_new_abcdx():
         )
     )
 
-    for prefix in ["", "a", "ab", "abc", "abcd", "acbde"]:
+    for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
         print()
         print(colors.light.blue % prefix)
         want = next_token_weights_slow(cfg, prefix)[1]
@@ -73,10 +72,9 @@ def test_new_abcdx():
 
 
 def test_new_palindrome():
-
     cfg = add_EOS(genparse.examples.palindrome_ab)
 
-    for prefix in ["", "a", "ab"]:
+    for prefix in ['', 'a', 'ab']:
         print()
         print(colors.light.blue % prefix)
         want = next_token_weights_slow(cfg, prefix)[1]
@@ -89,15 +87,14 @@ def test_new_palindrome():
 
 
 def test_new_papa():
-
     cfg = add_EOS(genparse.examples.papa)
 
     for prefix in [
         [],
-        ["papa"],
-        ["papa", "ate"],
-        ["papa", "ate", "the"],
-        ["papa", "ate", "the", "caviar"],
+        ['papa'],
+        ['papa', 'ate'],
+        ['papa', 'ate', 'the'],
+        ['papa', 'ate', 'the', 'caviar'],
     ]:
         print()
         print(colors.light.blue % prefix)
@@ -115,7 +112,7 @@ def test_sample():
     print(sample)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from arsenal import testing_framework
 
     testing_framework(globals())

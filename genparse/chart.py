@@ -4,7 +4,6 @@ from genparse.util import format_table
 
 
 class Chart(dict):
-
     def __init__(self, semiring, vals=()):
         self.semiring = semiring
         super().__init__(vals)
@@ -56,26 +55,25 @@ class Chart(dict):
     def _repr_html_(self):
         return (
             '<div style="font-family: Monospace;">'
-            + format_table(self.trim().items(), headings=["key", "value"])
-            + "</div>"
+            + format_table(self.trim().items(), headings=['key', 'value'])
+            + '</div>'
         )
 
     def __repr__(self):
         return repr({k: v for k, v in self.items() if v != self.semiring.zero})
 
     def __str__(self, style_value=lambda k, v: str(v)):
-
         def key(k):
             return -self.semiring.metric(self[k], self.semiring.zero)
 
         return (
-            "Chart {\n"
-            + "\n".join(
-                f"  {k!r}: {style_value(k, self[k])},"
+            'Chart {\n'
+            + '\n'.join(
+                f'  {k!r}: {style_value(k, self[k])},'
                 for k in sorted(self, key=key)
                 if self[k] != self.semiring.zero
             )
-            + "\n}"
+            + '\n}'
         )
 
     def assert_equal(self, want, *, domain=None, tol=1e-5, verbose=False, throw=True):
@@ -95,7 +93,7 @@ class Chart(dict):
                 errors.append(x)
         if throw:
             for x in errors:
-                raise AssertionError(f"{x}: {self[x]} {want[x]}")
+                raise AssertionError(f'{x}: {self[x]} {want[x]}')
 
     def argmax(self):
         return max(self, key=self.__getitem__)
@@ -104,9 +102,7 @@ class Chart(dict):
         return min(self, key=self.__getitem__)
 
     def top(self, k):
-        return {
-            k: self[k] for k in sorted(self, key=self.__getitem__, reverse=True)[:k]
-        }
+        return {k: self[k] for k in sorted(self, key=self.__getitem__, reverse=True)[:k]}
 
     def max(self):
         return max(self.values())

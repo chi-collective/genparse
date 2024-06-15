@@ -8,9 +8,9 @@ def test_misc():
     one = WFSA.one
     zero = WFSA.zero
 
-    a = WFSA.lift("a", 1)
-    b = WFSA.lift("b", 1)
-    c = WFSA.lift("c", 1)
+    a = WFSA.lift('a', 1)
+    b = WFSA.lift('b', 1)
+    c = WFSA.lift('c', 1)
 
     M = one + a + a * b + a * b * c
 
@@ -19,20 +19,19 @@ def test_misc():
 
 
 def test_min():
-
     one = WFSA.one
     zero = WFSA.zero
 
-    a = WFSA.lift("a", 1)
-    b = WFSA.lift("b", 1)
-    c = WFSA.lift("c", 1)
+    a = WFSA.lift('a', 1)
+    b = WFSA.lift('b', 1)
+    c = WFSA.lift('c', 1)
 
-    print(colors.yellow % "Example 1")
+    print(colors.yellow % 'Example 1')
     M = one + a + a * b + a * b * c
     m = M.min
     assert m.dim == 4, m.dim
 
-    print(colors.yellow % "Example 2")
+    print(colors.yellow % 'Example 2')
     z = zero
     for x1 in [a, b]:
         for x2 in [a, b]:
@@ -40,10 +39,10 @@ def test_min():
                 z += x1 * x2 * x3
     assert z.min.dim == 4
 
-    print(colors.yellow % "Example 3")
+    print(colors.yellow % 'Example 3')
     assert ((a + b) * (a + b) * (a + b)).min.dim == 4
 
-    print(colors.yellow % "Example 4")
+    print(colors.yellow % 'Example 4')
     M = (one + a * a.star()) * b
     m = M.min
     # print(m)
@@ -84,16 +83,15 @@ def compare_language(have, want, alphabet, length):
 
 
 def test_equivalence():
-
-    a = WFSA.lift("a", 1)
-    b = WFSA.lift("b", 1)
-    c = WFSA.lift("c", 1)
+    a = WFSA.lift('a', 1)
+    b = WFSA.lift('b', 1)
+    c = WFSA.lift('c', 1)
 
     one = WFSA.one
 
     # ___________________________________________________________________________
     #
-    print(colors.yellow % "Example 0")
+    print(colors.yellow % 'Example 0')
     A = a.star()
     B = a.star()
 
@@ -101,15 +99,15 @@ def test_equivalence():
     # print('counterexample?', w)
     assert w is None
 
-    assert np.allclose(A("a"), 1)
-    assert np.allclose(A("a"), 1)
+    assert np.allclose(A('a'), 1)
+    assert np.allclose(A('a'), 1)
 
-    assert np.allclose(A("b"), 0)
-    assert np.allclose(B("b"), 0)
+    assert np.allclose(A('b'), 0)
+    assert np.allclose(B('b'), 0)
 
     # ___________________________________________________________________________
     #
-    print(colors.yellow % "Example 1")
+    print(colors.yellow % 'Example 1')
     A = a * (b + c)
     B = a * b + a * c
 
@@ -117,14 +115,14 @@ def test_equivalence():
     # print('counterexample?', w)
     assert w is None
 
-    assert np.allclose(A("ab"), 1), A("ab")
-    assert np.allclose(A("ac"), 1)
-    assert np.allclose(A("ab"), 1)
-    assert np.allclose(B("ac"), 1)
+    assert np.allclose(A('ab'), 1), A('ab')
+    assert np.allclose(A('ac'), 1)
+    assert np.allclose(A('ab'), 1)
+    assert np.allclose(B('ac'), 1)
 
     # ___________________________________________________________________________
     #
-    print(colors.yellow % "Example 2")
+    print(colors.yellow % 'Example 2')
     A = a * (b + c + c)
     B = a * b + a * c
 
@@ -134,7 +132,7 @@ def test_equivalence():
 
     # ___________________________________________________________________________
     #
-    print(colors.yellow % "Example 3")
+    print(colors.yellow % 'Example 3')
     A = a * (b + c + c)
     B = a * b + a * c + a * c
 
@@ -144,7 +142,7 @@ def test_equivalence():
 
     # ___________________________________________________________________________
     #
-    print(colors.yellow % "Example 4")
+    print(colors.yellow % 'Example 4')
     A = a * b.star() * c.star()
     B = a * (one + b * b.star()) * c.star()
 
@@ -154,7 +152,7 @@ def test_equivalence():
 
     # ___________________________________________________________________________
     #
-    print(colors.yellow % "Example 5")
+    print(colors.yellow % 'Example 5')
     A = a.star()
     B = one + a * a.star()
 
@@ -164,7 +162,7 @@ def test_equivalence():
 
     # ___________________________________________________________________________
     #
-    print(colors.yellow % "Example 6")
+    print(colors.yellow % 'Example 6')
 
     A = (one + a * a.star()) * b
     B = a.star() * b
@@ -176,7 +174,7 @@ def test_equivalence():
 
     # ___________________________________________________________________________
     #
-    print(colors.yellow % "Example 7")
+    print(colors.yellow % 'Example 7')
     A = (a * b).star()
     B = one + a * (b * a).star() * b
 
@@ -186,10 +184,10 @@ def test_equivalence():
 
     # ___________________________________________________________________________
     #
-    print(colors.yellow % "Example 8")
-    a = WFSA.lift("a", 0.1)
-    b = WFSA.lift("b", 0.2)
-    c = WFSA.lift("c", 0.3)
+    print(colors.yellow % 'Example 8')
+    a = WFSA.lift('a', 0.1)
+    b = WFSA.lift('b', 0.2)
+    c = WFSA.lift('c', 0.3)
 
     A = (a + b).star()
     B = (a.star() * b).star() * a.star()
@@ -199,7 +197,7 @@ def test_equivalence():
     assert w is None
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from arsenal import testing_framework
 
     testing_framework(globals())

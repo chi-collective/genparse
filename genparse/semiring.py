@@ -6,8 +6,7 @@ from genparse.chart import Chart
 
 
 class Semiring:
-
-    __slots__ = ("score",)
+    __slots__ = ('score',)
 
     def __init__(self, score):
         self.score = score
@@ -37,7 +36,7 @@ class Semiring:
     #        return float(self.score)
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.score})"
+        return f'{self.__class__.__name__}({self.score})'
 
     def __eq__(self, other):
         return isinstance(other, Semiring) and self.score == other.score
@@ -55,7 +54,6 @@ class Semiring:
 
 
 class Entropy(Semiring):
-
     def __init__(self, p, r):
         super().__init__((p, r))
 
@@ -106,7 +104,6 @@ Entropy.one = Entropy(1.0, 0.0)
 
 
 class Boolean(Semiring):
-
     def __init__(self, x):
         super().__init__(bool(x))
 
@@ -126,15 +123,15 @@ class Boolean(Semiring):
             return Boolean.zero
 
     def __repr__(self):
-        return f"{self.score}"
+        return f'{self.score}'
 
     @classmethod
     def from_string(cls, x):
         x = x.strip()
-        if x in {"True", "true", "1", "1.0"}:
+        if x in {'True', 'true', '1', '1.0'}:
             return Boolean.one
         else:
-            assert x in {"False", "false", "0", "0.0"}, x
+            assert x in {'False', 'false', '0', '0.0'}, x
             return Boolean.zero
 
 
@@ -143,7 +140,6 @@ Boolean.one = Boolean(True)
 
 
 class MaxPlus(Semiring):
-
     def star(self):
         return self.one
 
@@ -162,7 +158,6 @@ MaxPlus.one = MaxPlus(0.0)
 
 
 class MaxTimes(Semiring):
-
     def star(self):
         return self.one
 
@@ -247,7 +242,6 @@ class D256:
 
 
 class Real(Semiring):
-
     def star(self):
         return Real(1 / (1 - self.score))
 
@@ -261,7 +255,7 @@ class Real(Semiring):
         return Real(self.score * other.score)
 
     def __repr__(self):
-        return f"{self.score}"
+        return f'{self.score}'
 
 
 Real.zero = Real(0)
@@ -269,7 +263,6 @@ Real.one = Real(1)
 
 
 class Log(Semiring):
-
     def metric(self, other):
         return abs(self.score - other.score)
 

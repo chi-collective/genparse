@@ -15,23 +15,23 @@ def get_tokenizer_mapping(tokenizer):
     """
     name = tokenizer.__class__.__name__.lower()
     if (
-        "gpt2" in name
-        or "bloom" in name
-        or "pretrainedtokenizer" in name
-        or "codegen" in name
-        or "gptneox" in name
+        'gpt2' in name
+        or 'bloom' in name
+        or 'pretrainedtokenizer' in name
+        or 'codegen' in name
+        or 'gptneox' in name
     ):
         return BBPEMapping(tokenizer)
-    elif "codellama" in name:
+    elif 'codellama' in name:
         return BPEMapping(tokenizer)
-    elif "t5" in name:
+    elif 't5' in name:
         return BPEMapping(tokenizer)
-    elif "llama" in name:
+    elif 'llama' in name:
         return LlamaBPEMapping(tokenizer)
-    elif "xglm" in name:
+    elif 'xglm' in name:
         return UniGramMapping(tokenizer)
     else:
-        raise ValueError(f"Unknown tokenizer type: {tokenizer.__class__.__name__}")
+        raise ValueError(f'Unknown tokenizer type: {tokenizer.__class__.__name__}')
 
 
 def decode_tokenizer_vocab(tokenizer):
@@ -39,7 +39,7 @@ def decode_tokenizer_vocab(tokenizer):
 
     # `mapping` maps ids in `all_special_ids` to the null string, so we convert those using HF.
     # TODO: change this
-    return [mapping.map(i).decode("utf-8") for i in range(tokenizer.vocab_size)]
+    return [mapping.map(i).decode('utf-8') for i in range(tokenizer.vocab_size)]
 
 
 ###### The following code was taken directly from https://github.com/epfl-dlab/transformers-CFG/blob/main/transformers_cfg/tokenization/mapping.py
@@ -58,7 +58,7 @@ class Mapping:
 
     def _map(self, token_id: int) -> str:
         # if token_id is tensor, convert it to int
-        if hasattr(token_id, "item"):
+        if hasattr(token_id, 'item'):
             token_id = token_id.item()
         raw_token = self.tokenizer.convert_ids_to_tokens(token_id)
         return raw_token
@@ -66,8 +66,8 @@ class Mapping:
     def map(self, token_id: int, verbose=False) -> bytes:
         token = self._map(token_id)
         if verbose:
-            log.debug(f"token_id: {token_id}, token: {token}")
-        return bytes(token, "utf-8")
+            log.debug(f'token_id: {token_id}, token: {token}')
+        return bytes(token, 'utf-8')
 
 
 class BBPEMapping(Mapping):
@@ -76,12 +76,12 @@ class BBPEMapping(Mapping):
 
     def _map(self, token_id: int) -> str:
         raw_token = super()._map(token_id)
-        if raw_token.startswith("Ġ"):
-            raw_token = raw_token.replace("Ġ", " ")
-        if raw_token.startswith("Ċ"):
-            raw_token = raw_token.replace("Ċ", "\n")
-        if raw_token.startswith("ĉ"):
-            raw_token = raw_token.replace("ĉ", "\t")
+        if raw_token.startswith('Ġ'):
+            raw_token = raw_token.replace('Ġ', ' ')
+        if raw_token.startswith('Ċ'):
+            raw_token = raw_token.replace('Ċ', '\n')
+        if raw_token.startswith('ĉ'):
+            raw_token = raw_token.replace('ĉ', '\t')
         return raw_token
 
 
@@ -101,12 +101,12 @@ class UnicodeBBPEMapping(Mapping):
     def map(self, token_id: int, verbose=False) -> bytes:
         raw_token = self._map(token_id, verbose)
         if verbose:
-            log.debug(f"token_id: {token_id}, raw_token: {raw_token}")
+            log.debug(f'token_id: {token_id}, raw_token: {raw_token}')
         return self.intermediate_encoding.token2bytes(raw_token)
 
     @staticmethod
     def get_intermediate_encoding(tokenizer):
-        if "gpt2" in tokenizer.__class__.__name__.lower():
+        if 'gpt2' in tokenizer.__class__.__name__.lower():
             return ByteEncoding(tokenizer)
         else:
             return None
@@ -126,11 +126,11 @@ class BPEMapping(Mapping):
         if self.last_token_id is not None and self.last_token_id == self.bos_token_id:
             at_bos = True
         self.last_token_id = token_id
-        if raw_token.startswith("<0x"):
+        if raw_token.startswith('<0x'):
             hex_value = raw_token[4:-1]
             raw_token = chr(int(hex_value, 16))
-        if raw_token.startswith("▁"):
-            raw_token = raw_token.replace("▁", " ")
+        if raw_token.startswith('▁'):
+            raw_token = raw_token.replace('▁', ' ')
             if at_bos:
                 # remove space at the beginning of the sentence
                 raw_token = raw_token[1:]
@@ -145,7 +145,7 @@ class LlamaBPEMapping(BPEMapping):
         raw_token = super()._map(token_id)
         # if the token is hex, token is a string like "<0x00>"
         # first 256 tokens are hex
-        if raw_token.startswith("<0x"):
+        if raw_token.startswith('<0x'):
             hex_value = raw_token[4:-1]
             raw_token = chr(int(hex_value, 16))
         return raw_token
@@ -160,7 +160,7 @@ class WordPieceMapping(Mapping):
             return bytes()
         return bytes(
             self.tokenizer.decode([token_id], clean_up_tokenization_spaces=False),
-            "utf-8",
+            'utf-8',
         )
 
 
@@ -173,7 +173,7 @@ class UniGramMapping(Mapping):
             return bytes()
         return bytes(
             self.tokenizer.decode([token_id], clean_up_tokenization_spaces=False),
-            "utf-8",
+            'utf-8',
         )
 
 
@@ -199,7 +199,7 @@ class ByteEncoding:
         self.byte2cdp: Dict[int, int] = {v: k for k, v in self.cdp2byte.items()}
 
     def map(self, byte: int) -> int:
-        assert 0 <= byte < 256, f"byte: {byte} is not in the range [0, 256)"
+        assert 0 <= byte < 256, f'byte: {byte} is not in the range [0, 256)'
         return ord(self.byte2char[byte])
 
     def token_ids2bytes(self, token_ids: List[int]) -> bytes:
@@ -207,7 +207,7 @@ class ByteEncoding:
         # for token id = BOS, the token should be empty string instead of <s>
         # TODO, this may cause issues because this means that special tokens like BOS can appear at any position
         tokens = [
-            "" if token in self.tokenizer.all_special_ids else token for token in tokens
+            '' if token in self.tokenizer.all_special_ids else token for token in tokens
         ]
         bytes: List[List[int]] = [self.token2bytes(token) for token in tokens]
         # join the bytes

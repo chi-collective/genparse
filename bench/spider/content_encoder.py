@@ -2,16 +2,16 @@
 # Licensed under the MIT License.
 
 """
- Copyright (c) 2020, salesforce.com, inc.
- All rights reserved.
- SPDX-License-Identifier: BSD-3-Clause
- For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
- Encode DB content.
+Copyright (c) 2020, salesforce.com, inc.
+All rights reserved.
+SPDX-License-Identifier: BSD-3-Clause
+For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+Encode DB content.
 
- Adapted from:
- https://github.com/ElementAI/picard/blob/5ddd6cb9f74efca87d4604d5ddddc1b638459466/seq2seq/utils/bridge_content_encoder.py
- which is adapted from:
- https://github.com/salesforce/TabularSemanticParsing/blob/0b094d329a5f0b5c038a820117ba4b6e7b6215cc/src/common/content_encoder.py
+Adapted from:
+https://github.com/ElementAI/picard/blob/5ddd6cb9f74efca87d4604d5ddddc1b638459466/seq2seq/utils/bridge_content_encoder.py
+which is adapted from:
+https://github.com/salesforce/TabularSemanticParsing/blob/0b094d329a5f0b5c038a820117ba4b6e7b6215cc/src/common/content_encoder.py
 """
 
 import difflib
@@ -39,12 +39,12 @@ _stopwords = {'who', 'ourselves', 'down', 'only', 'were', 'him', 'at', "weren't"
               'then', 'did', 'just', "aren't"}
 # fmt: on
 
-_commonwords = {"no", "yes", "many"}
+_commonwords = {'no', 'yes', 'many'}
 
 
 def is_number(s: str) -> bool:
     try:
-        float(s.replace(",", ""))
+        float(s.replace(',', ''))
         return True
     except:
         return False
@@ -59,7 +59,7 @@ def is_commonword(s: str) -> bool:
 
 
 def is_common_db_term(s: str) -> bool:
-    return s.strip() in ["id"]
+    return s.strip() in ['id']
 
 
 class Match:
@@ -69,7 +69,7 @@ class Match:
 
 
 def is_span_separator(c: str) -> bool:
-    return c in "'\"()`,.?! "
+    return c in '\'"()`,.?! '
 
 
 def split(s: str) -> List[str]:
@@ -146,7 +146,9 @@ def get_matched_entries(
         match = sm.find_longest_match(0, len(n_grams), 0, len(fv_tokens))
         if match.size > 0:
             source_match = get_effective_match_source(
-                n_grams, match.a, match.a + match.size  # type: ignore
+                n_grams,
+                match.a,
+                match.a + match.size,  # type: ignore
             )
             if source_match and source_match.size > 1:
                 match_str = field_value[match.b : match.b + match.size]
@@ -206,7 +208,7 @@ def get_matched_entries(
 
 @functools.lru_cache(maxsize=1000, typed=False)
 def get_column_picklist(table_name: str, column_name: str, db_path: str) -> list:
-    fetch_sql = "SELECT DISTINCT `{}` FROM `{}`".format(column_name, table_name)
+    fetch_sql = 'SELECT DISTINCT `{}` FROM `{}`'.format(column_name, table_name)
     try:
         conn = sqlite3.connect(db_path)
         conn.text_factory = bytes
@@ -215,12 +217,12 @@ def get_column_picklist(table_name: str, column_name: str, db_path: str) -> list
         picklist = set()
         for x in c.fetchall():
             if isinstance(x[0], str):
-                picklist.add(x[0].encode("utf-8"))
+                picklist.add(x[0].encode('utf-8'))
             elif isinstance(x[0], bytes):
                 try:
-                    picklist.add(x[0].decode("utf-8"))
+                    picklist.add(x[0].decode('utf-8'))
                 except UnicodeDecodeError:
-                    picklist.add(x[0].decode("latin-1"))
+                    picklist.add(x[0].decode('latin-1'))
             else:
                 picklist.add(x[0])
         picklist = list(picklist)
@@ -254,9 +256,9 @@ def get_database_matches(
                 _match_str,
                 (field_value, _s_match_str, match_score, s_match_score, _match_size),
             ) in matched_entries:
-                if "name" in column_name and match_score * s_match_score < 1:
+                if 'name' in column_name and match_score * s_match_score < 1:
                     continue
-                if table_name != "sqlite_sequence":  # Spider database artifact
+                if table_name != 'sqlite_sequence':  # Spider database artifact
                     matches.append(field_value)
                     num_values_inserted += 1
                     if num_values_inserted >= top_k_matches:

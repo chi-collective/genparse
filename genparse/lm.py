@@ -47,7 +47,7 @@ class LM:
                 if y == self.eos:
                     print()
                 else:
-                    print(y, end="")
+                    print(y, end='')
             if y == self.eos:
                 return (ys, P) if prob else ys
             ys = ys + (y,)
@@ -59,10 +59,9 @@ class LLM(LM):
     """
 
     def __init__(self, model):
-
         if torch.cuda.is_available():
-            print("GPU is available")
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            print('GPU is available')
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model.to(self.device)
 
         self.model = model
@@ -156,7 +155,6 @@ class NoCacheLLM(LM):
 
 
 class GreedilyTokenizedLLM(LM):
-
     def __init__(self, name):
         self.tokenizer = AutoTokenizer.from_pretrained(name)
         self._model = AutoModelForCausalLM.from_pretrained(name)
@@ -180,7 +178,7 @@ class GreedilyTokenizedLLM(LM):
     # TODO: why isn't this inherited from the LM base class?
     def sample(
         self,
-        ys="",
+        ys='',
         draw=sample_dict,
         prob=False,
         verbose=0,
@@ -198,7 +196,7 @@ class GreedilyTokenizedLLM(LM):
                 if y == self.eos:
                     print()
                 else:
-                    print(y, end="")
+                    print(y, end='')
             if y == self.eos:
                 return (ys, P) if prob else ys
             ys = join(ys, y)
@@ -269,7 +267,7 @@ class AsyncGreedilyTokenizedLLM(LM):
         tokens = self.tokenizer.encode(xs)
 
         _logp = await self._model.next_token_logprobs(tokens)
-        _logp = _logp.cpu().numpy() if hasattr(_logp, "cpu") else _logp
+        _logp = _logp.cpu().numpy() if hasattr(_logp, 'cpu') else _logp
         _p = np.exp(_logp.cpu().numpy())
 
         assert top is None
@@ -277,10 +275,7 @@ class AsyncGreedilyTokenizedLLM(LM):
 
 
 class LazyProb:
-
-    def __init__(
-        self, _p: torch.tensor, encode: dict[str, int], decode: dict[int, str]
-    ):
+    def __init__(self, _p: torch.tensor, encode: dict[str, int], decode: dict[int, str]):
         self._p = _p
         self._encode = encode
         self._decode = decode

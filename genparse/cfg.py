@@ -13,23 +13,22 @@ from genparse.semiring import Boolean
 from genparse.wfsa import EPSILON
 
 
-def _gen_nt(prefix=""):
+def _gen_nt(prefix=''):
     _gen_nt.i += 1
-    return f"{prefix}@{_gen_nt.i}"
+    return f'{prefix}@{_gen_nt.i}'
 
 
 _gen_nt.i = 0
 
 
-Other = namedtuple("Other", "x")
+Other = namedtuple('Other', 'x')
 
-NotNull = namedtuple("NotNull", "x")
+NotNull = namedtuple('NotNull', 'x')
 
-Slash = namedtuple("Slash", "Y, Z, i")
+Slash = namedtuple('Slash', 'Y, Z, i')
 
 
 class Rule:
-
     def __init__(self, w, head, body):
         self.w = w
         self.head = head
@@ -53,7 +52,6 @@ class Rule:
 
 
 class Derivation:
-
     def __init__(self, r, x, *ys):
         assert isinstance(r, Rule) or r is None
         self.r = r
@@ -67,10 +65,10 @@ class Derivation:
         return (self.r, self.x, self.ys) == (other.r, other.x, other.ys)
 
     def __repr__(self):
-        open_p = colors.dark.white % "("
-        close_p = colors.dark.white % ")"
-        children = " ".join(str(y) for y in self.ys)
-        return f"{open_p}{self.x} {children}{close_p}"
+        open_p = colors.dark.white % '('
+        close_p = colors.dark.white % ')'
+        children = ' '.join(str(y) for y in self.ys)
+        return f'{open_p}{self.x} {children}{close_p}'
 
     def weight(self):
         "Compute this weight this `Derivation`."
@@ -97,8 +95,7 @@ class Derivation:
 
 
 class CFG:
-
-    def __init__(self, R: "semiring", S: "start symbol", V: "terminal vocabulary"):  # type: ignore
+    def __init__(self, R: 'semiring', S: 'start symbol', V: 'terminal vocabulary'):  # type: ignore
         self.R = R  # semiring
         self.V = V  # alphabet
         self.N = {S}  # nonterminals
@@ -107,7 +104,7 @@ class CFG:
         self._trim_cache = [None, None]
 
     def __repr__(self):
-        return "Grammar {\n%s\n}" % "\n".join(f"  {r}" for r in self)
+        return 'Grammar {\n%s\n}' % '\n'.join(f'  {r}' for r in self)
 
     def _repr_html_(self):
         return f'<pre style="width: fit-content; text-align: left; border: thin solid black; padding: 0.5em;">{self}</pre>'
@@ -117,19 +114,19 @@ class CFG:
         cls,
         string,
         semiring,
-        comment="#",
-        start="S",
+        comment='#',
+        start='S',
         is_terminal=lambda x: not x[0].isupper(),
     ):
         V = set()
         cfg = cls(R=semiring, S=start, V=V)
-        string = string.replace("->", "→")  # synonym for the arrow
-        for line in string.split("\n"):
+        string = string.replace('->', '→')  # synonym for the arrow
+        for line in string.split('\n'):
             line = line.strip()
             if not line or line.startswith(comment):
                 continue
             try:
-                [(w, lhs, rhs)] = re.findall(r"(.*):\s*(\S+)\s*→\s*(.*)$", line)
+                [(w, lhs, rhs)] = re.findall(r'(.*):\s*(\S+)\s*→\s*(.*)$', line)
                 lhs = lhs.strip()
                 rhs = rhs.strip().split()
                 for x in rhs:
@@ -137,7 +134,7 @@ class CFG:
                         V.add(x)
                 cfg.add(semiring.from_string(w), lhs, *rhs)
             except ValueError:
-                raise ValueError(f"bad input line:\n{line}")  # pylint: disable=W0707
+                raise ValueError(f'bad input line:\n{line}')  # pylint: disable=W0707
         return cfg
 
     def __getitem__(self, root):
@@ -263,7 +260,7 @@ class CFG:
                 )
         assert not throw or Counter(self.rules) == Counter(
             other.rules
-        ), f"\n\nhave=\n{str(self)}\nwant=\n{str(other)}"
+        ), f'\n\nhave=\n{str(self)}\nwant=\n{str(other)}'
 
     def treesum(self, **kwargs):
         return self.agenda(**kwargs)[self.S]
@@ -389,7 +386,7 @@ class CFG:
     def unarycycleremove(self, trim=True):
         "Return an equivalent grammar with no unary cycles."
 
-        bot = lambda x: x if x in acyclic else (x, "bot")
+        bot = lambda x: x if x in acyclic else (x, 'bot')
 
         G = self._unary_graph()
 
@@ -406,7 +403,6 @@ class CFG:
 
         # run Lehmann's on each cylical SCC
         for nodes, W in G.Blocks:
-
             if len(nodes) == 1:
                 [X] = nodes
                 if X in acyclic:
@@ -487,7 +483,6 @@ class CFG:
         rcfg.add(null_weight[self.S], self.S)
 
         for r in self:
-
             if len(r.body) == 0:
                 continue  # drop nullary rule
 
@@ -563,7 +558,6 @@ class CFG:
         return new
 
     def _fold(self, p, I):
-
         # new productions
         P, heads = [], []
         for i, j in I:
@@ -592,7 +586,7 @@ class CFG:
             .unaryremove()
             .trim()
         )
-        assert new.in_cnf(), "\n".join(
+        assert new.in_cnf(), '\n'.join(
             str(r) for r in new._find_invalid_cnf_rule()
         )  # pragma: no cover
         return new
@@ -718,7 +712,6 @@ class CFG:
                 continue
 
             for r, k in routing[u]:
-
                 W = r.w
                 for j in range(len(r.body)):
                     if u == r.body[j]:
@@ -738,7 +731,6 @@ class CFG:
         return old
 
     def naive_bottom_up(self, *, tol=1e-12, timeout=100_000):
-
         def _approx_equal(U, V):
             return all((self.R.metric(U[X], V[X]) <= tol) for X in self.N)
 
@@ -856,7 +848,6 @@ class CFG:
 
             # No pending items ==> the item is complete
             if not Ys:
-
                 if j in C[i, X]:
                     continue
                 C[i, X].add(j)
@@ -872,7 +863,6 @@ class CFG:
 
             # Still have pending items ==> advanced the pending items
             else:
-
                 if (i, X, Ys) in I[j, Ys[0]]:
                     continue
                 I[j, Ys[0]].add((i, X, Ys))

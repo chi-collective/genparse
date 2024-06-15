@@ -6,12 +6,11 @@ from IPython.display import HTML, display
 
 
 class hf_tokenizer:
-
-    def __init__(self, name="gpt2", **kwargs):
+    def __init__(self, name='gpt2', **kwargs):
         from transformers import AutoTokenizer
 
-        if name == "codellama":
-            name = "codellama/CodeLlama-7b-Instruct-hf"
+        if name == 'codellama':
+            name = 'codellama/CodeLlama-7b-Instruct-hf'
             _kwargs = dict(
                 use_fast=True,
                 prefix_token=None,
@@ -29,7 +28,7 @@ class hf_tokenizer:
 
         # tokenizer.convert_ids_to_tokens
         self.decode = [
-            self.tokenizer.convert_ids_to_tokens(i).replace("Ġ", " ")
+            self.tokenizer.convert_ids_to_tokens(i).replace('Ġ', ' ')
             for i in range(self.tokenizer.vocab_size)
         ]
 
@@ -61,10 +60,9 @@ def bpe2term_approx(tokenizer, bpe_sequence):
     # approximate the transducer using a single canonical path;
     # UPDATE: the unpruned answer should match this - it's the uncertainty over bpe that's tricky
     c = tuple(
-        ([b], tokenizer.convert_ids_to_tokens(b).replace("Ġ", " "))
-        for b in bpe_sequence
+        ([b], tokenizer.convert_ids_to_tokens(b).replace('Ġ', ' ')) for b in bpe_sequence
     )
-    tmp = FST.from_pairs([([], "")], Float)
+    tmp = FST.from_pairs([([], '')], Float)
     for pair in c:
         tmp = tmp * FST.from_pairs([pair], Float)
     return tmp
@@ -73,7 +71,7 @@ def bpe2term_approx(tokenizer, bpe_sequence):
 
 
 def about(m):
-    print(f"states: {len(m.states)}, trim: {len(m.trim.states)}")
+    print(f'states: {len(m.states)}, trim: {len(m.trim.states)}')
 
 
 # def template(main, annotation):
@@ -115,7 +113,7 @@ def show_grammar(cfg_t, chart=None, showzero=False):
 
     def format_tokens(tokens):
         if len(tokens) == 0:
-            return template("ε", cfg_t.R.one)
+            return template('ε', cfg_t.R.one)
         return '<span style="padding-right: 10px;"></span>'.join(
             template(fmt(i), chart[i]) for i in tokens
         )
@@ -136,8 +134,8 @@ def show_grammar(cfg_t, chart=None, showzero=False):
                 template(fmt(x), chart[x])  # + '<br/>'
                 + (
                     '<div style="display: inline-block;">→ %s</div>'
-                    % " | ".join(
-                        template("", r.w) + format_tokens(r.body) for r in cfg_t.rhs[x]
+                    % ' | '.join(
+                        template('', r.w) + format_tokens(r.body) for r in cfg_t.rhs[x]
                     )
                 )
             )
@@ -145,10 +143,10 @@ def show_grammar(cfg_t, chart=None, showzero=False):
         #        lines.append('<div style="border-left: thick solid black; padding-left: 3px; margin-bottom: 5px;">%s</div>' % '\n'.join(block_code))
         lines.append(
             '<div style="border-left: thick solid black; padding-left: 3px; margin-bottom: 5px;">%s</div>'
-            % "\n".join(block_code)
+            % '\n'.join(block_code)
         )
 
-    return HTML("".join(lines))
+    return HTML(''.join(lines))
 
 
 class LarkStuff:
@@ -164,17 +162,17 @@ class LarkStuff:
         builder = lark.load_grammar.GrammarBuilder()
         builder.load_grammar(grammar)
         lark_grammar = builder.build()
-        terminals, rules, ignores = lark_grammar.compile(["start"], set())
+        terminals, rules, ignores = lark_grammar.compile(['start'], set())
 
         if cnf:
             self.parser = lark.parsers.cyk.Parser(rules)
-            self.instance = lark.Lark(grammar, lexer="basic", parser="cyk")
+            self.instance = lark.Lark(grammar, lexer='basic', parser='cyk')
             self.lex = self.instance.lex
             self.rules = self.parser.grammar.rules
 
         else:
             # self.parser = lark.parsers.earley.Parser(rules)
-            self.instance = lark.Lark(grammar, parser="earley")
+            self.instance = lark.Lark(grammar, parser='earley')
             self.lex = self.instance.lex
             self.rules = rules
 
@@ -230,12 +228,12 @@ class LarkStuff:
             ]
 
         lhs_count = Counter([r.head for r in rules])
-        cfg = CFG(R=Float, S="start", V={t.name for t in self.terminals})
+        cfg = CFG(R=Float, S='start', V={t.name for t in self.terminals})
         for r in rules:
             cfg.add(1 / lhs_count[r.head], r.head, *r.body)
         return cfg.renumber()
 
-    def char_cfg(self, decay, ignore=""):
+    def char_cfg(self, decay, ignore=''):
         from genparse import CFG, Float
 
         cfg = self.convert()
@@ -245,7 +243,6 @@ class LarkStuff:
             foo.add(r.w, r.head, *r.body)
 
         for token_class in self.terminals:
-
             regex = token_class.pattern.to_regexp()
             if ignore:
                 regex += ignore
@@ -285,23 +282,23 @@ def expand_case_insensitive(r):
     And does so in a single O(len(r)) scan.
     """
     end = len(r)
-    last3 = ("", "", "")
+    last3 = ('', '', '')
     state = 0
     count = 0
     depth = 0
     ptr = 0
-    out = ""
-    fix_sugar = any(_ in r for _ in ("[a-z]", "[A-Z]", "[a-zA-Z]"))
+    out = ''
+    fix_sugar = any(_ in r for _ in ('[a-z]', '[A-Z]', '[a-zA-Z]'))
     while True:
         if ptr == end:
             if fix_sugar:
-                out = out.replace("[[aA]-[zZ]]", "[a-zA-Z]").replace(
-                    "[[aA]-[zZ][aA]-[zZ]]", "[a-zA-Z]"
+                out = out.replace('[[aA]-[zZ]]', '[a-zA-Z]').replace(
+                    '[[aA]-[zZ][aA]-[zZ]]', '[a-zA-Z]'
                 )
             return out
         c = r[ptr]
         if state == 0:
-            if c == ":" and "".join(last3) == "(?i":
+            if c == ':' and ''.join(last3) == '(?i':
                 out = out[:-3]
                 state = 1
                 count = 1
@@ -309,22 +306,22 @@ def expand_case_insensitive(r):
                 out += c
         elif state == 1:
             if c.isalpha():
-                if last3[2] == "\\" and last3[1] != "\\":
+                if last3[2] == '\\' and last3[1] != '\\':
                     out += c
                 else:
-                    out += f"[{c.lower()}{c.upper()}]"
-            elif c == ":" and "".join(last3) == "(?i":
+                    out += f'[{c.lower()}{c.upper()}]'
+            elif c == ':' and ''.join(last3) == '(?i':
                 out = out[:-6]
                 depth += 1
-            elif c == "]":
-                if "".join(last3) == f"[{last3[1].lower()}{last3[1].upper()}":
+            elif c == ']':
+                if ''.join(last3) == f'[{last3[1].lower()}{last3[1].upper()}':
                     out = out[:-8] + out[-7:-4]
                 else:
                     out += c
-            elif c == "(":
+            elif c == '(':
                 count += 1
                 out += c
-            elif c == ")":
+            elif c == ')':
                 count -= 1
                 if count == 0:
                     state = 0
@@ -335,12 +332,12 @@ def expand_case_insensitive(r):
             else:
                 out += c
         else:
-            raise ValueError("invalid state")
+            raise ValueError('invalid state')
         last3 = (last3[1], last3[2], c)
         ptr += 1
 
 
-def regex_to_greenery(regex, ignore=""):
+def regex_to_greenery(regex, ignore=''):
     """
     Convert `regex`, a python-like regular expression (`re`), into a `greenery`
     finite-state machine (FSM).
@@ -350,7 +347,7 @@ def regex_to_greenery(regex, ignore=""):
     regex = expand_case_insensitive(regex)
 
     # Patch: note that greenery does not escape spaces but both the `re` and `lark` do.
-    return greenery.parse(regex.replace("\\ ", " ") + ignore).to_fsm()
+    return greenery.parse(regex.replace('\\ ', ' ') + ignore).to_fsm()
 
 
 # Not essential; only used in a notebook to visualize individual greenery FSMs
@@ -412,29 +409,28 @@ def greenery_to_wfsa(fsm, decay=0.99, name=lambda x: x):
 
 def format_table(rows, headings=None):
     def fmt(x):
-        if hasattr(x, "_repr_html_"):
+        if hasattr(x, '_repr_html_'):
             return x._repr_html_()
-        elif hasattr(x, "_repr_svg_"):
+        elif hasattr(x, '_repr_svg_'):
             return x._repr_svg_()
-        elif hasattr(x, "_repr_image_svg_xml"):
+        elif hasattr(x, '_repr_image_svg_xml'):
             return x._repr_image_svg_xml()
         else:
-            return f"<pre>{html.escape(str(x))}</pre>"
+            return f'<pre>{html.escape(str(x))}</pre>'
 
     return (
-        "<table>"
+        '<table>'
         + (
             '<tr style="font-weight: bold;">'
-            + "".join(f"<td>{x}</td>" for x in headings)
-            + "</tr>"
+            + ''.join(f'<td>{x}</td>' for x in headings)
+            + '</tr>'
             if headings
-            else ""
+            else ''
         )
-        + "".join(
-            "<tr>" + "".join(f"<td>{fmt(x)}</td>" for x in row) + " </tr>"
-            for row in rows
+        + ''.join(
+            '<tr>' + ''.join(f'<td>{fmt(x)}</td>' for x in row) + ' </tr>' for row in rows
         )
-        + "</table>"
+        + '</table>'
     )
 
 
@@ -468,13 +464,13 @@ class Node:
     def __str__(self):
         arr = []
         if self.final:
-            arr.append("1")
+            arr.append('1')
         else:
-            arr.append("0")
+            arr.append('0')
         for label, node in self.edges.items():
             arr.append(label)
             arr.append(str(node.id))
-        return "_".join(arr)
+        return '_'.join(arr)
 
     def __hash__(self):
         return hash(str(self))
@@ -516,7 +512,7 @@ class DAWG:
                     minimizedNodes[child] = child
                 uncheckedNodes.pop()
 
-        previousWord = ""
+        previousWord = ''
         for word in sorted(words):
             # assert previousWord <= word, "Words must be inserted in alphabetical order."
 

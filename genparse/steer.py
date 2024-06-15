@@ -39,7 +39,6 @@ def set_seed(seed):
 
 
 class BruteForceGlobalProductOfExperts:
-
     def __init__(self, lm1, lm2, MAX_LENGTH):
         # Create a reference distribution for the global product of experts by
         # materializing the distrbution over strings up to a maximum length
@@ -60,7 +59,6 @@ class BruteForceGlobalProductOfExperts:
 
 # TODO: support early termination options
 class generation_tree:
-
     def __init__(self, lm, **opts):
         tracer = TraceSWOR()
         D = Float.chart()
@@ -126,7 +124,6 @@ class LocalProduct(LM):
 
 
 def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
-
     # TODO: I'd like to have a target--proposal pair passed in and for the SMC
     # stuff to combine it in the right way.  If we pass an unnormalized target
     # (i.e., an energy), then we get a consistent semantics (i.e., we are just
@@ -134,7 +131,6 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
 
     # This interface is used in HFPPL / LLamPPL
     class Particle:
-
         def __init__(self, ys=None):
             self.ys = ys
             self.weight = 0.0
@@ -151,7 +147,6 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
             pass
 
         async def step(self):
-
             ys = tuple(self.ys)
 
             p1 = lm1.p_next(ys)
@@ -172,7 +167,7 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
             q = q_.normalize()
 
             if len(ys) > MAX_LENGTH:
-                warnings.warn("force </s>")
+                warnings.warn('force </s>')
                 y = EOS
 
             else:
@@ -192,11 +187,11 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
         def __repr__(self):
             return repr(self.ys)
 
-    if METHOD == "is":
+    if METHOD == 'is':
         return asyncio.run(importance_sampling(Particle(), n_particles=n_particles))
-    elif METHOD == "smc-steer":
+    elif METHOD == 'smc-steer':
         return asyncio.run(smc_steer(Particle(), n_particles=n_particles, n_beam=1))
-    elif METHOD == "smc-standard":
+    elif METHOD == 'smc-standard':
         return asyncio.run(smc_standard(Particle(), n_particles=n_particles))
     else:
         raise AssertionError(METHOD)
@@ -230,12 +225,15 @@ class HFPPLParticle(Model):
         self.verbosity = verbosity
 
     async def step(self):
-        (token, llm_prob, guide_prob, proposal_prob) = (
-            await self.proposal.sample_next_token(
-                prompt=self.prompt,
-                context="".join(self.context),
-                compare_time=(self.verbosity > 1),
-            )
+        (
+            token,
+            llm_prob,
+            guide_prob,
+            proposal_prob,
+        ) = await self.proposal.sample_next_token(
+            prompt=self.prompt,
+            context=''.join(self.context),
+            compare_time=(self.verbosity > 1),
         )
         self.context.append(token)
         self.weight += np.log(llm_prob) + np.log(guide_prob) - np.log(proposal_prob)
@@ -249,13 +247,13 @@ class HFPPLParticle(Model):
             return
 
     def immutable_properties(self):
-        return ["llm", "prompt", "guide", "verbosity"]
+        return ['llm', 'prompt', 'guide', 'verbosity']
 
     def __repr__(self):
         return f"`{'' if not self.context else self.context[-1]}` : {''.join(self.context)} : {self.weight}"
 
     def __str__(self):
-        return "".join(self.context)
+        return ''.join(self.context)
 
 
 class HFPPLSampler:
@@ -278,12 +276,11 @@ class HFPPLSampler:
         method,
         n_particles,
         n_beam=None,
-        max_tokens=float("inf"),
+        max_tokens=float('inf'),
         verbosity=0,
         return_record=False,
         seed=None,
     ):
-
         if seed is not None:
             set_seed(seed)
 
@@ -297,15 +294,15 @@ class HFPPLSampler:
         )
 
         record = None
-        if method == "smc-steer":
+        if method == 'smc-steer':
             assert not n_beam is None
             if return_record:
-                raise Warning("Record not yet implemented for smc-steer")
+                raise Warning('Record not yet implemented for smc-steer')
             particles = asyncio.run(
                 smc_steer(model, n_particles=n_particles, n_beam=n_beam)
             )
 
-        elif method == "smc-standard":
+        elif method == 'smc-standard':
             if return_record:
                 particles, record = asyncio.run(
                     smc_standard_record(
@@ -315,11 +312,11 @@ class HFPPLSampler:
             else:
                 particles = asyncio.run(smc_standard(model, n_particles=n_particles))
 
-        elif method == "importance-sampling":
+        elif method == 'importance-sampling':
             particles = asyncio.run(importance_sampling(model, n_particles=n_particles))
 
         else:
-            raise ValueError(f"Unknown inference method: {method}.")
+            raise ValueError(f'Unknown inference method: {method}.')
 
         return ParticleApproximation(particles), record
 

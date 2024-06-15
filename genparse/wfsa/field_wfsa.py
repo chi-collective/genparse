@@ -54,7 +54,7 @@ class WFSA(base.WFSA):
 
     def graphviz(
         self,
-        fmt=lambda x: f"{round(x,3):g}" if isinstance(x, (float, int)) else str(x),
+        fmt=lambda x: f'{round(x,3):g}' if isinstance(x, (float, int)) else str(x),
         **kwargs,
     ):  # pylint: disable=arguments-differ
         return super().graphviz(fmt=fmt, **kwargs)
@@ -142,7 +142,6 @@ class Simple:
         return 0
 
     def counterexample(self, B):
-
         alphabet = set(self.arcs) | set(B.arcs)
 
         va = self.start @ self.stop
@@ -159,11 +158,9 @@ class Simple:
         basis = [eta]
 
         while worklist:
-
             (w, VA, VB) = worklist.pop()
 
             for a in alphabet:
-
                 ua = self.arcs[a] @ VA if a in self.arcs else 0 * VA
                 ub = B.arcs[a] @ VB if a in B.arcs else 0 * VB
 
@@ -191,7 +188,7 @@ class Simple:
         return self.forward_conjugate().backward_conjugate()
 
     def __repr__(self):
-        return f"<Simple states={len(self.start)}, syms={len(self.arcs)}>"
+        return f'<Simple states={len(self.start)}, syms={len(self.arcs)}>'
 
     def forward_conjugate(self):
         # The forward basis F is an n' x n where n is the set of old states, and n' the set of new states

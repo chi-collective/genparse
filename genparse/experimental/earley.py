@@ -10,7 +10,6 @@ from genparse.semiring import Boolean
 
 
 class EarleyLM(LM):
-
     def __init__(self, cfg):
         if EOS not in cfg.V:
             cfg = add_EOS(cfg)
@@ -26,7 +25,7 @@ class EarleyLM(LM):
 
 
 class Column:
-    __slots__ = ("k", "chart", "waiting_for", "Q")
+    __slots__ = ('k', 'chart', 'waiting_for', 'Q')
 
     def __init__(self, k, chart):
         self.k = k
@@ -46,10 +45,9 @@ class Earley:
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
-    __slots__ = ("cfg", "order", "_chart", "V", "eos", "_initial_column", "R")
+    __slots__ = ('cfg', 'order', '_chart', 'V', 'eos', '_initial_column', 'R')
 
     def __init__(self, cfg):
-
         cfg = cfg.nullaryremove(binarize=True).unarycycleremove().renumber()
         self.cfg = cfg
 
@@ -112,7 +110,6 @@ class Earley:
         return self.next_token_weights(self.chart(prefix))
 
     def next_column(self, prev_cols, token):
-
         next_col = Column(prev_cols[-1].k + 1, self.cfg.R.chart())
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
@@ -226,7 +223,6 @@ class Earley:
     # g(W,I,X) += phrase(I,X / [W],J) * len(J) * terminal(W).
     #
     def next_token_weights(self, chart):
-
         # Let's try a backward chaining algorithm
         #
         # q(0, s) += 1
@@ -256,7 +252,6 @@ class Earley:
             (I, X, Ys) = item
 
             if len(Ys) == 1 and self.cfg.is_terminal(Ys[0]):
-
                 p[Ys[0]] += col.chart[I, X, Ys] * q(I, X)
 
         return p

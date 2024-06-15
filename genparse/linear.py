@@ -11,7 +11,6 @@ from graphviz import Digraph
 
 
 class WeightedGraph:
-
     def __init__(self, WeightType):
         self.WeightType = WeightType
         self.N = set()
@@ -62,7 +61,6 @@ class WeightedGraph:
         """
         sol = self.WeightType.chart()
         for block, B in self.Blocks:
-
             # Compute the total weight of entering the block from the left at
             # each entry j in the block
             enter = self.WeightType.chart()
@@ -83,7 +81,6 @@ class WeightedGraph:
         """
         sol = self.WeightType.chart()
         for block, B in reversed(self.Blocks):
-
             # Compute the total weight of entering the block from the right at
             # each entry point j in the block
             enter = self.WeightType.chart()
@@ -145,26 +142,25 @@ class WeightedGraph:
         return self.graphviz()._repr_image_svg_xml()
 
     def graphviz(self, label_format=str, escape=lambda x: html.escape(str(x))):
-
         name = Integerizer()
 
         g = Digraph(
             node_attr=dict(
-                fontname="Monospace",
-                fontsize="9",
-                height="0",
-                width="0",
-                margin="0.055,0.042",
-                penwidth="0.15",
-                shape="box",
-                style="rounded",
+                fontname='Monospace',
+                fontsize='9',
+                height='0',
+                width='0',
+                margin='0.055,0.042',
+                penwidth='0.15',
+                shape='box',
+                style='rounded',
             ),
             edge_attr=dict(
-                penwidth="0.5",
-                arrowhead="vee",
-                arrowsize="0.5",
-                fontname="Monospace",
-                fontsize="8",
+                penwidth='0.5',
+                arrowhead='vee',
+                arrowsize='0.5',
+                fontname='Monospace',
+                fontsize='8',
             ),
         )
 

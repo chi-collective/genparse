@@ -27,23 +27,23 @@ def test_timothy():
         )
     )
 
-    prompt = "Hello my name is"
-    llm = GreedilyTokenizedLLM("gpt2")
+    prompt = 'Hello my name is'
+    llm = GreedilyTokenizedLLM('gpt2')
 
-    llm.sample("My name is", verbose=1, max_tokens=10)
+    llm.sample('My name is', verbose=1, max_tokens=10)
 
     proposal = CharacterProposal(llm=llm, guide=pcfg)
     W = Float.chart()
     for _ in range(10):
-        print("----------------------------------")
-        with timeit("sample"):
+        print('----------------------------------')
+        with timeit('sample'):
             ys, q = proposal.sample(prompt, verbosity=1, max_tokens=50)
 
         score = llm(ys) * pcfg(ys + EOS)
-        print("weight:", score, "/", q)
+        print('weight:', score, '/', q)
         W[ys] += score / q
 
-        print(colors.light.yellow % "sample:", ys)
+        print(colors.light.yellow % 'sample:', ys)
 
         print(W.normalize())
 
@@ -96,21 +96,21 @@ def todo_chomsky():
     #    pp = pcfg.p_next(x)
     #    from IPython import embed; embed()
 
-    prompt = " "
-    llm = GreedilyTokenizedLLM("gpt2")
+    prompt = ' '
+    llm = GreedilyTokenizedLLM('gpt2')
 
     W = Float.chart()
 
     proposal = CharacterProposal(llm=llm, guide=pcfg)
     for _ in range(10):
-        print("----------------------------------")
-        with timeit("sample"):
+        print('----------------------------------')
+        with timeit('sample'):
             ys, q = proposal.sample(prompt, verbosity=1)
         score = llm(ys) * pcfg(ys + EOS)
-        print("weight:", score, "/", q, "=", score / q)
+        print('weight:', score, '/', q, '=', score / q)
         W[ys] += score / q
 
-        print(colors.light.yellow % "sample:", ys)
+        print(colors.light.yellow % 'sample:', ys)
 
         print(W.normalize())
 
@@ -138,34 +138,34 @@ def todo_fruit():
     ADJ: "smelly"
 
     """
-            ).char_cfg(0.99, ignore="[ ]?"),
+            ).char_cfg(0.99, ignore='[ ]?'),
             tol=1e-100,
         )
     )
 
     pcfg = BoolMaskCFGLM(pcfg.cfg)
 
-    prompt = "The following is a favorite sentence among linguists:"
+    prompt = 'The following is a favorite sentence among linguists:'
 
-    llm = GreedilyTokenizedLLM("gpt2")
+    llm = GreedilyTokenizedLLM('gpt2')
 
     W = Float.chart()
 
     proposal = CharacterProposal(llm=llm, guide=pcfg)
     for _ in range(10):
-        print("----------------------------------")
-        with timeit("sample"):
+        print('----------------------------------')
+        with timeit('sample'):
             ys, q = proposal.sample(prompt, verbosity=1)
         score = llm(ys) * pcfg(ys + EOS)
-        print("weight:", score, "/", q, "=", score / q)
+        print('weight:', score, '/', q, '=', score / q)
         W[ys] += score / q
 
-        print(colors.light.yellow % "sample:", ys)
+        print(colors.light.yellow % 'sample:', ys)
 
         print(W.normalize())
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from arsenal import testing_framework
 
     testing_framework(globals())

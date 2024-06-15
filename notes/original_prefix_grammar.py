@@ -10,7 +10,6 @@ class PrefixGrammar(CFG):
     """
 
     def __init__(self, parent):
-
         self.parent = parent
         other = self._other
         free = self._free
@@ -68,10 +67,10 @@ class PrefixGrammar(CFG):
         )
 
     def _other(self, x):
-        return self.parent.gensym(f"{x}⚡")
+        return self.parent.gensym(f'{x}⚡')
 
     def _free(self, x):
-        return self.parent.gensym(f"{x}🔥")
+        return self.parent.gensym(f'{x}🔥')
 
     def _top(self, x):
-        return self.parent.gensym(f"#{x}")
+        return self.parent.gensym(f'#{x}')

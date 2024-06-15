@@ -174,7 +174,7 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
     Returns:
         particles (list[hfppl.modeling.Model]): The completed particles after inference.
     """
-    verbosity = model.verbosity if hasattr(model, "verbosity") else 0
+    verbosity = model.verbosity if hasattr(model, 'verbosity') else 0
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
 
     for particle in particles:
@@ -197,10 +197,10 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
         if verbosity > 0:
             for i, p in enumerate(particles):
                 print(
-                    f"├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}"
+                    f'├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}'
                 )
             avg_weight = total_weight - np.log(n_particles)
-            print(f"│ Step {step_num:3d} average weight: {avg_weight:.4f}")
+            print(f'│ Step {step_num:3d} average weight: {avg_weight:.4f}')
             step_num += 1
 
         # Resample if necessary
@@ -210,9 +210,7 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
             # Alternative implementation uses a multinomial distribution and only makes n-1 copies, reusing existing one, but fine for now
             probs = np.exp(normalized_weights)
             particles = [
-                copy.deepcopy(
-                    particles[np.random.choice(range(len(particles)), p=probs)]
-                )
+                copy.deepcopy(particles[np.random.choice(range(len(particles)), p=probs)])
                 for _ in range(n_particles)
             ]
             avg_weight = total_weight - np.log(n_particles)
@@ -220,10 +218,10 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
                 p.weight = avg_weight
 
             if verbosity > 0:
-                print(f"└╼  Resampling! Weights all set to = {avg_weight:.4f}.")
+                print(f'└╼  Resampling! Weights all set to = {avg_weight:.4f}.')
         else:
             if verbosity > 0:
-                print("└╼")
+                print('└╼')
 
     return particles
 
@@ -233,9 +231,7 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
 #  Should be identical
 
 
-async def smc_standard_record(
-    model, n_particles, ess_threshold=0.5, return_record=True
-):
+async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_record=True):
     """
     Standard sequential Monte Carlo algorithm with multinomial resampling.
 
@@ -248,7 +244,7 @@ async def smc_standard_record(
         particles (list[hfppl.modeling.Model]): The completed particles after inference.
         record (SMCRecord): Information about inference run history.
     """
-    verbosity = model.verbosity if hasattr(model, "verbosity") else 0
+    verbosity = model.verbosity if hasattr(model, 'verbosity') else 0
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
 
     for particle in particles:
@@ -258,12 +254,12 @@ async def smc_standard_record(
     record = (
         SMCRecord(
             {
-                "step": [0],
-                "context": [[p.context.copy() for p in particles]],
-                "weight": [[p.weight for p in particles]],
-                "resample?": [False],
-                "resampled as": [[i for i, _ in enumerate(particles)]],
-                "average weight": [0.0],
+                'step': [0],
+                'context': [[p.context.copy() for p in particles]],
+                'weight': [[p.weight for p in particles]],
+                'resample?': [False],
+                'resampled as': [[i for i, _ in enumerate(particles)]],
+                'average weight': [0.0],
             }
         )
         if return_record
@@ -274,9 +270,8 @@ async def smc_standard_record(
         step_num = 1
 
     while any(map(lambda p: not p.done_stepping(), particles)):
-
         if return_record:
-            record["step"].append(step_num)
+            record['step'].append(step_num)
 
         # Step each particle
         for p in particles:
@@ -293,14 +288,14 @@ async def smc_standard_record(
         if verbosity > 0:
             for i, p in enumerate(particles):
                 print(
-                    f"├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}"
+                    f'├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}'
                 )
-            print(f"│ Step {step_num:3d} average weight: {avg_weight:.4f}")
+            print(f'│ Step {step_num:3d} average weight: {avg_weight:.4f}')
 
         if return_record:
-            record["context"].append([p.context.copy() for p in particles])
-            record["weight"].append(weights)
-            record["average weight"].append(avg_weight)
+            record['context'].append([p.context.copy() for p in particles])
+            record['weight'].append(weights)
+            record['average weight'].append(avg_weight)
 
         # Resample if necessary
         if -logsumexp(weights_normalized * 2) < np.log(ess_threshold) + np.log(
@@ -317,8 +312,8 @@ async def smc_standard_record(
                 ]
                 resampled_indices.sort()
                 particles = [copy.deepcopy(particles[i]) for i in resampled_indices]
-                record["resample?"] += [True]
-                record["resampled as"].append(resampled_indices)
+                record['resample?'] += [True]
+                record['resampled as'].append(resampled_indices)
             else:
                 particles = [
                     copy.deepcopy(
@@ -332,15 +327,15 @@ async def smc_standard_record(
 
             if verbosity > 0:
                 print(
-                    f"└╼  Resampling! {resampled_indices}. Weights all set to = {avg_weight:.4f}."
+                    f'└╼  Resampling! {resampled_indices}. Weights all set to = {avg_weight:.4f}.'
                 )
         else:
             if return_record:
-                record["resample?"].append(False)
-                record["resampled as"].append([i for i, _ in enumerate(particles)])
+                record['resample?'].append(False)
+                record['resampled as'].append([i for i, _ in enumerate(particles)])
 
             if verbosity > 0:
-                print("└╼")
+                print('└╼')
 
         if return_record or verbosity > 0:
             step_num += 1
@@ -376,9 +371,9 @@ class Tracer:
             )
 
         if context != cur.context:
-            print(colors.light.red % "ERROR: trace divergence detected:")
-            print(colors.light.red % "trace context:", self.cur.context)
-            print(colors.light.red % "calling context:", context)
+            print(colors.light.red % 'ERROR: trace divergence detected:')
+            print(colors.light.red % 'trace context:', self.cur.context)
+            print(colors.light.red % 'calling context:', context)
             raise ValueError((p, cur))
 
         a = cur.sample()
@@ -387,8 +382,7 @@ class Tracer:
 
 
 class Node:
-
-    __slots__ = ("mass", "parent", "children", "context", "_mass")
+    __slots__ = ('mass', 'parent', 'children', 'context', '_mass')
 
     def __init__(self, mass, parent, children=None, context=None):
         self.mass = mass
@@ -429,23 +423,23 @@ class Node:
 
     def graphviz(
         self,
-        fmt_edge=lambda x, a, y: f"{html.escape(str(a))}/{y._mass/x._mass:.2g}",
+        fmt_edge=lambda x, a, y: f'{html.escape(str(a))}/{y._mass/x._mass:.2g}',
         # fmt_node=lambda x: ' ',
         fmt_node=lambda x: (
-            f"{x.mass}/{x._mass:.2g}" if x.mass > 0 else f"{x._mass:.2g}"
+            f'{x.mass}/{x._mass:.2g}' if x.mass > 0 else f'{x._mass:.2g}'
         ),
     ):
         "Create a graphviz instance for this subtree"
         g = Digraph(
-            graph_attr=dict(rankdir="LR"),
+            graph_attr=dict(rankdir='LR'),
             node_attr=dict(
-                fontname="Monospace",
-                fontsize="10",
-                height=".05",
-                width=".05",
-                margin="0.055,0.042",
+                fontname='Monospace',
+                fontsize='10',
+                height='.05',
+                width='.05',
+                margin='0.055,0.042',
             ),
-            edge_attr=dict(arrowsize="0.3", fontname="Monospace", fontsize="9"),
+            edge_attr=dict(arrowsize='0.3', fontname='Monospace', fontsize='9'),
         )
         f = Integerizer()
         xs = set()
@@ -456,13 +450,13 @@ class Node:
             if x.children is None:
                 continue
             for a, y in x.children.items():
-                g.edge(str(f(x)), str(f(y)), label=f"{fmt_edge(x,a,y)}")
+                g.edge(str(f(x)), str(f(y)), label=f'{fmt_edge(x,a,y)}')
                 q.append(y)
         for x in xs:
             if x.children is not None:
-                g.node(str(f(x)), label=str(fmt_node(x)), shape="box")
+                g.node(str(f(x)), label=str(fmt_node(x)), shape='box')
             else:
-                g.node(str(f(x)), label=str(fmt_node(x)), shape="box", fillcolor="gray")
+                g.node(str(f(x)), label=str(fmt_node(x)), shape='box', fillcolor='gray')
         return g
 
 

@@ -40,24 +40,20 @@ class TokenProposal(TokenCharacterTrie):
         super().__init__(words, old_eos=llm.eos, new_eos=guide.eos)
 
     def _p_next(self, context, K=None):
-        with self.timer["llm"](t=len(context)):
+        with self.timer['llm'](t=len(context)):
             p_llm = self.llm.p_next(self._prompt + context)
 
-        with self.timer["cfg+trie"](t=len(context)):
+        with self.timer['cfg+trie'](t=len(context)):
             return Float.chart(take(K, self.traverse_trie(context, p_llm))).normalize()
 
     async def sample_next_token(
         self, prompt, context, verbosity=0, compare_time=False, **kwargs
     ):
-
-        with self.timer["llm"](t=len(context)):
+        with self.timer['llm'](t=len(context)):
             p_llm = await self.llm.p_next(prompt + context)
 
-        with self.timer["cfg+trie"](t=len(context)):
-
-            Q = Float.chart(
-                take(self.K, self.traverse_trie(context, p_llm))
-            ).normalize()
+        with self.timer['cfg+trie'](t=len(context)):
+            Q = Float.chart(take(self.K, self.traverse_trie(context, p_llm))).normalize()
             token = sample_dict(Q)
 
             llm_prob = p_llm[self.old_eos if token == self.new_eos else token]
@@ -120,14 +116,13 @@ class TokenProposal(TokenCharacterTrie):
         P = Float.chart()
 
         # initial conditions
-        (token, node) = ("", self.root)
+        (token, node) = ('', self.root)
         agenda[token, node] = 0
         P[node] = 1
 
         self._p_guide = {}
 
         while agenda:
-
             (token, node) = agenda.pop()
 
             # Efficiently compute guide.p(x | context + token) for x ∈ guide.V.
@@ -136,9 +131,7 @@ class TokenProposal(TokenCharacterTrie):
 
             children_node = self.children[node]
             for x in children_node:
-
                 if x is None:
-
                     # print(f'>>> {P[node] * self.mass[children_node[None]]:.20f} {token!r}')
 
                     self._p_guide[token] = P[node]
@@ -155,15 +148,15 @@ class TokenProposal(TokenCharacterTrie):
 
     def sample(
         self,
-        prompt="",
+        prompt='',
         draw=sample_dict,
         chunked=False,
-        max_tokens=float("inf"),
+        max_tokens=float('inf'),
         verbosity=False,
         K=None,
     ):
         self._prompt = prompt
-        context = ""
+        context = ''
         chunks = []
         P = 1
         t = 0
@@ -181,7 +174,7 @@ class TokenProposal(TokenCharacterTrie):
             chunks.append(y)
             context += y
             if verbosity > 0:
-                print(colors.cyan % y, end=colors.magenta % "|")
+                print(colors.cyan % y, end=colors.magenta % '|')
         value = context
         if chunked:
             value = tuple(chunks)

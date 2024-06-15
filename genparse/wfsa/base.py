@@ -9,7 +9,7 @@ from graphviz import Digraph
 from genparse.linear import WeightedGraph
 
 # EPSILON = "ε"
-EPSILON = ""
+EPSILON = ''
 
 
 class WFSA:
@@ -26,17 +26,17 @@ class WFSA:
         self.stop = R.chart()
 
     def __repr__(self):
-        return f"{__class__.__name__}({self.dim} states)"
+        return f'{__class__.__name__}({self.dim} states)'
 
     def __str__(self):
         output = []
-        output.append("{")
+        output.append('{')
         for p in self.states:
-            output.append(f"  {p} \t\t({self.start[p]}, {self.stop[p]})")
+            output.append(f'  {p} \t\t({self.start[p]}, {self.stop[p]})')
             for a, q, w in self.arcs(p):
-                output.append(f"    {a}: {q}\t[{w}]")
-        output.append("}")
-        return "\n".join(output)
+                output.append(f'    {a}: {q}\t[{w}]')
+        output.append('}')
+        return '\n'.join(output)
 
     @property
     def dim(self):
@@ -259,44 +259,47 @@ class WFSA:
     def graphviz(
         self,
         fmt=str,
-        fmt_node=lambda x: " ",
-        fmt_edge=lambda i, a, j, w: f'{html.escape(str(":".join(str(A or "ε") for A in a)) if isinstance(a, tuple) else str(a))}/{w}',
+        fmt_node=lambda x: ' ',
+        fmt_edge=lambda i,
+        a,
+        j,
+        w: f'{html.escape(str(":".join(str(A or "ε") for A in a)) if isinstance(a, tuple) else str(a))}/{w}',
     ):
         if len(self.states) == 0:
             import warnings
 
-            warnings.warn("empty visualization")
+            warnings.warn('empty visualization')
         g = Digraph(
-            graph_attr=dict(rankdir="LR"),
+            graph_attr=dict(rankdir='LR'),
             node_attr=dict(
-                fontname="Monospace",
-                fontsize="10",
-                height=".05",
-                width=".05",
+                fontname='Monospace',
+                fontsize='10',
+                height='.05',
+                width='.05',
                 # margin="0.055,0.042"
-                margin="0,0",
+                margin='0,0',
             ),
             edge_attr=dict(
                 # arrowhead='vee',
-                arrowsize="0.3",
-                fontname="Monospace",
-                fontsize="9",
+                arrowsize='0.3',
+                fontname='Monospace',
+                fontsize='9',
             ),
         )
         f = Integerizer()
         for i, w in self.I:
-            start = f"<start_{i}>"
-            g.node(start, label="", shape="point", height="0", width="0")
-            g.edge(start, str(f(i)), label=f"{fmt(w)}")
+            start = f'<start_{i}>'
+            g.node(start, label='', shape='point', height='0', width='0')
+            g.edge(start, str(f(i)), label=f'{fmt(w)}')
         for i in self.states:
-            g.node(str(f(i)), label=str(fmt_node(i)), shape="circle")
+            g.node(str(f(i)), label=str(fmt_node(i)), shape='circle')
         for i, w in self.F:
-            stop = f"<stop_{i}>"
-            g.node(stop, label="", shape="point", height="0", width="0")
-            g.edge(str(f(i)), stop, label=f"{fmt(w)}")
+            stop = f'<stop_{i}>'
+            g.node(stop, label='', shape='point', height='0', width='0')
+            g.edge(str(f(i)), stop, label=f'{fmt(w)}')
         # for i, a, j, w in sorted(self.arcs()):
         for i, a, j, w in self.arcs():
-            g.edge(str(f(i)), str(f(j)), label=f"{fmt_edge(i,a,j,w)}")
+            g.edge(str(f(i)), str(f(j)), label=f'{fmt_edge(i,a,j,w)}')
         return g
 
     @classmethod
@@ -434,7 +437,6 @@ class WFSA:
         self = self.epsremove.push
 
         def _powerarcs(Q):
-
             U = {a: self.R.chart() for a in self.alphabet}
 
             for i, u in Q.items():

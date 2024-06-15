@@ -13,13 +13,10 @@ from genparse.util import LarkStuff
 
 
 def test_token_arith():
-
     np.random.seed(0)
     random.seed(0)
 
-    cfg = locally_normalize(
-        LarkStuff(arith, cnf=False).char_cfg(0.9), tol=1e-100
-    ).trim()
+    cfg = locally_normalize(LarkStuff(arith, cnf=False).char_cfg(0.9), tol=1e-100).trim()
 
     guide = EarleyLM(cfg)
 
@@ -29,18 +26,15 @@ def test_token_arith():
 
     samples = []
     for _ in range(10):
-        samples.append(proposal.sample(prompt="", max_tokens=100, verbosity=1))
+        samples.append(proposal.sample(prompt='', max_tokens=100, verbosity=1))
         print(samples[-1])
 
 
 def test_character_arith():
-
     np.random.seed(0)
     random.seed(0)
 
-    cfg = locally_normalize(
-        LarkStuff(arith, cnf=False).char_cfg(0.99), tol=1e-100
-    ).trim()
+    cfg = locally_normalize(LarkStuff(arith, cnf=False).char_cfg(0.99), tol=1e-100).trim()
 
     guide = EarleyLM(cfg)
 
@@ -50,12 +44,11 @@ def test_character_arith():
 
     samples = []
     for _ in range(10):
-        samples.append(proposal.sample(prompt="", max_tokens=100, verbosity=1))
+        samples.append(proposal.sample(prompt='', max_tokens=100, verbosity=1))
         print(samples[-1])
 
 
 def test_token_iql_small():
-
     np.random.seed(0)
     random.seed(0)
 
@@ -76,7 +69,6 @@ def test_token_iql_small():
 
 
 def test_character_iql_small():
-
     np.random.seed(0)
     random.seed(0)
 
@@ -92,11 +84,11 @@ def test_character_iql_small():
 
     samples = []
     for _ in range(10):
-        samples.append(proposal.sample(prompt="", max_tokens=100, verbosity=1))
+        samples.append(proposal.sample(prompt='', max_tokens=100, verbosity=1))
         print(samples[-1])
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from arsenal import testing_framework
 
     testing_framework(globals())

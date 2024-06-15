@@ -31,17 +31,17 @@ class CharacterProposal(TokenCharacterTrie):
     """
 
     __slots__ = (
-        "root",
-        "children",
-        "mass",
-        "word2leaf",
-        "jump",
-        "ordering",
-        "llm",
-        "guide",
-        "timer",
-        "old_eos",
-        "new_eos",
+        'root',
+        'children',
+        'mass',
+        'word2leaf',
+        'jump',
+        'ordering',
+        'llm',
+        'guide',
+        'timer',
+        'old_eos',
+        'new_eos',
     )
 
     def __init__(self, *, llm, guide):
@@ -54,16 +54,16 @@ class CharacterProposal(TokenCharacterTrie):
 
         super().__init__(words, encode=llm._encode, old_eos=llm.eos, new_eos=guide.eos)
 
-    def sample(self, prompt, max_tokens=float("inf"), verbosity=0, **kwargs):
-        context = ""
+    def sample(self, prompt, max_tokens=float('inf'), verbosity=0, **kwargs):
+        context = ''
         P = 1
         t = 0
         while True:
             t += 1
             if t <= max_tokens:
-                with self.timer["llm"](t=len(context)):
+                with self.timer['llm'](t=len(context)):
                     p_llm = self.llm.p_next(prompt + context)
-                with self.timer["cfg+trie"](t=len(context)):
+                with self.timer['cfg+trie'](t=len(context)):
                     self._update_trie(p_llm)
                     token, p_token, _, _ = self._guided_sample_trie(
                         self.root, context, verbosity=verbosity, **kwargs
@@ -75,7 +75,7 @@ class CharacterProposal(TokenCharacterTrie):
             if self.guide.eos == token:
                 break
             if verbosity > 0:
-                print(colors.cyan % token, end=colors.magenta % "|")
+                print(colors.cyan % token, end=colors.magenta % '|')
             context += token
         if verbosity > 0:
             print()
@@ -85,9 +85,9 @@ class CharacterProposal(TokenCharacterTrie):
     async def sample_next_token(
         self, prompt, context, verbosity=0, compare_time=False, **kwargs
     ):
-        with self.timer["llm"](t=len(context)):
+        with self.timer['llm'](t=len(context)):
             p_llm = await self.llm.p_next(prompt + context)
-        with self.timer["cfg+trie"](t=len(context)):
+        with self.timer['cfg+trie'](t=len(context)):
             self._update_trie(p_llm)
             (path, llm_prob, guide_prob, proposal_prob) = self._guided_sample_trie(
                 self.root, context, verbosity=verbosity, **kwargs
@@ -118,7 +118,6 @@ class CharacterProposal(TokenCharacterTrie):
         return cpy
 
     def _guided_sample_trie(self, root, context, draw=sample_dict, verbosity=0):
-
         curr = root
         path = []
         guide_prob = 1
@@ -131,33 +130,32 @@ class CharacterProposal(TokenCharacterTrie):
         if verbosity > 1:
             print(colors.line(80))
         while True:
-
             children_curr = children[curr]
             mass_curr = mass[curr]
 
             p1 = Float.chart((a, mass[c] / mass_curr) for a, c in children_curr.items())
 
-            p2 = self.guide.p_next(context + "".join(path)).trim()
+            p2 = self.guide.p_next(context + ''.join(path)).trim()
 
             if None in p1:
-                exits["".join(path)] = mass[children_curr[None]]
+                exits[''.join(path)] = mass[children_curr[None]]
                 if verbosity > 1:
                     print(
-                        colors.blue % "ADDED EXIT",
-                        repr("".join(path)),
-                        "prob=",
+                        colors.blue % 'ADDED EXIT',
+                        repr(''.join(path)),
+                        'prob=',
                         proposal_prob,
                     )
 
             _q = (p1 * p2).trim()
 
             if verbosity > 1:
-                print(colors.yellow % "calling context=", repr("".join(context)))
-                print(colors.yellow % "partial token=", repr("".join(path)))
+                print(colors.yellow % 'calling context=', repr(''.join(context)))
+                print(colors.yellow % 'partial token=', repr(''.join(path)))
                 if not _q:
-                    print("llm (top 10) =", p1.top(10))
-                    print("guide (top 10) =", p2.top(10))
-                print("_q (top 10) =", _q.top(10))
+                    print('llm (top 10) =', p1.top(10))
+                    print('guide (top 10) =', p2.top(10))
+                print('_q (top 10) =', _q.top(10))
 
             if not _q:
                 break
@@ -170,7 +168,7 @@ class CharacterProposal(TokenCharacterTrie):
             curr = children_curr[a]
 
             if verbosity > 1:
-                print(colors.orange % "action", repr(a), "context", repr("".join(path)))
+                print(colors.orange % 'action', repr(a), 'context', repr(''.join(path)))
 
             path.append(a)
 
@@ -178,12 +176,12 @@ class CharacterProposal(TokenCharacterTrie):
         exits = exits.normalize()
 
         if verbosity > 1:
-            print(colors.light.green % "p exits:", exits)
+            print(colors.light.green % 'p exits:', exits)
 
         path = draw(exits)
 
         if verbosity > 1:
-            print(colors.orange % "picked exit", repr(path))
+            print(colors.orange % 'picked exit', repr(path))
 
         proposal_prob *= exits[path]
 
@@ -203,10 +201,10 @@ class CharacterProposal(TokenCharacterTrie):
 
         def _enum_paths(chars, trace, children_curr, mass_curr, proposal_prob, exits):
             p1 = Float.chart((a, mass[c] / mass_curr) for a, c in children_curr.items())
-            p2 = self.guide.p_next(context + "".join(chars)).trim()
+            p2 = self.guide.p_next(context + ''.join(chars)).trim()
 
             if None in p1:
-                exits["".join(chars)] = mass[children_curr[None]]
+                exits[''.join(chars)] = mass[children_curr[None]]
 
             _q = (p1 * p2).trim()
 
@@ -218,17 +216,17 @@ class CharacterProposal(TokenCharacterTrie):
                     new_trace = trace.copy()
                     new_trace.append(
                         {
-                            "name": "exit",
-                            "outcome": token,
-                            "prob": exit_p,
-                            "dist": exits,
+                            'name': 'exit',
+                            'outcome': token,
+                            'prob': exit_p,
+                            'dist': exits,
                         }
                     )
                     these_paths.append(
                         {
-                            "token": token,
-                            "proposal_prob": proposal_prob * exit_p,
-                            "trace": new_trace,
+                            'token': token,
+                            'proposal_prob': proposal_prob * exit_p,
+                            'trace': new_trace,
                         }
                     )
                 return these_paths
@@ -245,10 +243,10 @@ class CharacterProposal(TokenCharacterTrie):
                     new_trace = trace.copy()
                     new_trace.append(
                         {
-                            "name": f"char {len(new_chars)}",
-                            "outcome": a,
-                            "prob": q_prob,
-                            "dist": q,
+                            'name': f'char {len(new_chars)}',
+                            'outcome': a,
+                            'prob': q_prob,
+                            'dist': q,
                         }
                     )
                     paths.extend(

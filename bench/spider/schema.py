@@ -16,11 +16,11 @@ from bench.spider.utils import StrPath
 
 
 class ColumnType(Enum):
-    Text = "text"
-    Number = "number"
-    Time = "time"
-    Boolean = "boolean"
-    Others = "others"
+    Text = 'text'
+    Number = 'number'
+    Time = 'time'
+    Boolean = 'boolean'
+    Others = 'others'
 
 
 @dataclass(frozen=True)
@@ -28,11 +28,11 @@ class Column:
     name: str
     tpe: ColumnType
     # name in more natural language
-    nl_name: str = ""
+    nl_name: str = ''
 
     @staticmethod
-    def star() -> "Column":
-        return Column(name="*", tpe=ColumnType.Text, nl_name="*")
+    def star() -> 'Column':
+        return Column(name='*', tpe=ColumnType.Text, nl_name='*')
 
 
 @dataclass(frozen=True)
@@ -46,7 +46,7 @@ class Table:
     name: str
     columns: List[Column]
     # name in more natural language
-    nl_name: str = ""
+    nl_name: str = ''
 
     def all_columns(self) -> List[Column]:
         return [Column.star()] + self.columns
@@ -66,13 +66,13 @@ class DbSchema:
     values: List[str] = ()  # type: ignore
 
     @staticmethod
-    def from_json(schema_json: Dict[str, Any], db_path: str) -> "DbSchema":
+    def from_json(schema_json: Dict[str, Any], db_path: str) -> 'DbSchema':
         columns: List[Tuple[int, Column]] = [
             (t_id, Column(name=orig, tpe=ColumnType(tpe), nl_name=name))
             for (t_id, orig), (_, name), tpe in zip(
-                schema_json["column_names_original"],
-                schema_json["column_names"],
-                schema_json["column_types"],
+                schema_json['column_names_original'],
+                schema_json['column_names'],
+                schema_json['column_types'],
             )
         ]
         columns_by_table: Dict[int, List[Column]] = defaultdict(list)
@@ -91,18 +91,18 @@ class DbSchema:
         tables = [
             Table(name=orig, columns=columns_by_table[t_id], nl_name=name)
             for t_id, (orig, name) in enumerate(
-                zip(schema_json["table_names_original"], schema_json["table_names"])
+                zip(schema_json['table_names_original'], schema_json['table_names'])
             )
         ]
         foreign_keys = [
-            ForeignKey(col, other) for col, other in schema_json["foreign_keys"]
+            ForeignKey(col, other) for col, other in schema_json['foreign_keys']
         ]
-        db_id = schema_json["db_id"]
+        db_id = schema_json['db_id']
         values = []
         # Some tables mentioned in tables,json are not present in the download
         # This check catches errors when trying to read them.
-        if os.path.exists(db_path + "/" + db_id):
-            db_path = db_path + "/" + db_id + "/" + db_id + ".sqlite"
+        if os.path.exists(db_path + '/' + db_id):
+            db_path = db_path + '/' + db_id + '/' + db_id + '.sqlite'
             for table in tables:
                 for column in table.columns:
                     picklist = get_column_picklist(table.name, column.name, db_path)
@@ -111,26 +111,26 @@ class DbSchema:
                             val
                             for val in picklist
                             # this condition removes times from the list
-                            if isinstance(val, str) and not val.count(":") == 2
+                            if isinstance(val, str) and not val.count(':') == 2
                         ]
                     )
 
         return DbSchema(
-            name=schema_json["db_id"],
+            name=schema_json['db_id'],
             columns=columns,
             foreign_keys=foreign_keys,
-            primary_keys=schema_json["primary_keys"],
+            primary_keys=schema_json['primary_keys'],
             tables=tables,
             values=values,
         )
 
 
 def load_schemas(
-    schemas_path: StrPath = SCHEMAS_FILE, db_path: StrPath = COSQL_DIR / "database"
+    schemas_path: StrPath = SCHEMAS_FILE, db_path: StrPath = COSQL_DIR / 'database'
 ) -> Dict[str, DbSchema]:
-    db_schema_details_file = str(db_path) + "/" + "db_schema_details.json"
+    db_schema_details_file = str(db_path) + '/' + 'db_schema_details.json'
     if os.path.exists(db_schema_details_file):
-        with open(db_schema_details_file, "r") as db_schema_details_fp:
+        with open(db_schema_details_file, 'r') as db_schema_details_fp:
             return jsons.loads(db_schema_details_fp.read(), cls=Dict[str, DbSchema])
 
     with open(schemas_path) as tables_file:
@@ -141,23 +141,23 @@ def load_schemas(
     return {schema.name: schema for schema in schemas}
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     cosql_schemas = load_schemas(
-        "/Users/subhrroy/workspace/pyharbor/data/benchclamp/raw/CoSQL/tables.json",
-        "/Users/subhrroy/workspace/pyharbor/data/benchclamp/raw/CoSQL/database/",
+        '/Users/subhrroy/workspace/pyharbor/data/benchclamp/raw/CoSQL/tables.json',
+        '/Users/subhrroy/workspace/pyharbor/data/benchclamp/raw/CoSQL/database/',
     )
     with open(
-        "/Users/subhrroy/workspace/pyharbor/data/benchclamp/raw/CoSQL/database/db_schema_details.json",
-        "w",
+        '/Users/subhrroy/workspace/pyharbor/data/benchclamp/raw/CoSQL/database/db_schema_details.json',
+        'w',
     ) as fp:
         fp.write(jsons.dumps(cosql_schemas, cls=Dict[str, DbSchema]))
 
     spider_schemas = load_schemas(
-        "/Users/subhrroy/workspace/pyharbor/data/benchclamp/raw/Spider/tables.json",
-        "/Users/subhrroy/workspace/pyharbor/data/benchclamp/raw/Spider/database/",
+        '/Users/subhrroy/workspace/pyharbor/data/benchclamp/raw/Spider/tables.json',
+        '/Users/subhrroy/workspace/pyharbor/data/benchclamp/raw/Spider/database/',
     )
     with open(
-        "/Users/subhrroy/workspace/pyharbor/data/benchclamp/raw/Spider/database/db_schema_details.json",
-        "w",
+        '/Users/subhrroy/workspace/pyharbor/data/benchclamp/raw/Spider/database/db_schema_details.json',
+        'w',
     ) as fp:
         fp.write(jsons.dumps(cosql_schemas, cls=Dict[str, DbSchema]))

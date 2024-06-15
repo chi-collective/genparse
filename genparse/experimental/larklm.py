@@ -7,16 +7,15 @@ from genparse.semiring import Float
 
 
 class LarkGuide(LM):
-
     def __init__(self, llm, grammar, start, allow_ws=True):
         # self.grammar = grammar
         # self.start = start
         self.llm = llm
-        self.parser = Lark(grammar, start=start, parser="lalr", regex=True)
+        self.parser = Lark(grammar, start=start, parser='lalr', regex=True)
         self.terminal2pattern = {
             k: v.pattern.to_regexp() for k, v in self.parser._terminals_dict.items()
         }
-        self.terminal2pattern["$END"] = ""
+        self.terminal2pattern['$END'] = ''
         self.allow_ws = allow_ws
 
         self._cache = {}
@@ -24,9 +23,9 @@ class LarkGuide(LM):
 
     def __call__(self, x):
         if self.allow_ws:
-            return self.next_token_pattern(x) == regex.compile("|\\s+")
+            return self.next_token_pattern(x) == regex.compile('|\\s+')
         else:
-            return self.next_token_pattern(x) == regex.compile("")
+            return self.next_token_pattern(x) == regex.compile('')
 
     # TODO: It's probably much more efficient to sample a token from the LLM and
     # then check if it is legal rather than to eagerly compute the entire mask.
@@ -40,7 +39,7 @@ class LarkGuide(LM):
         for v in self.V:
             if pattern.fullmatch(v, partial=True):
                 p[v] = 1
-        if pattern.match(""):
+        if pattern.match(''):
             p[self.llm.eos] = 1
         return p
 
@@ -66,9 +65,9 @@ class LarkGuide(LM):
         # Get the regex for the valid tokens
         valid_regex = [self.terminal2pattern[t] for t in valid_tokens]
         if valid_regex and self.allow_ws:
-            valid_regex.append(r"\s+")
+            valid_regex.append(r'\s+')
 
-        pattern = regex.compile("|".join(valid_regex))
+        pattern = regex.compile('|'.join(valid_regex))
 
         return pattern
 
@@ -101,7 +100,7 @@ def main():
 
     llm = make_mock_llm()
 
-    guide = LarkGuide(llm, json_grammar, "value")
+    guide = LarkGuide(llm, json_grammar, 'value')
     text = '{"8W{0sxM{{}]]vpEC4|i;]V@Jg_#P^j\n?k%noXNt\2#2]a8a\PJru]/`M6gaqb@EhFx"'
 
     text = '{"a": 1}'
@@ -122,5 +121,5 @@ def main():
 #    # interactive_parser.parser_state.feed_token(end_token, True)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

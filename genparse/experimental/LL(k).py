@@ -12,7 +12,6 @@ from genparse.wfsa import EPSILON
 
 
 class LL1:
-
     def __init__(self, cfg):
         assert (
             not cfg.has_nullary()
@@ -66,7 +65,7 @@ class LL1:
 
             else:
                 if not self.TABLE[top][curr]:
-                    assert False, f"the string is not accepted: top={top} curr={curr}"
+                    assert False, f'the string is not accepted: top={top} curr={curr}'
                 r = self.TABLE[top][curr]
                 stack.pop()
                 stack += list(r.body)[::-1]
@@ -80,11 +79,10 @@ def assert_equal(have, want, tol=1e-10):
         error = Float.metric(have, want)
     else:
         error = have.metric(want)
-    assert error <= tol, f"have = {have}, want = {want}, error = {error}"
+    assert error <= tol, f'have = {have}, want = {want}, error = {error}'
 
 
-if __name__ == "__main__":
-
+if __name__ == '__main__':
     cfg = CFG.from_string(
         """
     0.7: S → A T
@@ -96,7 +94,7 @@ if __name__ == "__main__":
         Float,
     )
 
-    x = "aaaacbbbb"
+    x = 'aaaacbbbb'
 
     ll1 = LL1(cfg)
     earley = Earley(cfg)

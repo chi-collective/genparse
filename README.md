@@ -1,6 +1,5 @@
-![Black](https://github.com/timvieira/genparse/actions/workflows/black.yml/badge.svg)
 ![Docs](https://github.com/timvieira/genparse/actions/workflows/docs.yml/badge.svg)
-![Linter](https://github.com/timvieira/genparse/actions/workflows/pylint.yml/badge.svg)
+![Linter](https://github.com/timvieira/genparse/actions/workflows/ruff.yml/badge.svg)
 ![Tests](https://github.com/timvieira/genparse/actions/workflows/pytest.yml/badge.svg)
 
 GenParse

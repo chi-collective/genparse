@@ -11,8 +11,7 @@ from genparse.semiring import Float
 
 
 class EarleyLM(LM):
-
-    def __init__(self, cfg, strategy="NONE"):
+    def __init__(self, cfg, strategy='NONE'):
         if EOS not in cfg.V:
             cfg = add_EOS(cfg)
         self.model = EarleyScale(cfg.prefix_grammar, strategy=strategy)
@@ -31,13 +30,13 @@ total = lambda x: 1 if len(x) == 0 else x[0] * total(x[1:])
 
 class Column:
     __slots__ = (
-        "k",
-        "chart",
-        "waiting_for",
-        "Q",
-        "very_close_terminal",
-        "rescale",
-        "prefix_probability",
+        'k',
+        'chart',
+        'waiting_for',
+        'Q',
+        'very_close_terminal',
+        'rescale',
+        'prefix_probability',
     )
 
     def __init__(self, k, chart):
@@ -62,19 +61,18 @@ class EarleyScale:
     """
 
     __slots__ = (
-        "cfg",
-        "order",
-        "_chart",
-        "CLOSE",
-        "V",
-        "eos",
-        "strategy",
-        "prefix_probability",
-        "rescale",
+        'cfg',
+        'order',
+        '_chart',
+        'CLOSE',
+        'V',
+        'eos',
+        'strategy',
+        'prefix_probability',
+        'rescale',
     )
 
-    def __init__(self, cfg, strategy="NONE"):
-
+    def __init__(self, cfg, strategy='NONE'):
         assert cfg.R == Float
 
         cfg = cfg.nullaryremove().unarycycleremove().renumber()
@@ -113,7 +111,6 @@ class EarleyScale:
         return col[N].chart[0, self.cfg.S] / total(self.rescale)
 
     def chart(self, x):
-
         self.prefix_probability = deque([self.cfg.R.one, self.cfg.R.one])
         self.rescale = [self.cfg.R.one, self.cfg.R.one]
 
@@ -124,12 +121,11 @@ class EarleyScale:
         return c
 
     def _compute_chart(self, x):
-
         if len(x) == 0:
             chart = [Column(0, self.cfg.R.chart())]
 
-            chart[0].rescale = [self.cfg.R.from_string("1")]
-            chart[0].prefix_probability = self.cfg.R.from_string("1")
+            chart[0].rescale = [self.cfg.R.from_string('1')]
+            chart[0].prefix_probability = self.cfg.R.from_string('1')
             self.PREDICT(chart[0])
             return chart
         else:
@@ -145,7 +141,6 @@ class EarleyScale:
         return self.next_token_weights(self.chart(prefix))
 
     def next_column(self, prev_cols, token):
-
         next_col = Column(prev_cols[-1].k + 1, self.cfg.R.chart())
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
@@ -166,9 +161,9 @@ class EarleyScale:
 
         self.PREDICT(next_col)
 
-        if self.strategy == "RANDOM":
+        if self.strategy == 'RANDOM':
             next_col.rescale = prev_col.rescale + [random.randint(10, 100)]
-        elif self.strategy == "AUTOMATIC":
+        elif self.strategy == 'AUTOMATIC':
             # next_col.prefix_probability = next_col.chart[0,self.cfg.S]/ total(prev_col.rescale) # recompute the prefix probability
             # next_col.rescale = prev_col.rescale + \
             #     [prev_col.prefix_probability/next_col.prefix_probability] # Pp(x_0 ..x_i-1)/Pp(x_0 ..x_i x_i+1)
@@ -179,10 +174,10 @@ class EarleyScale:
                 prev_col.prefix_probability / next_col.prefix_probability
             ]  # Pp(x_0 ..x_i-1)/Pp(x_0 ..x_i x_i+1)
 
-        elif self.strategy == "NONE":
+        elif self.strategy == 'NONE':
             next_col.rescale = prev_col.rescale
         else:
-            assert False, "No valid rescaling strategy has been chosen"
+            assert False, 'No valid rescaling strategy has been chosen'
         return next_col
 
     def PREDICT(self, prev_col):
@@ -287,7 +282,6 @@ class EarleyScale:
 
             # already_popped = set()
             while xxx:
-
                 X = xxx.pop()
 
                 # assert X not in already_popped
@@ -300,7 +294,6 @@ class EarleyScale:
                 close_IX = CLOSE[I, X]
 
                 for J in sorted(close_IX):  # TODO: more efficient to maintain sorted?
-
                     if J >= N:
                         break
 
@@ -309,7 +302,6 @@ class EarleyScale:
                     yyy = tmp_J_Y[J]
                     pushed = False
                     for Y in close_IX[J]:
-
                         # if self.cfg.is_terminal(Y): continue
                         # assert self.cfg.is_nonterminal(Y)
 
@@ -330,7 +322,7 @@ class EarleyScale:
         # print(self.rescale)
 
         rescale_factor = total(col.rescale[:-1])
-        print(f"rescale factors {col.rescale}")
+        print(f'rescale factors {col.rescale}')
         for I, X, Ys in col.very_close_terminal:  # consider all possible tokens here
             # assert self.cfg.is_nonterminal(Ys[0])
 
@@ -345,14 +337,13 @@ class EarleyScale:
         return q
 
 
-def test_p_next_palindrome(strategy="AUTOMATIC"):
-
+def test_p_next_palindrome(strategy='AUTOMATIC'):
     cfg = add_EOS(examples.palindrome_ab)
 
     cfglm = CFGLM(cfg)  # CFGLM(cfg)
     earley = EarleyLM(cfg, strategy=strategy)
 
-    for prefix in ["", "a", "ab", "aaab", "aaabb"]:
+    for prefix in ['', 'a', 'ab', 'aaab', 'aaabb']:
         print()
         print(colors.light.blue % prefix)
         want = cfglm.p_next(prefix)
@@ -364,14 +355,13 @@ def test_p_next_palindrome(strategy="AUTOMATIC"):
         assert err <= 1e-5
 
 
-def test_p_next_catalan(strategy="AUTOMATIC"):
-
+def test_p_next_catalan(strategy='AUTOMATIC'):
     cfg = add_EOS(examples.catalan_ab)
 
     cfglm = CFGLM(cfg)  # CFGLM(cfg)
     earley = EarleyLM(cfg, strategy=strategy)
 
-    for prefix in ["", "a", "ab", "aaab", "aaabb"]:
+    for prefix in ['', 'a', 'ab', 'aaab', 'aaabb']:
         print()
         print(colors.light.blue % prefix)
         want = cfglm.p_next(prefix)
@@ -388,10 +378,10 @@ def assert_equal(have, want, tol=1e-10):
         error = Float.metric(have, want)
     else:
         error = have.metric(want)
-    assert error <= tol, f"have = {have}, want = {want}, error = {error}"
+    assert error <= tol, f'have = {have}, want = {want}, error = {error}'
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from arsenal import testing_framework
 
     testing_framework(globals())

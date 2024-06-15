@@ -56,52 +56,51 @@ def test_basic_aligned_model_iql_small():
 
     proposal = TokenProposal(guide=guide, llm=llm)
 
-    proposal._prompt = ""
+    proposal._prompt = ''
 
-    with timeit("took"):
-
-        p = proposal._p_next("")
+    with timeit('took'):
+        p = proposal._p_next('')
         print(p)
-        assert p.keys() == {"S", "SE", "SELECT"}
+        assert p.keys() == {'S', 'SE', 'SELECT'}
 
-        p = proposal._p_next("SELECT * FROM data")
+        p = proposal._p_next('SELECT * FROM data')
         print(p)
         assert p.keys() == {
-            " ",
-            " <",
-            " </",
-            " G",
-            " W",
-            " O",
-            " GR",
-            " WH",
-            " OR",
-            " GROUP",
-            " WHERE",
-            " ORDER",
+            ' ',
+            ' <',
+            ' </',
+            ' G',
+            ' W',
+            ' O',
+            ' GR',
+            ' WH',
+            ' OR',
+            ' GROUP',
+            ' WHERE',
+            ' ORDER',
         }
 
-        p = proposal._p_next("SELECT age FROM data")
+        p = proposal._p_next('SELECT age FROM data')
         print(p)
         assert p.keys() == {
-            " ",
-            " <",
-            " </",
-            " G",
-            " W",
-            " O",
-            " GR",
-            " WH",
-            " OR",
-            " GROUP",
-            " WHERE",
-            " ORDER",
+            ' ',
+            ' <',
+            ' </',
+            ' G',
+            ' W',
+            ' O',
+            ' GR',
+            ' WH',
+            ' OR',
+            ' GROUP',
+            ' WHERE',
+            ' ORDER',
         }
 
     print(proposal.sample())
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from arsenal import testing_framework
 
     testing_framework(globals())

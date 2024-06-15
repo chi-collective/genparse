@@ -40,10 +40,10 @@ VERY_RESTRICTED_SQL = r"""
 
 
 def set_environment():
-    if getpass.getuser() == "benjamin.lebrun":
-        sys.path.append("/home/mila/b/benjamin.lebrun/genparse")
-        os.environ["HF_HOME"] = os.path.join(os.environ["SCRATCH"], "hf_cache")
-        print("HF cache set; path updated")
+    if getpass.getuser() == 'benjamin.lebrun':
+        sys.path.append('/home/mila/b/benjamin.lebrun/genparse')
+        os.environ['HF_HOME'] = os.path.join(os.environ['SCRATCH'], 'hf_cache')
+        print('HF cache set; path updated')
 
 
 def main(
@@ -57,19 +57,17 @@ def main(
     from genparse.steer import HFPPLSampler
     from genparse.util import LarkStuff
 
-    genparse_llm = AsyncGreedilyTokenizedLLM.from_name(
-        model_name, batch_size=batch_size
-    )
+    genparse_llm = AsyncGreedilyTokenizedLLM.from_name(model_name, batch_size=batch_size)
     guide = EarleyBoolMaskCFGLM(
-        LarkStuff(VERY_RESTRICTED_SQL).char_cfg(0.99, ignore="[ ]?")
+        LarkStuff(VERY_RESTRICTED_SQL).char_cfg(0.99, ignore='[ ]?')
     )
     sampler = HFPPLSampler(llm=genparse_llm, guide=guide)
-    if proposal_name == "character":
+    if proposal_name == 'character':
         proposal = CharacterProposal(llm=genparse_llm, guide=guide)
-    elif proposal_name == "token":
+    elif proposal_name == 'token':
         proposal = TokenProposal(llm=genparse_llm, guide=guide)
     else:
-        ValueError("invalid proposal name")
+        ValueError('invalid proposal name')
 
     sampler.run_inference(
         prompt=PROMPT,
@@ -81,32 +79,30 @@ def main(
     )
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Test HFPPL inference.")
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Test HFPPL inference.')
     parser.add_argument(
-        "--model_name",
+        '--model_name',
         type=str,
-        default="codellama/CodeLlama-7b-Instruct-hf",
-        help="huggingface model path",
+        default='codellama/CodeLlama-7b-Instruct-hf',
+        help='huggingface model path',
     )
     parser.add_argument(
-        "--proposal", type=str, default="character", help="`character` or `token`"
+        '--proposal', type=str, default='character', help='`character` or `token`'
     )
     parser.add_argument(
-        "--batch_size", type=int, default=20, help="batch size for inference"
+        '--batch_size', type=int, default=20, help='batch size for inference'
     )
     parser.add_argument(
-        "--method", type=str, default="smc-standard", help="smc-standard or smc-steer"
+        '--method', type=str, default='smc-standard', help='smc-standard or smc-steer'
     )
+    parser.add_argument('--n_particles', type=int, default=5, help='Number of particles')
+    parser.add_argument('--max_tokens', type=int, default=50, help='Maximum tokens')
     parser.add_argument(
-        "--n_particles", type=int, default=5, help="Number of particles"
-    )
-    parser.add_argument("--max_tokens", type=int, default=50, help="Maximum tokens")
-    parser.add_argument(
-        "--verbosity",
+        '--verbosity',
         type=int,
         default=1,
-        help="Verbosity = 1 prints tokens at each time-step; 0 is silent",
+        help='Verbosity = 1 prints tokens at each time-step; 0 is silent',
     )
 
     args = parser.parse_args()

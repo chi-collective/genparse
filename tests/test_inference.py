@@ -14,7 +14,6 @@ N_PARTICLES = 5_000
 
 
 def run_test(lm1, lm2):
-
     ref = CheckParticles(lm1, lm2, MAX_LENGTH)
 
     ref.check(
@@ -23,7 +22,7 @@ def run_test(lm1, lm2):
             lm2,
             MAX_LENGTH=MAX_LENGTH,
             n_particles=N_PARTICLES,
-            METHOD="is",
+            METHOD='is',
         )
     )
 
@@ -33,7 +32,7 @@ def run_test(lm1, lm2):
             lm2,
             MAX_LENGTH=MAX_LENGTH,
             n_particles=N_PARTICLES,
-            METHOD="smc-standard",
+            METHOD='smc-standard',
         )
     )
 
@@ -43,7 +42,7 @@ def run_test(lm1, lm2):
             lm2,
             MAX_LENGTH=MAX_LENGTH,
             n_particles=N_PARTICLES,
-            METHOD="smc-steer",
+            METHOD='smc-steer',
         )
     )
 
@@ -51,7 +50,6 @@ def run_test(lm1, lm2):
 # This class computes a target distribution for testing purposes and then to run
 # some diagnostics to characterize the quality of the approximation.
 class CheckParticles(BruteForceGlobalProductOfExperts):
-
     def check(self, particles):
         n_particles = len(particles)
 
@@ -70,13 +68,13 @@ class CheckParticles(BruteForceGlobalProductOfExperts):
                 continue
             df.append(dict(x=x, target=self.target[x], empirical=empirical[x]))
 
-        df = pd.DataFrame(df).sort_values("target", ascending=False)
-        df["rel_error"] = abs(df.target - df.empirical) / abs(df.target)
-        df["rel_error"] = df.rel_error.map(highlight)
+        df = pd.DataFrame(df).sort_values('target', ascending=False)
+        df['rel_error'] = abs(df.target - df.empirical) / abs(df.target)
+        df['rel_error'] = df.rel_error.map(highlight)
 
         print(df)
 
-        print("total variation:", abs(df.target - df.empirical).sum() / 2)
+        print('total variation:', abs(df.target - df.empirical).sum() / 2)
 
         return df
 
@@ -118,7 +116,6 @@ def test_empty():
 
 
 def test_finite_finite():
-
     run_test(
         CFGLM.from_string(
             """
@@ -143,7 +140,6 @@ def test_finite_finite():
 
 
 def test_palindrome_universal():
-
     run_test(
         CFGLM.from_string(
             """
@@ -167,7 +163,6 @@ def test_palindrome_universal():
 
 
 def test_palindrome_finite():
-
     run_test(
         CFGLM.from_string(
             """
@@ -192,7 +187,7 @@ def test_palindrome_finite():
     )
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from arsenal import testing_framework
 
     testing_framework(globals())
