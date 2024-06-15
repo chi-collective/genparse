@@ -8,12 +8,15 @@ import numpy as np
 
 from genparse.lm import LM
 from genparse import add_EOS, EOS
+
+
 class EarleyLM(LM):
 
     def __init__(self, cfg):
-        if EOS not in cfg.V: cfg = add_EOS(cfg)
+        if EOS not in cfg.V:
+            cfg = add_EOS(cfg)
         self.model = Earley(cfg.prefix_grammar)
-        super().__init__(V = cfg.V, eos = EOS)
+        super().__init__(V=cfg.V, eos=EOS)
 
     def p_next(self, context):
         return self.model.p_next(context)
@@ -24,7 +27,7 @@ class EarleyLM(LM):
 
 
 class Column:
-    __slots__ = ('k', 'chart', 'waiting_for', 'Q', 'very_close_terminal', 'rescale')
+    __slots__ = ("k", "chart", "waiting_for", "Q", "very_close_terminal", "rescale")
 
     def __init__(self, k, chart):
         self.k = k
@@ -48,7 +51,7 @@ class Earley:
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
-    __slots__ = ('cfg', 'order', '_chart', 'CLOSE', 'V', 'eos', '_initial_column')
+    __slots__ = ("cfg", "order", "_chart", "CLOSE", "V", "eos", "_initial_column")
 
     def __init__(self, cfg):
 
@@ -112,7 +115,9 @@ class Earley:
         else:
             chart = self.chart(x[:-1])
             last_chart = self.next_column(chart, x[-1])
-            return chart + [last_chart]    # TODO: avoid list addition here as it is not constant time!
+            return chart + [
+                last_chart
+            ]  # TODO: avoid list addition here as it is not constant time!
 
     def p_next(self, prefix):
         return self.next_token_weights(self.chart(prefix))
@@ -129,16 +134,18 @@ class Earley:
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         prev_col = prev_cols[-1]
         for I, X, Ys in prev_col.waiting_for[token]:
-            self._update(next_col, I, X, Ys[1:], prev_col.chart[I, X, Ys] * prev_col.rescale)
+            self._update(
+                next_col, I, X, Ys[1:], prev_col.chart[I, X, Ys] * prev_col.rescale
+            )
 
         # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
         Q = next_col.Q
         while Q:
-            (J,Y) = Q.pop()
+            (J, Y) = Q.pop()
             col_J = prev_cols[J]
-            y = next_col.chart[J,Y]
-            for (I, X, Ys) in col_J.waiting_for[Y]:
-                self._update(next_col, I, X, Ys[1:], col_J.chart[I,X,Ys] * y)
+            y = next_col.chart[J, Y]
+            for I, X, Ys in col_J.waiting_for[Y]:
+                self._update(next_col, I, X, Ys[1:], col_J.chart[I, X, Ys] * y)
 
         self.PREDICT(next_col)
 
@@ -159,7 +166,8 @@ class Earley:
         k = prev_col.k
         zero = self.cfg.R.zero
         for r in self.cfg:
-            if r.body == (): continue
+            if r.body == ():
+                continue
             Y = r.body[0]
             item = (k, r.head, r.body)
             was = prev_col.chart[item]
@@ -181,10 +189,10 @@ class Earley:
         K = col.k
         if Ys == ():
             # Items of the form phrase(I, X/[], K)
-            was = col.chart[I,X]
+            was = col.chart[I, X]
             if was == self.cfg.R.zero:
-                col.Q[I,X] = (K if I == K else (K-I-1), self.order[X])
-            col.chart[I,X] = was + value
+                col.Q[I, X] = (K if I == K else (K - I - 1), self.order[X])
+            col.chart[I, X] = was + value
 
         else:
             # Items of the form phrase(I, X/[Y|Ys], K)
@@ -235,11 +243,11 @@ class Earley:
         CLOSE = self.CLOSE
 
         # XXX: the rescaling coefficient will cancel out when we normalized the next-token weights
-        #C = self.rescale(chart, 0, N-1)
+        # C = self.rescale(chart, 0, N-1)
 
         # set output adjoint to 1; (we drop the empty parens for completed items)
         d_next_col_chart = self.cfg.R.chart()
-        d_next_col_chart[0, self.cfg.S] += self.cfg.R.one #/ C
+        d_next_col_chart[0, self.cfg.S] += self.cfg.R.one  # / C
 
         tmp_J = pdict()
         tmp_J_Y = [pdict() for _ in range(N)]
@@ -255,21 +263,21 @@ class Earley:
 
             xxx = tmp_J_Y[I]
 
-            #already_popped = set()
+            # already_popped = set()
             while xxx:
 
                 X = xxx.pop()
 
-                #assert X not in already_popped
-                #already_popped.add(X)
+                # assert X not in already_popped
+                # already_popped.add(X)
 
                 value = d_next_col_chart[I, X]
 
-                #assert value != zero
+                # assert value != zero
 
-                close_IX = CLOSE[I,X]
+                close_IX = CLOSE[I, X]
 
-                for J in sorted(close_IX):   # TODO: more efficient to maintain sorted?
+                for J in sorted(close_IX):  # TODO: more efficient to maintain sorted?
 
                     if J >= N:
                         break
@@ -280,10 +288,10 @@ class Earley:
                     pushed = False
                     for Y in close_IX[J]:
 
-                        #if self.cfg.is_terminal(Y): continue
-                        #assert self.cfg.is_nonterminal(Y)
+                        # if self.cfg.is_terminal(Y): continue
+                        # assert self.cfg.is_nonterminal(Y)
 
-                        #tmp.append((J,Y,I,X))
+                        # tmp.append((J,Y,I,X))
                         new_value = chart_J_chart[I, X, (Y,)] * value
                         if new_value != zero:
                             d_next_col_chart[J, Y] += new_value
@@ -297,8 +305,8 @@ class Earley:
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         q = self.cfg.R.chart()
         col = chart[-1]
-        for I, X, Ys in col.very_close_terminal:   # consider all possible tokens here
-            #assert self.cfg.is_nonterminal(Ys[0])
+        for I, X, Ys in col.very_close_terminal:  # consider all possible tokens here
+            # assert self.cfg.is_nonterminal(Ys[0])
 
             # FORWARD PASS:
             # next_col.chart[I, X, Ys[1:]] += prev_cols[-1].chart[I, X, Ys]

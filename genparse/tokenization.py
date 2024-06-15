@@ -7,10 +7,11 @@ TODO: write tests for this
 
 from typing import Dict, List
 
+
 def get_tokenizer_mapping(tokenizer):
     """
-        Very similar to get_mapping in transformers_cfg.tokenization.mapping
-        but with special case to handle codellama tokenizer.
+    Very similar to get_mapping in transformers_cfg.tokenization.mapping
+    but with special case to handle codellama tokenizer.
     """
     name = tokenizer.__class__.__name__.lower()
     if (
@@ -32,16 +33,17 @@ def get_tokenizer_mapping(tokenizer):
     else:
         raise ValueError(f"Unknown tokenizer type: {tokenizer.__class__.__name__}")
 
+
 def decode_tokenizer_vocab(tokenizer):
     mapping = get_tokenizer_mapping(tokenizer)
 
     # `mapping` maps ids in `all_special_ids` to the null string, so we convert those using HF.
     # TODO: change this
-    return [
-        mapping.map(i).decode("utf-8") for i in range(tokenizer.vocab_size)
-    ]
+    return [mapping.map(i).decode("utf-8") for i in range(tokenizer.vocab_size)]
+
 
 ###### The following code was taken directly from https://github.com/epfl-dlab/transformers-CFG/blob/main/transformers_cfg/tokenization/mapping.py
+
 
 class Mapping:
     def __init__(self, tokenizer):

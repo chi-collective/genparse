@@ -1,7 +1,8 @@
 from . import CFG, Float
 
 # simple CNF grammar, generates one string
-abcd = CFG.from_string("""
+abcd = CFG.from_string(
+    """
 1.0: S -> A BC
 1.0: S -> A D
 1.0: BC -> B C
@@ -9,10 +10,13 @@ abcd = CFG.from_string("""
 1.0: B -> b
 1.0: C -> c
 1.0: D -> d
-""", Float)
+""",
+    Float,
+)
 
 # simple finite language where each prefix kills off a finite number of continuations
-abcde_prefixes = CFG.from_string("""
+abcde_prefixes = CFG.from_string(
+    """
 
 1: S -> a b c d e
 1: S -> a b c d x
@@ -20,28 +24,40 @@ abcde_prefixes = CFG.from_string("""
 1: S -> a x x x x
 1: S -> x x x x x
 
-""", Float)
+""",
+    Float,
+)
 
-catalan = CFG.from_string("""
+catalan = CFG.from_string(
+    """
 0.2: S -> S S
 0.8: S -> a
-""", Float)
+""",
+    Float,
+)
 
-catalan_ab = CFG.from_string("""
+catalan_ab = CFG.from_string(
+    """
 1.0: S -> A
 0.2: A -> A A
 0.4: A -> a
 0.4: A -> b
 
-""", Float)
+""",
+    Float,
+)
 
-palindrome_ab = CFG.from_string("""
+palindrome_ab = CFG.from_string(
+    """
 0.3: S -> a S a
 0.4: S -> b S b
 0.3: S ->
-""", Float)
+""",
+    Float,
+)
 
-papa = CFG.from_string("""
+papa = CFG.from_string(
+    """
 
 1: S    -> NP  VP
 
@@ -62,4 +78,6 @@ papa = CFG.from_string("""
 0.5: N -> caviar
 0.5: N -> spoon
 
-""", Float)
+""",
+    Float,
+)

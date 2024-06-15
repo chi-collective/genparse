@@ -11,7 +11,8 @@ from genparse.experimental.earley import Earley, EarleyLM
 
 def test_cycles():
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
     0.5: S → A1
     0.5: S → A2
 
@@ -28,12 +29,14 @@ def test_cycles():
 
     0.5: C → c
 
-    """, Float)
+    """,
+        Float,
+    )
 
     earley = Earley(cfg)
-    #print(earley.order)
+    # print(earley.order)
 
-    assert_equal(earley('c'), cfg('c'))
+    assert_equal(earley("c"), cfg("c"))
 
 
 def test_papa():
@@ -41,17 +44,17 @@ def test_papa():
 
     earley = Earley(cfg)
 
-    x = 'papa ate the caviar'.split()
+    x = "papa ate the caviar".split()
     want = cfg(x)
     have = earley(x)
     assert cfg.R.metric(have, want) <= 1e-10
 
-    x = 'papa ate the caviar with the spoon'.split()
+    x = "papa ate the caviar with the spoon".split()
     want = cfg(x)
     have = earley(x)
     assert cfg.R.metric(have, want) <= 1e-10
 
-    x = 'papa ate'.split()
+    x = "papa ate".split()
     want = cfg(x)
     have = earley(x)
     assert cfg.R.metric(have, want) <= 1e-10
@@ -62,17 +65,17 @@ def test_palindrome():
 
     earley = Earley(cfg)
 
-    x = ''
+    x = ""
     want = cfg(x)
     have = earley(x)
     assert cfg.R.metric(have, want) <= 1e-10
 
-    x = 'aabbaa'
+    x = "aabbaa"
     want = cfg(x)
     have = earley(x)
     assert cfg.R.metric(have, want) <= 1e-10
 
-    x = 'aabba'
+    x = "aabba"
     want = cfg(x)
     have = earley(x)
     assert have == want == 0
@@ -83,54 +86,57 @@ def test_catalan():
 
     earley = Earley(cfg)
 
-    x = ''
+    x = ""
     want = cfg(x)
     have = earley(x)
     assert cfg.R.metric(have, want) <= 1e-10
 
-    x = 'a'
+    x = "a"
     want = cfg(x)
     have = earley(x)
     assert cfg.R.metric(have, want) <= 1e-10
 
-    x = 'aa'
+    x = "aa"
     want = cfg(x)
     have = earley(x)
     assert cfg.R.metric(have, want) <= 1e-10
 
-    x = 'aaaaa'
+    x = "aaaaa"
     want = cfg(x)
     have = earley(x)
     assert cfg.R.metric(have, want) <= 1e-10
 
 
 def test_common_rhs():
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
     0.1: S -> S S
     0.1: S -> S S
     0.8: S -> a
-    """, Float)
+    """,
+        Float,
+    )
 
     cfg.agenda().assert_equal({x: 1 for x in cfg.N | cfg.V})
 
     earley = Earley(cfg)
 
-    x = ''
+    x = ""
     want = cfg(x)
     have = earley(x)
     assert cfg.R.metric(have, want) <= 1e-10, [x, have, want]
 
-    x = 'a'
+    x = "a"
     want = cfg(x)
     have = earley(x)
     assert cfg.R.metric(have, want) <= 1e-10, [x, have, want]
 
-    x = 'aa'
+    x = "aa"
     want = cfg(x)
     have = earley(x)
     assert cfg.R.metric(have, want) <= 1e-10, [x, have, want]
 
-    x = 'aaaaa'
+    x = "aaaaa"
     want = cfg(x)
     have = earley(x)
     assert cfg.R.metric(have, want) <= 1e-10
@@ -138,33 +144,42 @@ def test_common_rhs():
 
 def test_has_unary_cycle():
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
         0.5: S → A
         0.5: A → B
         0.5: B → C
         0.5: C → A
         0.5: C → c
-    """, Float)
+    """,
+        Float,
+    )
 
     assert cfg.has_unary_cycle()
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
         0.5: S → A
         0.5: A → B
         0.5: B → C
         0.5: C → c
-    """, Float)
+    """,
+        Float,
+    )
 
     assert not cfg.has_unary_cycle()
 
 
 def test_parse_unambiguous():
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
         1.0: S → A B
         0.3: B → A B
         0.5: A → a
         0.4: B → b
-    """, Float)
+    """,
+        Float,
+    )
 
     earley = Earley(cfg)
     assert_equal(earley("ab"), 0.2)
@@ -174,12 +189,15 @@ def test_parse_unambiguous():
 
 def test_parse_left_recursive():
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
         1.0: S → A B
         0.3: A → A B
         0.5: A → a
         0.4: B → b
-    """, Float)
+    """,
+        Float,
+    )
 
     earley = Earley(cfg)
     assert_equal(earley("ab"), 0.2)
@@ -192,30 +210,36 @@ def assert_equal(have, want, tol=1e-10):
         error = Float.metric(have, want)
     else:
         error = have.metric(want)
-    assert error <= tol, f'have = {have}, want = {want}, error = {error}'
+    assert error <= tol, f"have = {have}, want = {want}, error = {error}"
 
 
 def test_parse_unary():
     # grammar contains non-cyclic unary rules
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
         1.0: S → B
         0.3: B → A B
         0.2: B → A
         0.5: A → a
-    """, Float)
+    """,
+        Float,
+    )
 
     earley = Earley(cfg)
     assert_equal(earley("a"), 0.1)
     assert_equal(earley("aa"), 0.015)
     assert_equal(earley("aaa"), 0.00225)
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
         1.0: S → A
         0.5: S → c A
         0.3: A → B
         0.2: B → C
         0.5: C → c
-    """, Float)
+    """,
+        Float,
+    )
 
     earley = Earley(cfg)
     assert_equal(earley("c"), 0.03)
@@ -224,13 +248,16 @@ def test_parse_unary():
 
 def test_parse_mixed():
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
         1.0: S → a B c D
         0.4: S → A b
         0.1: B → b b
         0.5: A → a
         0.3: D → d
-    """, Float)
+    """,
+        Float,
+    )
 
     earley = Earley(cfg)
     assert_equal(earley("ab"), 0.2)
@@ -239,23 +266,30 @@ def test_parse_mixed():
 
 def test_parse_ambiguous_real():
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
         1.0: S → A
         0.4: A → A + A
         0.1: A → A - A
         0.5: A → a
-    """, Float)
+    """,
+        Float,
+    )
 
     earley = Earley(cfg)
     assert_equal(earley("a"), 0.5)
     assert_equal(earley("a+a"), 0.1)
     assert_equal(earley("a+a+a"), 0.04)
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
         0.4: A → A + A
         0.1: A → A - A
         0.5: A → a
-    """, Float, start="A")
+    """,
+        Float,
+        start="A",
+    )
 
     earley = Earley(cfg)
     assert_equal(earley("a"), 0.5)
@@ -265,12 +299,15 @@ def test_parse_ambiguous_real():
 
 def test_parse_ambiguous_maxtimes():
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
         1.0: S → A
         0.4: A → A + A
         0.1: A → A - A
         0.5: A → a
-    """, MaxTimes)
+    """,
+        MaxTimes,
+    )
 
     earley = Earley(cfg)
     assert_equal(earley("a"), MaxTimes(0.5))
@@ -280,7 +317,9 @@ def test_parse_ambiguous_maxtimes():
 
 def test_p_next_new_abcdx():
 
-    cfg = add_EOS(CFG.from_string("""
+    cfg = add_EOS(
+        CFG.from_string(
+            """
 
     1: S -> a b c d
     1: S -> a b c x
@@ -288,15 +327,18 @@ def test_p_next_new_abcdx():
     1: S -> a x x x
     1: S -> x x x x
 
-    """, Float))
+    """,
+            Float,
+        )
+    )
 
     cfglm = CFGLM(cfg)
     earley = EarleyLM(cfg)
 
-    for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
+    for prefix in ["", "a", "ab", "abc", "abcd", "acbde"]:
         print()
         print(colors.light.blue % prefix)
-        want = cfglm.p_next(prefix)     # Annoyingly shifted over
+        want = cfglm.p_next(prefix)  # Annoyingly shifted over
         print(want)
         have = earley.p_next(prefix)
         print(have)
@@ -312,7 +354,7 @@ def test_p_next_palindrome():
     cfglm = CFGLM(cfg)
     earley = EarleyLM(cfg)
 
-    for prefix in ['', 'a', 'ab']:
+    for prefix in ["", "a", "ab"]:
         print()
         print(colors.light.blue % prefix)
         want = cfglm.p_next(prefix)
@@ -332,11 +374,11 @@ def test_p_next_papa():
     earley = EarleyLM(cfg)
 
     for prefix in [
-            [],
-            ['papa'],
-            ['papa', 'ate'],
-            ['papa', 'ate', 'the'],
-            ['papa', 'ate', 'the', 'caviar'],
+        [],
+        ["papa"],
+        ["papa", "ate"],
+        ["papa", "ate", "the"],
+        ["papa", "ate", "the", "caviar"],
     ]:
         prefix = tuple(prefix)
         print()
@@ -349,6 +391,7 @@ def test_p_next_papa():
         assert have.metric(want) <= 1e-5
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from arsenal import testing_framework
+
     testing_framework(globals())

@@ -22,7 +22,9 @@ def serialize_schema(db_schema: bench.spider.schema.DbSchema):
     for table in db_schema.tables:
         column_strs = []
         for column in table.columns:
-            column_strs.append(f"* {column.name} ({column.tpe.value}): {column.nl_name}")
+            column_strs.append(
+                f"* {column.name} ({column.tpe.value}): {column.nl_name}"
+            )
         table_str = "\n".join([table.name] + column_strs)
         table_strs.append(table_str)
 
@@ -39,10 +41,11 @@ class PromptFormatter:
 {system_prompt}
 <</SYS>>
 
-{user_message_1} [/INST] {model_answer_1} </s>""" +
-            "<s>[INST] {user_message_2} [/INST] {model_answer_2} </s>" +
-            "<s>[INST] {user_message_3} [/INST] {model_answer_3} </s>" +
-            "<s>[INST] {user_message} [/INST]")
+{user_message_1} [/INST] {model_answer_1} </s>"""
+            + "<s>[INST] {user_message_2} [/INST] {model_answer_2} </s>"
+            + "<s>[INST] {user_message_3} [/INST] {model_answer_3} </s>"
+            + "<s>[INST] {user_message} [/INST]"
+        )
 
         self.system_prompt = (
             "You are a coding assistant helping an analyst answer questions over business data in SQL. "
@@ -51,7 +54,8 @@ class PromptFormatter:
             "and asks a question about the data that can be solved by issuing a SQL query to the database. "
             "In response, you write the SQL statement that answers the question. "
             "You do not provide any commentary or explanation of what the code does, "
-            "just the SQL statement ending in a semicolon.")
+            "just the SQL statement ending in a semicolon."
+        )
 
         self.user_message_template = """Here is a database schema:
 
@@ -78,7 +82,7 @@ Remember, DO NOT provide any commentary or explanation of what the code does, ju
             train_datum = spider_train_data[example_id]
             user_message = user_message_template.format(
                 schema_str=serialize_schema(db_map[train_datum.schema_name]),
-                utterance=train_datum.utterance
+                utterance=train_datum.utterance,
             )
             prompt_var_dict[f"user_message_{i}"] = user_message
             prompt_var_dict[f"model_answer_{i}"] = train_datum.query + ";"
@@ -86,7 +90,7 @@ Remember, DO NOT provide any commentary or explanation of what the code does, ju
         # the actual question
         user_message = user_message_template.format(
             schema_str=serialize_schema(db_map[datum.schema_name]),
-            utterance=datum.utterance
+            utterance=datum.utterance,
         )
         prompt_var_dict["user_message"] = user_message
 
@@ -105,16 +109,18 @@ def get_parser() -> argparse.ArgumentParser:
 
 def main():
     logging.basicConfig(
-        format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        level=os.environ.get('LOGLEVEL', 'INFO').upper(),
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=os.environ.get("LOGLEVEL", "INFO").upper(),
     )
     parser = get_parser()
     args = parser.parse_args()
     torch.manual_seed(0)
 
     raw_spider_dir = Path("bench/spider/data/spider")
-    spider_schemas = load_schemas(schemas_path=raw_spider_dir / "tables.json", db_path=raw_spider_dir / "database")
+    spider_schemas = load_schemas(
+        schemas_path=raw_spider_dir / "tables.json", db_path=raw_spider_dir / "database"
+    )
 
     spider_dev_data = load_spider_data(raw_spider_dir / "dev.json")
     spider_train_data = load_spider_data(raw_spider_dir / "train_spider.json")
@@ -147,7 +153,7 @@ def main():
             print("=" * 30 + "  End of prompt " + "=" * 30)
         output = pipe(prompt, do_sample=False, top_p=None, temperature=None)
         gold.append(dev_datum)
-        predicted.append(output[0]['generated_text'][len(prompt):])
+        predicted.append(output[0]["generated_text"][len(prompt) :])
 
     gold = spider_dev_data[:n_query]
     with open(f"spider-eval/gold-{args.exp_name}.txt", "w+") as f:
@@ -161,5 +167,5 @@ def main():
             print(datum.strip(), file=f)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

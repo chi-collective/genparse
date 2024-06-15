@@ -38,13 +38,17 @@ VERY_RESTRICTED_SQL = r"""
     WS: /[ ]/
 """
 
+
 def set_environment():
     if getpass.getuser() == "benjamin.lebrun":
         sys.path.append("/home/mila/b/benjamin.lebrun/genparse")
         os.environ["HF_HOME"] = os.path.join(os.environ["SCRATCH"], "hf_cache")
         print("HF cache set; path updated")
 
-def main(model_name, proposal_name, batch_size, n_particles, method, max_tokens, verbosity):
+
+def main(
+    model_name, proposal_name, batch_size, n_particles, method, max_tokens, verbosity
+):
     set_environment()
 
     from genparse.lm import AsyncGreedilyTokenizedLLM
@@ -53,13 +57,17 @@ def main(model_name, proposal_name, batch_size, n_particles, method, max_tokens,
     from genparse.steer import HFPPLSampler
     from genparse.proposal import TokenProposal, CharacterProposal
 
-    genparse_llm = AsyncGreedilyTokenizedLLM.from_name(model_name, batch_size=batch_size)
-    guide = EarleyBoolMaskCFGLM(LarkStuff(VERY_RESTRICTED_SQL).char_cfg(.99, ignore='[ ]?'))
+    genparse_llm = AsyncGreedilyTokenizedLLM.from_name(
+        model_name, batch_size=batch_size
+    )
+    guide = EarleyBoolMaskCFGLM(
+        LarkStuff(VERY_RESTRICTED_SQL).char_cfg(0.99, ignore="[ ]?")
+    )
     sampler = HFPPLSampler(llm=genparse_llm, guide=guide)
     if proposal_name == "character":
         proposal = CharacterProposal(llm=genparse_llm, guide=guide)
     elif proposal_name == "token":
-        proposal = TokenProposal(llm=genparse_llm, guide=guide) 
+        proposal = TokenProposal(llm=genparse_llm, guide=guide)
     else:
         ValueError("invalid proposal name")
 
@@ -69,18 +77,45 @@ def main(model_name, proposal_name, batch_size, n_particles, method, max_tokens,
         method=method,
         n_particles=n_particles,
         max_tokens=max_tokens,
-        verbosity=verbosity
+        verbosity=verbosity,
     )
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test HFPPL inference.")
-    parser.add_argument("--model_name", type=str, default="codellama/CodeLlama-7b-Instruct-hf", help="huggingface model path")
-    parser.add_argument("--proposal", type=str, default="character", help="`character` or `token`")
-    parser.add_argument("--batch_size", type=int, default=20, help="batch size for inference")
-    parser.add_argument("--method", type=str,  default='smc-standard', help="smc-standard or smc-steer")
-    parser.add_argument("--n_particles", type=int, default=5, help="Number of particles")
+    parser.add_argument(
+        "--model_name",
+        type=str,
+        default="codellama/CodeLlama-7b-Instruct-hf",
+        help="huggingface model path",
+    )
+    parser.add_argument(
+        "--proposal", type=str, default="character", help="`character` or `token`"
+    )
+    parser.add_argument(
+        "--batch_size", type=int, default=20, help="batch size for inference"
+    )
+    parser.add_argument(
+        "--method", type=str, default="smc-standard", help="smc-standard or smc-steer"
+    )
+    parser.add_argument(
+        "--n_particles", type=int, default=5, help="Number of particles"
+    )
     parser.add_argument("--max_tokens", type=int, default=50, help="Maximum tokens")
-    parser.add_argument("--verbosity", type=int, default=1, help="Verbosity = 1 prints tokens at each time-step; 0 is silent")
+    parser.add_argument(
+        "--verbosity",
+        type=int,
+        default=1,
+        help="Verbosity = 1 prints tokens at each time-step; 0 is silent",
+    )
 
     args = parser.parse_args()
-    main(args.model_name, args.proposal, args.batch_size, args.n_particles, args.method, args.max_tokens, args.verbosity)
+    main(
+        args.model_name,
+        args.proposal,
+        args.batch_size,
+        args.n_particles,
+        args.method,
+        args.max_tokens,
+        args.verbosity,
+    )

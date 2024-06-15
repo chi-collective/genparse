@@ -4,14 +4,14 @@ import numpy as np
 class TokenCharacterTrie:
 
     __slots__ = (
-        'root',
-        'children',
-        'mass',
-        'word2leaf',
-        'jump',
-        'ordering',
-        'old_eos',
-        'new_eos',
+        "root",
+        "children",
+        "mass",
+        "word2leaf",
+        "jump",
+        "ordering",
+        "old_eos",
+        "new_eos",
     )
 
     def __init__(self, words, old_eos, new_eos):
@@ -27,7 +27,8 @@ class TokenCharacterTrie:
         for word in words:
 
             # coerce old eos to new eos
-            if word == self.old_eos: word = self.new_eos
+            if word == self.old_eos:
+                word = self.new_eos
 
             curr = root
             for letter in word:
@@ -60,7 +61,8 @@ class TokenCharacterTrie:
         mass[self.word2leaf[self.new_eos]] = words[self.old_eos]
 
     def _update_internal(self):
-        mass = self.mass; jump = self.jump
+        mass = self.mass
+        jump = self.jump
         # update internal nodes (in bottom up order)
         for node in self.ordering:
             m = 0

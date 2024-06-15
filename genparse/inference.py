@@ -15,7 +15,8 @@ from arsenal.maths import sample, logsumexp, softmax
 from .util import format_table
 from .record import SMCRecord
 
-#_______________________________________________________________________________
+
+# _______________________________________________________________________________
 #
 # The importance sampling method below is an async equivalent of the following
 #
@@ -39,14 +40,16 @@ async def importance_sampling(model, n_particles):
     "Importance sampling estimator"
     # Create n_particles copies of the model
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
-    for particle in particles: particle.start()
+    for particle in particles:
+        particle.start()
     while not all(p.done_stepping() for p in particles):
         await asyncio.gather(*[p.step() for p in particles if not p.done_stepping()])
     return particles
 
 
-#_______________________________________________________________________________
+# _______________________________________________________________________________
 # The methods below are borrowed from HFPPL
+
 
 async def smc_steer(model, n_particles, n_beam):
     """
@@ -64,7 +67,8 @@ async def smc_steer(model, n_particles, n_beam):
     # Create n_particles copies of the model
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
 
-    for particle in particles: particle.start()
+    for particle in particles:
+        particle.start()
 
     while any(map(lambda p: not p.done_stepping(), particles)):
         # Count the number of finished particles
@@ -80,23 +84,29 @@ async def smc_steer(model, n_particles, n_beam):
                 p.weight += np.log(n_total) - np.log(n_particles)
             else:
                 p.weight += np.log(n_total) - np.log(n_particles) - np.log(n_beam)
-                super_particles.extend([copy.deepcopy(p) for _ in range(n_beam-1)])
+                super_particles.extend([copy.deepcopy(p) for _ in range(n_beam - 1)])
 
         # Step each super-particle
-        await asyncio.gather(*[p.step() for p in super_particles if not p.done_stepping()])
+        await asyncio.gather(
+            *[p.step() for p in super_particles if not p.done_stepping()]
+        )
 
         # Use optimal resampling to resample
         W = np.array([p.weight for p in super_particles])
         W_tot = logsumexp(W)
         W_normalized = softmax(W)
         det_indices, stoch_indices, c = resample_optimal(W_normalized, n_particles)
-        particles = [super_particles[i] for i in np.concatenate((det_indices, stoch_indices))]
+        particles = [
+            super_particles[i] for i in np.concatenate((det_indices, stoch_indices))
+        ]
         # For deterministic particles: w = w * N/N'
         for i in det_indices:
             super_particles[i].weight += np.log(n_particles) - np.log(n_total)
         # For stochastic particles: w = 1/c * total       sum(stoch weights) / num_stoch = sum(stoch weights / total) / num_stoch * total * N/M
         for i in stoch_indices:
-            super_particles[i].weight = W_tot - np.log(c) + np.log(n_particles) - np.log(n_total)
+            super_particles[i].weight = (
+                W_tot - np.log(c) + np.log(n_particles) - np.log(n_total)
+            )
 
     # Return the particles
     return particles
@@ -148,7 +158,7 @@ def resample_optimal(weights, N):
     return deterministic, stoch_resampled, c
 
 
-#_______________________________________________________________________________
+# _______________________________________________________________________________
 #
 
 
@@ -164,14 +174,16 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
     Returns:
         particles (list[hfppl.modeling.Model]): The completed particles after inference.
     """
-    verbosity = model.verbosity if hasattr(model,"verbosity") else 0
+    verbosity = model.verbosity if hasattr(model, "verbosity") else 0
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
 
-    for particle in particles: particle.start()
+    for particle in particles:
+        particle.start()
 
-    if verbosity>0: step_num = 1
+    if verbosity > 0:
+        step_num = 1
 
-    while (any(map(lambda p: not p.done_stepping(), particles))):
+    while any(map(lambda p: not p.done_stepping(), particles)):
         # Step each particle
         for p in particles:
             p.untwist()
@@ -182,72 +194,95 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
         total_weight = logsumexp(weights)
         normalized_weights = weights - total_weight
 
-        if verbosity>0:
+        if verbosity > 0:
             for i, p in enumerate(particles):
-                print(f"├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}")
+                print(
+                    f"├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}"
+                )
             avg_weight = total_weight - np.log(n_particles)
             print(f"│ Step {step_num:3d} average weight: {avg_weight:.4f}")
             step_num += 1
 
         # Resample if necessary
-        if -logsumexp(normalized_weights * 2) < np.log(ess_threshold) + np.log(n_particles):
+        if -logsumexp(normalized_weights * 2) < np.log(ess_threshold) + np.log(
+            n_particles
+        ):
             # Alternative implementation uses a multinomial distribution and only makes n-1 copies, reusing existing one, but fine for now
             probs = np.exp(normalized_weights)
-            particles = [copy.deepcopy(particles[np.random.choice(range(len(particles)), p=probs)]) for _ in range(n_particles)]
+            particles = [
+                copy.deepcopy(
+                    particles[np.random.choice(range(len(particles)), p=probs)]
+                )
+                for _ in range(n_particles)
+            ]
             avg_weight = total_weight - np.log(n_particles)
             for p in particles:
                 p.weight = avg_weight
-            
-            if verbosity>0: print(f"└╼  Resampling! Weights all set to = {avg_weight:.4f}.")
+
+            if verbosity > 0:
+                print(f"└╼  Resampling! Weights all set to = {avg_weight:.4f}.")
         else:
-            if verbosity>0: print("└╼")
+            if verbosity > 0:
+                print("└╼")
 
     return particles
 
 
-#_______________________________________________________________________________
+# _______________________________________________________________________________
 #  Modified version of the above, to keep a record of information about the run.
 #  Should be identical
 
-async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_record=True):
+
+async def smc_standard_record(
+    model, n_particles, ess_threshold=0.5, return_record=True
+):
     """
     Standard sequential Monte Carlo algorithm with multinomial resampling.
-    
+
     Args:
         model (hfppl.modeling.Model): The model to perform inference on.
         n_particles (int): Number of particles to execute concurrently.
         ess_threshold (float): Effective sample size below which resampling is triggered, given as a fraction of `n_particles`.
-    
+
     Returns:
         particles (list[hfppl.modeling.Model]): The completed particles after inference.
         record (SMCRecord): Information about inference run history.
     """
-    verbosity = model.verbosity if hasattr(model,"verbosity") else 0
+    verbosity = model.verbosity if hasattr(model, "verbosity") else 0
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
 
-    for particle in particles: particle.start()
-    
+    for particle in particles:
+        particle.start()
+
     # Initialize record dict
-    record = SMCRecord({
-        'step' : [0],
-        'context' : [[p.context.copy() for p in particles]],
-        'weight' : [[p.weight for p in particles]],
-        'resample?' : [False],
-        'resampled as' : [[i for i, _ in enumerate(particles)]],
-        'average weight' : [0.0],
-    }) if return_record else None
-    
-    if return_record or verbosity>0: step_num = 1
-    
+    record = (
+        SMCRecord(
+            {
+                "step": [0],
+                "context": [[p.context.copy() for p in particles]],
+                "weight": [[p.weight for p in particles]],
+                "resample?": [False],
+                "resampled as": [[i for i, _ in enumerate(particles)]],
+                "average weight": [0.0],
+            }
+        )
+        if return_record
+        else None
+    )
+
+    if return_record or verbosity > 0:
+        step_num = 1
+
     while any(map(lambda p: not p.done_stepping(), particles)):
-    
-        if return_record: record['step'].append(step_num)
-            
+
+        if return_record:
+            record["step"].append(step_num)
+
         # Step each particle
         for p in particles:
             p.untwist()
         await asyncio.gather(*[p.step() for p in particles if not p.done_stepping()])
-        
+
         # Normalize weights
         weights = [p.weight for p in particles]
         total_weight = logsumexp(np.array(weights))
@@ -255,49 +290,65 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
 
         # Compute log average weight (used if resampling, else only for record)
         avg_weight = total_weight - np.log(n_particles)
-        if verbosity>0:
+        if verbosity > 0:
             for i, p in enumerate(particles):
-                print(f"├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}")
+                print(
+                    f"├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}"
+                )
             print(f"│ Step {step_num:3d} average weight: {avg_weight:.4f}")
-        
-        if return_record: 
-            record['context'].append([p.context.copy() for p in particles])
-            record['weight'].append(weights)
+
+        if return_record:
+            record["context"].append([p.context.copy() for p in particles])
+            record["weight"].append(weights)
             record["average weight"].append(avg_weight)
-        
+
         # Resample if necessary
-        if -logsumexp(weights_normalized * 2) < np.log(ess_threshold) + np.log(n_particles):
+        if -logsumexp(weights_normalized * 2) < np.log(ess_threshold) + np.log(
+            n_particles
+        ):
             # Alternative implementation uses a multinomial distribution and only makes n-1 copies, reusing existing one, but fine for now
             probs = np.exp(weights_normalized)
-            
-            if return_record or verbosity>0:
+
+            if return_record or verbosity > 0:
                 # resampling: sample indices to copy
-                resampled_indices = [np.random.choice(range(len(particles)), p=probs) for _ in range(n_particles)]
+                resampled_indices = [
+                    np.random.choice(range(len(particles)), p=probs)
+                    for _ in range(n_particles)
+                ]
                 resampled_indices.sort()
                 particles = [copy.deepcopy(particles[i]) for i in resampled_indices]
                 record["resample?"] += [True]
                 record["resampled as"].append(resampled_indices)
             else:
-                particles = [copy.deepcopy(particles[np.random.choice(range(len(particles)), p=probs)]) for _ in range(n_particles)]
+                particles = [
+                    copy.deepcopy(
+                        particles[np.random.choice(range(len(particles)), p=probs)]
+                    )
+                    for _ in range(n_particles)
+                ]
 
             for p in particles:
                 p.weight = avg_weight
 
-            if verbosity>0: print(f"└╼  Resampling! {resampled_indices}. Weights all set to = {avg_weight:.4f}.")
+            if verbosity > 0:
+                print(
+                    f"└╼  Resampling! {resampled_indices}. Weights all set to = {avg_weight:.4f}."
+                )
         else:
-            if return_record: 
+            if return_record:
                 record["resample?"].append(False)
                 record["resampled as"].append([i for i, _ in enumerate(particles)])
 
-            if verbosity>0: print("└╼")
-        
-        if return_record or verbosity>0: step_num += 1
+            if verbosity > 0:
+                print("└╼")
 
+        if return_record or verbosity > 0:
+            step_num += 1
 
     return particles, record
 
 
-#_______________________________________________________________________________
+# _______________________________________________________________________________
 #
 
 
@@ -313,35 +364,38 @@ class Tracer:
     def __call__(self, p, context=None):
         "Sample an action while updating the trace cursor and tree data structure."
 
-        if not isinstance(p, dict): p = dict(enumerate(p))
+        if not isinstance(p, dict):
+            p = dict(enumerate(p))
 
         cur = self.cur
 
-        if cur.children is None:          # initialize the newly discovered node
-            cur.children = {a: Node(cur.mass * p[a], parent = cur) for a in p if p[a] > 0}
-            self.cur.context = context   # store the context, which helps detect trace divergence
+        if cur.children is None:  # initialize the newly discovered node
+            cur.children = {a: Node(cur.mass * p[a], parent=cur) for a in p if p[a] > 0}
+            self.cur.context = (
+                context  # store the context, which helps detect trace divergence
+            )
 
         if context != cur.context:
-            print(colors.light.red % 'ERROR: trace divergence detected:')
-            print(colors.light.red % 'trace context:', self.cur.context)
-            print(colors.light.red % 'calling context:', context)
+            print(colors.light.red % "ERROR: trace divergence detected:")
+            print(colors.light.red % "trace context:", self.cur.context)
+            print(colors.light.red % "calling context:", context)
             raise ValueError((p, cur))
 
         a = cur.sample()
-        self.cur = cur.children[a]   # advance the cursor
+        self.cur = cur.children[a]  # advance the cursor
         return a
 
 
 class Node:
 
-    __slots__ = ('mass', 'parent', 'children', 'context', '_mass')
+    __slots__ = ("mass", "parent", "children", "context", "_mass")
 
     def __init__(self, mass, parent, children=None, context=None):
         self.mass = mass
         self.parent = parent
         self.children = children
         self.context = context
-        self._mass = mass           # bookkeeping: remember the original mass
+        self._mass = mass  # bookkeeping: remember the original mass
 
     def sample(self):
         cs = list(self.children)
@@ -349,7 +403,7 @@ class Node:
         return cs[sample(ms)]
 
     def p_next(self):
-        return Float.chart((a, c.mass/self.mass) for a, c in self.children.items())
+        return Float.chart((a, c.mass / self.mass) for a, c in self.children.items())
 
     # TODO: untested
     def sample_path(self):
@@ -361,7 +415,8 @@ class Node:
             a = curr.sample()
             P *= p[a]
             curr = curr.children[a]
-            if not curr.children: break
+            if not curr.children:
+                break
             path.append(a)
         return (P, path, curr)
 
@@ -374,15 +429,23 @@ class Node:
 
     def graphviz(
         self,
-        fmt_edge=lambda x,a,y: f'{html.escape(str(a))}/{y._mass/x._mass:.2g}',
-        #fmt_node=lambda x: ' ',
-        fmt_node=lambda x: f'{x.mass}/{x._mass:.2g}' if x.mass > 0 else f'{x._mass:.2g}',
+        fmt_edge=lambda x, a, y: f"{html.escape(str(a))}/{y._mass/x._mass:.2g}",
+        # fmt_node=lambda x: ' ',
+        fmt_node=lambda x: (
+            f"{x.mass}/{x._mass:.2g}" if x.mass > 0 else f"{x._mass:.2g}"
+        ),
     ):
         "Create a graphviz instance for this subtree"
         g = Digraph(
-            graph_attr=dict(rankdir='LR'),
-            node_attr=dict(fontname='Monospace', fontsize='10', height='.05', width='.05', margin='0.055,0.042'),
-            edge_attr=dict(arrowsize='0.3', fontname='Monospace', fontsize='9'),
+            graph_attr=dict(rankdir="LR"),
+            node_attr=dict(
+                fontname="Monospace",
+                fontsize="10",
+                height=".05",
+                width=".05",
+                margin="0.055,0.042",
+            ),
+            edge_attr=dict(arrowsize="0.3", fontname="Monospace", fontsize="9"),
         )
         f = Integerizer()
         xs = set()
@@ -390,15 +453,16 @@ class Node:
         while q:
             x = q.pop()
             xs.add(x)
-            if x.children is None: continue
+            if x.children is None:
+                continue
             for a, y in x.children.items():
-                g.edge(str(f(x)), str(f(y)), label=f'{fmt_edge(x,a,y)}')
+                g.edge(str(f(x)), str(f(y)), label=f"{fmt_edge(x,a,y)}")
                 q.append(y)
         for x in xs:
             if x.children is not None:
-                g.node(str(f(x)), label=str(fmt_node(x)), shape='box')
+                g.node(str(f(x)), label=str(fmt_node(x)), shape="box")
             else:
-                g.node(str(f(x)), label=str(fmt_node(x)), shape='box', fillcolor='gray')
+                g.node(str(f(x)), label=str(fmt_node(x)), shape="box", fillcolor="gray")
         return g
 
 
@@ -406,12 +470,13 @@ class TraceSWOR(Tracer):
     """
     Sampling without replacement 🤝 Program tracing.
     """
+
     def __enter__(self):
         self.cur = self.root
 
     def __exit__(self, *args):
-        self.cur.mass = 0      # we will never sample this node again.
-        self.cur.update()      # update invariants
+        self.cur.mass = 0  # we will never sample this node again.
+        self.cur.update()  # update invariants
 
     def _repr_svg_(self):
         return self.root.graphviz()._repr_image_svg_xml()

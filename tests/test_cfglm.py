@@ -22,11 +22,12 @@ def next_token_weights_slow(cfg, prefix):
     p = cfg.R.chart()
     for v in sorted(cfg.V):
         p[v] = cfg.prefix_weight([*prefix, v])
-        if p[v] == cfg.R.zero: del p[v]
+        if p[v] == cfg.R.zero:
+            del p[v]
     return Z, p
 
 
-#def next_token_weights_less_slow(cfg, prefix):
+# def next_token_weights_less_slow(cfg, prefix):
 #    """
 #    Compute the posterior over the next word in O(V N²) time.
 #    """
@@ -43,7 +44,9 @@ def next_token_weights_slow(cfg, prefix):
 
 def test_new_abcdx():
 
-    cfg = add_EOS(CFG.from_string("""
+    cfg = add_EOS(
+        CFG.from_string(
+            """
 
     1: S -> a b c d
     1: S -> a b c x
@@ -51,9 +54,12 @@ def test_new_abcdx():
     1: S -> a x x x
     1: S -> x x x x
 
-    """, Real))
+    """,
+            Real,
+        )
+    )
 
-    for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
+    for prefix in ["", "a", "ab", "abc", "abcd", "acbde"]:
         print()
         print(colors.light.blue % prefix)
         want = next_token_weights_slow(cfg, prefix)[1]
@@ -69,7 +75,7 @@ def test_new_palindrome():
 
     cfg = add_EOS(genparse.examples.palindrome_ab)
 
-    for prefix in ['', 'a', 'ab']:
+    for prefix in ["", "a", "ab"]:
         print()
         print(colors.light.blue % prefix)
         want = next_token_weights_slow(cfg, prefix)[1]
@@ -86,11 +92,11 @@ def test_new_papa():
     cfg = add_EOS(genparse.examples.papa)
 
     for prefix in [
-            [],
-            ['papa'],
-            ['papa', 'ate'],
-            ['papa', 'ate', 'the'],
-            ['papa', 'ate', 'the', 'caviar'],
+        [],
+        ["papa"],
+        ["papa", "ate"],
+        ["papa", "ate", "the"],
+        ["papa", "ate", "the", "caviar"],
     ]:
         print()
         print(colors.light.blue % prefix)
@@ -108,6 +114,7 @@ def test_sample():
     print(sample)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from arsenal import testing_framework
+
     testing_framework(globals())

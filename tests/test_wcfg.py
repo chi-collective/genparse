@@ -1,7 +1,19 @@
 import numpy as np
 from collections import defaultdict
-from genparse import Boolean, Real, Rule, CFG, Entropy, \
-    Boolean, MaxPlus, MaxTimes, Log, Derivation, Chart, Float
+from genparse import (
+    Boolean,
+    Real,
+    Rule,
+    CFG,
+    Entropy,
+    Boolean,
+    MaxPlus,
+    MaxTimes,
+    Log,
+    Derivation,
+    Chart,
+    Float,
+)
 from genparse.util import display_table
 from arsenal import colors
 
@@ -11,74 +23,81 @@ tol = 1e-5
 
 def assert_equal(have, want, tol=tol):
     error = have.metric(want)
-    assert error <= tol, f'have = {have}, want = {want}, error = {error}'
+    assert error <= tol, f"have = {have}, want = {want}, error = {error}"
 
 
 def test_sdd1():
     "This is a silly bug made once when refactoring"
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
     0.3: S -> a S a
     0.4: S -> b S b
     0.3: S ->
-    """, Real)
+    """,
+        Real,
+    )
 
-    have = cfg('aa')
-    want = cfg.cnf('aa')
+    have = cfg("aa")
+    want = cfg.cnf("aa")
     assert have.metric(want) <= 1e-5, [have, want]
 
 
 def test_misc():
 
-    Derivation(None, Derivation(None, 'X'))._repr_html_()
+    Derivation(None, Derivation(None, "X"))._repr_html_()
 
-    CFG.from_string('', Real)._repr_html_()
+    CFG.from_string("", Real)._repr_html_()
 
     Derivation.to_nltk(None)
 
-    cfg = CFG.from_string('1: X -> Y', Real)
+    cfg = CFG.from_string("1: X -> Y", Real)
 
     f = lambda x: x.lower()
     assert cfg.rename(f).N == {f(X) for X in cfg.N}
 
     try:
-        CFG.from_string('x -> y : 1', Real)
+        CFG.from_string("x -> y : 1", Real)
     except ValueError:
         pass
 
-    display_table([[cfg, "hello"], [cfg, cfg]], headings=['a', 'b'])
+    display_table([[cfg, "hello"], [cfg, cfg]], headings=["a", "b"])
     display_table([[cfg, "hello"], [cfg, cfg]])
 
     # include an expected-failure test
     try:
-        Chart(Real, {'a': Real(1)}).assert_equal({'a': Real(2)})
+        Chart(Real, {"a": Real(1)}).assert_equal({"a": Real(2)})
     except AssertionError:
         pass
     else:
-        raise AssertionError('test failed')
+        raise AssertionError("test failed")
 
 
 def test_agenda_misc():
 
     # test stopping early
-    g = CFG.from_string("""
+    g = CFG.from_string(
+        """
 
     0.5: S → a S
     1: S → a
 
-    """, Float)
+    """,
+        Float,
+    )
 
-    g.agenda(maxiter=2).assert_equal({'a': 1, 'S': 1.5})
-    g.agenda(maxiter=3).assert_equal({'a': 1, 'S': 1.75})
+    g.agenda(maxiter=2).assert_equal({"a": 1, "S": 1.5})
+    g.agenda(maxiter=3).assert_equal({"a": 1, "S": 1.75})
 
 
 def test_semirings():
 
-    p = Entropy.from_string('1')
+    p = Entropy.from_string("1")
     assert p.H == 0
 
     # uniform distrbution over 3 elements
-    g = CFG.from_string("""
+    g = CFG.from_string(
+        """
 
     .25: S → a
     .25: S → b
@@ -86,15 +105,17 @@ def test_semirings():
     .25: S → d
     0.0: S → e
 
-    """, Entropy)
+    """,
+        Entropy,
+    )
 
     assert np.allclose(g.treesum(tol=tol).H, 2.0)
 
     z = Entropy.zero
     e = Entropy.one
-    x = Entropy.from_string('0.5')
-    y = Entropy.from_string('0.2')
-    a = Entropy.from_string('0.1')
+    x = Entropy.from_string("0.5")
+    y = Entropy.from_string("0.2")
+    a = Entropy.from_string("0.1")
 
     assert x * e == x
     assert e * x == x
@@ -109,21 +130,26 @@ def test_semirings():
 
     assert ((x + y) * a).metric(x * a + y * a) <= 1e-10
 
-    g = CFG.from_string("""
+    g = CFG.from_string(
+        """
     1: A → a
     0: B → b
-    """, Boolean)
+    """,
+        Boolean,
+    )
 
-    g.agenda().assert_equal({
-        'a': Boolean(True),
-        'b': Boolean(True),
-        'A': Boolean(True),
-    })
+    g.agenda().assert_equal(
+        {
+            "a": Boolean(True),
+            "b": Boolean(True),
+            "A": Boolean(True),
+        }
+    )
 
     z = Boolean.zero
     e = Boolean.one
-    x = Boolean.from_string('True')
-    y = Boolean.from_string('False')
+    x = Boolean.from_string("True")
+    y = Boolean.from_string("False")
 
     assert x * e == x
     assert e * x == x
@@ -143,9 +169,9 @@ def test_semirings():
 
     z = MaxPlus.zero
     e = MaxPlus.one
-    x = MaxPlus.from_string('-3')
-    y = MaxPlus.from_string('-4')
-    w = MaxPlus.from_string('-5')
+    x = MaxPlus.from_string("-3")
+    y = MaxPlus.from_string("-4")
+    w = MaxPlus.from_string("-5")
 
     assert x * e == x
     assert e * x == x
@@ -158,17 +184,16 @@ def test_semirings():
     assert x.star() == e + x * x.star()
     assert x.star() == e + x.star() * x
 
-    for a in [w,x,y]:
-        for b in [w,x,y]:
-            for c in [w,x,y]:
+    for a in [w, x, y]:
+        for b in [w, x, y]:
+            for c in [w, x, y]:
                 assert (a + b) * c == a * c + b * c
-
 
     z = MaxTimes.zero
     e = MaxTimes.one
-    x = MaxTimes.from_string('.3')
-    y = MaxTimes.from_string('.2')
-    w = MaxTimes.from_string('.1')
+    x = MaxTimes.from_string(".3")
+    y = MaxTimes.from_string(".2")
+    w = MaxTimes.from_string(".1")
 
     assert x * e == x
     assert e * x == x
@@ -181,17 +206,16 @@ def test_semirings():
     assert x.star() == e + x * x.star()
     assert x.star() == e + x.star() * x
 
-    for a in [w,x,y]:
-        for b in [w,x,y]:
-            for c in [w,x,y]:
+    for a in [w, x, y]:
+        for b in [w, x, y]:
+            for c in [w, x, y]:
                 assert (a + b) * c == a * c + b * c
-
 
     z = Log.zero
     e = Log.one
-    x = Log.from_string('-3')
-    y = Log.from_string('-2')
-    w = Log.from_string('-1')
+    x = Log.from_string("-3")
+    y = Log.from_string("-2")
+    w = Log.from_string("-1")
 
     assert x * e == x
     assert e * x == x
@@ -204,38 +228,42 @@ def test_semirings():
     assert x.star().metric(e + x * x.star()) <= 1e-10
     assert x.star().metric(e + x.star() * x) <= 1e-10
 
-    for a in [w,x,y]:
-        for b in [w,x,y]:
-            for c in [w,x,y]:
+    for a in [w, x, y]:
+        for b in [w, x, y]:
+            for c in [w, x, y]:
                 assert ((a + b) * c).metric(a * c + b * c) <= 1e-10
 
 
 def test_treesum():
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
 
     0.25: S → S S
     0.75: S → a
 
-    """, Real)
+    """,
+        Real,
+    )
 
     want = cfg.naive_bottom_up()
     have = cfg.agenda(tol=tol)
 
     for x in want.keys() | have.keys():
-        #print(x, want[x].score, have[x].score)
+        # print(x, want[x].score, have[x].score)
         assert abs(want[x].score - have[x].score) <= 0.0001 * abs(want[x].score)
 
     # run for fewer iterations
     have = cfg.naive_bottom_up(timeout=2)
-    have = {str(k): v.score for k,v in have.items()}
-    want = {'a': 1.0, 'S': 0.890625}
+    have = {str(k): v.score for k, v in have.items()}
+    want = {"a": 1.0, "S": 0.890625}
     assert have == want, [have, want]
 
 
 def test_trim():
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
 
     0.25: S → S S
     0.75: S → a
@@ -248,22 +276,28 @@ def test_trim():
     1: B → a
     1: B → B
 
-    """, Real)
+    """,
+        Real,
+    )
 
     have = cfg.trim()
 
-    want = CFG.from_string("""
+    want = CFG.from_string(
+        """
 
     0.25: S → S S
     0.75: S → a
 
-    """, Real)
+    """,
+        Real,
+    )
 
     have.assert_equal(want)
 
     # cotrim keeps rules that build stuff bottom-up but aren't necessarily used by S.
     have = cfg.cotrim()
-    want = CFG.from_string("""
+    want = CFG.from_string(
+        """
 
     0.25: S → S S
     0.75: S → a
@@ -272,13 +306,16 @@ def test_trim():
     1:    B → a
     0.75: A → a
 
-    """, Real)
+    """,
+        Real,
+    )
     have.assert_equal(want)
 
 
 def test_cnf():
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
 
     1: S → S1
 
@@ -293,7 +330,9 @@ def test_cnf():
     1: B → d
     1: C → c
 
-    """, Real)
+    """,
+        Real,
+    )
 
     cnf = cfg.cnf
     print(cnf)
@@ -301,14 +340,13 @@ def test_cnf():
     assert not cfg.in_cnf()
     assert cnf.in_cnf()
 
-    assert_equal(have = cnf.treesum(),
-                 want = cfg.treesum(),
-                 tol = 1e-10)
+    assert_equal(have=cnf.treesum(), want=cfg.treesum(), tol=1e-10)
 
 
 def test_grammar_size_metrics():
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
 
     1.0: S → A B C D
     0.5: S → S
@@ -320,42 +358,50 @@ def test_grammar_size_metrics():
     1: C → c
     1: D → d
 
-    """, Real)
+    """,
+        Real,
+    )
 
     assert cfg.size == 17
     assert cfg.num_rules == 8
 
 
 def test_palindrome_derivations():
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
 
     1: S → a S a
     1: S → b S b
     1: S → c
 
-    """, Real)
+    """,
+        Real,
+    )
 
-    s = 'a b c b a'.split()
+    s = "a b c b a".split()
 
     n = 0
-    print(colors.yellow % 'Derivations:')
+    print(colors.yellow % "Derivations:")
     for t in cfg.derivations(cfg.S, 5):
-        print(colors.orange % 'derivation:', t)
+        print(colors.orange % "derivation:", t)
         n += 1
     assert n == 31, n
 
-    #W = total(cfg, s)
-    #print(colors.yellow % 'total weight:', W)
-    #assert W.score == 1
+    # W = total(cfg, s)
+    # print(colors.yellow % 'total weight:', W)
+    # assert W.score == 1
 
 
 def test_unfold():
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
     1.0: S →
     0.5: S → S a
     0.5: B → b
-    """, Real)
+    """,
+        Real,
+    )
 
     new = cfg.unfold(1, 0)
     print(new)
@@ -363,14 +409,19 @@ def test_unfold():
     err = cfg.treesum(tol=tol).metric(new.treesum(tol=tol))
     assert err <= 1e-5, err
 
-    new.assert_equal(CFG.from_string("""
+    new.assert_equal(
+        CFG.from_string(
+            """
 
     1.0: S →
     0.5: S → a
     0.25: S → S a a
     0.5: B → b
 
-    """, Real))
+    """,
+            Real,
+        )
+    )
 
     # unfolding terminals is not allowed
     try:
@@ -378,12 +429,13 @@ def test_unfold():
     except AssertionError:
         pass
     else:
-        raise AssertionError('expected error')
+        raise AssertionError("expected error")
 
 
 def test_cky():
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
     1: S ->  A B
     0.1: A -> A B
     0.4: A ->
@@ -391,7 +443,9 @@ def test_cky():
     0.4: B -> a
     0.5: B ->
     0.1: B -> B A
-    """, Real)
+    """,
+        Real,
+    )
 
     # brute-force enumerate of the weighted language
     L = cfg.cnf.language(4)
@@ -404,15 +458,16 @@ def test_cky():
         ok = err <= 1e-4
         all_ok &= ok
         if ok:
-            print(colors.mark(ok), repr('⋅'.join(x)), want)
+            print(colors.mark(ok), repr("⋅".join(x)), want)
         else:
-            print(colors.mark(ok), repr('⋅'.join(x)), colors.red % have, want)
+            print(colors.mark(ok), repr("⋅".join(x)), colors.red % have, want)
     assert all_ok, [err, have, want]
 
 
 def test_unary_cycle_removal():
 
-    cfg = CFG.from_string("""
+    cfg = CFG.from_string(
+        """
     0.5: S → A1
 
     0.5: A1 → B1
@@ -427,13 +482,16 @@ def test_unary_cycle_removal():
 
     0.5: C → c
 
-    """, Float)
+    """,
+        Float,
+    )
 
     unaryfree = cfg.unarycycleremove(trim=False)
     assert not unaryfree.has_unary_cycle()
     unaryfree.agenda().assert_equal(cfg.agenda(), domain=cfg.N, tol=1e-10, verbose=1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from arsenal import testing_framework
+
     testing_framework(globals())

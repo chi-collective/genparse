@@ -1,6 +1,7 @@
 """
 Algorithms for solving left-linear or right-linear systems of equations over closed semirings.
 """
+
 import html
 from arsenal import Integerizer
 from collections import defaultdict
@@ -21,15 +22,15 @@ class WeightedGraph:
         return iter(self.E)
 
     def __getitem__(self, item):
-        i,j = item
-        return self.E[i,j]
+        i, j = item
+        return self.E[i, j]
 
     def __setitem__(self, item, value):
-        i,j = item
+        i, j = item
         self.N.add(i)
         self.N.add(j)
         if value != self.WeightType.zero:
-            self.E[i,j] = value
+            self.E[i, j] = value
             self.incoming[j].add(i)
             self.outgoing[i].add(j)
         return self
@@ -37,8 +38,8 @@ class WeightedGraph:
     def closure(self):
         C = WeightedGraph(self.WeightType)
         K = self.closure_scc_based()
-        for i,j in K:
-            C[i,j] += K[i,j]
+        for i, j in K:
+            C[i, j] += K[i, j]
         return C
 
     def closure_reference(self):
@@ -51,7 +52,7 @@ class WeightedGraph:
             b[i] = self.WeightType.one
             sol = self.solve_left(b)
             for j in sol:
-                K[i,j] = sol[j]
+                K[i, j] = sol[j]
         return K
 
     def solve_left(self, b):
@@ -67,11 +68,11 @@ class WeightedGraph:
             for j in block:
                 enter[j] += b[j]
                 for i in self.incoming[j]:
-                    enter[j] += sol[i] * self.E[i,j]
+                    enter[j] += sol[i] * self.E[i, j]
 
             # Now, compute the total weight of completing the block
-            for j,k in B:
-                sol[k] += enter[j] * B[j,k]
+            for j, k in B:
+                sol[k] += enter[j] * B[j, k]
 
         return sol
 
@@ -88,11 +89,11 @@ class WeightedGraph:
             for j in block:
                 enter[j] += b[j]
                 for k in self.outgoing[j]:
-                    enter[j] += self.E[j,k] * sol[k]
+                    enter[j] += self.E[j, k] * sol[k]
 
             # Now, compute the total weight of completing the block
-            for i,j in B:
-                sol[i] += B[i,j] * enter[j]
+            for i, j in B:
+                sol[i] += B[i, j] * enter[j]
 
         return sol
 
@@ -105,7 +106,7 @@ class WeightedGraph:
         # how much faster this version is compared to the loops below it.
         if len(N) == 1:
             [i] = N
-            return {(i,i): self.WeightType.star(self.E[i,i])}
+            return {(i, i): self.WeightType.star(self.E[i, i])}
 
         A = self.E
         old = A.copy()
@@ -113,13 +114,14 @@ class WeightedGraph:
         # transitive closure
         for j in N:
             new.clear()
-            sjj = self.WeightType.star(old[j,j])
+            sjj = self.WeightType.star(old[j, j])
             for i in N:
                 for k in N:
-                    new[i,k] = old[i,k] + old[i,j] * sjj * old[j,k]
+                    new[i, k] = old[i, k] + old[i, j] * sjj * old[j, k]
             old, new = new, old
         # reflexive closure
-        for i in N: old[i,i] += self.WeightType.one
+        for i in N:
+            old[i, i] += self.WeightType.one
         return old
 
     @cached_property
@@ -147,18 +149,28 @@ class WeightedGraph:
 
         g = Digraph(
             node_attr=dict(
-                fontname='Monospace', fontsize='9', height='0', width='0',
-                margin="0.055,0.042", penwidth='0.15', shape='box', style='rounded',
+                fontname="Monospace",
+                fontsize="9",
+                height="0",
+                width="0",
+                margin="0.055,0.042",
+                penwidth="0.15",
+                shape="box",
+                style="rounded",
             ),
             edge_attr=dict(
-                penwidth='0.5', arrowhead='vee', arrowsize='0.5',
-                fontname='Monospace', fontsize='8'
+                penwidth="0.5",
+                arrowhead="vee",
+                arrowsize="0.5",
+                fontname="Monospace",
+                fontsize="8",
             ),
         )
 
-        for i,j in self:
-            if self.E[i,j] == self.WeightType.zero: continue
-            g.edge(str(name(i)), str(name(j)), label=label_format(self.E[i,j]))
+        for i, j in self:
+            if self.E[i, j] == self.WeightType.zero:
+                continue
+            g.edge(str(name(i)), str(name(j)), label=label_format(self.E[i, j]))
 
         for i in self.N:
             g.node(str(name(i)), label=escape(i))
@@ -178,10 +190,10 @@ def scc_decomposition(successors, roots):
 
     # 'Low Link Value' of a node is the smallest id reachable by DFS, including itself.
     # low link values are initialized to each node's id.
-    lowest = {}      # node -> position of the root of the SCC
+    lowest = {}  # node -> position of the root of the SCC
 
-    stack = []      # stack
-    trail = set()   # set of nodes on the stack
+    stack = []  # stack
+    trail = set()  # set of nodes on the stack
     t = 0
 
     def dfs(v):
@@ -212,11 +224,12 @@ def scc_decomposition(successors, roots):
             # `v` is the root of an SCC; We're totally done with that subgraph.
             # nodes above `v` on the stack are an SCC.
             C = []
-            while True:   # pop until we reach v
+            while True:  # pop until we reach v
                 w = stack.pop()
                 trail.remove(w)
                 C.append(w)
-                if w == v: break
+                if w == v:
+                    break
             yield frozenset(C)
 
     for v in roots:

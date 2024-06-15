@@ -7,7 +7,7 @@ from genparse.experimental.earley import EarleyLM
 
 
 # TODO: test equivalence of `traverse_trie` and `traverse_naive`.
-#def traverse_naive(self, context):
+# def traverse_naive(self, context):
 #    for x in self.words:
 #        p_x = self.guide.pfg(context + x)  # prefix weight of context + x
 #        if p_x == 0: continue
@@ -17,13 +17,17 @@ from genparse.experimental.earley import EarleyLM
 def test_basic_aligned_model_iql_small():
     import random
     import numpy as np
+
     np.random.seed(0)
     random.seed(0)
 
     llm = make_mock_llm()
 
     # the base character-level CFG language model
-    cfg = add_EOS(locally_normalize(LarkStuff(r"""
+    cfg = add_EOS(
+        locally_normalize(
+            LarkStuff(
+                r"""
     start: "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
     EOS: "</s>"
     select_expr: STAR | select_list
@@ -40,34 +44,63 @@ def test_basic_aligned_model_iql_small():
     NUMBER: /\d+/
     //WS: /[ \t\f\r\n]/
     WS: " "
-    """).char_cfg(.9), tol=1e-100).trim())
+    """
+            ).char_cfg(0.9),
+            tol=1e-100,
+        ).trim()
+    )
 
     guide = EarleyLM(cfg)
-    #guide = CFGLM(cfg)
+    # guide = CFGLM(cfg)
 
     proposal = TokenProposal(guide=guide, llm=llm)
 
-    proposal._prompt = ''
+    proposal._prompt = ""
 
-    with timeit('took'):
+    with timeit("took"):
 
-        p = proposal._p_next('')
+        p = proposal._p_next("")
         print(p)
-        assert p.keys() == {'S', 'SE', 'SELECT'}
+        assert p.keys() == {"S", "SE", "SELECT"}
 
-        p = proposal._p_next('SELECT * FROM data')
+        p = proposal._p_next("SELECT * FROM data")
         print(p)
-        assert p.keys() == {' ', ' <', ' </', ' G', ' W', ' O', ' GR', ' WH', ' OR',
-                            ' GROUP', ' WHERE', ' ORDER'}
+        assert p.keys() == {
+            " ",
+            " <",
+            " </",
+            " G",
+            " W",
+            " O",
+            " GR",
+            " WH",
+            " OR",
+            " GROUP",
+            " WHERE",
+            " ORDER",
+        }
 
-        p = proposal._p_next('SELECT age FROM data')
+        p = proposal._p_next("SELECT age FROM data")
         print(p)
-        assert p.keys() == {' ', ' <', ' </', ' G', ' W', ' O', ' GR', ' WH', ' OR',
-                            ' GROUP', ' WHERE', ' ORDER'}
+        assert p.keys() == {
+            " ",
+            " <",
+            " </",
+            " G",
+            " W",
+            " O",
+            " GR",
+            " WH",
+            " OR",
+            " GROUP",
+            " WHERE",
+            " ORDER",
+        }
 
     print(proposal.sample())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from arsenal import testing_framework
+
     testing_framework(globals())

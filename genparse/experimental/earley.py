@@ -11,9 +11,10 @@ from genparse import add_EOS, EOS, Boolean
 class EarleyLM(LM):
 
     def __init__(self, cfg):
-        if EOS not in cfg.V: cfg = add_EOS(cfg)
+        if EOS not in cfg.V:
+            cfg = add_EOS(cfg)
         self.model = Earley(cfg.prefix_grammar)
-        super().__init__(V = cfg.V, eos = EOS)
+        super().__init__(V=cfg.V, eos=EOS)
 
     def p_next(self, context):
         return self.model.p_next(context)
@@ -24,7 +25,7 @@ class EarleyLM(LM):
 
 
 class Column:
-    __slots__ = ('k', 'chart', 'waiting_for', 'Q')
+    __slots__ = ("k", "chart", "waiting_for", "Q")
 
     def __init__(self, k, chart):
         self.k = k
@@ -44,7 +45,7 @@ class Earley:
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
-    __slots__ = ('cfg', 'order', '_chart', 'V', 'eos', '_initial_column', 'R')
+    __slots__ = ("cfg", "order", "_chart", "V", "eos", "_initial_column", "R")
 
     def __init__(self, cfg):
 
@@ -61,10 +62,11 @@ class Earley:
         # left-corner graph
         R = WeightedGraph(Boolean)
         for r in cfg:
-            if len(r.body) == 0: continue
+            if len(r.body) == 0:
+                continue
             A = r.head
             B = r.body[0]
-            R[A,B] += Boolean.one
+            R[A, B] += Boolean.one
         self.R = R
 
         col = Column(0, self.cfg.R.chart())
@@ -73,7 +75,7 @@ class Earley:
 
     def clear_cache(self):
         self._chart.clear()
-        
+
     def __call__(self, x):
         N = len(x)
 
@@ -101,7 +103,9 @@ class Earley:
         else:
             chart = self.chart(x[:-1])
             last_chart = self.next_column(chart, x[-1])
-            return chart + [last_chart]    # TODO: avoid list addition here as it is not constant time!
+            return chart + [
+                last_chart
+            ]  # TODO: avoid list addition here as it is not constant time!
 
     def p_next(self, prefix):
         return self.next_token_weights(self.chart(prefix))
@@ -118,11 +122,11 @@ class Earley:
         # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
         Q = next_col.Q
         while Q:
-            (J,Y) = Q.pop()
+            (J, Y) = Q.pop()
             col_J = prev_cols[J]
-            y = next_col.chart[J,Y]
-            for (I, X, Ys) in col_J.waiting_for[Y]:
-                self._update(next_col, I, X, Ys[1:], col_J.chart[I,X,Ys] * y)
+            y = next_col.chart[J, Y]
+            for I, X, Ys in col_J.waiting_for[Y]:
+                self._update(next_col, I, X, Ys[1:], col_J.chart[I, X, Ys] * y)
 
         self.PREDICT(next_col)
 
@@ -157,7 +161,8 @@ class Earley:
         for X in reachable:
             for r in self.cfg.rhs[X]:
                 Ys = r.body
-                if Ys == (): continue
+                if Ys == ():
+                    continue
                 item = (k, X, Ys)
                 was = prev_col_chart[item]
                 if was == zero:
@@ -169,10 +174,10 @@ class Earley:
         K = col.k
         if Ys == ():
             # Items of the form phrase(I, X/[], K)
-            was = col.chart[I,X]
+            was = col.chart[I, X]
             if was == self.cfg.R.zero:
-                col.Q[I,X] = (K if I == K else (K-I-1), self.order[X])
-            col.chart[I,X] = was + value
+                col.Q[I, X] = (K if I == K else (K - I - 1), self.order[X])
+            col.chart[I, X] = was + value
 
         else:
             # Items of the form phrase(I, X/[Y|Ys], K)
@@ -235,7 +240,7 @@ class Earley:
                 return self.cfg.R.one
             else:
                 result = self.cfg.R.zero
-                for (I, X, Ys) in chart[J].waiting_for[Y]:
+                for I, X, Ys in chart[J].waiting_for[Y]:
                     if len(Ys) == 1:
                         result += chart[J].chart[I, X, Ys] * q(I, X)
                 return result
@@ -244,7 +249,8 @@ class Earley:
         p = self.cfg.R.chart()
         col = chart[-1]
         for item in col.chart:
-            if len(item) == 2: continue
+            if len(item) == 2:
+                continue
 
             (I, X, Ys) = item
 

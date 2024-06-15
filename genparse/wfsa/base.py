@@ -7,14 +7,15 @@ from graphviz import Digraph
 from genparse.linear import WeightedGraph
 
 
-#EPSILON = "ε"
-EPSILON = ''
+# EPSILON = "ε"
+EPSILON = ""
 
 
 class WFSA:
     """
     Weighted finite-state automata
     """
+
     def __init__(self, R):
         self.R = R
         self.alphabet = set()
@@ -24,16 +25,16 @@ class WFSA:
         self.stop = R.chart()
 
     def __repr__(self):
-        return f'{__class__.__name__}({self.dim} states)'
+        return f"{__class__.__name__}({self.dim} states)"
 
     def __str__(self):
         output = []
-        output.append('{')
+        output.append("{")
         for p in self.states:
-            output.append(f'  {p} \t\t({self.start[p]}, {self.stop[p]})')
+            output.append(f"  {p} \t\t({self.start[p]}, {self.stop[p]})")
             for a, q, w in self.arcs(p):
-                output.append(f'    {a}: {q}\t[{w}]')
-        output.append('}')
+                output.append(f"    {a}: {q}\t[{w}]")
+        output.append("}")
         return "\n".join(output)
 
     @property
@@ -114,11 +115,12 @@ class WFSA:
 
     def to_fst(self):
         from genparse.fst import FST
+
         return FST.diag(self)
 
     def rename_apart(self, other):
         f = Integerizer()
-        return (self.rename(lambda i: f((0,i))), other.rename(lambda i: f((1,i))))
+        return (self.rename(lambda i: f((0, i))), other.rename(lambda i: f((1, i))))
 
     @cached_property
     def renumber(self):
@@ -131,7 +133,7 @@ class WFSA:
             for q, w in self.I:
                 m.add_I(q, w)
         if keep_arcs:
-            for i,a,j,w in self.arcs():
+            for i, a, j, w in self.arcs():
                 m.add_arc(i, a, j, w)
         if keep_stop:
             for q, w in self.F:
@@ -172,7 +174,8 @@ class WFSA:
             for k in S.outgoing[i]:
                 new.add_I(k, w_i * S[i, k])
         for i, a, j, w_ij in self.arcs():
-            if a == EPSILON: continue
+            if a == EPSILON:
+                continue
             for k in S.outgoing[j]:
                 new.add_arc(i, a, k, w_ij * S[j, k])
         return new
@@ -184,7 +187,7 @@ class WFSA:
         R = self.spawn()
         # reverse each arc
         for i, a, j, w in self.arcs():
-            R.add_arc(j, a, i, w)               # pylint: disable=arguments-out-of-order
+            R.add_arc(j, a, i, w)  # pylint: disable=arguments-out-of-order
         # reverse initial and final states
         for i, w in self.F:
             R.add_I(i, w)
@@ -204,18 +207,18 @@ class WFSA:
             U.add_F(q, w)
         return U
 
-#    def __sub__(self, other):
-#        "Assumes -w exists for all weights."
-#        self, other = self.rename_apart(other)
-#        U = self.spawn(keep_init=True, keep_arcs=True, keep_stop=True)
-#        # add arcs, initial and final states from argument
-#        for q, w in other.I:            U.add_I(q, -w)
-#        for i, a, j, w in other.arcs(): U.add_arc(i, a, j, w)
-#        for q, w in other.F:            U.add_F(q, w)
-#        return U
+    #    def __sub__(self, other):
+    #        "Assumes -w exists for all weights."
+    #        self, other = self.rename_apart(other)
+    #        U = self.spawn(keep_init=True, keep_arcs=True, keep_stop=True)
+    #        # add arcs, initial and final states from argument
+    #        for q, w in other.I:            U.add_I(q, -w)
+    #        for i, a, j, w in other.arcs(): U.add_arc(i, a, j, w)
+    #        for q, w in other.F:            U.add_F(q, w)
+    #        return U
 
     def __mul__(self, other):
-#        if not isinstance(other, self.__class__): return other.__rmul__(self)
+        #        if not isinstance(other, self.__class__): return other.__rmul__(self)
 
         self, other = self.rename_apart(other)
         C = self.spawn(keep_init=True, keep_arcs=True)
@@ -246,56 +249,59 @@ class WFSA:
         m = self.spawn(keep_init=True, keep_arcs=True, keep_stop=True)
         for i, w1 in self.F:
             for j, w2 in self.I:
-                m.add_arc(i, EPSILON, j, w1*w2)
+                m.add_arc(i, EPSILON, j, w1 * w2)
         return m
 
     def _repr_svg_(self):
         return self.graphviz()._repr_image_svg_xml()
 
     def graphviz(
-            self,
-            fmt=str,
-            fmt_node=lambda x: ' ',
-            fmt_edge=lambda i,a,j,w: f'{html.escape(str(":".join(str(A or "ε") for A in a)) if isinstance(a, tuple) else str(a))}/{w}',
+        self,
+        fmt=str,
+        fmt_node=lambda x: " ",
+        fmt_edge=lambda i, a, j, w: f'{html.escape(str(":".join(str(A or "ε") for A in a)) if isinstance(a, tuple) else str(a))}/{w}',
     ):
         if len(self.states) == 0:
             import warnings
-            warnings.warn('empty visualization')
+
+            warnings.warn("empty visualization")
         g = Digraph(
-            graph_attr=dict(rankdir='LR'),
+            graph_attr=dict(rankdir="LR"),
             node_attr=dict(
-                fontname='Monospace',
-                fontsize='10',
-                height='.05', width='.05',
-                #margin="0.055,0.042"
-                margin="0,0"
+                fontname="Monospace",
+                fontsize="10",
+                height=".05",
+                width=".05",
+                # margin="0.055,0.042"
+                margin="0,0",
             ),
             edge_attr=dict(
-                #arrowhead='vee',
-                arrowsize='0.3',
-                fontname='Monospace',
-                fontsize='9'
+                # arrowhead='vee',
+                arrowsize="0.3",
+                fontname="Monospace",
+                fontsize="9",
             ),
         )
         f = Integerizer()
-        for i,w in self.I:
-            start = f'<start_{i}>'
-            g.node(start, label='', shape='point', height='0', width='0')
-            g.edge(start, str(f(i)), label=f'{fmt(w)}')
+        for i, w in self.I:
+            start = f"<start_{i}>"
+            g.node(start, label="", shape="point", height="0", width="0")
+            g.edge(start, str(f(i)), label=f"{fmt(w)}")
         for i in self.states:
-            g.node(str(f(i)), label=str(fmt_node(i)), shape='circle')
-        for i,w in self.F:
-            stop = f'<stop_{i}>'
-            g.node(stop, label='', shape='point', height='0', width='0')
-            g.edge(str(f(i)), stop, label=f'{fmt(w)}')
-        #for i, a, j, w in sorted(self.arcs()):
+            g.node(str(f(i)), label=str(fmt_node(i)), shape="circle")
+        for i, w in self.F:
+            stop = f"<stop_{i}>"
+            g.node(stop, label="", shape="point", height="0", width="0")
+            g.edge(str(f(i)), stop, label=f"{fmt(w)}")
+        # for i, a, j, w in sorted(self.arcs()):
         for i, a, j, w in self.arcs():
-            g.edge(str(f(i)), str(f(j)), label=f'{fmt_edge(i,a,j,w)}')
+            g.edge(str(f(i)), str(f(j)), label=f"{fmt_edge(i,a,j,w)}")
         return g
 
     @classmethod
     def lift(cls, x, w, R=None):
-        if R is None: R = w.__class__
+        if R is None:
+            R = w.__class__
         m = cls(R=R)
         m.add_I(0, R.one)
         m.add_arc(0, x, 1, w)
@@ -307,7 +313,7 @@ class WFSA:
         m = cls(R)
         m.add_I(xs[:0], R.one)
         for i in range(len(xs)):
-            m.add_arc(xs[:i], xs[i], xs[:i+1], R.one)
+            m.add_arc(xs[:i], xs[i], xs[: i + 1], R.one)
         m.add_F(xs, (R.one if w is None else w))
         return m
 
@@ -317,7 +323,7 @@ class WFSA:
         for xs in Xs:
             m.set_I(xs[:0], R.one)
             for i in range(len(xs)):
-                m.set_arc(xs[:i], xs[i], xs[:i+1], R.one)
+                m.set_arc(xs[:i], xs[i], xs[: i + 1], R.one)
             m.set_F(xs, R.one)
         return m
 
@@ -351,11 +357,12 @@ class WFSA:
         V = self.backward
         new = self.spawn()
         for i in self.states:
-            if V[i] == self.R.zero: continue
+            if V[i] == self.R.zero:
+                continue
             new.add_I(i, self.start[i] * V[i])
-            new.add_F(i, V[i]**(-1) * self.stop[i])
+            new.add_F(i, V[i] ** (-1) * self.stop[i])
             for a, j, w in self.arcs(i):
-                new.add_arc(i, a, j, V[i]**(-1) * w * V[j])
+                new.add_arc(i, a, j, V[i] ** (-1) * w * V[j])
         return new
 
     @cached_property
@@ -368,11 +375,13 @@ class WFSA:
         forward = self.forward
         backward = self.backward
         # determine the set of active state, (i.e., those with nonzero forward and backward weights)
-        return self._trim({
-            i
-            for i in self.states
-            if forward[i] != self.R.zero and backward[i] != self.R.zero
-        })
+        return self._trim(
+            {
+                i
+                for i in self.states
+                if forward[i] != self.R.zero and backward[i] != self.R.zero
+            }
+        )
 
     def accessible(self):
         stack = list(self.start)
@@ -397,9 +406,9 @@ class WFSA:
         for i in active:
             new.add_I(i, self.start[i])
             new.add_F(i, self.stop[i])
-            for a,j,w in self.arcs(i):
+            for a, j, w in self.arcs(i):
                 if j in active:
-                    new.add_arc(i,a,j,w)
+                    new.add_arc(i, a, j, w)
 
         return new
 
@@ -440,7 +449,7 @@ class WFSA:
                     yield a, frozendict(R), self.R.one
 
                 else:
-                    yield a, frozendict({p: W**(-1) * R[p] for p in R}), W
+                    yield a, frozendict({p: W ** (-1) * R[p] for p in R}), W
 
         D = self.spawn()
 
@@ -470,7 +479,8 @@ class WFSA:
         "Convert the WFSA to a WCFG with the same weighted language."
         from genparse.cfg import CFG, _gen_nt
 
-        if S is None: S = _gen_nt()
+        if S is None:
+            S = _gen_nt()
         cfg = CFG(R=self.R, V=self.alphabet, S=S)
 
         # add production rule for initial states

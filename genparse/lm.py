@@ -46,7 +46,7 @@ class LM:
                 if y == self.eos:
                     print()
                 else:
-                    print(y, end='')
+                    print(y, end="")
             if y == self.eos:
                 return (ys, P) if prob else ys
             ys = ys + (y,)
@@ -56,6 +56,7 @@ class LLM(LM):
     """
     This is a simple class that wraps HuggingFace transformers with support for automatic caching.
     """
+
     def __init__(self, model):
 
         if torch.cuda.is_available():
@@ -64,21 +65,23 @@ class LLM(LM):
         model.to(self.device)
 
         self.model = model
-        self.model.eval()   # Set the model in "evaluation mode"
+        self.model.eval()  # Set the model in "evaluation mode"
         self._cache = {}
 
         # TODO: add the vocabulary and EOS symbols!
-#        super().__init__(set(range()), eos=eos)
+
+    #        super().__init__(set(range()), eos=eos)
 
     def __call__(self, input_ids):
-        if isinstance(input_ids, list): input_ids = torch.LongTensor([input_ids])
+        if isinstance(input_ids, list):
+            input_ids = torch.LongTensor([input_ids])
         with torch.no_grad():
             input_ids = input_ids.to(self.device)
             outputs = self.model(input_ids=input_ids, labels=input_ids)
             lprobs = torch.nn.functional.log_softmax(outputs.logits, dim=-1)
         token_lprobs = torch.gather(lprobs, 2, input_ids.unsqueeze(-1)).squeeze(-1)
         return np.exp(torch.sum(token_lprobs, dim=-1).item())
-    
+
     def clear_cache(self):
         self._cache.clear()
 
@@ -92,51 +95,63 @@ class LLM(LM):
 
         else:
             value = self._cache.get(prefix, None)
-            if value is not None: return value
+            if value is not None:
+                return value
 
             prev_state = self.get_state(prefix[:-1])
             input_ids = torch.LongTensor([prefix[-1]]).to(self.device)
 
-            value = self.model(input_ids=input_ids, labels=input_ids,
-                               past_key_values=None if prev_state is None else prev_state.past_key_values,
-                               use_cache=True)
+            value = self.model(
+                input_ids=input_ids,
+                labels=input_ids,
+                past_key_values=(
+                    None if prev_state is None else prev_state.past_key_values
+                ),
+                use_cache=True,
+            )
 
             self._cache[prefix] = value
             return value
 
     # TODO: handle padding and EOS more carefully.
     def p_next(self, input_ids):
-        if isinstance(input_ids, (tuple, list)): input_ids = torch.LongTensor([input_ids])
+        if isinstance(input_ids, (tuple, list)):
+            input_ids = torch.LongTensor([input_ids])
         prefix = input_ids.squeeze().tolist()
         prefix = (prefix,) if isinstance(prefix, int) else tuple(prefix)
         with torch.no_grad():
             outputs = self.get_state(prefix)
             # Calculate the log_softmax to get the log probabilities for each time step
             probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
-        #return lprobs[0,-1,:]  # return the conditional distribution of just the last token
-        return probs[0,:]  # return the conditional distribution of just the last token
+        # return lprobs[0,-1,:]  # return the conditional distribution of just the last token
+        return probs[0, :]  # return the conditional distribution of just the last token
 
 
 class NoCacheLLM(LM):
     """
     This is a simple class that wraps HuggingFace transformers.
     """
+
     def __init__(self, model):
         self.model = model
-        self.model.eval()   # Set the model in "evaluation mode"
+        self.model.eval()  # Set the model in "evaluation mode"
 
         # TODO: Add vocabulary and EOS
-#        super().__init__(set(range()), eos=eos)
+
+    #        super().__init__(set(range()), eos=eos)
 
     def __call__(self, input_ids):
         raise NotImplementedError()
 
     def p_next(self, input_ids):
-        if isinstance(input_ids, (tuple, list)): input_ids = torch.LongTensor([input_ids])
+        if isinstance(input_ids, (tuple, list)):
+            input_ids = torch.LongTensor([input_ids])
         with torch.no_grad():
             outputs = self.model(input_ids=input_ids, labels=input_ids)
             lprobs = torch.nn.functional.softmax(outputs.logits, dim=-1)
-        return lprobs[0,-1,:]  # return the conditional distribution of just the last token
+        return lprobs[
+            0, -1, :
+        ]  # return the conditional distribution of just the last token
 
 
 class GreedilyTokenizedLLM(LM):
@@ -146,7 +161,7 @@ class GreedilyTokenizedLLM(LM):
         self._model = AutoModelForCausalLM.from_pretrained(name)
         self.model = LLM(self._model)
         self._decode = decode_tokenizer_vocab(self.tokenizer)
-        super().__init__(V = set(self._decode), eos = self.tokenizer.eos_token)
+        super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
 
     def __call__(self, xs):
         return self.model(self.tokenizer.encode(xs))
@@ -170,7 +185,15 @@ class GreedilyTokenizedLLM(LM):
             return pp.normalize()
 
     # TODO: why isn't this inherited from the LM base class?
-    def sample(self, ys='', draw=sample_dict, prob=False, verbose=0, max_tokens=np.inf, join=str.__add__):
+    def sample(
+        self,
+        ys="",
+        draw=sample_dict,
+        prob=False,
+        verbose=0,
+        max_tokens=np.inf,
+        join=str.__add__,
+    ):
         P = 1.0
         t = 0
         while True:
@@ -182,10 +205,11 @@ class GreedilyTokenizedLLM(LM):
                 if y == self.eos:
                     print()
                 else:
-                    print(y, end='')
+                    print(y, end="")
             if y == self.eos:
                 return (ys, P) if prob else ys
             ys = join(ys, y)
+
 
 #    def p_next_healing(self, xs, top=10):
 #        # TODO: support token healing and/or hindsight sampling to get a valid token sequence
@@ -212,29 +236,32 @@ class AsyncGreedilyTokenizedLLM(LM):
     This is a simple class which wraps HFPPL CachedCausalLMs.
     Caching is done by HFPPL.
     """
+
     def __init__(self, tokenizer, model, batch_size):
         self.tokenizer = tokenizer
         self._model = model
         self._model.batch_size = batch_size
         self._decode = decode_tokenizer_vocab(self.tokenizer)
-        super().__init__(V = set(self._decode), eos = self.tokenizer.eos_token)
+        super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
 
     @classmethod
     def from_name(cls, name, batch_size):
         from hfppl import CachedCausalLM
+
         return cls(
             tokenizer=AutoTokenizer.from_pretrained(name, use_fast=True),
             model=CachedCausalLM.from_pretrained(name, load_in_8bit=True),
-            batch_size=batch_size
+            batch_size=batch_size,
         )
-    
+
     @classmethod
     def from_hf(cls, tokenizer, hf_model, batch_size):
         from hfppl import CachedCausalLM
+
         return cls(
             model=CachedCausalLM(hf_model, tokenizer, batch_size),
             tokenizer=tokenizer,
-            batch_size=batch_size
+            batch_size=batch_size,
         )
 
     def __call__(self, xs):
@@ -264,23 +291,27 @@ class AsyncGreedilyTokenizedLLM(LM):
 
 
 from functools import lru_cache
+
+
 @lru_cache(None)
 def make_mock_llm(**kwargs):
     from genparse.util import hf_tokenizer
+
     H = hf_tokenizer(**kwargs)
-    return MockLLM(V = H.decode, eos = H.eos)
+    return MockLLM(V=H.decode, eos=H.eos)
 
 
 class MockLLM(LM):
     """
     Uniform distribution over next token; used for testing.
     """
+
     def __init__(self, V, eos):
         n = len(V)
-        self._p = Float.chart({w: 1/n for w in V})
+        self._p = Float.chart({w: 1 / n for w in V})
         super().__init__(
-            eos = eos,
-            V = V,
+            eos=eos,
+            V=V,
         )
 
     def p_next(self, _):
@@ -288,4 +319,4 @@ class MockLLM(LM):
 
     def __call__(self, x):
         assert x[-1] == self.eos
-        return (1/len(self.V))**len(x)
+        return (1 / len(self.V)) ** len(x)

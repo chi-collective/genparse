@@ -1,4 +1,4 @@
-#import wfsa.base
+# import wfsa.base
 from .field_wfsa import WFSA, EPSILON
 
 one = WFSA.one

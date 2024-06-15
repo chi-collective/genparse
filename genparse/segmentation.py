@@ -2,13 +2,14 @@
 Probabiliistic finite-state transducer (PFST) that implements a segmentation model,
 such as byte-pair encoding (BPE).
 """
+
 import numpy as np
 from arsenal import colors
 from genparse import Float, FST, EPSILON, EOS
 from genparse.util import display_table
 
 
-fmt = lambda x: ''.join(x) or 'ε'
+fmt = lambda x: "".join(x) or "ε"
 
 
 def prefixes(z):
@@ -22,7 +23,7 @@ def prefixes(z):
       ['', 'a', 'ab', 'abc']
 
     """
-    for p in range(len(z)+1):
+    for p in range(len(z) + 1):
         yield z[:p]
 
 
@@ -37,7 +38,7 @@ def suffixes(z):
       ['', 'c', 'bc', 'abc']
 
     """
-    for p in reversed(range(len(z)+1)):
+    for p in reversed(range(len(z) + 1)):
         yield z[p:]
 
 
@@ -72,13 +73,14 @@ class max_munch:
         Enumerate (in order of longest to shortest) the strings in the trie matching
         prefixes of `query`.
         """
-        if node == self._end: return
+        if node == self._end:
+            return
         if t < len(query):
             x = query[t]
             if x in node:
                 yield from self.traverse(query, t + 1, node[x])
         if self._end in node:
-            yield (t, query[:t])   # post order gives the longest match
+            yield (t, query[:t])  # post order gives the longest match
 
 
 class longest_suffix_in:
@@ -88,10 +90,10 @@ class longest_suffix_in:
     def __call__(self, c):
         r = tuple(reversed(c))
         _, ys = next(self.rtrie.traverse(r, 0, self.rtrie.root))
-        return ''.join(reversed(ys)) if isinstance(c, str) else tuple(reversed(ys))
+        return "".join(reversed(ys)) if isinstance(c, str) else tuple(reversed(ys))
 
 
-#def longest_suffix_in(S):
+# def longest_suffix_in(S):
 #
 #    def f(s):
 #        if s in S:
@@ -104,7 +106,7 @@ class longest_suffix_in:
 #    return f
 
 
-#def max_munch(tokens):
+# def max_munch(tokens):
 #    """
 #    Maximum-munch tokenizer for the finite set `tokens`.
 #      >>> tokens = ['aaa', 'aa', 'a']
@@ -136,7 +138,7 @@ def segmentation_counting_wfst(S):
     S = [(a, tuple(b)) for a, b in S]
     for i, x in S:
         for j in range(len(x)):
-            m.set_arc(x[:j], (x[j], EPSILON), x[:j+1], 1)
+            m.set_arc(x[:j], (x[j], EPSILON), x[: j + 1], 1)
         m.set_arc(x, (EPSILON, i), (), 1)
     m.set_F((), 1)
     return m
@@ -148,7 +150,7 @@ def bpe_wfst(S, renumber=True):
     for i, x in S:
         x = tuple(x)
         for j in range(len(x)):
-            m.set_arc(x[:j], (EPSILON, x[j]), x[:j+1], 1)
+            m.set_arc(x[:j], (EPSILON, x[j]), x[: j + 1], 1)
         m.set_arc(x, (i, EPSILON), (), 1)
     m.set_F((), 1)
     return m.renumber if renumber else m
@@ -160,7 +162,7 @@ def char2bpe_wfst(S, renumber=True):
     for i, x in S:
         x = tuple(x)
         for j in range(len(x)):
-            m.set_arc(x[:j], (x[j], EPSILON), x[:j+1], 1)
+            m.set_arc(x[:j], (x[j], EPSILON), x[: j + 1], 1)
         m.set_arc(x, (EPSILON, i), (), 1)
     m.set_F((), 1)
     return m.renumber if renumber else m
@@ -205,21 +207,24 @@ def segmentation_pfst(contexts, alphabet, canonical, trim=True):
     assert EOS not in alphabet
     assert set(alphabet) <= set(contexts)
 
-    #contexts = prefix_closure(contexts)
+    # contexts = prefix_closure(contexts)
 
-    C = {tuple(c): ''.join(c) for c in contexts}
+    C = {tuple(c): "".join(c) for c in contexts}
 
     muncher = max_munch(C)
 
     # TODO: proper prefixes?
-    states = {p for c in C for p in prefixes(c[:-1])}  # states track (proper) prefixes of contexts
-    #states = {p for c in C for p in prefixes(c)}  # states track prefixes of contexts
+    states = {
+        p for c in C for p in prefixes(c[:-1])
+    }  # states track (proper) prefixes of contexts
+    # states = {p for c in C for p in prefixes(c)}  # states track prefixes of contexts
 
     longest_suffix = longest_suffix_in(states)
 
     def gensym():
         gensym.id += 1
-        return f'${gensym.id}'
+        return f"${gensym.id}"
+
     gensym.id = -1
 
     m = FST(Float)
@@ -228,9 +233,10 @@ def segmentation_pfst(contexts, alphabet, canonical, trim=True):
         for y in sorted(alphabet):
 
             # The current context
-            c = p+(y,)
+            c = p + (y,)
 
-            if EOS in c: continue
+            if EOS in c:
+                continue
 
             # We can transition to any suffix of `c` that is also a state.
             if canonical:
@@ -240,7 +246,7 @@ def segmentation_pfst(contexts, alphabet, canonical, trim=True):
                 rest = c[t:]
 
                 old_rest = longest_suffix(c)
-                if len(old_rest) == len(c) - 1:   # we've run out of buffer; must emit
+                if len(old_rest) == len(c) - 1:  # we've run out of buffer; must emit
                     next_states = {rest}
                 else:
                     next_states = {old_rest}
@@ -259,9 +265,11 @@ def segmentation_pfst(contexts, alphabet, canonical, trim=True):
             N = len(next_states)
             for q in sorted(next_states):
 
-                emit = c if len(q) == 0 else c[:-len(q)]
+                emit = c if len(q) == 0 else c[: -len(q)]
 
-                assert p + (y,) == emit + q   # invariant: ensures no information is lost.
+                assert (
+                    p + (y,) == emit + q
+                )  # invariant: ensures no information is lost.
 
                 # TODO: we can segment the residual string in other ways; make
                 # that possible.  Same for the EOS case.
@@ -280,18 +288,19 @@ def segmentation_pfst(contexts, alphabet, canonical, trim=True):
                     curr = p
                     for k, c_k in enumerate(chunks):
 
-                        tmp = gensym() if k < len(chunks) - 1 else q  # last chunk; use q instead of tmp
+                        tmp = (
+                            gensym() if k < len(chunks) - 1 else q
+                        )  # last chunk; use q instead of tmp
 
                         if k == 0:
-                            m.set_arc(curr, (y, ''.join(c_k)), tmp, 1/N)
+                            m.set_arc(curr, (y, "".join(c_k)), tmp, 1 / N)
                         else:
-                            m.set_arc(curr, ('', ''.join(c_k)), tmp, 1)
+                            m.set_arc(curr, ("", "".join(c_k)), tmp, 1)
 
                         curr = tmp
 
                 else:
-                    m.set_arc(p, (y, ''.join(emit)), q, 1/N)
-
+                    m.set_arc(p, (y, "".join(emit)), q, 1 / N)
 
         chunks = muncher(p)
         if len(chunks) > 1:
@@ -299,23 +308,27 @@ def segmentation_pfst(contexts, alphabet, canonical, trim=True):
             curr = p
             for k, c_k in enumerate(chunks):
 
-                tmp = gensym() if k < len(chunks) - 1 else EOS  # last chunk; use q instead of tmp
+                tmp = (
+                    gensym() if k < len(chunks) - 1 else EOS
+                )  # last chunk; use q instead of tmp
 
                 if k == 0:
-                    m.set_arc(curr, (EOS, ''.join(c_k)), tmp, 1)
+                    m.set_arc(curr, (EOS, "".join(c_k)), tmp, 1)
                 else:
-                    m.set_arc(curr, ('', ''.join(c_k)), tmp, 1)
+                    m.set_arc(curr, ("", "".join(c_k)), tmp, 1)
 
                 curr = tmp
 
         else:
-            m.set_arc(p, (EOS, ''.join(p)), EOS, 1)
+            m.set_arc(p, (EOS, "".join(p)), EOS, 1)
 
     m.set_F(EOS, 1)
     return m.trim if trim else m
 
 
-def run_segmentation_test(T, x, contexts, rmeps=True, maxseglenth=100, verbose=0, canonical=False):
+def run_segmentation_test(
+    T, x, contexts, rmeps=True, maxseglenth=100, verbose=0, canonical=False
+):
     """Testing utility, verifies the following properties of the transducer `T` when
     applied to a given string `x`:
 
@@ -335,18 +348,22 @@ def run_segmentation_test(T, x, contexts, rmeps=True, maxseglenth=100, verbose=0
 
     if verbose:
         print()
-        print(colors.cyan % 'input:', fmt(x))
+        print(colors.cyan % "input:", fmt(x))
 
     tmp = T(x + EOS, None)
-    if rmeps: tmp = tmp.epsremove.trim
+    if rmeps:
+        tmp = tmp.epsremove.trim
     Z = tmp.total_weight()
-    if verbose: print(colors.mark(np.allclose(Z, 1)), 'total weight:', Z)
+    if verbose:
+        print(colors.mark(np.allclose(Z, 1)), "total weight:", Z)
     D = tmp.to_cfg().cnf.language(maxseglenth)
-    if verbose > 1: display_table([[D, tmp]])
+    if verbose > 1:
+        display_table([[D, tmp]])
     ok = True
     for Y in D:
-        X = ''.join(Y)
-        if verbose: print(colors.mark(X == x), X, Y)
+        X = "".join(Y)
+        if verbose:
+            print(colors.mark(X == x), X, Y)
         assert all((y in contexts) for y in Y)
         ok &= X == x
 
@@ -354,10 +371,12 @@ def run_segmentation_test(T, x, contexts, rmeps=True, maxseglenth=100, verbose=0
         want = max_munch(contexts)(x)
         [have] = D.keys()
         if verbose > 0:
-            print('max munch', colors.mark(len(have) == len(want)), f'{have=} {want=}')
+            print("max munch", colors.mark(len(have) == len(want)), f"{have=} {want=}")
         assert len(have) == len(want)
         assert have == want
 
-    assert ok and np.allclose(Z, 1) and (not canonical or len(D) == 1), f"""
+    assert (
+        ok and np.allclose(Z, 1) and (not canonical or len(D) == 1)
+    ), f"""
         {x = }, {Z = }, {canonical = }, {D = }
     """

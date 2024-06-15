@@ -2,9 +2,10 @@ import numpy as np
 from genparse.chart import Chart
 from decimal import Decimal, getcontext
 
+
 class Semiring:
 
-    __slots__ = ('score',)
+    __slots__ = ("score",)
 
     def __init__(self, score):
         self.score = score
@@ -13,9 +14,9 @@ class Semiring:
     def chart(cls, *args, **kwargs):
         return Chart(cls, *args, **kwargs)
 
-#    @classmethod
-#    def zeros(cls, *shape):
-#        return np.full(shape, cls.zero)
+    #    @classmethod
+    #    def zeros(cls, *shape):
+    #        return np.full(shape, cls.zero)
 
     @classmethod
     def from_string(cls, x):
@@ -24,28 +25,28 @@ class Semiring:
     def __add__(self, other):
         raise NotImplementedError()
 
-#    def __bool__(self):
-#        return self != self.zero
+    #    def __bool__(self):
+    #        return self != self.zero
 
     def __mul__(self, other):
         raise NotImplementedError()
 
-#    def __float__(self):
-#        return float(self.score)
+    #    def __float__(self):
+    #        return float(self.score)
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({self.score})'
+        return f"{self.__class__.__name__}({self.score})"
 
     def __eq__(self, other):
         return isinstance(other, Semiring) and self.score == other.score
 
-#    def __lt__(self, other):
-#        raise NotImplementedError()
-#        return self.score < other.score
+    #    def __lt__(self, other):
+    #        raise NotImplementedError()
+    #        return self.score < other.score
 
-#    def __hash__(self):
-#        raise NotImplementedError()
-#        return hash(self.score)
+    #    def __hash__(self):
+    #        raise NotImplementedError()
+    #        return hash(self.score)
 
     def metric(self, other):
         return self != other
@@ -90,7 +91,7 @@ class Entropy(Semiring):
     @property
     def H(self):
         p, r = self.score
-        return np.log2(p) - r/p
+        return np.log2(p) - r / p
 
     def metric(self, other):
         p1, r1 = self.score
@@ -100,8 +101,6 @@ class Entropy(Semiring):
 
 Entropy.zero = Entropy(0.0, 0.0)
 Entropy.one = Entropy(1.0, 0.0)
-
-
 
 
 class Boolean(Semiring):
@@ -130,11 +129,12 @@ class Boolean(Semiring):
     @classmethod
     def from_string(cls, x):
         x = x.strip()
-        if x in {'True', 'true', '1', '1.0'}:
+        if x in {"True", "true", "1", "1.0"}:
             return Boolean.one
         else:
-            assert x in {'False', 'false', '0', '0.0'}, x
+            assert x in {"False", "false", "0", "0.0"}, x
             return Boolean.zero
+
 
 Boolean.zero = Boolean(False)
 Boolean.one = Boolean(True)
@@ -179,43 +179,67 @@ MaxTimes.one = MaxTimes(1)
 
 
 class Float:
-    def star(self):          return 1/(1-self)
+    def star(self):
+        return 1 / (1 - self)
+
     @classmethod
-    def from_string(cls, x): return float(x)
-    def metric(x,y):     # pylint: disable=no-self-argument
-        if x == np.inf == y: return 0
+    def from_string(cls, x):
+        return float(x)
+
+    def metric(x, y):  # pylint: disable=no-self-argument
+        if x == np.inf == y:
+            return 0
         return abs(x - y)
+
     @classmethod
     def chart(cls, *args, **kwargs):
         return Chart(cls, *args, **kwargs)
+
     zero = 0
     one = 1
+
 
 class F128:
-    def star(self):          return 1/(1-self)
+    def star(self):
+        return 1 / (1 - self)
+
     @classmethod
-    def from_string(cls, x): return np.float128(x)
-    def metric(x,y):     # pylint: disable=no-self-argument
-        if x == np.inf == y: return 0
+    def from_string(cls, x):
+        return np.float128(x)
+
+    def metric(x, y):  # pylint: disable=no-self-argument
+        if x == np.inf == y:
+            return 0
         return abs(x - y)
+
     @classmethod
     def chart(cls, *args, **kwargs):
         return Chart(cls, *args, **kwargs)
+
     zero = 0
     one = 1
 
+
 getcontext().prec = 77
+
+
 class D256:
-    def star(self):          return 1/(1-self)
+    def star(self):
+        return 1 / (1 - self)
+
     @classmethod
     def from_string(cls, x):
         return Decimal(x)
-    def metric(x,y):     # pylint: disable=no-self-argument
-        if x == np.inf == y: return 0
+
+    def metric(x, y):  # pylint: disable=no-self-argument
+        if x == np.inf == y:
+            return 0
         return abs(x - y)
+
     @classmethod
     def chart(cls, *args, **kwargs):
         return Chart(cls, *args, **kwargs)
+
     zero = 0
     one = 1
 
@@ -235,7 +259,8 @@ class Real(Semiring):
         return Real(self.score * other.score)
 
     def __repr__(self):
-        return f'{self.score}'
+        return f"{self.score}"
+
 
 Real.zero = Real(0)
 Real.one = Real(1)
@@ -250,17 +275,22 @@ class Log(Semiring):
         return Log(-np.log1p(-np.exp(self.score)))
 
     def __add__(self, other):
-        if self == Log.zero: return other
-        if other == Log.zero: return self
+        if self == Log.zero:
+            return other
+        if other == Log.zero:
+            return self
         if self.score > other.score:
             return Log(self.score + np.log(1 + np.exp(other.score - self.score)))
         else:
             return Log(other.score + np.log(1 + np.exp(self.score - other.score)))
 
     def __mul__(self, other):
-        if self == Log.zero: return Log.zero
-        if other == Log.zero: return Log.zero
+        if self == Log.zero:
+            return Log.zero
+        if other == Log.zero:
+            return Log.zero
         return Log(self.score + other.score)
+
 
 Log.zero = Log(-np.inf)
 Log.one = Log(0.0)

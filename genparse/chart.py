@@ -27,7 +27,8 @@ class Chart(dict):
         new = self.spawn()
         for k in self:
             v = self[k] * other[k]
-            if v == self.semiring.zero: continue
+            if v == self.semiring.zero:
+                continue
             new[k] += v
         return new
 
@@ -41,7 +42,9 @@ class Chart(dict):
         return Chart(self.semiring, self)
 
     def trim(self):
-        return Chart(self.semiring, {k: v for k, v in self.items() if v != self.semiring.zero})
+        return Chart(
+            self.semiring, {k: v for k, v in self.items() if v != self.semiring.zero}
+        )
 
     def metric(self, other):
         assert isinstance(other, Chart)
@@ -51,40 +54,48 @@ class Chart(dict):
         return err
 
     def _repr_html_(self):
-        return ('<div style="font-family: Monospace;">'
-                + format_table(self.trim().items(), headings=['key', 'value'])
-                + '</div>')
+        return (
+            '<div style="font-family: Monospace;">'
+            + format_table(self.trim().items(), headings=["key", "value"])
+            + "</div>"
+        )
 
     def __repr__(self):
         return repr({k: v for k, v in self.items() if v != self.semiring.zero})
 
-    def __str__(self, style_value=lambda k,v: str(v)):
+    def __str__(self, style_value=lambda k, v: str(v)):
 
         def key(k):
             return -self.semiring.metric(self[k], self.semiring.zero)
 
         return (
-            'Chart {\n' +
-            '\n'.join(
-                f'  {k!r}: {style_value(k, self[k])},' for k in sorted(self, key=key) if self[k] != self.semiring.zero
+            "Chart {\n"
+            + "\n".join(
+                f"  {k!r}: {style_value(k, self[k])},"
+                for k in sorted(self, key=key)
+                if self[k] != self.semiring.zero
             )
-            + '\n}'
+            + "\n}"
         )
 
     def assert_equal(self, want, *, domain=None, tol=1e-5, verbose=False, throw=True):
-        if not isinstance(want, Chart): want = self.semiring.chart(want)
-        if domain is None: domain = self.keys() | want.keys()
+        if not isinstance(want, Chart):
+            want = self.semiring.chart(want)
+        if domain is None:
+            domain = self.keys() | want.keys()
         assert verbose or throw
         errors = []
         for x in domain:
             if self.semiring.metric(self[x], want[x]) <= tol:
-                if verbose: print(colors.mark(True), x, self[x])
+                if verbose:
+                    print(colors.mark(True), x, self[x])
             else:
-                if verbose: print(colors.mark(False), x, self[x], want[x])
+                if verbose:
+                    print(colors.mark(False), x, self[x], want[x])
                 errors.append(x)
         if throw:
             for x in errors:
-                raise AssertionError(f'{x}: {self[x]} {want[x]}')
+                raise AssertionError(f"{x}: {self[x]} {want[x]}")
 
     def argmax(self):
         return max(self, key=self.__getitem__)
@@ -93,7 +104,9 @@ class Chart(dict):
         return min(self, key=self.__getitem__)
 
     def top(self, k):
-        return {k: self[k] for k in sorted(self, key=self.__getitem__, reverse=True)[:k]}
+        return {
+            k: self[k] for k in sorted(self, key=self.__getitem__, reverse=True)[:k]
+        }
 
     def max(self):
         return max(self.values())
@@ -109,7 +122,7 @@ class Chart(dict):
 
     def normalize(self):
         Z = self.sum()
-        return self.semiring.chart((k, v/Z) for k, v in self.items())
+        return self.semiring.chart((k, v / Z) for k, v in self.items())
 
     def filter(self, f):
         return self.semiring.chart((k, v) for k, v in self.items() if f(k))
@@ -124,8 +137,11 @@ class Chart(dict):
     # TODO: the more general version of this method is join
     def compare(self, other, *, domain=None):
         import pandas as pd
-        if not isinstance(other, Chart): other = self.semiring.chart(other)
-        if domain is None: domain = self.keys() | other.keys()
+
+        if not isinstance(other, Chart):
+            other = self.semiring.chart(other)
+        if domain is None:
+            domain = self.keys() | other.keys()
         rows = []
         for x in domain:
             m = self.semiring.metric(self[x], other[x])

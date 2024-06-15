@@ -13,17 +13,19 @@ from genparse.fst import FST
 from genparse.wfsa import EPSILON
 
 
-def _gen_nt(prefix=''):
+def _gen_nt(prefix=""):
     _gen_nt.i += 1
-    return f'{prefix}@{_gen_nt.i}'
+    return f"{prefix}@{_gen_nt.i}"
+
+
 _gen_nt.i = 0
 
 
-Other = namedtuple('Other', 'x')
+Other = namedtuple("Other", "x")
 
-NotNull = namedtuple('NotNull', 'x')
+NotNull = namedtuple("NotNull", "x")
 
-Slash = namedtuple('Slash', 'Y, Z, i')
+Slash = namedtuple("Slash", "Y, Z, i")
 
 
 class Rule:
@@ -35,11 +37,13 @@ class Rule:
         self._hash = hash((head, body))
 
     def __eq__(self, other):
-        return (isinstance(other, Rule)
-                and self.w == other.w
-                and self._hash == other._hash
-                and other.head == self.head
-                and other.body == self.body)
+        return (
+            isinstance(other, Rule)
+            and self.w == other.w
+            and self._hash == other._hash
+            and other.head == self.head
+            and other.body == self.body
+        )
 
     def __hash__(self):
         return self._hash
@@ -63,10 +67,10 @@ class Derivation:
         return (self.r, self.x, self.ys) == (other.r, other.x, other.ys)
 
     def __repr__(self):
-        open_p = colors.dark.white % '('
-        close_p = colors.dark.white % ')'
-        children = ' '.join(str(y) for y in self.ys)
-        return f'{open_p}{self.x} {children}{close_p}'
+        open_p = colors.dark.white % "("
+        close_p = colors.dark.white % ")"
+        children = " ".join(str(y) for y in self.ys)
+        return f"{open_p}{self.x} {children}{close_p}"
 
     def weight(self):
         "Compute this weight this `Derivation`."
@@ -83,40 +87,49 @@ class Derivation:
             return (self,)
 
     def to_nltk(self):
-        if not isinstance(self, Derivation): return self
+        if not isinstance(self, Derivation):
+            return self
         return nltk.Tree(str(self.x), [Derivation.to_nltk(y) for y in self.ys])
 
     def _repr_html_(self):
-#        return f'<div style="text-align: center;"><span style="color: magenta;">{self.weight()}</span></br>{self.to_nltk()._repr_svg_()}</div>'
+        #        return f'<div style="text-align: center;"><span style="color: magenta;">{self.weight()}</span></br>{self.to_nltk()._repr_svg_()}</div>'
         return self.to_nltk()._repr_svg_()
 
 
 class CFG:
 
-    def __init__(self, R: 'semiring', S: 'start symbol', V: 'terminal vocabulary'): # type: ignore
-        self.R = R      # semiring
-        self.V = V      # alphabet
-        self.N = {S}    # nonterminals
-        self.S = S      # unique start symbol
-        self.rules = [] # rules
+    def __init__(self, R: "semiring", S: "start symbol", V: "terminal vocabulary"):  # type: ignore
+        self.R = R  # semiring
+        self.V = V  # alphabet
+        self.N = {S}  # nonterminals
+        self.S = S  # unique start symbol
+        self.rules = []  # rules
         self._trim_cache = [None, None]
 
     def __repr__(self):
-        return 'Grammar {\n%s\n}' % '\n'.join(f'  {r}' for r in self)
+        return "Grammar {\n%s\n}" % "\n".join(f"  {r}" for r in self)
 
     def _repr_html_(self):
         return f'<pre style="width: fit-content; text-align: left; border: thin solid black; padding: 0.5em;">{self}</pre>'
 
     @classmethod
-    def from_string(cls, string, semiring, comment="#", start='S', is_terminal=lambda x: not x[0].isupper()):
+    def from_string(
+        cls,
+        string,
+        semiring,
+        comment="#",
+        start="S",
+        is_terminal=lambda x: not x[0].isupper(),
+    ):
         V = set()
         cfg = cls(R=semiring, S=start, V=V)
-        string = string.replace('->', '→')   # synonym for the arrow
-        for line in string.split('\n'):
+        string = string.replace("->", "→")  # synonym for the arrow
+        for line in string.split("\n"):
             line = line.strip()
-            if not line or line.startswith(comment): continue
+            if not line or line.startswith(comment):
+                continue
             try:
-                [(w, lhs, rhs)] = re.findall(r'(.*):\s*(\S+)\s*→\s*(.*)$', line)
+                [(w, lhs, rhs)] = re.findall(r"(.*):\s*(\S+)\s*→\s*(.*)$", line)
                 lhs = lhs.strip()
                 rhs = rhs.strip().split()
                 for x in rhs:
@@ -124,11 +137,11 @@ class CFG:
                         V.add(x)
                 cfg.add(semiring.from_string(w), lhs, *rhs)
             except ValueError:
-                raise ValueError(f'bad input line:\n{line}')    # pylint: disable=W0707
+                raise ValueError(f"bad input line:\n{line}")  # pylint: disable=W0707
         return cfg
 
     def __getitem__(self, root):
-        new = self.spawn(S = root)
+        new = self.spawn(S=root)
         for r in self:
             new.add(r.w, r.head, *r.body)
         return new
@@ -138,21 +151,21 @@ class CFG:
 
     def __call__(self, xs):
         "Compute the total weight of the `xs` sequence."
-        self = self.cnf   # need to do this here because the start symbol might change
-        return self._parse_chart(xs)[0,self.S,len(xs)]
+        self = self.cnf  # need to do this here because the start symbol might change
+        return self._parse_chart(xs)[0, self.S, len(xs)]
 
     def _parse_chart(self, xs):
         "Implements CKY algorithm for evaluating the total weight of the `xs` sequence."
-        (nullary, terminal, binary) = self._cnf   # will convert to CNF
+        (nullary, terminal, binary) = self._cnf  # will convert to CNF
         N = len(xs)
         # nullary rule
         c = self.R.chart()
-        for i in range(N+1):
-            c[i,self.S,i] += nullary
+        for i in range(N + 1):
+            c[i, self.S, i] += nullary
         # preterminal rules
         for i in range(N):
             for r in terminal[xs[i]]:
-                c[i,r.head,i+1] += r.w
+                c[i, r.head, i + 1] += r.w
         # binary rules
         for span in range(2, N + 1):
             for i in range(N - span + 1):
@@ -160,7 +173,7 @@ class CFG:
                 for j in range(i + 1, k):
                     for r in binary:
                         X, [Y, Z] = r.head, r.body
-                        c[i,X,k] +=  r.w * c[i,Y,j] * c[j,Z,k]
+                        c[i, X, k] += r.w * c[i, Y, j] * c[j, Z, k]
         return c
 
     def language(self, depth):
@@ -195,12 +208,15 @@ class CFG:
         return len(self.rules)
 
     def spawn(self, *, R=None, S=None, V=None):
-        return self.__class__(R=self.R if R is None else R,
-                              S=self.S if S is None else S,
-                              V=set(self.V) if V is None else V)
+        return self.__class__(
+            R=self.R if R is None else R,
+            S=self.S if S is None else S,
+            V=set(self.V) if V is None else V,
+        )
 
     def add(self, w, head, *body):
-        if w == self.R.zero: return   # skip rules with weight zero
+        if w == self.R.zero:
+            return  # skip rules with weight zero
         self.N.add(head)
         r = Rule(w, head, body)
         self.rules.append(r)
@@ -212,10 +228,11 @@ class CFG:
 
     def rename(self, f):
         "return a new grammar that is the result of applying `f` to each nonterminal."
-        new = self.spawn(S = f(self.S))
+        new = self.spawn(S=f(self.S))
         for r in self:
-            new.add(r.w, f(r.head), *((y if self.is_terminal(y) else f(y)
-                                       for y in r.body)))
+            new.add(
+                r.w, f(r.head), *((y if self.is_terminal(y) else f(y) for y in r.body))
+            )
         return new
 
     def map_values(self, f, R):
@@ -227,23 +244,26 @@ class CFG:
 
     def assert_equal(self, other, verbose=False, throw=True):
         assert verbose or throw
-        if isinstance(other, str): other = self.__class__.from_string(other, self.R)
+        if isinstance(other, str):
+            other = self.__class__.from_string(other, self.R)
         if verbose:
             # TODO: need to check the weights in the print out; we do it in the assertion
             S = set(self.rules)
             G = set(other.rules)
             for r in sorted(S | G, key=str):
-                if r in S and r in G: continue
-                #if r in S and r not in G: continue
-                #if r not in S and r in G: continue
+                if r in S and r in G:
+                    continue
+                # if r in S and r not in G: continue
+                # if r not in S and r in G: continue
                 print(
                     colors.mark(r in S),
-                    #colors.mark(r in S and r in G),
+                    # colors.mark(r in S and r in G),
                     colors.mark(r in G),
                     r,
                 )
-        assert not throw or Counter(self.rules) == Counter(other.rules), \
-            f'\n\nhave=\n{str(self)}\nwant=\n{str(other)}'
+        assert not throw or Counter(self.rules) == Counter(
+            other.rules
+        ), f"\n\nhave=\n{str(self)}\nwant=\n{str(other)}"
 
     def treesum(self, **kwargs):
         return self.agenda(**kwargs)[self.S]
@@ -273,14 +293,15 @@ class CFG:
                         C.add(e.head)
                         agenda.add(e.head)
 
-        if bottomup_only: return self._trim(C)
+        if bottomup_only:
+            return self._trim(C)
 
         T = {self.S}
         agenda.update(T)
         while agenda:
             x = agenda.pop()
             for e in incoming[x]:
-                #assert e.head in T
+                # assert e.head in T
                 for b in e.body:
                     if b not in T and b in C:
                         T.add(b)
@@ -299,12 +320,13 @@ class CFG:
                 new.add(p.w, p.head, *p.body)
         return new
 
-    #___________________________________________________________________________
+    # ___________________________________________________________________________
     # Derivation enumeration
 
     def derivations(self, X, H):
         "Enumerate derivations of symbol X with height <= H"
-        if X is None: X = self.S
+        if X is None:
+            X = self.S
 
         if self.is_terminal(X):
             yield X
@@ -314,7 +336,7 @@ class CFG:
 
         else:
             for r in self.rhs[X]:
-                for ys in self._derivations_list(r.body, H-1):
+                for ys in self._derivations_list(r.body, H - 1):
                     yield Derivation(r, X, *ys)
 
     def _derivations_list(self, Xs, H):
@@ -326,7 +348,7 @@ class CFG:
                 for xs in self._derivations_list(Xs[1:], H):
                     yield (x, *xs)
 
-    #___________________________________________________________________________
+    # ___________________________________________________________________________
     # Transformations
 
     def _unary_graph(self):
@@ -353,20 +375,21 @@ class CFG:
         "Return an equivalent grammar with no unary rules."
 
         W = self._unary_graph().closure_scc_based()
-        #W = self._unary_graph().closure_reference()
+        # W = self._unary_graph().closure_reference()
 
         new = self.spawn()
         for r in self:
-            if len(r.body) == 1 and self.is_nonterminal(r.body[0]): continue
+            if len(r.body) == 1 and self.is_nonterminal(r.body[0]):
+                continue
             for Y in self.N:
-                new.add(W[Y, r.head]*r.w, Y, *r.body)
+                new.add(W[Y, r.head] * r.w, Y, *r.body)
 
         return new
 
     def unarycycleremove(self, trim=True):
         "Return an equivalent grammar with no unary cycles."
 
-        bot = lambda x: x if x in acyclic else (x, 'bot')
+        bot = lambda x: x if x in acyclic else (x, "bot")
 
         G = self._unary_graph()
 
@@ -389,7 +412,7 @@ class CFG:
                 if X in acyclic:
                     continue
 
-            for (X1, X2) in W:
+            for X1, X2 in W:
                 new.add(W[X1, X2], X1, bot(X2))
 
         for r in self:
@@ -399,7 +422,8 @@ class CFG:
 
         # TODO: figure out how to ensure that the new grammar is trimmed by
         # construction (assuming the input grammar was trim).
-        if trim: new = new.trim()
+        if trim:
+            new = new.trim()
 
         return new
 
@@ -410,7 +434,8 @@ class CFG:
         """
         # A really wide rule can take a very long time because of the power set
         # in this rule so it is really important to binarize.
-        if binarize: self = self.binarize()
+        if binarize:
+            self = self.binarize()
         self = self.separate_start()
         tmp = self._push_null_weights(self.null_weight(), **kwargs)
         return tmp.trim() if trim else tmp
@@ -451,7 +476,9 @@ class CFG:
 
         def f(x):
             "Rename nonterminal if necessary"
-            if null_weight[x] == self.R.zero or x == self.S:   # not necessary; keep old name
+            if (
+                null_weight[x] == self.R.zero or x == self.S
+            ):  # not necessary; keep old name
                 return x
             else:
                 return rename(x)
@@ -461,7 +488,8 @@ class CFG:
 
         for r in self:
 
-            if len(r.body) == 0: continue  # drop nullary rule
+            if len(r.body) == 0:
+                continue  # drop nullary rule
 
             for B in product([0, 1], repeat=len(r.body)):
                 v, new_body = r.w, []
@@ -483,7 +511,7 @@ class CFG:
         # create a new start symbol if the current one appears on the rhs of any existing rule
         if self.S in {y for r in self for y in r.body}:
             S = _gen_nt(self.S)
-            new = self.spawn(S = S)
+            new = self.spawn(S=S)
             # preterminal rules
             new.add(self.R.one, S, self.S)
             for r in self:
@@ -498,6 +526,7 @@ class CFG:
         new = self.spawn()
 
         _preterminal = {}
+
         def preterminal(x):
             y = _preterminal.get(x)
             if y is None:
@@ -509,7 +538,14 @@ class CFG:
             if len(r.body) == 1 and self.is_terminal(r.body[0]):
                 new.add(r.w, r.head, *r.body)
             else:
-                new.add(r.w, r.head, *((preterminal(y).head if self.is_terminal(y) else y) for y in r.body))
+                new.add(
+                    r.w,
+                    r.head,
+                    *(
+                        (preterminal(y).head if self.is_terminal(y) else y)
+                        for y in r.body
+                    ),
+                )
 
         return new
 
@@ -530,10 +566,10 @@ class CFG:
 
         # new productions
         P, heads = [], []
-        for (i, j) in I:
+        for i, j in I:
             head = _gen_nt()
             heads.append(head)
-            body = p.body[i:j+1]
+            body = p.body[i : j + 1]
             P.append(Rule(self.R.one, head, body))
 
         # new "head" production
@@ -541,7 +577,7 @@ class CFG:
         start = 0
         for (end, n), head in zip(I, heads):
             body += p.body[start:end] + (head,)
-            start = n+1
+            start = n + 1
         body += p.body[start:]
         P.append(Rule(p.w, p.head, body))
 
@@ -549,8 +585,16 @@ class CFG:
 
     @cached_property
     def cnf(self):
-        new = self.separate_terminals().nullaryremove(binarize=True).trim().unaryremove().trim()
-        assert new.in_cnf(), '\n'.join(str(r) for r in new._find_invalid_cnf_rule())   # pragma: no cover
+        new = (
+            self.separate_terminals()
+            .nullaryremove(binarize=True)
+            .trim()
+            .unaryremove()
+            .trim()
+        )
+        assert new.in_cnf(), "\n".join(
+            str(r) for r in new._find_invalid_cnf_rule()
+        )  # pragma: no cover
         return new
 
     # TODO: make CNF grammars a speciazed subclass of CFG.
@@ -586,7 +630,9 @@ class CFG:
                 continue
             elif len(r.body) == 1 and self.is_terminal(r.body[0]):
                 continue
-            elif len(r.body) == 2 and all(self.is_nonterminal(y) and y != self.S for y in r.body):
+            elif len(r.body) == 2 and all(
+                self.is_nonterminal(y) and y != self.S for y in r.body
+            ):
                 continue
             else:
                 yield r
@@ -596,7 +642,9 @@ class CFG:
 
     def has_unary_cycle(self):
         f = self._unary_graph().buckets
-        return any(True for r in self if len(r.body) == 1 and f.get(r.head) == f.get(r.body[0]))
+        return any(
+            True for r in self if len(r.body) == 1 and f.get(r.head) == f.get(r.body[0])
+        )
 
     def unfold(self, i, k):
         assert isinstance(i, int) and isinstance(k, int)
@@ -609,7 +657,7 @@ class CFG:
                 new.add(r.w, r.head, *r.body)
 
         for r in self.rhs[s.body[k]]:
-            new.add(s.w*r.w, s.head, *s.body[:k], *r.body, *s.body[k+1:])
+            new.add(s.w * r.w, s.head, *s.body[:k], *r.body, *s.body[k + 1 :])
 
         return new
 
@@ -618,12 +666,13 @@ class CFG:
         for r in self:
             for y in r.body:
                 deps[r.head, y] += Boolean.one
-        deps.N |= self.N; deps.N |= self.V
+        deps.N |= self.N
+        deps.N |= self.V
         return deps
 
     # TODO: the default treesum algorithm should probably be SCC-decomposed newton's method
     def agenda(self, tol=1e-12, maxiter=100_000):
-#    def agenda(self, tol=1e-12, maxiter=float('inf')):
+        #    def agenda(self, tol=1e-12, maxiter=float('inf')):
         "Agenda-based semi-naive evaluation"
         old = self.R.chart()
 
@@ -653,27 +702,32 @@ class CFG:
         iteration = 0
         while b >= 0:
             iteration += 1
-            if iteration > maxiter: break
+            if iteration > maxiter:
+                break
 
             if len(change[b]) == 0:
                 b -= 1
-                iteration = 0   # reset iteration number for the next bucket
+                iteration = 0  # reset iteration number for the next bucket
                 continue
 
-            u,v = change[b].popitem()
+            u, v = change[b].popitem()
 
             new = old[u] + v
 
-            if self.R.metric(old[u], new) <= tol: continue
+            if self.R.metric(old[u], new) <= tol:
+                continue
 
             for r, k in routing[u]:
 
                 W = r.w
                 for j in range(len(r.body)):
                     if u == r.body[j]:
-                        if j < k:    W *= new
-                        elif j == k: W *= v
-                        else:        W *= old[u]
+                        if j < k:
+                            W *= new
+                        elif j == k:
+                            W *= v
+                        else:
+                            W *= old[u]
                     else:
                         W *= old[r.body[j]]
 
@@ -693,7 +747,8 @@ class CFG:
         counter = 0
         while counter < timeout:
             U = self._bottom_up_step(V)
-            if _approx_equal(U, V): break
+            if _approx_equal(U, V):
+                break
             V = U
             counter += 1
         return V
@@ -718,15 +773,15 @@ class CFG:
     @cached_property
     def prefix_grammar(self):
         return self @ prefix_transducer(self.R, self.V)
-        #return PrefixGrammar(self)
+        # return PrefixGrammar(self)
 
-#    def gensym(self, x):
-#        assert x not in self.V
-#        if x not in self.N: return x
-#        i = 1
-#        while f'{x}@{i}' in self.N:
-#            i += 1
-#        return f'{x}@{i}'
+    #    def gensym(self, x):
+    #        assert x not in self.V
+    #        if x not in self.N: return x
+    #        i = 1
+    #        while f'{x}@{i}' in self.N:
+    #            i += 1
+    #        return f'{x}@{i}'
 
     def derivatives(self, s):
         "Return the sequence of derivatives for each prefix of `s`."
@@ -740,19 +795,28 @@ class CFG:
     # performs nullary elimination at the same time.
     def derivative(self, a, i=0):
         "Return a grammar that generates the derivative with respect to `a`."
-        def slash(x, y): return Slash(x, y, i=i)
-        D = self.spawn(S = slash(self.S, a))
+
+        def slash(x, y):
+            return Slash(x, y, i=i)
+
+        D = self.spawn(S=slash(self.S, a))
         U = self.null_weight()
         for r in self:
             D.add(r.w, r.head, *r.body)
             delta = self.R.one
             for k, y in enumerate(r.body):
-                if slash(r.head, a) in self.N: continue   # SKIP!
+                if slash(r.head, a) in self.N:
+                    continue  # SKIP!
                 if self.is_terminal(y):
                     if y == a:
-                        D.add(delta*r.w, slash(r.head, a), *r.body[k+1:])
+                        D.add(delta * r.w, slash(r.head, a), *r.body[k + 1 :])
                 else:
-                    D.add(delta*r.w, slash(r.head, a), slash(r.body[k], a), *r.body[k+1:])
+                    D.add(
+                        delta * r.w,
+                        slash(r.head, a),
+                        slash(r.body[k], a),
+                        *r.body[k + 1 :],
+                    )
                 delta *= U[y]
         return D
 
@@ -761,15 +825,14 @@ class CFG:
 
         A = set()
 
-        I = defaultdict(set)   # incomplete items
-        C = defaultdict(set)   # complete items
-        R = defaultdict(set)   # rules indexed by first subgoal; non-nullary
+        I = defaultdict(set)  # incomplete items
+        C = defaultdict(set)  # complete items
+        R = defaultdict(set)  # rules indexed by first subgoal; non-nullary
 
-        special_rules = (
-            [Rule(self.R.one, a, (EPSILON, a)) for a in self.V]
-            + [Rule(self.R.one, Other(self.S), (self.S,)),
-               Rule(self.R.one, Other(self.S), (Other(self.S), EPSILON))]
-        )
+        special_rules = [Rule(self.R.one, a, (EPSILON, a)) for a in self.V] + [
+            Rule(self.R.one, Other(self.S), (self.S,)),
+            Rule(self.R.one, Other(self.S), (Other(self.S), EPSILON)),
+        ]
 
         for r in itertools.chain(self, special_rules):
             if len(r.body) > 0:
@@ -779,7 +842,7 @@ class CFG:
         #
         # base case 1: arcs
         for i, (a, _), j, _ in fst.arcs():
-            A.add((i, a, (), j))   # empty tuple -> the rule 'complete'
+            A.add((i, a, (), j))  # empty tuple -> the rule 'complete'
 
         # base case 2: nullary rules
         for r in self:
@@ -794,12 +857,13 @@ class CFG:
             # No pending items ==> the item is complete
             if not Ys:
 
-                if j in C[i, X]: continue
+                if j in C[i, X]:
+                    continue
                 C[i, X].add(j)
 
                 # combine the newly completed item with incomplete rules that are
                 # looking for an item like this one
-                for (h, X1, Zs) in I[i, X]:
+                for h, X1, Zs in I[i, X]:
                     A.add((h, X1, Zs[1:], j))
 
                 # initialize rules that can start with an item like this one
@@ -809,7 +873,8 @@ class CFG:
             # Still have pending items ==> advanced the pending items
             else:
 
-                if (i, X, Ys) in I[j, Ys[0]]: continue
+                if (i, X, Ys) in I[j, Ys[0]]:
+                    continue
                 I[j, Ys[0]].add((i, X, Ys))
 
                 for k in C[j, Ys[0]]:
@@ -821,26 +886,27 @@ class CFG:
         "Return a CFG denoting the pointwise product or composition of `self` and `fs`."
 
         # coerce something sequence like into a diagonal FST
-        if isinstance(fst, (str, list, tuple)): fst = FST.from_string(fst, self.R)
+        if isinstance(fst, (str, list, tuple)):
+            fst = FST.from_string(fst, self.R)
         # coerce something FSA-like into an FST, might throw an error
-        if not isinstance(fst, FST): fst = FST.diag(fst)
+        if not isinstance(fst, FST):
+            fst = FST.diag(fst)
 
         # Initialize the new CFG:
         # - its start symbol is chosen arbitrarily to be `self.S`
         # - its the alphabet changes - it is now 'output' alphabet of the transducer
         new_start = self.S
-        new = self.spawn(S = new_start, V = fst.B - {EPSILON})
+        new = self.spawn(S=new_start, V=fst.B - {EPSILON})
 
         # The bottom-up intersection algorithm is a two-pass algorithm
         #
         # Pass 1: Determine the set of items that are possiblly nonzero-valued
         C = self._compose_bottom_up_epsilon(fst)
 
-        special_rules = (
-            [Rule(self.R.one, a, (EPSILON, a)) for a in self.V]
-            + [Rule(self.R.one, Other(self.S), (self.S,)),
-               Rule(self.R.one, Other(self.S), (Other(self.S), EPSILON))]
-        )
+        special_rules = [Rule(self.R.one, a, (EPSILON, a)) for a in self.V] + [
+            Rule(self.R.one, Other(self.S), (self.S,)),
+            Rule(self.R.one, Other(self.S), (Other(self.S), EPSILON)),
+        ]
 
         def join(start, Ys):
             """
@@ -860,7 +926,7 @@ class CFG:
                     for rest in join(K, Ys[1:]):
                         yield [(start, Ys[0], K)] + rest
 
-        start = {I for (I,_) in C}
+        start = {I for (I, _) in C}
 
         for r in itertools.chain(self, special_rules):
             if len(r.body) == 0:
@@ -874,9 +940,9 @@ class CFG:
 
         for i, wi in fst.start.items():
             for k, wf in fst.stop.items():
-                new.add(wi*wf, new_start, (i, Other(self.S), k))
+                new.add(wi * wf, new_start, (i, Other(self.S), k))
 
-        for i, (a,b), j, w in fst.arcs():
+        for i, (a, b), j, w in fst.arcs():
             if b == EPSILON:
                 new.add(w, (i, a, j))
             else:
@@ -886,13 +952,14 @@ class CFG:
     # TODO: experimental; untested
     def truncate_length(self, max_length):
         from genparse import WFSA
+
         m = WFSA(self.R)
         m.add_I(0, self.R.one)
         m.add_F(0, self.R.one)
         for t in range(max_length):
             for x in self.V:
-                m.add_arc(t, x, t+1, self.R.one)
-            m.add_F(t+1, self.R.one)
+                m.add_arc(t, x, t + 1, self.R.one)
+            m.add_F(t + 1, self.R.one)
         return self @ m
 
     # TODO: experimental; untested
@@ -906,8 +973,8 @@ def prefix_transducer(R, V):
     P.add_I(0, R.one)
     P.add_I(1, R.one)
     for x in V:
-        P.add_arc(0, (x,x), 0, R.one)
-        P.add_arc(0, (x,x), 1, R.one)
-        P.add_arc(1, (x,EPSILON), 1, R.one)
+        P.add_arc(0, (x, x), 0, R.one)
+        P.add_arc(0, (x, x), 1, R.one)
+        P.add_arc(1, (x, EPSILON), 1, R.one)
     P.add_F(1, R.one)
     return P

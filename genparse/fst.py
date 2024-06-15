@@ -20,20 +20,20 @@ class FST(WFSA):
         self.A = set()
         self.B = set()
 
-    def add_arc(self, i, ab, j, w):   # pylint: disable=arguments-renamed
+    def add_arc(self, i, ab, j, w):  # pylint: disable=arguments-renamed
         if ab != EPSILON:
-            (a,b) = ab
+            (a, b) = ab
             self.A.add(a)
             self.B.add(b)
         return super().add_arc(i, ab, j, w)
 
-    def set_arc(self, i, ab, j, w):   # pylint: disable=arguments-renamed
+    def set_arc(self, i, ab, j, w):  # pylint: disable=arguments-renamed
         if ab != EPSILON:
-            (a,b) = ab
+            (a, b) = ab
             self.A.add(a)
             self.B.add(b)
         return super().set_arc(i, ab, j, w)
-    
+
     def __call__(self, x, y):
         """
         Compute the total weight of x:y under the FST's weighted relation.  If one
@@ -67,10 +67,10 @@ class FST(WFSA):
         p.add_I(0, R.one)
         p.add_F(1, R.one)
         for i, (xs, ys) in enumerate(pairs):
-            p.add_arc(0, EPSILON, (i,0), R.one)
-            for j, (x,y) in enumerate(zip_longest(xs, ys, fillvalue=EPSILON)):
-                p.add_arc((i,j), (x, y), (i,j+1), R.one)
-            p.add_arc((i,max(len(xs), len(ys))), EPSILON, 1, R.one)
+            p.add_arc(0, EPSILON, (i, 0), R.one)
+            for j, (x, y) in enumerate(zip_longest(xs, ys, fillvalue=EPSILON)):
+                p.add_arc((i, j), (x, y), (i, j + 1), R.one)
+            p.add_arc((i, max(len(xs), len(ys))), EPSILON, 1, R.one)
         return p
 
     def project(self, axis):
@@ -96,7 +96,7 @@ class FST(WFSA):
         "transpose swap left <-> right"
         T = self.spawn()
         for i, (a, b), j, w in self.arcs():
-            T.add_arc(i, (b, a), j, w)      # (a,b) -> (b,a)
+            T.add_arc(i, (b, a), j, w)  # (a,b) -> (b,a)
         for q, w in self.I:
             T.add_I(q, w)
         for q, w in self.F:
@@ -119,6 +119,7 @@ class FST(WFSA):
         "Relation composition; may coerce `other` to an appropriate type if need be."
         if not isinstance(other, FST):
             from genparse.cfg import CFG
+
             if isinstance(other, CFG):
                 return other @ self.T
             else:
@@ -127,17 +128,25 @@ class FST(WFSA):
         # minor efficiency trick: it's slightly more efficient to associate the composition as follows
         if len(self.states) < len(other.states):
             return (
-                self._augment_epsilon_transitions(0)                           # rename epsilons on the right
-                ._compose(epsilon_filter_fst(self.R, self.B), coarsen=False)   # this FST carefully combines the special epsilons
-                ._compose(other._augment_epsilon_transitions(1))               # rename epsilons on th left
+                self._augment_epsilon_transitions(0)  # rename epsilons on the right
+                ._compose(
+                    epsilon_filter_fst(self.R, self.B), coarsen=False
+                )  # this FST carefully combines the special epsilons
+                ._compose(
+                    other._augment_epsilon_transitions(1)
+                )  # rename epsilons on th left
             )
 
         else:
-            return (
-                self._augment_epsilon_transitions(0)                                        # rename epsilons on the right
-                ._compose(epsilon_filter_fst(self.R, self.B)                                # this FST carefully combines the special epsilons
-                          ._compose(other._augment_epsilon_transitions(1), coarsen=False))  # rename epsilons on th left
-            )
+            return self._augment_epsilon_transitions(
+                0
+            )._compose(  # rename epsilons on the right
+                epsilon_filter_fst(
+                    self.R, self.B
+                )._compose(  # this FST carefully combines the special epsilons
+                    other._augment_epsilon_transitions(1), coarsen=False
+                )
+            )  # rename epsilons on th left
 
     def _compose(self, other, coarsen=True):
 
@@ -146,7 +155,9 @@ class FST(WFSA):
             result = self._pruned_compose(other, keep, keep.keep_arc)
 
         else:
-            result = self._pruned_compose(other, lambda x: True, lambda i,label,j: True)
+            result = self._pruned_compose(
+                other, lambda x: True, lambda i, label, j: True
+            )
 
         return result
 
@@ -171,7 +182,8 @@ class FST(WFSA):
             for Q, w2 in other.I:
                 PQ = (P, Q)
 
-                if not keep(PQ): continue
+                if not keep(PQ):
+                    continue
 
                 C.add_I(PQ, w1 * w2)
                 visited.add(PQ)
@@ -195,7 +207,8 @@ class FST(WFSA):
 
                     PʼQʼ = (Pʼ, Qʼ)
 
-                    if not keep(PʼQʼ) or not keep_arc(PQ, (a, c), PʼQʼ): continue
+                    if not keep(PʼQʼ) or not keep_arc(PQ, (a, c), PʼQʼ):
+                        continue
 
                     C.add_arc(PQ, (a, c), PʼQʼ, w1 * w2)
 
@@ -223,8 +236,10 @@ class FST(WFSA):
             else:
                 T.add_arc(i, (ε_2, ε), i, self.R.one)
             for ab, j, w in self.arcs(i):
-                if   idx == 0 and ab[1] == ε: ab = (ab[0], ε_2)
-                elif idx == 1 and ab[0] == ε: ab = (ε_1, ab[1])
+                if idx == 0 and ab[1] == ε:
+                    ab = (ab[0], ε_2)
+                elif idx == 1 and ab[0] == ε:
+                    ab = (ε_1, ab[1])
                 T.add_arc(i, ab, j, w)
 
         return T

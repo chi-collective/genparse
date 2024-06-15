@@ -11,12 +11,14 @@ References
 
 
 """
+
 import numpy as np
 from collections import deque
 from functools import cached_property
 
 from numpy import linalg
-#from scipy import linalg
+
+# from scipy import linalg
 
 from genparse.semiring import Float
 from genparse.wfsa import base
@@ -28,6 +30,7 @@ class WFSA(base.WFSA):
     """
     Weighted finite-state automata where weights are a field (e.g., real-valued).
     """
+
     def __init__(self, R=Float):
         super().__init__(R=R)
 
@@ -40,7 +43,7 @@ class WFSA(base.WFSA):
         for q, w in self.I:
             if abs(w) >= threshold:
                 m.add_I(q, w)
-        for i,a,j,w in self.arcs():
+        for i, a, j, w in self.arcs():
             if abs(w) >= threshold:
                 m.add_arc(i, a, j, w)
         for q, w in self.F:
@@ -48,7 +51,11 @@ class WFSA(base.WFSA):
                 m.add_F(q, w)
         return m
 
-    def graphviz(self, fmt=lambda x: f'{round(x,3):g}' if isinstance(x, (float, int)) else str(x), **kwargs):  # pylint: disable=arguments-differ
+    def graphviz(
+        self,
+        fmt=lambda x: f"{round(x,3):g}" if isinstance(x, (float, int)) else str(x),
+        **kwargs,
+    ):  # pylint: disable=arguments-differ
         return super().graphviz(fmt=fmt, **kwargs)
 
     @cached_property
@@ -57,13 +64,13 @@ class WFSA(base.WFSA):
 
         S = self.dim
         start = np.full(S, self.R.zero)
-        arcs = {a: np.full((S,S), self.R.zero) for a in self.alphabet}
+        arcs = {a: np.full((S, S), self.R.zero) for a in self.alphabet}
         stop = np.full(S, self.R.zero)
 
         for i, w in self.I:
             start[i] += w
         for i, a, j, w in self.arcs():
-            arcs[a][i,j] += w
+            arcs[a][i, j] += w
         for i, w in self.F:
             stop[i] += w
 
@@ -81,21 +88,23 @@ class WFSA(base.WFSA):
     def min(self):
         return self.simple.min.to_wfsa()
 
-#    @cached_property
-#    def epsremove(self):
-#        return self.simple.to_wfsa()
+    #    @cached_property
+    #    def epsremove(self):
+    #        return self.simple.to_wfsa()
 
     def multiplicity(self, m):
         return WFSA.lift(EPSILON, m) * self
 
     @classmethod
     def lift(cls, x, w, R=None):
-        if R is None: R = Float
+        if R is None:
+            R = Float
         m = cls(R=R)
         m.add_I(0, R.one)
         m.add_arc(0, x, 1, w)
         m.add_F(1, R.one)
         return m
+
 
 #    @property
 #    def zero(self):
@@ -109,7 +118,6 @@ WFSA.zero = WFSA()
 WFSA.one = WFSA.lift(EPSILON, w=Float.one, R=Float)
 
 
-
 class Simple:
     def __init__(self, start, arcs, stop):
         assert EPSILON not in arcs
@@ -118,15 +126,15 @@ class Simple:
         self.stop = stop
         [self.dim] = start.shape
 
-#    def __call__(self, xs):
-#        forward = self.start.copy()
-#        for x in xs:
-#            if x not in self.arcs: return 0
-#            forward = forward @ self.arcs[x]
-#        return forward @ self.stop
+    #    def __call__(self, xs):
+    #        forward = self.start.copy()
+    #        for x in xs:
+    #            if x not in self.arcs: return 0
+    #            forward = forward @ self.arcs[x]
+    #        return forward @ self.stop
 
     def __eq__(self, other):
-#        return (self is other) or hash(self) == hash(other) and self.counterexample(other) is None
+        #        return (self is other) or hash(self) == hash(other) and self.counterexample(other) is None
         return self.counterexample(other) is None
 
     def __hash__(self):
@@ -155,8 +163,8 @@ class Simple:
 
             for a in alphabet:
 
-                ua = self.arcs[a] @ VA if a in self.arcs else 0*VA
-                ub = B.arcs[a] @ VB if a in B.arcs else 0*VB
+                ua = self.arcs[a] @ VA if a in self.arcs else 0 * VA
+                ub = B.arcs[a] @ VB if a in B.arcs else 0 * VB
 
                 w1 = (a, w)
 
@@ -164,7 +172,7 @@ class Simple:
                 va = self.start @ ua
                 vb = B.start @ ub
                 if not approx_equal(va, vb):
-                    return (w1, va, vb)   # yup!
+                    return (w1, va, vb)  # yup!
 
                 u = np.hstack([ua, ub])
                 q = proj(u, basis)
@@ -182,7 +190,7 @@ class Simple:
         return self.forward_conjugate().backward_conjugate()
 
     def __repr__(self):
-        return f'<Simple states={len(self.start)}, syms={len(self.arcs)}>'
+        return f"<Simple states={len(self.start)}, syms={len(self.arcs)}>"
 
     def forward_conjugate(self):
         # The forward basis F is an n' x n where n is the set of old states, and n' the set of new states
@@ -202,28 +210,28 @@ class Simple:
         #    old_start @ F.T @ inv(F @ F.T) = new_start
         F = self.forward_basis()
 
-        #P = F.T @ linalg.inv(F @ F.T)
+        # P = F.T @ linalg.inv(F @ F.T)
         P = linalg.pinv(F)
 
-        #start = self.start @ P
-        #assert np.allclose(self.start, start @ F)
+        # start = self.start @ P
+        # assert np.allclose(self.start, start @ F)
 
         # We also need to solve for our new transition function
         #                   F M = M' F
         #               F M F.T = M' (F F.T)
         #    F M F.T inv(F F.T) = M' (F F.T) inv(F F.T)
         return Simple(
-            start = self.start @ P,
-            arcs = {a: F @ M @ P for a, M in self.arcs.items()},   # apply change of basis
-            stop = F @ self.stop,
+            start=self.start @ P,
+            arcs={a: F @ M @ P for a, M in self.arcs.items()},  # apply change of basis
+            stop=F @ self.stop,
         )
 
     @cached_property
     def reverse(self):
         return Simple(
-            start = self.stop,
-            arcs = {a: M.T for a, M in self.arcs.items()},
-            stop = self.start,
+            start=self.stop,
+            arcs={a: M.T for a, M in self.arcs.items()},
+            stop=self.start,
         )
 
     def forward_basis(self):
@@ -249,14 +257,14 @@ class Simple:
         for a in self.arcs:
             for i in range(self.dim):
                 for j in range(self.dim):
-                    m.add_arc(i,a,j,self.arcs[a][i,j])
+                    m.add_arc(i, a, j, self.arcs[a][i, j])
         for i in range(self.dim):
             m.add_F(i, self.stop[i])
         return m
 
 
-def approx_equal(x,y):
-    return np.allclose(x,y)
+def approx_equal(x, y):
+    return np.allclose(x, y)
 
 
 def proj(u, Q):

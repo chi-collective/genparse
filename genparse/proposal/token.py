@@ -12,6 +12,7 @@ from genparse.proposal.trie import TokenCharacterTrie
 # `p_next` as proposal distributions may only be distributions over sample paths
 # rather than character strings.  That appears to be a significant difference.
 
+
 class TokenProposal(TokenCharacterTrie):
     """Proposal distribution that combines an `llm` and `guide`.  Let Y be the set
     of tokens and ∑ the set of characters.  We assume that llm is a distrbution
@@ -35,29 +36,29 @@ class TokenProposal(TokenCharacterTrie):
         self.K = K
 
         # Filter LLM tokens that are illegal under the cfg
-        words = {
-            word
-            for word in llm.V
-            if set(word) <= self.guide.V or word == llm.eos
-        }
+        words = {word for word in llm.V if set(word) <= self.guide.V or word == llm.eos}
 
-        super().__init__(words, old_eos = llm.eos, new_eos = guide.eos)
+        super().__init__(words, old_eos=llm.eos, new_eos=guide.eos)
 
     def _p_next(self, context, K=None):
-        with self.timer['llm'](t=len(context)):
+        with self.timer["llm"](t=len(context)):
             p_llm = self.llm.p_next(self._prompt + context)
 
-        with self.timer['cfg+trie'](t=len(context)):
+        with self.timer["cfg+trie"](t=len(context)):
             return Float.chart(take(K, self.traverse_trie(context, p_llm))).normalize()
 
-    async def sample_next_token(self, prompt, context, verbosity=0, compare_time=False, **kwargs):
+    async def sample_next_token(
+        self, prompt, context, verbosity=0, compare_time=False, **kwargs
+    ):
 
-        with self.timer['llm'](t=len(context)):
+        with self.timer["llm"](t=len(context)):
             p_llm = await self.llm.p_next(prompt + context)
 
-        with self.timer['cfg+trie'](t=len(context)):
+        with self.timer["cfg+trie"](t=len(context)):
 
-            Q = Float.chart(take(self.K, self.traverse_trie(context, p_llm))).normalize()
+            Q = Float.chart(
+                take(self.K, self.traverse_trie(context, p_llm))
+            ).normalize()
             token = sample_dict(Q)
 
             llm_prob = p_llm[self.old_eos if token == self.new_eos else token]
@@ -70,7 +71,8 @@ class TokenProposal(TokenCharacterTrie):
 
     def _update_internal(self):
         # overrides base method.  Takes max rather than sum of internal nodes
-        jump = self.jump; mass = self.mass
+        jump = self.jump
+        mass = self.mass
         for node in self.ordering:
             m = 0
             for child in jump[node]:
@@ -118,7 +120,7 @@ class TokenProposal(TokenCharacterTrie):
         P = Float.chart()
 
         # initial conditions
-        (token, node) = ('', self.root)
+        (token, node) = ("", self.root)
         agenda[token, node] = 0
         P[node] = 1
 
@@ -137,7 +139,7 @@ class TokenProposal(TokenCharacterTrie):
 
                 if x is None:
 
-                    #print(f'>>> {P[node] * self.mass[children_node[None]]:.20f} {token!r}')
+                    # print(f'>>> {P[node] * self.mass[children_node[None]]:.20f} {token!r}')
 
                     self._p_guide[token] = P[node]
 
@@ -153,15 +155,15 @@ class TokenProposal(TokenCharacterTrie):
 
     def sample(
         self,
-        prompt = '',
-        draw = sample_dict,
-        chunked = False,
-        max_tokens = float('inf'),
-        verbosity = False,
-        K = None,
+        prompt="",
+        draw=sample_dict,
+        chunked=False,
+        max_tokens=float("inf"),
+        verbosity=False,
+        K=None,
     ):
         self._prompt = prompt
-        context = ''
+        context = ""
         chunks = []
         P = 1
         t = 0
@@ -173,13 +175,17 @@ class TokenProposal(TokenCharacterTrie):
                 P *= p[y]
             else:
                 y = self.guide.eos
-                P *= 1   # deterministic
-            if y == self.guide.eos: break
+                P *= 1  # deterministic
+            if y == self.guide.eos:
+                break
             chunks.append(y)
             context += y
-            if verbosity > 0: print(colors.cyan % y, end=colors.magenta % '|')
+            if verbosity > 0:
+                print(colors.cyan % y, end=colors.magenta % "|")
         value = context
-        if chunked: value = tuple(chunks)
-        if verbosity > 0: print()
-        #self.timer.compare()
+        if chunked:
+            value = tuple(chunks)
+        if verbosity > 0:
+            print()
+        # self.timer.compare()
         return (value, P)

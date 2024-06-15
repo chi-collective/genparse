@@ -1,5 +1,6 @@
 from genparse import CFG
 
+
 # TODO: replace this code with the transduction version!
 class PrefixGrammar(CFG):
     """
@@ -15,9 +16,9 @@ class PrefixGrammar(CFG):
         free = self._free
         top = self._top
         super().__init__(
-            S = top(parent.S),
-            V = parent.V,
-            R = parent.R,
+            S=top(parent.S),
+            V=parent.V,
+            R=parent.R,
         )
 
         # Our construction for `other` assumes that there are new empty strings
@@ -36,7 +37,7 @@ class PrefixGrammar(CFG):
         # 'free' rules with the exact same structure, but different base cases,
         # as they generate empty strings only
         for x in parent.V:
-            self.add(self.R.one, free(x))        # generates the empty string
+            self.add(self.R.one, free(x))  # generates the empty string
         for r in parent:
             self.add(r.w, free(r.head), *(free(z) for z in r.body))
 
@@ -48,21 +49,29 @@ class PrefixGrammar(CFG):
         # each rule body.. The `other` are such that they have an `other`-spine
         # that separates the /visible/ prefix from the /invisible/ suffix.
         for x in parent.V:
-            self.add(self.R.one, other(x), x)    # generates the usual string
+            self.add(self.R.one, other(x), x)  # generates the usual string
         for r in parent:
             for k in range(len(r.body)):
-                self.add(r.w, other(r.head), *r.body[:k], other(r.body[k]), *(free(z) for z in r.body[k+1:]))
+                self.add(
+                    r.w,
+                    other(r.head),
+                    *r.body[:k],
+                    other(r.body[k]),
+                    *(free(z) for z in r.body[k + 1 :]),
+                )
 
-    def spawn(self, *, R=None, S=None, V=None):   # override or else we will spawn
-        return CFG(R=self.R if R is None else R,
-                   S=self.S if S is None else S,
-                   V=set(self.V) if V is None else V)
+    def spawn(self, *, R=None, S=None, V=None):  # override or else we will spawn
+        return CFG(
+            R=self.R if R is None else R,
+            S=self.S if S is None else S,
+            V=set(self.V) if V is None else V,
+        )
 
     def _other(self, x):
-        return self.parent.gensym(f'{x}⚡')
+        return self.parent.gensym(f"{x}⚡")
 
     def _free(self, x):
-        return self.parent.gensym(f'{x}🔥')
+        return self.parent.gensym(f"{x}🔥")
 
     def _top(self, x):
-        return self.parent.gensym(f'#{x}')
+        return self.parent.gensym(f"#{x}")

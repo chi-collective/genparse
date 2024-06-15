@@ -1,6 +1,7 @@
 """
 Language model steering methods
 """
+
 import numpy as np
 import asyncio
 import warnings
@@ -8,21 +9,30 @@ from arsenal.maths import sample_dict, logsumexp
 
 from genparse.lm import LM
 from genparse.cfglm import EOS
-from genparse.inference import importance_sampling, smc_standard, smc_steer, smc_standard_record, TraceSWOR
+from genparse.inference import (
+    importance_sampling,
+    smc_standard,
+    smc_steer,
+    smc_standard_record,
+    TraceSWOR,
+)
 from genparse.util import normalize, format_table
 from genparse import Float
 
-#____________________________________________________________________________________
+# ____________________________________________________________________________________
 #
 
 import random, numpy as np, torch, transformers
+
+
 def set_seed(seed):
     random.seed(seed)
     torch.manual_seed(seed)
     transformers.set_seed(seed)
     np.random.seed(seed)
 
-#____________________________________________________________________________________
+
+# ____________________________________________________________________________________
 #
 
 
@@ -33,8 +43,16 @@ class BruteForceGlobalProductOfExperts:
         # materializing the distrbution over strings up to a maximum length
         self.lm1 = lm1
         self.lm2 = lm2
-        self.p1 = lm1.cfg.cnf.language(MAX_LENGTH).filter(lambda x: len(x) <= MAX_LENGTH).normalize()
-        self.p2 = lm2.cfg.cnf.language(MAX_LENGTH).filter(lambda x: len(x) <= MAX_LENGTH).normalize()
+        self.p1 = (
+            lm1.cfg.cnf.language(MAX_LENGTH)
+            .filter(lambda x: len(x) <= MAX_LENGTH)
+            .normalize()
+        )
+        self.p2 = (
+            lm2.cfg.cnf.language(MAX_LENGTH)
+            .filter(lambda x: len(x) <= MAX_LENGTH)
+            .normalize()
+        )
         self.target = (self.p1 * self.p2).normalize()
 
 
@@ -56,8 +74,9 @@ class generation_tree:
         return format_table([[self.D, self.tracer]])
 
 
-#____________________________________________________________________________________
+# ____________________________________________________________________________________
 #
+
 
 class LocalProduct(LM):
     """This class implements a *local* product of experts, an LM that is derived by
@@ -77,7 +96,7 @@ class LocalProduct(LM):
         self.lm2 = lm2
         assert lm1.V == lm2.V
         assert lm1.eos == lm2.eos
-        super().__init__(V = lm1.V, eos = lm1.eos)
+        super().__init__(V=lm1.V, eos=lm1.eos)
 
     def __call__(self, ys):
         assert ys[-1] == self.eos
@@ -100,8 +119,9 @@ class LocalProduct(LM):
         return (p1 * p2).normalize()
 
 
-#_______________________________________________________________________________
+# _______________________________________________________________________________
 # Approximate inference
+
 
 def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
 
@@ -109,7 +129,6 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
     # stuff to combine it in the right way.  If we pass an unnormalized target
     # (i.e., an energy), then we get a consistent semantics (i.e., we are just
     # off by the normalization constant everywhere).
-
 
     # This interface is used in HFPPL / LLamPPL
     class Particle:
@@ -126,7 +145,7 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
         def done_stepping(self):
             return EOS in self.ys
 
-        def untwist(self):   # unused
+        def untwist(self):  # unused
             pass
 
         async def step(self):
@@ -141,8 +160,8 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
             p1 = p1.normalize()
             p2 = p2.normalize()
 
-            #assert np.allclose(p1.sum(), 1), p1.sum()
-            #assert np.allclose(p2.sum(), 1), p2.sum()
+            # assert np.allclose(p1.sum(), 1), p1.sum()
+            # assert np.allclose(p2.sum(), 1), p2.sum()
 
             q_ = p1 * p2
 
@@ -151,36 +170,37 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
             q = q_.normalize()
 
             if len(ys) > MAX_LENGTH:
-                warnings.warn('force </s>')
+                warnings.warn("force </s>")
                 y = EOS
 
             else:
                 y = sample_dict(q)
 
-            #self.weight += np.log(p1[y] * p2[y] / (q[y] / Z))
-            #self.weight += np.log(p1[y]) + np.log(p2[y]) - np.log(q[y]) + np.log(Z)
-            #self.weight += np.log(Z)
+            # self.weight += np.log(p1[y] * p2[y] / (q[y] / Z))
+            # self.weight += np.log(p1[y]) + np.log(p2[y]) - np.log(q[y]) + np.log(Z)
+            # self.weight += np.log(Z)
 
             self.weight += np.log(Z)
             self.Q += np.log(q[y]) if q[y] > 0 else -np.inf
 
-            #self.weight += np.log(p1(token | history) / p2(prev_token | prev_history))
+            # self.weight += np.log(p1(token | history) / p2(prev_token | prev_history))
 
             self.ys.append(y)
 
         def __repr__(self):
             return repr(self.ys)
 
-    if METHOD == 'is':
+    if METHOD == "is":
         return asyncio.run(importance_sampling(Particle(), n_particles=n_particles))
-    elif METHOD == 'smc-steer':
+    elif METHOD == "smc-steer":
         return asyncio.run(smc_steer(Particle(), n_particles=n_particles, n_beam=1))
-    elif METHOD == 'smc-standard':
+    elif METHOD == "smc-standard":
         return asyncio.run(smc_standard(Particle(), n_particles=n_particles))
     else:
         raise AssertionError(METHOD)
 
-#____________________________________________________________________________________
+
+# ____________________________________________________________________________________
 # Approximate inference with HFPPL
 # This code is still experimental and actively being developed
 # TODO: write tests
@@ -188,12 +208,14 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
 from genparse import EOS
 from hfppl import Model
 
+
 class HFPPLParticle(Model):
     """
     Simple HFPPL model (particle).
     TODO: Create a proposal interface to make this class reusable.
         I think this class should be essentially hidden to the user and only be used by the HFPPLSampler.
     """
+
     def __init__(self, llm, guide, proposal, prompt, max_tokens, verbosity=0):
         super().__init__()
         self.llm = llm
@@ -205,8 +227,12 @@ class HFPPLParticle(Model):
         self.verbosity = verbosity
 
     async def step(self):
-        (token, llm_prob, guide_prob, proposal_prob) = await self.proposal.sample_next_token(
-            prompt=self.prompt, context=''.join(self.context), compare_time=(self.verbosity > 1)
+        (token, llm_prob, guide_prob, proposal_prob) = (
+            await self.proposal.sample_next_token(
+                prompt=self.prompt,
+                context="".join(self.context),
+                compare_time=(self.verbosity > 1),
+            )
         )
         self.context.append(token)
         self.weight += np.log(llm_prob) + np.log(guide_prob) - np.log(proposal_prob)
@@ -220,13 +246,13 @@ class HFPPLParticle(Model):
             return
 
     def immutable_properties(self):
-        return ['llm', 'prompt', 'guide', 'verbosity']
+        return ["llm", "prompt", "guide", "verbosity"]
 
     def __repr__(self):
         return f"`{'' if not self.context else self.context[-1]}` : {''.join(self.context)} : {self.weight}"
 
     def __str__(self):
-        return ''.join(self.context)
+        return "".join(self.context)
 
 
 class HFPPLSampler:
@@ -243,11 +269,19 @@ class HFPPLSampler:
         self.guide = guide
 
     def run_inference(
-        self, prompt, proposal, method, n_particles, n_beam=None, max_tokens=float('inf'),
-        verbosity=0, return_record=False, seed=None,
+        self,
+        prompt,
+        proposal,
+        method,
+        n_particles,
+        n_beam=None,
+        max_tokens=float("inf"),
+        verbosity=0,
+        return_record=False,
+        seed=None,
     ):
 
-        if seed is not None:        
+        if seed is not None:
             set_seed(seed)
 
         model = HFPPLParticle(
@@ -256,7 +290,7 @@ class HFPPLSampler:
             prompt=prompt,
             proposal=proposal,
             max_tokens=max_tokens,
-            verbosity=verbosity
+            verbosity=verbosity,
         )
 
         record = None
@@ -264,15 +298,21 @@ class HFPPLSampler:
             assert not n_beam is None
             if return_record:
                 raise Warning("Record not yet implemented for smc-steer")
-            particles = asyncio.run(smc_steer(model, n_particles=n_particles, n_beam=n_beam))
+            particles = asyncio.run(
+                smc_steer(model, n_particles=n_particles, n_beam=n_beam)
+            )
 
         elif method == "smc-standard":
             if return_record:
-                particles, record = asyncio.run(smc_standard_record(model, n_particles=n_particles, return_record=return_record))
+                particles, record = asyncio.run(
+                    smc_standard_record(
+                        model, n_particles=n_particles, return_record=return_record
+                    )
+                )
             else:
                 particles = asyncio.run(smc_standard(model, n_particles=n_particles))
 
-        elif method == 'importance-sampling':
+        elif method == "importance-sampling":
             particles = asyncio.run(importance_sampling(model, n_particles=n_particles))
 
         else:
