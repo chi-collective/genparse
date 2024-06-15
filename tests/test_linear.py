@@ -1,4 +1,5 @@
 from arsenal.maths import compare
+
 from genparse import Float
 from genparse.linear import WeightedGraph
 

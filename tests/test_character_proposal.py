@@ -1,12 +1,14 @@
-import numpy as np
 import random
-from arsenal import timeit, colors
+
+import numpy as np
+from arsenal import colors, timeit
 from arsenal.maths import sample_dict
-from genparse.util import LarkStuff
-from genparse import CFGLM, locally_normalize, Float, Boolean, EOS
+
+from genparse import CFGLM, EOS, Boolean, Float, locally_normalize
+from genparse.cfglm import BoolMaskCFGLM
 from genparse.lm import GreedilyTokenizedLLM
 from genparse.proposal import CharacterProposal
-from genparse.cfglm import BoolMaskCFGLM
+from genparse.util import LarkStuff
 
 
 def test_timothy():

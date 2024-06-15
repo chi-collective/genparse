@@ -4,10 +4,10 @@ Experimental tensor decomposition method for implementing CKY.
 """
 
 import numpy as np
-from genparse import CFG, Float, add_EOS
+from arsenal import Integerizer, colors
+
 import genparse.examples
-from arsenal import colors
-from arsenal import Integerizer
+from genparse import CFG, Float, add_EOS
 
 # https://github.com/google-deepmind/synjax/blob/master/synjax/_src/constituency_tensor_decomposition_pcfg.py
 

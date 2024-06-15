@@ -1,15 +1,15 @@
-import re
-import nltk
 import itertools
-
-from arsenal import Integerizer, colors
-from collections import defaultdict, Counter, namedtuple
+import re
+from collections import Counter, defaultdict, namedtuple
 from functools import cached_property
 from itertools import product
 
+import nltk
+from arsenal import Integerizer, colors
+
+from genparse.fst import FST
 from genparse.linear import WeightedGraph
 from genparse.semiring import Boolean
-from genparse.fst import FST
 from genparse.wfsa import EPSILON
 
 

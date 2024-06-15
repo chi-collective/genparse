@@ -8,11 +8,11 @@ from pathlib import Path
 
 import torch
 from tqdm import tqdm
-from transformers import pipeline, AutoTokenizer
+from transformers import AutoTokenizer, pipeline
 
 import bench
-from bench.spider.schema import load_schemas
 from bench.spider.dialogue import load_spider_data
+from bench.spider.schema import load_schemas
 
 logger = logging.getLogger(__name__)
 

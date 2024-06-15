@@ -1,7 +1,7 @@
-import sys
-import os
-import getpass
 import argparse
+import getpass
+import os
+import sys
 
 PROMPT = """
     You have access to a political survey data table named "data", which includes the following columns:
@@ -51,11 +51,11 @@ def main(
 ):
     set_environment()
 
-    from genparse.lm import AsyncGreedilyTokenizedLLM
     from genparse.cfglm import EarleyBoolMaskCFGLM
-    from genparse.util import LarkStuff
+    from genparse.lm import AsyncGreedilyTokenizedLLM
+    from genparse.proposal import CharacterProposal, TokenProposal
     from genparse.steer import HFPPLSampler
-    from genparse.proposal import TokenProposal, CharacterProposal
+    from genparse.util import LarkStuff
 
     genparse_llm = AsyncGreedilyTokenizedLLM.from_name(
         model_name, batch_size=batch_size

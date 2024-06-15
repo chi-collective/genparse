@@ -10,9 +10,9 @@ from typing import Any, Dict, List, Tuple
 
 import jsons
 
-from bench.spider.utils import StrPath
 from bench.spider.content_encoder import get_column_picklist
 from bench.spider.paths import COSQL_DIR, SCHEMAS_FILE
+from bench.spider.utils import StrPath
 
 
 class ColumnType(Enum):

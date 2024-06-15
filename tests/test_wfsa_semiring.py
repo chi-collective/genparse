@@ -1,6 +1,5 @@
-from genparse.wfsa.base import WFSA
 from genparse.semiring import Real, Semiring
-
+from genparse.wfsa.base import WFSA
 
 # def test_basics():
 #    from semirings import Symbol

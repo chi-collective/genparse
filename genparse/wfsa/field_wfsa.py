@@ -12,16 +12,17 @@ References
 
 """
 
-import numpy as np
 from collections import deque
 from functools import cached_property
 
+import numpy as np
 from numpy import linalg
-
-# from scipy import linalg
 
 from genparse.semiring import Float
 from genparse.wfsa import base
+
+# from scipy import linalg
+
 
 EPSILON = base.EPSILON
 

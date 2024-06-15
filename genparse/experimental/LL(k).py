@@ -1,12 +1,14 @@
-import networkx as nx
 from collections import defaultdict as dd
 from functools import cached_property
 from itertools import chain
-from genparse.wfsa import EPSILON
-from genparse.cfglm import add_EOS, EOS
+
+import networkx as nx
+
 from genparse.cfg import CFG
-from genparse.semiring import Float
+from genparse.cfglm import EOS, add_EOS
 from genparse.experimental.earley import Earley
+from genparse.semiring import Float
+from genparse.wfsa import EPSILON
 
 
 class LL1:

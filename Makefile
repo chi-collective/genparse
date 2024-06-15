@@ -6,17 +6,17 @@ INSTALL = $(RUN) pip install
 ACTIVATE = source activate $(NAME)
 .DEFAULT_GOAL := help
 
-## help      : print available build commands.
+## help      : print available commands.
 .PHONY : help
 help : Makefile
 	@sed -n 's/^##//p' $<
 
-## update    : update repo with latest version from GitHub.
+## update    : update repository from GitHub.
 .PHONY : update
 update :
 	@git pull origin
 
-## env       : setup environment and install dependencies.
+## env       : setup env and install dependencies.
 .PHONY : env
 env : $(NAME).egg-info/
 $(NAME).egg-info/ : setup.py
@@ -25,12 +25,12 @@ ifeq (0, $(shell conda env list | grep -wc $(NAME)))
 endif
 	@$(ACTIVATE); $(INSTALL) -e ".[test]"
 
-## format    : format code with black.
+## format    : format code style.
 .PHONY : format
 format : env
-	@$(ACTIVATE); black .
+	@$(ACTIVATE); black . && isort .
 
-## docs      : generate documentation with pdoc.
+## docs      : build documentation.
 .PHONY : docs
 docs : env html/docs/index.html
 html/docs/index.html : $(NAME)/*.py

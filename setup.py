@@ -21,6 +21,7 @@ requirements = [
 test_requirements = [
     "black[jupyter]",
     "coverage",
+    "isort",
     "pdoc",
     "pylint",
     "pylint-exit",

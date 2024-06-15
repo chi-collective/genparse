@@ -1,5 +1,6 @@
-from genparse.tokenization import decode_tokenizer_vocab
 from transformers import AutoTokenizer
+
+from genparse.tokenization import decode_tokenizer_vocab
 
 CASES = [
     "state",

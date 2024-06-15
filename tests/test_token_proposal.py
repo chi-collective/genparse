@@ -1,10 +1,10 @@
-from genparse.util import LarkStuff, hf_tokenizer
+from arsenal import colors, timeit
+
 from genparse import CFGLM, add_EOS, locally_normalize
+from genparse.experimental.earley import EarleyLM
 from genparse.lm import make_mock_llm
 from genparse.proposal import TokenProposal
-from arsenal import timeit, colors
-from genparse.experimental.earley import EarleyLM
-
+from genparse.util import LarkStuff, hf_tokenizer
 
 # TODO: test equivalence of `traverse_trie` and `traverse_naive`.
 # def traverse_naive(self, context):
@@ -16,6 +16,7 @@ from genparse.experimental.earley import EarleyLM
 
 def test_basic_aligned_model_iql_small():
     import random
+
     import numpy as np
 
     np.random.seed(0)

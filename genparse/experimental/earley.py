@@ -1,11 +1,12 @@
 from collections import defaultdict
-from arsenal.datastructures.pdict import pdict
-from genparse.cfglm import EOS
-from genparse.linear import WeightedGraph
 from functools import lru_cache
 
+from arsenal.datastructures.pdict import pdict
+
+from genparse import EOS, Boolean, add_EOS
+from genparse.cfglm import EOS
+from genparse.linear import WeightedGraph
 from genparse.lm import LM
-from genparse import add_EOS, EOS, Boolean
 
 
 class EarleyLM(LM):

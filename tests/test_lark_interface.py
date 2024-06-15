@@ -1,12 +1,11 @@
-import numpy as np
-
-from arsenal.maths import compare
 from collections import Counter
 
-from genparse.util import LarkStuff, expand_case_insensitive
-from genparse.experimental.earley import Earley
-from genparse import CFGLM, locally_normalize
+import numpy as np
+from arsenal.maths import compare
 
+from genparse import CFGLM, locally_normalize
+from genparse.experimental.earley import Earley
+from genparse.util import LarkStuff, expand_case_insensitive
 
 grammar1 = r"""
 start: WS? "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS

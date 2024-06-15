@@ -1,7 +1,8 @@
 import html
 from collections import Counter
 from functools import cached_property
-from IPython.display import display, HTML
+
+from IPython.display import HTML, display
 
 
 class hf_tokenizer:
@@ -186,7 +187,7 @@ class LarkStuff:
         no longer a prioritized or maximum munch semantics to tokenizer.  It is
         probabilistic and the weights are set pretty arbitrarily.
         """
-        from genparse import Float, FST, EPSILON
+        from genparse import EPSILON, FST, Float
 
         m = FST(Float)
         START = 0
@@ -216,7 +217,7 @@ class LarkStuff:
 
     def convert(self):
         "Convert the lark grammar into a `genparse.CFG` grammar."
-        from genparse import CFG, Rule, Float
+        from genparse import CFG, Float, Rule
 
         try:
             rules = [

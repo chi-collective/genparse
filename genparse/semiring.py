@@ -1,6 +1,8 @@
-import numpy as np
-from genparse.chart import Chart
 from decimal import Decimal, getcontext
+
+import numpy as np
+
+from genparse.chart import Chart
 
 
 class Semiring:

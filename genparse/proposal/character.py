@@ -1,6 +1,6 @@
 import numpy as np
-from arsenal.maths import sample_dict
 from arsenal import colors, timers
+from arsenal.maths import sample_dict
 
 from genparse import Float
 from genparse.proposal.trie import TokenCharacterTrie

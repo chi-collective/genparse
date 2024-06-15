@@ -1,6 +1,7 @@
-from .util import format_table
-import pandas as pd
 import numpy as np
+import pandas as pd
+
+from .util import format_table
 
 
 class SMCRecord(dict):
@@ -65,8 +66,8 @@ class SMCRecord(dict):
 
     def plotly1(self, xrange=None):
 
-        import plotly.graph_objects as go
         import plotly.express as px
+        import plotly.graph_objects as go
 
         d_ = self.df_for_plotting()
         if xrange:
@@ -177,8 +178,8 @@ class SMCRecord(dict):
 
     def plotly2(self, xrange=None, height=None, width=None):
 
-        import plotly.graph_objects as go
         import plotly.express as px
+        import plotly.graph_objects as go
         from plotly.subplots import make_subplots
 
         d_ = self.df_for_plotting()

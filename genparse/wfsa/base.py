@@ -1,11 +1,12 @@
 import html
-from arsenal import Integerizer
 from collections import defaultdict
 from functools import cached_property
+
+from arsenal import Integerizer
 from frozendict import frozendict
 from graphviz import Digraph
-from genparse.linear import WeightedGraph
 
+from genparse.linear import WeightedGraph
 
 # EPSILON = "ε"
 EPSILON = ""

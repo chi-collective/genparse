@@ -1,15 +1,15 @@
-import numpy as np
 import random
-from arsenal import timeit, colors
 from time import time
 
-from genparse.util import LarkStuff
-from genparse import CFGLM, locally_normalize, Float
-from genparse.proposal import TokenProposal, CharacterProposal
+import numpy as np
+from arsenal import colors, timeit
+from example_grammars import arith, iql_small
+
+from genparse import CFGLM, Float, locally_normalize
 from genparse.experimental.earley import EarleyLM
 from genparse.lm import make_mock_llm
-
-from example_grammars import arith, iql_small
+from genparse.proposal import CharacterProposal, TokenProposal
+from genparse.util import LarkStuff
 
 
 def test_token_arith():

@@ -1,5 +1,5 @@
-from genparse.fst import FST, EPSILON
-from genparse import Float, CFG
+from genparse import CFG, Float
+from genparse.fst import EPSILON, FST
 
 
 def test_fst_cfg1():

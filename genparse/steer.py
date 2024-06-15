@@ -2,27 +2,25 @@
 Language model steering methods
 """
 
-import numpy as np
 import asyncio
+import random
 import warnings
-from arsenal.maths import sample_dict, logsumexp
 
-from genparse.lm import LM
-from genparse.cfglm import EOS
-from genparse.inference import (
-    importance_sampling,
-    smc_standard,
-    smc_steer,
-    smc_standard_record,
-    TraceSWOR,
-)
-from genparse.util import normalize, format_table
+import numpy as np
+import torch
+import transformers
+from arsenal.maths import logsumexp, sample_dict
+
 from genparse import Float
+from genparse.cfglm import EOS
+from genparse.inference import (TraceSWOR, importance_sampling, smc_standard,
+                                smc_standard_record, smc_steer)
+from genparse.lm import LM
+from genparse.util import format_table, normalize
 
 # ____________________________________________________________________________________
 #
 
-import random, numpy as np, torch, transformers
 
 
 def set_seed(seed):
@@ -205,8 +203,9 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
 # This code is still experimental and actively being developed
 # TODO: write tests
 
-from genparse import EOS
 from hfppl import Model
+
+from genparse import EOS
 
 
 class HFPPLParticle(Model):

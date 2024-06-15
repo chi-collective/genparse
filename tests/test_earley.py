@@ -1,12 +1,11 @@
-import numpy as np
 import time
+
+import numpy as np
 from arsenal import colors
 
-from genparse import examples
-from genparse import CFG
-from genparse import add_EOS, CFG, CFGLM, Float
-from genparse.semiring import MaxTimes
+from genparse import CFG, CFGLM, Float, add_EOS, examples
 from genparse.experimental.earley import Earley, EarleyLM
+from genparse.semiring import MaxTimes
 
 
 def test_cycles():

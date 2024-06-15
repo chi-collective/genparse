@@ -4,16 +4,17 @@ Approximate inference algorithms live here.
 
 import asyncio
 import copy
-import numpy as np
-
 import html
-from graphviz import Digraph
-from genparse import Float
-from arsenal import Integerizer, colors
-from arsenal.maths import sample, logsumexp, softmax
 
-from .util import format_table
+import numpy as np
+from arsenal import Integerizer, colors
+from arsenal.maths import logsumexp, sample, softmax
+from graphviz import Digraph
+
+from genparse import Float
+
 from .record import SMCRecord
+from .util import format_table
 
 
 # _______________________________________________________________________________

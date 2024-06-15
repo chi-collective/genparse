@@ -1,13 +1,13 @@
-from collections import defaultdict, deque
-from arsenal.datastructures.pdict import pdict
-from genparse.cfglm import EOS
-from genparse.semiring import Float
-from arsenal import colors
 import random
+from collections import defaultdict, deque
 
+from arsenal import colors
+from arsenal.datastructures.pdict import pdict
 
+from genparse import CFG, CFGLM, add_EOS, examples
+from genparse.cfglm import EOS
 from genparse.lm import LM
-from genparse import add_EOS, CFGLM, examples, CFG
+from genparse.semiring import Float
 
 
 class EarleyLM(LM):

@@ -1,27 +1,22 @@
-import numpy as np
 import asyncio  # , nest_asyncio; nest_asyncio.apply()
-from arsenal import timeit, colors
-
 import pickle
-
+from argparse import ArgumentParser
 from random import seed
-from torch import manual_seed
-from transformers import set_seed
 
-from hfppl import Model, CachedCausalLM
-from transformers import AutoTokenizer
+import numpy as np
+from arsenal import colors, timeit
+from hfppl import CachedCausalLM, Model
+from torch import manual_seed
+from transformers import AutoTokenizer, set_seed
 
 import genparse
-from genparse.cfglm import EarleyBoolMaskCFGLM
-from genparse.util import LarkStuff
 from genparse import EOS, Float
-from genparse.proposal import CharacterProposal, TokenProposal
-from genparse.lm import AsyncGreedilyTokenizedLLM
+from genparse.cfglm import EarleyBoolMaskCFGLM
 from genparse.inference import smc_standard
+from genparse.lm import AsyncGreedilyTokenizedLLM
+from genparse.proposal import CharacterProposal, TokenProposal
 from genparse.steer import HFPPLSampler
-
-
-from argparse import ArgumentParser
+from genparse.util import LarkStuff
 
 p = ArgumentParser()
 p.add_argument("--model", choices=["gpt2", "codellama"], required=True)
@@ -47,6 +42,7 @@ manual_seed(RANDOM_SEED)
 
 if args.model == "gpt2":
     import transformers
+
     from genparse.lm import LLM
 
     MODEL_ID = "gpt2"

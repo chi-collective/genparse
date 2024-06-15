@@ -2,13 +2,13 @@
 Fast computation of the posterior distrubtion over the next word in a WCFG language model.
 """
 
-from arsenal import colors
 from collections import defaultdict
 
-from genparse.cfg import _gen_nt, CFG
-from genparse.lm import LM
-from genparse.semiring import Float, Boolean
+from arsenal import colors
 
+from genparse.cfg import CFG, _gen_nt
+from genparse.lm import LM
+from genparse.semiring import Boolean, Float
 
 # EOS = '$EOS'
 # EOS = '🛑'

@@ -3,9 +3,10 @@ Algorithms for solving left-linear or right-linear systems of equations over clo
 """
 
 import html
-from arsenal import Integerizer
 from collections import defaultdict
 from functools import cached_property
+
+from arsenal import Integerizer
 from graphviz import Digraph
 
 

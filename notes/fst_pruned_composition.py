@@ -1,11 +1,11 @@
-from genparse import Float, Boolean
-from genparse.fst import FST, EPSILON
-from genparse.util import bpe_wfst
-
-from arsenal import colors, timers
 from collections import Counter
 from time import time
 
+from arsenal import colors, timers
+
+from genparse import Boolean, Float
+from genparse.fst import EPSILON, FST
+from genparse.util import bpe_wfst
 
 bpe_medium = [
     (26361, "zon"),

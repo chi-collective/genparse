@@ -4,9 +4,10 @@ Language models go here
 
 import numpy as np
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from genparse import Float
 from arsenal.maths import sample_dict
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+from genparse import Float
 from genparse.tokenization import decode_tokenizer_vocab
 
 

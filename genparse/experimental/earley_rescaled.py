@@ -1,13 +1,11 @@
 from collections import defaultdict
-from arsenal.datastructures.pdict import pdict
-from genparse.cfglm import EOS
-
 
 import numpy as np
+from arsenal.datastructures.pdict import pdict
 
-
+from genparse import EOS, add_EOS
+from genparse.cfglm import EOS
 from genparse.lm import LM
-from genparse import add_EOS, EOS
 
 
 class EarleyLM(LM):

@@ -3,8 +3,7 @@ from functools import cached_property
 from itertools import zip_longest
 
 from genparse.semiring import Boolean
-from genparse.wfsa import WFSA, EPSILON
-
+from genparse.wfsa import EPSILON, WFSA
 
 ε = EPSILON
 ε_1 = f"{EPSILON}₁"

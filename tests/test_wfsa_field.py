@@ -1,5 +1,6 @@
 import numpy as np
 from arsenal import colors
+
 from genparse.wfsa.field_wfsa import WFSA
 
 
@@ -69,8 +70,9 @@ def test_min():
 
 
 def compare_language(have, want, alphabet, length):
-    from arsenal.maths import compare
     from itertools import product
+
+    from arsenal.maths import compare
 
     A = {}
     B = {}

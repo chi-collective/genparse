@@ -1,10 +1,11 @@
+from collections import defaultdict
+from itertools import product
+
 import genparse
 from genparse import CFG, Float, Real
-from itertools import product
-from collections import defaultdict
-from genparse.fst import FST
 from genparse.cfg import Other
-from genparse.wfsa import WFSA, EPSILON
+from genparse.fst import FST
+from genparse.wfsa import EPSILON, WFSA
 
 
 def assert_equal(have, want, tol=1e-5):

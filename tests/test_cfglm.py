@@ -2,12 +2,12 @@
 Fast computation of the posterior distrubtion over the next word in a PCFG language model.
 """
 
+from arsenal import colors
+
 import genparse
 import genparse.examples
-from genparse import CFG, Float, Real, CFGLM, Chart
+from genparse import CFG, CFGLM, Chart, Float, Real
 from genparse.cfglm import add_EOS
-
-from arsenal import colors
 
 
 def fast_posterior(cfg, prefix):

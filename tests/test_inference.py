@@ -1,10 +1,9 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 from arsenal import colors
 
 from genparse import CFG, CFGLM, Float
-from genparse.steer import run, BruteForceGlobalProductOfExperts
-
+from genparse.steer import BruteForceGlobalProductOfExperts, run
 
 # NOTE: if the MAX_LENGTH is not long enough we will see truncation bias.  An
 # alternative approach is to truncate the actual distributions.  (That is
