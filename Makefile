@@ -42,4 +42,4 @@ html/coverage/index.html : html/pytest/report.html
 	@coverage html -d $(@D)
 html/pytest/report.html : $(NAME)/*.py tests/*.py
 	@coverage run --branch -m \
-	pytest tests/ --html=$@ --self-contained-html
+	pytest --html=$@ --self-contained-html
