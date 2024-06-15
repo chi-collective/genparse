@@ -269,7 +269,8 @@ class AsyncGreedilyTokenizedLLM(LM):
         tokens = self.tokenizer.encode(xs)
 
         _logp = await self._model.next_token_logprobs(tokens)
-        _p = np.exp(_logp)
+        _logp = _logp.cpu().numpy() if hasattr(_logp, 'cpu') else _logp
+        _p = np.exp(_logp.cpu().numpy())
 
         assert top is None
         return LazyProb(_p, self._encode, self._decode)
@@ -312,27 +313,24 @@ class LazyProb:
 
 
 from functools import lru_cache
-
-
 @lru_cache(None)
 def make_mock_llm(**kwargs):
     from genparse.util import hf_tokenizer
-
     H = hf_tokenizer(**kwargs)
-    return MockLLM(V=H.decode, eos=H.eos)
+    return MockLLM(V = H.decode, eos = H.eos)
 
 
 class MockLLM(LM):
     """
     Uniform distribution over next token; used for testing.
     """
-
     def __init__(self, V, eos):
         n = len(V)
-        self._p = Float.chart({w: 1 / n for w in V})
+        self._p = Float.chart({w: 1/n for w in V})
+        self._logp = Float.chart({w: -np.log(n) for w in V})
         super().__init__(
-            eos=eos,
-            V=V,
+            eos = eos,
+            V = V,
         )
 
     def p_next(self, _):
@@ -340,4 +338,10 @@ class MockLLM(LM):
 
     def __call__(self, x):
         assert x[-1] == self.eos
-        return (1 / len(self.V)) ** len(x)
+        return (1/len(self.V))**len(x)
+
+    def clear_cache(self):
+        pass
+
+    async def next_token_logprobs(self, _):
+        return self._logp

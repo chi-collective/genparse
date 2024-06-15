@@ -2,7 +2,8 @@ import numpy as np
 from arsenal import colors, timers
 from arsenal.maths import sample_dict
 
-from genparse.proposal.trie import TokenCharacterTrie
+#from genparse.proposal.trie import TokenCharacterTrie
+from genparse.proposal.trie_numba import TokenCharacterTrie
 from genparse.semiring import Float
 
 
@@ -51,7 +52,7 @@ class CharacterProposal(TokenCharacterTrie):
         # Filter LLM tokens that are illegal under the cfg
         words = {word for word in llm.V if set(word) <= self.guide.V or word == llm.eos}
 
-        super().__init__(words, old_eos=llm.eos, new_eos=guide.eos)
+        super().__init__(words, encode = llm._encode, old_eos = llm.eos, new_eos = guide.eos)
 
     def sample(self, prompt, max_tokens=float("inf"), verbosity=0, **kwargs):
         context = ""
@@ -112,6 +113,7 @@ class CharacterProposal(TokenCharacterTrie):
         cpy.timer = self.timer
         cpy.old_eos = self.old_eos
         cpy.new_eos = self.new_eos
+        cpy.token_id_to_leaf = self.token_id_to_leaf
 
         return cpy
 
