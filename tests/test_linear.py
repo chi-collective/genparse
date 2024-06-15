@@ -1,7 +1,7 @@
 from arsenal.maths import compare
 
-from genparse import Float
 from genparse.linear import WeightedGraph
+from genparse.semiring import Float
 
 
 def test_closure():

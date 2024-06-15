@@ -2,12 +2,11 @@ import random
 
 import numpy as np
 from arsenal import colors, timeit
-from arsenal.maths import sample_dict
 
-from genparse import CFGLM, EOS, Boolean, Float, locally_normalize
-from genparse.cfglm import BoolMaskCFGLM
+from genparse.cfglm import CFGLM, EOS, BoolMaskCFGLM, locally_normalize
 from genparse.lm import GreedilyTokenizedLLM
 from genparse.proposal import CharacterProposal
+from genparse.semiring import Float
 from genparse.util import LarkStuff
 
 

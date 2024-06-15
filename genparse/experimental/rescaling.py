@@ -4,8 +4,8 @@ from collections import defaultdict, deque
 from arsenal import colors
 from arsenal.datastructures.pdict import pdict
 
-from genparse import CFG, CFGLM, add_EOS, examples
-from genparse.cfglm import EOS
+from genparse import examples
+from genparse.cfglm import CFGLM, EOS, add_EOS
 from genparse.lm import LM
 from genparse.semiring import Float
 

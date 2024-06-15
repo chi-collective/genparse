@@ -11,7 +11,6 @@ import torch
 import transformers
 from arsenal.maths import logsumexp, sample_dict
 
-from genparse import Float
 from genparse.cfglm import EOS
 from genparse.inference import (
     TraceSWOR,
@@ -21,6 +20,7 @@ from genparse.inference import (
     smc_steer,
 )
 from genparse.lm import LM
+from genparse.semiring import Float
 from genparse.util import format_table, normalize
 
 # ____________________________________________________________________________________

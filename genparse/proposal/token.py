@@ -3,8 +3,8 @@ from arsenal.datastructures.pdict import pdict
 from arsenal.iterextras import take
 from arsenal.maths import sample_dict
 
-from genparse import Float
 from genparse.proposal.trie import TokenCharacterTrie
+from genparse.semiring import Float
 
 # TODO: It's tempting to require proposal distributions to implement the `LM`
 # interface, but it might be difficult to correctly implement `__call__` and

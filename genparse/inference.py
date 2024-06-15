@@ -11,8 +11,8 @@ from arsenal import Integerizer, colors
 from arsenal.maths import logsumexp, sample, softmax
 from graphviz import Digraph
 
-from genparse import Float
 from genparse.record import SMCRecord
+from genparse.semiring import Float
 from genparse.util import format_table
 
 

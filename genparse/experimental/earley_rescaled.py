@@ -3,8 +3,7 @@ from collections import defaultdict
 import numpy as np
 from arsenal.datastructures.pdict import pdict
 
-from genparse import EOS, add_EOS
-from genparse.cfglm import EOS
+from genparse.cfglm import EOS, add_EOS
 from genparse.lm import LM
 
 

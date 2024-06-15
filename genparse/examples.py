@@ -1,4 +1,5 @@
-from genparse import CFG, Float
+from genparse.cfg import CFG
+from genparse.semiring import Float
 
 # simple CNF grammar, generates one string
 abcd = CFG.from_string(

@@ -2,7 +2,7 @@ from itertools import product
 
 from arsenal import colors, iterview
 
-from genparse import CFGLM, EOS
+from genparse.cfglm import CFGLM, EOS
 from genparse.segmentation import (
     longest_suffix_in,
     max_munch,

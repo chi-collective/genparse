@@ -6,8 +6,9 @@ from arsenal import colors
 
 import genparse
 import genparse.examples
-from genparse import CFG, CFGLM, Chart, Float, Real
-from genparse.cfglm import add_EOS
+from genparse.cfg import CFG
+from genparse.cfglm import CFGLM, add_EOS
+from genparse.semiring import Real
 
 
 def fast_posterior(cfg, prefix):

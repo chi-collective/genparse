@@ -1,10 +1,8 @@
-from collections import defaultdict
 from itertools import product
 
-import genparse
-from genparse import CFG, Float, Real
-from genparse.cfg import Other
+from genparse.cfg import CFG, Other
 from genparse.fst import FST
+from genparse.semiring import Float, Real
 from genparse.wfsa import EPSILON, WFSA
 
 

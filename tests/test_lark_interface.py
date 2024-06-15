@@ -1,9 +1,6 @@
-from collections import Counter
-
 import numpy as np
-from arsenal.maths import compare
 
-from genparse import CFGLM, locally_normalize
+from genparse.cfglm import CFGLM, locally_normalize
 from genparse.experimental.earley import Earley
 from genparse.util import LarkStuff, expand_case_insensitive
 
@@ -274,8 +271,8 @@ def test_case_insensitive_expansion():
         == "[a-z][aA][a-zA-Z][zZ][a-z]"
     )
 
-    assert expand_case_insensitive("(?i:\d\s\d)") == "\d\s\d"
-    assert expand_case_insensitive("(?i:\\\\d)") == "\\\\[dD]"
+    assert expand_case_insensitive("(?i:\s)") == "\s"
+    assert expand_case_insensitive("(?i:\\\\s)") == "\\\\[sS]"
 
     sql_example_input = "(?:(?:(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))(?:(?:[ \t\x0c\r\n])+(?i:OUTER))?|(?i:INNER)|(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))|(?i:(?:(?i:OUTER))?))(?:[ \t\x0c\r\n])+)?(?i:JOIN)[ ]?"
     sql_example_output = "(?:(?:(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])(?:(?:[ \t\x0c\r\n])+[oO][uU][tT][eE][rR])?|[iI][nN][nN][eE][rR]|(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])|(?:[oO][uU][tT][eE][rR])?)(?:[ \t\x0c\r\n])+)?[jJ][oO][iI][nN][ ]?"

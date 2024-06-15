@@ -1,21 +1,9 @@
-from collections import defaultdict
-
 import numpy as np
 from arsenal import colors
 
-from genparse import (
-    CFG,
-    Boolean,
-    Chart,
-    Derivation,
-    Entropy,
-    Float,
-    Log,
-    MaxPlus,
-    MaxTimes,
-    Real,
-    Rule,
-)
+from genparse.cfg import CFG, Derivation
+from genparse.chart import Chart
+from genparse.semiring import Boolean, Entropy, Float, Log, MaxPlus, MaxTimes, Real
 from genparse.util import display_table
 
 tol = 1e-5

@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 from arsenal import colors
 
-from genparse import CFG, CFGLM, Float
+from genparse.cfglm import CFGLM
+from genparse.semiring import Float
 from genparse.steer import BruteForceGlobalProductOfExperts, run
 
 # NOTE: if the MAX_LENGTH is not long enough we will see truncation bias.  An

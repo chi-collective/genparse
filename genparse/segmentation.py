@@ -6,8 +6,11 @@ such as byte-pair encoding (BPE).
 import numpy as np
 from arsenal import colors
 
-from genparse import EOS, EPSILON, FST, Float
+from genparse.cfglm import EOS
+from genparse.fst import FST
+from genparse.semiring import Float
 from genparse.util import display_table
+from genparse.wfsa import EPSILON
 
 fmt = lambda x: "".join(x) or "ε"
 

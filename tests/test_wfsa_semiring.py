@@ -1,4 +1,4 @@
-from genparse.semiring import Real, Semiring
+from genparse.semiring import Semiring
 from genparse.wfsa.base import WFSA
 
 # def test_basics():

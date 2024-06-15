@@ -7,7 +7,7 @@ import torch
 from arsenal.maths import sample_dict
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from genparse import Float
+from genparse.semiring import Float
 from genparse.tokenization import decode_tokenizer_vocab
 
 

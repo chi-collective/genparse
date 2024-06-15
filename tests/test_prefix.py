@@ -1,10 +1,10 @@
-from collections import Counter
 from itertools import product
 
-import numpy as np
-from arsenal import colors, iterview
+from arsenal import colors
 
-from genparse import CFG, Boolean, MaxTimes, Real, examples
+from genparse import examples
+from genparse.cfg import CFG
+from genparse.semiring import Real
 
 
 def cfg_hack(cfg):

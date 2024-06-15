@@ -2,8 +2,8 @@ import regex
 from lark import Lark
 from lark.exceptions import UnexpectedCharacters, UnexpectedToken
 
-from genparse import Float
 from genparse.lm import LM
+from genparse.semiring import Float
 
 
 class LarkGuide(LM):

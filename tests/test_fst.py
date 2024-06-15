@@ -1,5 +1,6 @@
-from genparse import CFG, Float
+from genparse.cfg import CFG
 from genparse.fst import EPSILON, FST
+from genparse.semiring import Float
 
 
 def test_fst_cfg1():

@@ -7,7 +7,9 @@ import numpy as np
 from arsenal import Integerizer, colors
 
 import genparse.examples
-from genparse import CFG, Float, add_EOS
+from genparse.cfg import CFG
+from genparse.cfglm import add_EOS
+from genparse.semiring import Float
 
 # https://github.com/google-deepmind/synjax/blob/master/synjax/_src/constituency_tensor_decomposition_pcfg.py
 

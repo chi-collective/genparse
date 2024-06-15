@@ -1,10 +1,10 @@
-from arsenal import colors, timeit
+from arsenal import timeit
 
-from genparse import CFGLM, add_EOS, locally_normalize
+from genparse.cfglm import add_EOS, locally_normalize
 from genparse.experimental.earley import EarleyLM
 from genparse.lm import make_mock_llm
 from genparse.proposal import TokenProposal
-from genparse.util import LarkStuff, hf_tokenizer
+from genparse.util import LarkStuff
 
 # TODO: test equivalence of `traverse_trie` and `traverse_naive`.
 # def traverse_naive(self, context):

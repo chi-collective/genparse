@@ -3,10 +3,10 @@ from functools import lru_cache
 
 from arsenal.datastructures.pdict import pdict
 
-from genparse import EOS, Boolean, add_EOS
-from genparse.cfglm import EOS
+from genparse.cfglm import EOS, add_EOS
 from genparse.linear import WeightedGraph
 from genparse.lm import LM
+from genparse.semiring import Boolean
 
 
 class EarleyLM(LM):
