@@ -16,17 +16,9 @@ This library supports an automated build using [GNU Make](https://www.gnu.org/so
 make env # install dependencies in current env
 ```
 
-```bash
-make docs # build documentation
-```
-
 ## Contributing
 
 Before pushing a new commit
-
-```bash
-make format # run style formatting
-```
 
 ```bash
 make test # run tests

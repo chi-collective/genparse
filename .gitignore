@@ -16,3 +16,5 @@ dist/*
 profile.html
 profile.json
 *.log
+.ruff_cache
+.pytest_cache
