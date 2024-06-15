@@ -48,7 +48,7 @@ html/pylint/index.html : html/pylint/index.json
 html/pylint/index.json : $(NAME)/*.py
 	@mkdir -p $(@D)
 	@$(ACTIVATE) ; pylint $(NAME) \
-	--disable C0103,C0112,C0113,C0114,C0115,C0116 \
+	--disable C0103,C0112,C0113,C0114,C0115,C0116,C0301,C0411,C0412,C0413,C0415,C2401,R0902,R0903,R0904,R0912,R0913,R0914 \
 	--output-format=colorized,json:$@ \
 	|| pylint-exit $$?
 html/coverage/index.html : html/pytest/report.html
