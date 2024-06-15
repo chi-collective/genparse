@@ -3,5 +3,6 @@ repos:
     rev: v0.4.9
     hooks:
       - id: ruff
+        types_or: [ "python", "pyi", "jupyter" ]
         args: [ "--fix", "--exit-zero" ]
       - id: ruff-format
