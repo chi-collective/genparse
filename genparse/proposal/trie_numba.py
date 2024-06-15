@@ -1,21 +1,21 @@
+import numba
 import numpy as np
 
-import numba
-#from typing import Dict, List
+# from typing import Dict, List
 
 
 class TokenCharacterTrie:
 
     __slots__ = (
-        'root',
-        'children',
-        'mass',
-        'word2leaf',
-        'jump',
-        'ordering',
-        'old_eos',
-        'new_eos',
-        'token_id_to_leaf',
+        "root",
+        "children",
+        "mass",
+        "word2leaf",
+        "jump",
+        "ordering",
+        "old_eos",
+        "new_eos",
+        "token_id_to_leaf",
     )
 
     def __init__(self, words, encode, old_eos, new_eos):
@@ -34,7 +34,8 @@ class TokenCharacterTrie:
 
             # coerce old eos to new eos
             _word = word
-            if word == self.old_eos: word = self.new_eos
+            if word == self.old_eos:
+                word = self.new_eos
 
             curr = root
             for letter in word:
@@ -54,7 +55,9 @@ class TokenCharacterTrie:
         self.children = children
         self.mass = np.zeros(len(children), dtype=np.float64)
         self.word2leaf = word2leaf
-        self.jump = List([np.array(sorted(x.values()), dtype=np.int32) for x in children])
+        self.jump = List(
+            [np.array(sorted(x.values()), dtype=np.int32) for x in children]
+        )
         self.ordering = np.array(list(self._order(self.root)), np.int32)
 
         # Renumber the states of the trie so that they are named by a contiguous
@@ -64,7 +67,7 @@ class TokenCharacterTrie:
         ordering = {}
         for i, x in enumerate(self._order_full(self.root)):
             ordering[x] = i
-        self.rename(f = lambda x: ordering[x])
+        self.rename(f=lambda x: ordering[x])
 
     # TODO: test this method!!!!!!
     def rename(self, f):
@@ -84,20 +87,26 @@ class TokenCharacterTrie:
         self.children = new_children
         self.word2leaf = {w: f(x) for w, x in self.word2leaf.items()}
 
-        self.token_id_to_leaf = np.array([(i, f(x)) for i, x in self.token_id_to_leaf], dtype=np.int32)
+        self.token_id_to_leaf = np.array(
+            [(i, f(x)) for i, x in self.token_id_to_leaf], dtype=np.int32
+        )
 
         self.ordering = np.array([f(x) for x in self.ordering])
-        self.jump = List([np.array(sorted(x.values()), dtype=np.int32) for x in new_children])
+        self.jump = List(
+            [np.array(sorted(x.values()), dtype=np.int32) for x in new_children]
+        )
 
     def _update_trie(self, words):
         # convert llm.eos to guide.eos
         self.mass[self.word2leaf[self.new_eos]] = words[self.old_eos]
 
-        _update_trie_numba(mass = self.mass,
-                           _p = words._p,
-                           token_id_to_leaf = self.token_id_to_leaf,
-                           jump = self.jump,
-                           ordering = self.ordering)
+        _update_trie_numba(
+            mass=self.mass,
+            _p=words._p,
+            token_id_to_leaf=self.token_id_to_leaf,
+            jump=self.jump,
+            ordering=self.ordering,
+        )
 
     def _order(self, node):
         "Topological ordering of nodes beneath `node`."
@@ -115,23 +124,23 @@ class TokenCharacterTrie:
         yield node
 
 
-from numba.typed import List, Dict
+from numba.typed import Dict, List
 
 
 @numba.jit(nopython=True)
 def _update_trie_numba(
-        mass: numba.float64[:],
-        _p: numba.float64[:],
-        jump: List[numba.int32[:]],
-        token_id_to_leaf: numba.int32[:,:],
-        ordering: numba.int32[:],
+    mass: numba.float64[:],
+    _p: numba.float64[:],
+    jump: List[numba.int32[:]],
+    token_id_to_leaf: numba.int32[:, :],
+    ordering: numba.int32[:],
 ):
 
     # update leaves
     M = token_id_to_leaf.shape[0]
     for k in range(M):
-        i = token_id_to_leaf[k,0]
-        x = token_id_to_leaf[k,1]
+        i = token_id_to_leaf[k, 0]
+        x = token_id_to_leaf[k, 1]
         mass[x] = _p[i]
 
     # update internal nodes

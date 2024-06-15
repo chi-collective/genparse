@@ -91,7 +91,7 @@ class TokenProposal(TokenCharacterTrie):
         cpy.word2leaf = self.word2leaf
         cpy.jump = self.jump
         cpy.ordering = self.ordering
-        #cpy.token_id_to_leaf = self.token_id_to_leaf    # TODO: when we switch to the numba version
+        # cpy.token_id_to_leaf = self.token_id_to_leaf    # TODO: when we switch to the numba version
         cpy.llm = self.llm
         cpy.guide = self.guide
         cpy.timer = self.timer
