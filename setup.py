@@ -14,6 +14,7 @@ requirements = [
     "pandas",
     "path",
     "rich",
+    "numba",
     "svgling",  # nltk uses svgling to draw derivations
     "torch",
     "transformers",
