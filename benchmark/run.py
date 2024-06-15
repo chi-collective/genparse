@@ -1,11 +1,9 @@
 import random
-from time import time
 
 import numpy as np
-from arsenal import colors, timeit
 from example_grammars import arith, iql_small
 
-from genparse import CFGLM, Float, locally_normalize
+from genparse import locally_normalize
 from genparse.experimental.earley import EarleyLM
 from genparse.lm import make_mock_llm
 from genparse.proposal import CharacterProposal, TokenProposal

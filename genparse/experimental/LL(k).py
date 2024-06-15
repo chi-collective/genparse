@@ -1,11 +1,10 @@
 from collections import defaultdict as dd
-from functools import cached_property
 from itertools import chain
 
 import networkx as nx
 
 from genparse.cfg import CFG
-from genparse.cfglm import EOS, add_EOS
+from genparse.cfglm import EOS
 from genparse.experimental.earley import Earley
 from genparse.semiring import Float
 from genparse.wfsa import EPSILON

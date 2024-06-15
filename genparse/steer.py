@@ -295,7 +295,7 @@ class HFPPLSampler:
 
         record = None
         if method == 'smc-steer':
-            assert not n_beam is None
+            assert n_beam is not None
             if return_record:
                 raise Warning('Record not yet implemented for smc-steer')
             particles = asyncio.run(

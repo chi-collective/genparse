@@ -1,4 +1,3 @@
-import numpy as np
 from arsenal import colors, timers
 from arsenal.maths import sample_dict
 

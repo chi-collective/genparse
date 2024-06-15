@@ -1,9 +1,8 @@
-from collections import Counter
 from time import time
 
 from arsenal import colors, timers
 
-from genparse import Boolean, Float
+from genparse import Float
 from genparse.fst import EPSILON, FST
 from genparse.util import bpe_wfst
 
@@ -234,8 +233,6 @@ bpe_small = [
     (3200, ' secret'),
 ]
 
-
-from arsenal import timers
 
 TIMER = timers()
 

@@ -119,7 +119,7 @@ class TokenCharacterTrie:
         yield node
 
 
-from numba.typed import Dict, List
+from numba.typed import List
 
 
 @numba.jit(nopython=True)

@@ -13,7 +13,6 @@ from graphviz import Digraph
 
 from genparse.record import SMCRecord
 from genparse.semiring import Float
-from genparse.util import format_table
 
 
 # _______________________________________________________________________________

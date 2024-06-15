@@ -2,7 +2,6 @@ import json
 from dataclasses import dataclass
 from typing import Any, Dict, List
 
-import tqdm
 
 from bench.spider.utils import StrPath
 

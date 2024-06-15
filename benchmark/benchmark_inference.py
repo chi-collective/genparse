@@ -1,18 +1,15 @@
-import asyncio  # , nest_asyncio; nest_asyncio.apply()
 import pickle
 from argparse import ArgumentParser
 from random import seed
 
 import numpy as np
-from arsenal import colors, timeit
-from hfppl import CachedCausalLM, Model
+from arsenal import colors
+from hfppl import CachedCausalLM
 from torch import manual_seed
 from transformers import AutoTokenizer, set_seed
 
-import genparse
-from genparse import EOS, Float
+from genparse import Float
 from genparse.cfglm import EarleyBoolMaskCFGLM
-from genparse.inference import smc_standard
 from genparse.lm import AsyncGreedilyTokenizedLLM
 from genparse.proposal import CharacterProposal, TokenProposal
 from genparse.steer import HFPPLSampler
