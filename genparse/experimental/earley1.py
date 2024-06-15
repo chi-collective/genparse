@@ -245,22 +245,6 @@ class Earley:
         # p(W) += q(I, X) * phrase(I, X/[W], J)  where len(J) * terminal(W).
         #
 
-#        stack = []
-#        visited = set()
-#        while stack:
-#
-#            (J, Y) = stack.pop()
-#
-#            if J == 0 and Y == self.cfg.S:
-#                pass
-#            else:
-#                result = self.cfg.R.zero
-#                for I, X, Ys in cols[J].waiting_for[Y]:
-#                    if len(Ys) == 1:
-#                        if (I, X) not in visited:
-#                            stack.push((I, X))
-#                return result
-
         zero = self.cfg.R.zero
 
         @lru_cache
@@ -276,10 +260,20 @@ class Earley:
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         p = self.cfg.R.chart()
+
         col = cols[-1]
-        for item in col.i_chart:
-            (I, X, Ys) = item
-            if len(Ys) == 1 and self.cfg.is_terminal(Ys[0]):
-                p[Ys[0]] += col.i_chart[item] * q(I, X)
+
+        if 1:
+            for item in col.i_chart:
+                (I, X, Ys) = item
+                if len(Ys) == 1 and self.cfg.is_terminal(Ys[0]):
+                    p[Ys[0]] += col.i_chart[item] * q(I, X)
+
+        else:
+            for Y in col.waiting_for:
+                if self.cfg.is_terminal(Y):
+                    for (I, X, Ys) in col.waiting_for[Y]:
+                        if len(Ys) == 1:
+                            p[Ys[0]] += col.i_chart[I, X, Ys] * q(I, X)
 
         return p

@@ -235,6 +235,7 @@ class Earley:
     # g(W,I,X) += phrase(I,X / [Y],J) * g(W,J,Y).
     # g(W,I,X) += phrase(I,X / [W],J) * len(J) * terminal(W).
     #
+
     def next_token_weights(self, cols):
 
         # Let's try a backward chaining algorithm
@@ -248,56 +249,67 @@ class Earley:
         q = {}
         q[0, self.cfg.S] = self.cfg.R.one
 
-        def run(top):
-            stack = [Node(top, None, zero)]
-
-            while stack:
-                node = stack[-1]   # 👀
-
-                # place neighbors above the node on the stack
-                (J, Y) = node.node
-
-                t = node.cursor
-
-                if node.edges is None:
-                    node.edges = [x for x in cols[J].waiting_for[Y] if len(x[2]) == 1]
-
-                # cursor is at the end, all neighbors are done
-                elif t == len(node.edges):
-                    # clear the node from the stack
-                    stack.pop()
-                    # promote the incomplete value node.value to a complete value (q)
-                    q[node.node] = node.value
-
-                else:
-                    (I, X, Ys) = arc = node.edges[t]
-                    neighbor = (I, X)
-                    neighbor_value = q.get(neighbor)
-                    if neighbor_value is None:
-                        stack.append(Node(neighbor, None, zero))
-                    else:
-                        # neighbor value is ready, advance the cursor, add the
-                        # neighbors contribution to the nodes value
-                        node.cursor += 1
-                        node.value += cols[J].i_chart[arc] * neighbor_value
-
-            return q[top]
-
-        zero = self.cfg.R.zero
-
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         p = self.cfg.R.chart()
         col = cols[-1]
-        for item, arc_weight in col.i_chart.items():
-            (I, X, Ys) = item
-            if len(Ys) == 1 and self.cfg.is_terminal(Ys[0]):
-                node = (I, X)
-                value = q.get(node)
-                if value is None:
-                    value = run(node)
-                p[Ys[0]] += arc_weight * value
+
+        if 1:
+            for item, arc_weight in col.i_chart.items():
+                (I, X, Ys) = item
+                if len(Ys) == 1 and self.cfg.is_terminal(Ys[0]):
+                    node = (I, X)
+                    value = q.get(node)
+                    if value is None:
+                        value = self._helper(node, cols, q)
+                    p[Ys[0]] += arc_weight * value
+        else:
+            for Y in col.waiting_for:
+                if self.cfg.is_terminal(Y):
+                    for (I, X, Ys) in col.waiting_for[Y]:
+                        if len(Ys) == 1:
+                            node = (I, X)
+                            value = q.get(node)
+                            if value is None:
+                                value = self._helper(node, cols, q)
+                            p[Ys[0]] += col.i_chart[I, X, Ys] * value
 
         return p
+
+    def _helper(self, top, cols, q):
+        zero = self.cfg.R.zero
+        stack = [Node(top, None, zero)]
+
+        while stack:
+            node = stack[-1]   # 👀
+
+            # place neighbors above the node on the stack
+            (J, Y) = node.node
+
+            t = node.cursor
+
+            if node.edges is None:
+                node.edges = [x for x in cols[J].waiting_for[Y] if len(x[2]) == 1]
+
+            # cursor is at the end, all neighbors are done
+            elif t == len(node.edges):
+                # clear the node from the stack
+                stack.pop()
+                # promote the incomplete value node.value to a complete value (q)
+                q[node.node] = node.value
+
+            else:
+                (I, X, Ys) = arc = node.edges[t]
+                neighbor = (I, X)
+                neighbor_value = q.get(neighbor)
+                if neighbor_value is None:
+                    stack.append(Node(neighbor, None, zero))
+                else:
+                    # neighbor value is ready, advance the cursor, add the
+                    # neighbors contribution to the nodes value
+                    node.cursor += 1
+                    node.value += cols[J].i_chart[arc] * neighbor_value
+
+        return q[top]
 
 
 class Node:
