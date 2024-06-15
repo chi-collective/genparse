@@ -171,7 +171,8 @@ class GreedilyTokenizedLLM(LM):
         # valid token sequence; see `p_next_healing`.
         assert isinstance(xs, str)
         tokens = self.tokenizer.encode(xs)
-        _p = self.model.p_next(tokens).cpu().numpy()
+        _p = self.model.p_next(tokens)
+        _p = _p.cpu().numpy() if hasattr(_p, 'cpu') else _p
         assert top is None
         return LazyProb(_p, self._encode, self._decode)
 
@@ -268,7 +269,7 @@ class AsyncGreedilyTokenizedLLM(LM):
 
         _logp = await self._model.next_token_logprobs(tokens)
         _logp = _logp.cpu().numpy() if hasattr(_logp, 'cpu') else _logp
-        _p = np.exp(_logp.cpu().numpy())
+        _p = np.exp(_logp)
 
         assert top is None
         return LazyProb(_p, self._encode, self._decode)
