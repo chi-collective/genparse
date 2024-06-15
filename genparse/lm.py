@@ -162,12 +162,8 @@ class GreedilyTokenizedLLM(LM):
         self._model = AutoModelForCausalLM.from_pretrained(name)
         self.model = LLM(self._model)
         self._decode = decode_tokenizer_vocab(self.tokenizer)
-<<<<<<< HEAD
-        super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
-=======
         self._encode = {x: i for i, x in enumerate(self._decode)}
-        super().__init__(V = set(self._decode), eos = self.tokenizer.eos_token)
->>>>>>> speedup-llm-p-next
+        super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
 
     def __call__(self, xs):
         return self.model(self.tokenizer.encode(xs))
@@ -238,15 +234,9 @@ class AsyncGreedilyTokenizedLLM(LM):
         self.tokenizer = tokenizer
         self._model = model
         self._model.batch_size = batch_size
-
         self._decode = decode_tokenizer_vocab(self.tokenizer)
-<<<<<<< HEAD
-        super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
-=======
         self._encode = {x: i for i, x in enumerate(self._decode)}
-
-        super().__init__(V = set(self._decode), eos = self.tokenizer.eos_token)
->>>>>>> speedup-llm-p-next
+        super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
 
     @classmethod
     def from_name(cls, name, batch_size):
