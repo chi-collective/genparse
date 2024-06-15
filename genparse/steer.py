@@ -13,14 +13,18 @@ from arsenal.maths import logsumexp, sample_dict
 
 from genparse import Float
 from genparse.cfglm import EOS
-from genparse.inference import (TraceSWOR, importance_sampling, smc_standard,
-                                smc_standard_record, smc_steer)
+from genparse.inference import (
+    TraceSWOR,
+    importance_sampling,
+    smc_standard,
+    smc_standard_record,
+    smc_steer,
+)
 from genparse.lm import LM
 from genparse.util import format_table, normalize
 
 # ____________________________________________________________________________________
 #
-
 
 
 def set_seed(seed):

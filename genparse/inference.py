@@ -12,9 +12,8 @@ from arsenal.maths import logsumexp, sample, softmax
 from graphviz import Digraph
 
 from genparse import Float
-
-from .record import SMCRecord
-from .util import format_table
+from genparse.record import SMCRecord
+from genparse.util import format_table
 
 
 # _______________________________________________________________________________

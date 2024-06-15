@@ -6,6 +6,7 @@ requirements = [
     "graphviz",  # for notebook visualizations
     "greenery>=4.2.1",
     "hfppl @ git+https://github.com/probcomp/hfppl",
+    "IPython",
     "jsons",  # for spider benchmarking
     "lark",
     "nltk",
@@ -30,20 +31,12 @@ test_requirements = [
     "pytest-html",
 ]
 
-dev_requirements = [
-    "IPython",
-    "jupyterlab",
-]
-
 setup(
     name="genparse",
     version="0.0.1",
     description="",
     install_requires=requirements,
-    extras_require={
-        "test": test_requirements,
-        "dev": test_requirements + dev_requirements,
-    },
+    extras_require={"test": test_requirements},
     python_requires=">=3.10",
     authors=[
         "Tim Vieira",

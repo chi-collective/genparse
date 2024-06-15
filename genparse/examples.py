@@ -1,4 +1,4 @@
-from . import CFG, Float
+from genparse import CFG, Float
 
 # simple CNF grammar, generates one string
 abcd = CFG.from_string(

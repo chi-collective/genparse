@@ -1,6 +1,6 @@
 from arsenal import colors
 
-from .util import format_table
+from genparse.util import format_table
 
 
 class Chart(dict):

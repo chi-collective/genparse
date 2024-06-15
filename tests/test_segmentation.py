@@ -3,8 +3,12 @@ from itertools import product
 from arsenal import colors, iterview
 
 from genparse import CFGLM, EOS
-from genparse.segmentation import (longest_suffix_in, max_munch,
-                                   run_segmentation_test, segmentation_pfst)
+from genparse.segmentation import (
+    longest_suffix_in,
+    max_munch,
+    run_segmentation_test,
+    segmentation_pfst,
+)
 
 
 def test_basic_abc_noncanonical():

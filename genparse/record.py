@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from .util import format_table
+from genparse.util import format_table
 
 
 class SMCRecord(dict):

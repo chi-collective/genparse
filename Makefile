@@ -28,7 +28,7 @@ endif
 ## format    : format code style.
 .PHONY : format
 format : env
-	@$(ACTIVATE); black . && isort .
+	@$(ACTIVATE); isort . && black .
 
 ## docs      : build documentation.
 .PHONY : docs
