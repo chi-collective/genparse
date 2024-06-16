@@ -115,23 +115,26 @@ class Earley:
 
     def next_column(self, prev_cols, token):
 
+        prev_col = prev_cols[-1]
         next_col = Column(prev_cols[-1].k + 1)
+        next_col_c_chart = next_col.c_chart
+        prev_col_i_chart = prev_col.i_chart
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
-        prev_col = prev_cols[-1]
         for item in prev_col.waiting_for[token]:
             (I, X, Ys) = item
-            self._update(next_col, I, X, Ys[1:], prev_col.i_chart[item])
+            self._update(next_col, I, X, Ys[1:], prev_col_i_chart[item])
 
         # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
         Q = next_col.Q
         while Q:
             (J, Y) = item = Q.pop()
             col_J = prev_cols[J]
-            y = next_col.c_chart[item]
+            col_J_i_chart = col_J.i_chart
+            y = next_col_c_chart[item]
             for item in col_J.waiting_for[Y]:
                 (I, X, Ys) = item
-                self._update(next_col, I, X, Ys[1:], col_J.i_chart[item] * y)
+                self._update(next_col, I, X, Ys[1:], col_J_i_chart[item] * y)
 
         self.PREDICT(next_col)
 
@@ -221,29 +224,14 @@ class Earley:
     # q(J, Y) += phrase(I, X/[Y], J) * q(I, X)
     #
     # These items satisfy (I > J) and (X > Y) where the latter is the
-    # nonterminal ordering.
+    # nonterminal ordering.  Thus, we can efficiently evaluate these equations
+    # by backward chaining.
     #
-    # Failed Idea: Let's transpose the program by LCT
+    # The final output is the vector
     #
-    # (d(W) / q(I,X)) += phrase(I,X / [Y],J) * d(W) / q(J,Y).
-    # (d(W) / q(I,X)) += phrase(I,X / [W],J) * len(J) * terminal(W).
-    # d(W) += d(W) / q(0, s).
-    #
-    # unforuntately, this leads to a slower program as it is based on forward-mode differentiation.
-    #
-    # d(W) += g(W,0,s).
-    # g(W,I,X) += phrase(I,X / [Y],J) * g(W,J,Y).
-    # g(W,I,X) += phrase(I,X / [W],J) * len(J) * terminal(W).
+    # p(W) += q(I, X) * phrase(I, X/[W], J)  where len(J) * terminal(W).
     #
     def next_token_weights(self, cols):
-
-        # Let's try a backward chaining algorithm
-        #
-        # q(0, s) += 1
-        # q(J, Y) += phrase(I, X/[Y], J) * q(I, X)
-        #
-        # p(W) += q(I, X) * phrase(I, X/[W], J)  where len(J) * terminal(W).
-        #
 
         zero = self.cfg.R.zero
         one = self.cfg.R.one
