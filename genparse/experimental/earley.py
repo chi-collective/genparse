@@ -10,6 +10,7 @@ from genparse.semiring import Boolean
 
 
 class EarleyLM(LM):
+
     def __init__(self, cfg):
         if EOS not in cfg.V:
             cfg = add_EOS(cfg)
@@ -25,11 +26,12 @@ class EarleyLM(LM):
 
 
 class Column:
-    __slots__ = ('k', 'chart', 'waiting_for', 'Q')
+    __slots__ = ("k", "i_chart", "c_chart", "waiting_for", "Q")
 
-    def __init__(self, k, chart):
+    def __init__(self, k):
         self.k = k
-        self.chart = chart
+        self.i_chart = {}
+        self.c_chart = {}
 
         # Within column J, this datastructure maps nonterminals Y to a set of items
         #   Y => {(I, X, Ys) | phrase(I,X/[Y],J) ≠ 0}
@@ -45,9 +47,10 @@ class Earley:
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
-    __slots__ = ('cfg', 'order', '_chart', 'V', 'eos', '_initial_column', 'R')
+    __slots__ = ("cfg", "order", "_chart", "V", "eos", "_initial_column", "R")
 
     def __init__(self, cfg):
+
         cfg = cfg.nullaryremove(binarize=True).unarycycleremove().renumber()
         self.cfg = cfg
 
@@ -68,7 +71,7 @@ class Earley:
             R[A, B] += Boolean.one
         self.R = R
 
-        col = Column(0, self.cfg.R.chart())
+        col = Column(0)
         self.PREDICT(col)
         self._initial_column = col
 
@@ -87,7 +90,8 @@ class Earley:
 
         cols = self.chart(x)
 
-        return cols[N].chart[0, self.cfg.S]
+        value = cols[N].c_chart.get((0, self.cfg.S))
+        return value if value is not None else self.cfg.R.zero
 
     def chart(self, x):
         x = tuple(x)
@@ -110,21 +114,24 @@ class Earley:
         return self.next_token_weights(self.chart(prefix))
 
     def next_column(self, prev_cols, token):
-        next_col = Column(prev_cols[-1].k + 1, self.cfg.R.chart())
+
+        next_col = Column(prev_cols[-1].k + 1)
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         prev_col = prev_cols[-1]
-        for I, X, Ys in prev_col.waiting_for[token]:
-            self._update(next_col, I, X, Ys[1:], prev_col.chart[I, X, Ys])
+        for item in prev_col.waiting_for[token]:
+            (I, X, Ys) = item
+            self._update(next_col, I, X, Ys[1:], prev_col.i_chart[item])
 
         # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
         Q = next_col.Q
         while Q:
-            (J, Y) = Q.pop()
+            (J, Y) = item = Q.pop()
             col_J = prev_cols[J]
-            y = next_col.chart[J, Y]
-            for I, X, Ys in col_J.waiting_for[Y]:
-                self._update(next_col, I, X, Ys[1:], col_J.chart[I, X, Ys] * y)
+            y = next_col.c_chart[item]
+            for item in col_J.waiting_for[Y]:
+                (I, X, Ys) = item
+                self._update(next_col, I, X, Ys[1:], col_J.i_chart[item] * y)
 
         self.PREDICT(next_col)
 
@@ -133,8 +140,7 @@ class Earley:
     def PREDICT(self, prev_col):
         # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with some filtering heuristics
         k = prev_col.k
-        zero = self.cfg.R.zero
-        prev_col_chart = prev_col.chart
+        prev_col_chart = prev_col.i_chart
         prev_col_waiting_for = prev_col.waiting_for
 
         # Filtering heuristic: Don't create the predicted item (K, X, [...], K)
@@ -162,28 +168,35 @@ class Earley:
                 if Ys == ():
                     continue
                 item = (k, X, Ys)
-                was = prev_col_chart[item]
-                if was == zero:
+                was = prev_col_chart.get(item)
+                if was is None:
                     Y = Ys[0]
                     prev_col_waiting_for[Y].add(item)
-                prev_col_chart[item] = was + r.w
+                    prev_col_chart[item] = r.w
+                else:
+                    prev_col_chart[item] = was + r.w
 
     def _update(self, col, I, X, Ys, value):
         K = col.k
         if Ys == ():
             # Items of the form phrase(I, X/[], K)
-            was = col.chart[I, X]
-            if was == self.cfg.R.zero:
-                col.Q[I, X] = (K if I == K else (K - I - 1), self.order[X])
-            col.chart[I, X] = was + value
+            item = (I, X)
+            was = col.c_chart.get(item)
+            if was is None:
+                col.Q[item] = (K if I == K else (K - I - 1), self.order[X])
+                col.c_chart[item] = value
+            else:
+                col.c_chart[item] = was + value
 
         else:
             # Items of the form phrase(I, X/[Y|Ys], K)
             item = (I, X, Ys)
-            was = col.chart[item]
-            if was == self.cfg.R.zero:
+            was = col.i_chart.get(item)
+            if was is None:
                 col.waiting_for[Ys[0]].add(item)
-            col.chart[item] = was + value
+                col.i_chart[item] = value
+            else:
+                col.i_chart[item] = was + value
 
     # We have derived the `next_token_weights` algorithm by backpropagation on
     # the program with respect to the item `phrase(0, s, K)`.
@@ -208,50 +221,44 @@ class Earley:
     # q(J, Y) += phrase(I, X/[Y], J) * q(I, X)
     #
     # These items satisfy (I > J) and (X > Y) where the latter is the
-    # nonterminal ordering.
+    # nonterminal ordering.  Thus, we can efficiently evaluate these equations
+    # by backward chaining.
     #
-    # Failed Idea: Let's transpose the program by LCT
+    # The final output is the vector
     #
-    # (d(W) / q(I,X)) += phrase(I,X / [Y],J) * d(W) / q(J,Y).
-    # (d(W) / q(I,X)) += phrase(I,X / [W],J) * len(J) * terminal(W).
-    # d(W) += d(W) / q(0, s).
+    # p(W) += q(I, X) * phrase(I, X/[W], J)  where len(J) * terminal(W).
     #
-    # unforuntately, this leads to a slower program as it is based on forward-mode differentiation.
-    #
-    # d(W) += g(W,0,s).
-    # g(W,I,X) += phrase(I,X / [Y],J) * g(W,J,Y).
-    # g(W,I,X) += phrase(I,X / [W],J) * len(J) * terminal(W).
-    #
-    def next_token_weights(self, chart):
-        # Let's try a backward chaining algorithm
-        #
-        # q(0, s) += 1
-        # q(J, Y) += phrase(I, X/[Y], J) * q(I, X)
-        #
-        # p(W) += q(I, X) * phrase(I, X/[W], J)  where len(J) * terminal(W).
-        #
+    def next_token_weights(self, cols):
+
+        zero = self.cfg.R.zero
+        one = self.cfg.R.one
+        S = self.cfg.S
+        is_terminal = self.cfg.is_terminal
+
+        col = cols[-1]
+        col_waiting_for = col.waiting_for
+        col_i_chart = col.i_chart
 
         @lru_cache
         def q(J, Y):
-            if J == 0 and Y == self.cfg.S:
-                return self.cfg.R.one
+            if J == 0 and Y == S:
+                return one
             else:
-                result = self.cfg.R.zero
-                for I, X, Ys in chart[J].waiting_for[Y]:
+                result = zero
+                cols_J = cols[J]
+                cols_J_i_chart = cols_J.i_chart
+                for I, X, Ys in cols_J.waiting_for[Y]:
                     if len(Ys) == 1:
-                        result += chart[J].chart[I, X, Ys] * q(I, X)
+                        result += cols_J_i_chart[I, X, Ys] * q(I, X)
                 return result
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         p = self.cfg.R.chart()
-        col = chart[-1]
-        for item in col.chart:
-            if len(item) == 2:
-                continue
 
-            (I, X, Ys) = item
-
-            if len(Ys) == 1 and self.cfg.is_terminal(Ys[0]):
-                p[Ys[0]] += col.chart[I, X, Ys] * q(I, X)
+        for Y in col_waiting_for:
+            if is_terminal(Y):
+                for (I, X, Ys) in col_waiting_for[Y]:
+                    if len(Ys) == 1:
+                        p[Ys[0]] += col_i_chart[I, X, Ys] * q(I, X)
 
         return p
