@@ -115,23 +115,26 @@ class Earley:
 
     def next_column(self, prev_cols, token):
 
+        prev_col = prev_cols[-1]
         next_col = Column(prev_cols[-1].k + 1)
+        next_col_c_chart = next_col.c_chart
+        prev_col_i_chart = prev_col.i_chart
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
-        prev_col = prev_cols[-1]
         for item in prev_col.waiting_for[token]:
             (I, X, Ys) = item
-            self._update(next_col, I, X, Ys[1:], prev_col.i_chart[item])
+            self._update(next_col, I, X, Ys[1:], prev_col_i_chart[item])
 
         # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
         Q = next_col.Q
         while Q:
             (J, Y) = item = Q.pop()
             col_J = prev_cols[J]
-            y = next_col.c_chart[item]
+            col_J_i_chart = col_J.i_chart
+            y = next_col_c_chart[item]
             for item in col_J.waiting_for[Y]:
                 (I, X, Ys) = item
-                self._update(next_col, I, X, Ys[1:], col_J.i_chart[item] * y)
+                self._update(next_col, I, X, Ys[1:], col_J_i_chart[item] * y)
 
         self.PREDICT(next_col)
 
