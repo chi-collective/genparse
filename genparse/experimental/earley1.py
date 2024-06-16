@@ -246,34 +246,34 @@ class Earley:
         #
 
         zero = self.cfg.R.zero
+        one = self.cfg.R.one
+        S = self.cfg.S
+        is_terminal = self.cfg.is_terminal
+
+        col = cols[-1]
+        col_waiting_for = col.waiting_for
+        col_i_chart = col.i_chart
 
         @lru_cache
         def q(J, Y):
-            if J == 0 and Y == self.cfg.S:
-                return self.cfg.R.one
+            if J == 0 and Y == S:
+                return one
             else:
                 result = zero
-                for I, X, Ys in cols[J].waiting_for[Y]:
+                cols_J = cols[J]
+                cols_J_i_chart = cols_J.i_chart
+                for I, X, Ys in cols_J.waiting_for[Y]:
                     if len(Ys) == 1:
-                        result += cols[J].i_chart[I, X, Ys] * q(I, X)
+                        result += cols_J_i_chart[I, X, Ys] * q(I, X)
                 return result
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         p = self.cfg.R.chart()
 
-        col = cols[-1]
-
-        if 1:
-            for item in col.i_chart:
-                (I, X, Ys) = item
-                if len(Ys) == 1 and self.cfg.is_terminal(Ys[0]):
-                    p[Ys[0]] += col.i_chart[item] * q(I, X)
-
-        else:
-            for Y in col.waiting_for:
-                if self.cfg.is_terminal(Y):
-                    for (I, X, Ys) in col.waiting_for[Y]:
-                        if len(Ys) == 1:
-                            p[Ys[0]] += col.i_chart[I, X, Ys] * q(I, X)
+        for Y in col_waiting_for:
+            if is_terminal(Y):
+                for (I, X, Ys) in col_waiting_for[Y]:
+                    if len(Ys) == 1:
+                        p[Ys[0]] += col_i_chart[I, X, Ys] * q(I, X)
 
         return p

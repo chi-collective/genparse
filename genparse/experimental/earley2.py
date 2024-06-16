@@ -249,29 +249,34 @@ class Earley:
         q = {}
         q[0, self.cfg.S] = self.cfg.R.one
 
+        is_terminal = self.cfg.is_terminal
+
+        col = cols[-1]
+        col_waiting_for = col.waiting_for
+        col_i_chart = col.i_chart
+
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         p = self.cfg.R.chart()
-        col = cols[-1]
 
         if 1:
-            for item, arc_weight in col.i_chart.items():
+            for item, arc_weight in col_i_chart.items():
                 (I, X, Ys) = item
-                if len(Ys) == 1 and self.cfg.is_terminal(Ys[0]):
+                if len(Ys) == 1 and is_terminal(Ys[0]):
                     node = (I, X)
                     value = q.get(node)
                     if value is None:
                         value = self._helper(node, cols, q)
                     p[Ys[0]] += arc_weight * value
         else:
-            for Y in col.waiting_for:
-                if self.cfg.is_terminal(Y):
-                    for (I, X, Ys) in col.waiting_for[Y]:
+            for Y in col_waiting_for:
+                if is_terminal(Y):
+                    for (I, X, Ys) in col_waiting_for[Y]:
                         if len(Ys) == 1:
                             node = (I, X)
                             value = q.get(node)
                             if value is None:
                                 value = self._helper(node, cols, q)
-                            p[Ys[0]] += col.i_chart[I, X, Ys] * value
+                            p[Ys[0]] += col_i_chart[I, X, Ys] * value
 
         return p
 
