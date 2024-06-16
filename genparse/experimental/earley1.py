@@ -50,7 +50,7 @@ class Earley:
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
-    __slots__ = ("cfg", "order", "_chart", "V", "eos", "_initial_column", "R")
+    __slots__ = ("cfg", "order", "_chart", "V", "eos", "_initial_column", "R", "ORDER_MAX")
 
     def __init__(self, cfg):
 
@@ -63,6 +63,8 @@ class Earley:
         # Topological ordering on the grammar symbols so that we process unary
         # rules in a topological order.
         self.order = cfg._unary_graph_transpose().buckets
+
+        self.ORDER_MAX = max(self.order.values())
 
         # left-corner graph
         R = WeightedGraph(Boolean)
@@ -191,6 +193,8 @@ class Earley:
             was = col.c_chart.get(item)
             if was is None:
                 col.Q[item] = (K if I == K else (K - I - 1), self.order[X])
+                #col.Q[item] = ((K - I) * self.ORDER_MAX + self.order[X])
+
                 col.c_chart[item] = value
             else:
                 col.c_chart[item] = was + value
