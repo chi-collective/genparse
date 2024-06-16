@@ -24,6 +24,9 @@ class EarleyLM(LM):
         assert context[-1] == EOS
         return self.p_next(context[:-1])[EOS]
 
+    def clear_cache(self):
+        self.model.clear_cache()
+
 
 class Column:
     __slots__ = ("k", "i_chart", "c_chart", "waiting_for", "Q")
@@ -165,8 +168,9 @@ class Earley:
                     reachable.add(Y)
                     agenda.append(Y)
 
+        rhs = self.cfg.rhs
         for X in reachable:
-            for r in self.cfg.rhs[X]:
+            for r in rhs[X]:
                 Ys = r.body
                 if Ys == ():
                     continue
