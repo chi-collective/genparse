@@ -18,3 +18,8 @@ profile.json
 *.log
 .ruff_cache
 .pytest_cache
+*.c
+*.ccp
+*.html
+*.so
+build/

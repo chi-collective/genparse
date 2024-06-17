@@ -1,4 +1,5 @@
 from setuptools import setup
+from Cython.Build import cythonize
 
 requirements = [
     'arsenal @ git+https://github.com/timvieira/arsenal',
@@ -45,4 +46,5 @@ setup(
     readme=open('README.md').read(),
     scripts=[],
     packages=['genparse'],
+    ext_modules = cythonize("**/*.pyx"),
 )
