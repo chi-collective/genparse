@@ -1,7 +1,11 @@
+import numpy as np
+from arsenal import Integerizer, colors
+
 from collections import defaultdict
 from functools import lru_cache
 
-from arsenal.datastructures.pdict import pdict
+#from arsenal.datastructures.pdict import pdict
+from arsenal.datastructures.heap import LocatorMaxHeap
 
 from genparse.cfglm import EOS, add_EOS
 from genparse.linear import WeightedGraph
@@ -24,6 +28,9 @@ class EarleyLM(LM):
         assert context[-1] == EOS
         return self.p_next(context[:-1])[EOS]
 
+    def clear_cache(self):
+        self.model.clear_cache()
+
 
 class Column:
     __slots__ = ("k", "i_chart", "c_chart", "waiting_for", "Q")
@@ -38,7 +45,8 @@ class Column:
         self.waiting_for = defaultdict(set)
 
         # priority queue used when first filling the column
-        self.Q = pdict()
+#        self.Q = pdict()
+        self.Q = LocatorMaxHeap()
 
 
 class Earley:
@@ -47,7 +55,8 @@ class Earley:
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
-    __slots__ = ("cfg", "order", "_chart", "V", "eos", "_initial_column", "R")
+    __slots__ = ("cfg", "order", "_chart", "V", "eos", "_initial_column", "R",
+                 'ORDER_MAX', 'intern_Ys', 'unit_Ys', 'first_Ys', 'rest_Ys')
 
     def __init__(self, cfg):
 
@@ -61,6 +70,8 @@ class Earley:
         # rules in a topological order.
         self.order = cfg._unary_graph_transpose().buckets
 
+        self.ORDER_MAX = max(self.order.values())
+
         # left-corner graph
         R = WeightedGraph(Boolean)
         for r in cfg:
@@ -70,6 +81,26 @@ class Earley:
             B = r.body[0]
             R[A, B] += Boolean.one
         self.R = R
+
+        # Integerize rule right-hand side states
+        intern_Ys = Integerizer()
+        assert intern_Ys(()) == 0
+
+        for r in self.cfg:
+            for p in range(len(r.body) + 1):
+                intern_Ys.add(r.body[p:])
+
+        self.intern_Ys = intern_Ys
+
+        self.first_Ys = np.zeros(len(intern_Ys), dtype=object)
+        self.rest_Ys = np.zeros(len(intern_Ys), dtype=int)
+        self.unit_Ys = np.zeros(len(intern_Ys), dtype=int)
+
+        for Ys, code in list(self.intern_Ys.items()):
+            self.unit_Ys[code] = (len(Ys) == 1)
+            if len(Ys) > 0:
+                self.first_Ys[code] = Ys[0]
+                self.rest_Ys[code] = intern_Ys(Ys[1:])
 
         col = Column(0)
         self.PREDICT(col)
@@ -123,18 +154,18 @@ class Earley:
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         for item in prev_col.waiting_for[token]:
             (I, X, Ys) = item
-            self._update(next_col, I, X, Ys[1:], prev_col_i_chart[item])
+            self._update(next_col, I, X, self.rest_Ys[Ys], prev_col_i_chart[item])
 
         # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
         Q = next_col.Q
         while Q:
-            (J, Y) = item = Q.pop()
+            (J, Y) = item = Q.pop()[0]
             col_J = prev_cols[J]
             col_J_i_chart = col_J.i_chart
             y = next_col_c_chart[item]
             for item in col_J.waiting_for[Y]:
                 (I, X, Ys) = item
-                self._update(next_col, I, X, Ys[1:], col_J_i_chart[item] * y)
+                self._update(next_col, I, X, self.rest_Ys[Ys], col_J_i_chart[item] * y)
 
         self.PREDICT(next_col)
 
@@ -165,15 +196,16 @@ class Earley:
                     reachable.add(Y)
                     agenda.append(Y)
 
+        rhs = self.cfg.rhs
         for X in reachable:
-            for r in self.cfg.rhs[X]:
-                Ys = r.body
-                if Ys == ():
+            for r in rhs[X]:
+                Ys = self.intern_Ys(r.body)
+                if Ys == 0:    # 0 is the empty body
                     continue
                 item = (k, X, Ys)
                 was = prev_col_chart.get(item)
                 if was is None:
-                    Y = Ys[0]
+                    Y = self.first_Ys[Ys]
                     prev_col_waiting_for[Y].add(item)
                     prev_col_chart[item] = r.w
                 else:
@@ -181,12 +213,12 @@ class Earley:
 
     def _update(self, col, I, X, Ys, value):
         K = col.k
-        if Ys == ():
+        if Ys == 0:
             # Items of the form phrase(I, X/[], K)
             item = (I, X)
             was = col.c_chart.get(item)
             if was is None:
-                col.Q[item] = (K if I == K else (K - I - 1), self.order[X])
+                col.Q[item] = -((K - I) * self.ORDER_MAX + self.order[X])
                 col.c_chart[item] = value
             else:
                 col.c_chart[item] = was + value
@@ -196,7 +228,7 @@ class Earley:
             item = (I, X, Ys)
             was = col.i_chart.get(item)
             if was is None:
-                col.waiting_for[Ys[0]].add(item)
+                col.waiting_for[self.first_Ys[Ys]].add(item)
                 col.i_chart[item] = value
             else:
                 col.i_chart[item] = was + value
@@ -232,36 +264,74 @@ class Earley:
     # p(W) += q(I, X) * phrase(I, X/[W], J)  where len(J) * terminal(W).
     #
     def next_token_weights(self, cols):
-
-        zero = self.cfg.R.zero
-        one = self.cfg.R.one
-        S = self.cfg.S
         is_terminal = self.cfg.is_terminal
+        zero = self.cfg.R.zero
+
+        q = {}
+        q[0, self.cfg.S] = self.cfg.R.one
 
         col = cols[-1]
         col_waiting_for = col.waiting_for
         col_i_chart = col.i_chart
-
-        @lru_cache
-        def q(J, Y):
-            if J == 0 and Y == S:
-                return one
-            else:
-                result = zero
-                cols_J = cols[J]
-                cols_J_i_chart = cols_J.i_chart
-                for I, X, Ys in cols_J.waiting_for[Y]:
-                    if len(Ys) == 1:
-                        result += cols_J_i_chart[I, X, Ys] * q(I, X)
-                return result
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         p = self.cfg.R.chart()
 
         for Y in col_waiting_for:
             if is_terminal(Y):
+                total = zero
                 for (I, X, Ys) in col_waiting_for[Y]:
-                    if len(Ys) == 1:
-                        p[Ys[0]] += col_i_chart[I, X, Ys] * q(I, X)
+                    if self.unit_Ys[Ys]:
+                        node = (I, X)
+                        value = q.get(node)
+                        if value is None:
+                            value = self._helper(node, cols, q)
+                        total += col_i_chart[I, X, Ys] * value
+                p[Y] = total
 
         return p
+
+    def _helper(self, top, cols, q):
+        zero = self.cfg.R.zero
+        stack = [Node(top, None, zero)]
+
+        while stack:
+            node = stack[-1]   # 👀
+
+            # place neighbors above the node on the stack
+            (J, Y) = node.node
+
+            t = node.cursor
+
+            if node.edges is None:
+                node.edges = [x for x in cols[J].waiting_for[Y] if self.unit_Ys[x[2]]]
+
+            # cursor is at the end, all neighbors are done
+            elif t == len(node.edges):
+                # clear the node from the stack
+                stack.pop()
+                # promote the incomplete value node.value to a complete value (q)
+                q[node.node] = node.value
+
+            else:
+                (I, X, Ys) = arc = node.edges[t]
+                neighbor = (I, X)
+                neighbor_value = q.get(neighbor)
+                if neighbor_value is None:
+                    stack.append(Node(neighbor, None, zero))
+                else:
+                    # neighbor value is ready, advance the cursor, add the
+                    # neighbors contribution to the nodes value
+                    node.cursor += 1
+                    node.value += cols[J].i_chart[arc] * neighbor_value
+
+        return q[top]
+
+
+class Node:
+    __slots__ = ('value', 'node', 'edges', 'cursor')
+    def __init__(self, node, edges, value):
+        self.node = node
+        self.edges = edges
+        self.value = value
+        self.cursor = 0

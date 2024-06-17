@@ -19,3 +19,8 @@ profile.json
 .ruff_cache
 .pytest_cache
 build/
+*.cpp
+*.c
+*.pyx
+*.so
+*.html
