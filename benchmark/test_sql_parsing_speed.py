@@ -22,10 +22,11 @@ def load_examples(example_path):
 
 def main(grammar_path, example_path, out_path):
 
+    guide = {}
     with timeit('preprocessing'):
         cfg = LarkStuff(open(grammar_path).read()).char_cfg(0.9, ignore='[ ]?')
-        guide4 = earley4.EarleyLM(cfg)
-        guide6 = earley6.EarleyLM(cfg)
+        guide[5] = earley5.EarleyLM(cfg)
+        guide[6] = earley6.EarleyLM(cfg)
 
     T = timers()
 
@@ -33,20 +34,16 @@ def main(grammar_path, example_path, out_path):
     for i, example in iterview(list(enumerate(load_examples(example_path)))[:10]):
         print(example)
 
-        guide4.clear_cache()
-        guide6.clear_cache()
+        for name in guide:
+            guide[name].clear_cache()
 
         for prefix in prefixes(example):
 
-            with T['earley4'](n=len(prefix)):
-                p = guide4.p_next(prefix)
+            for name in guide:
+                with T[name](n=len(prefix)):
+                    p = guide[name].p_next(prefix)
 
-            if not p: print(colors.light.red % f'FAILED {i}: {prefix}')
-
-            with T['earley6'](n=len(prefix)):
-                p = guide6.p_next(prefix)
-
-            if not p: print(colors.light.red % f'FAILED {i}: {prefix}')
+                if not p: print(colors.light.red % f'FAILED {i}: {prefix}')
 
     print('total time:', time() - start, 'seconds')
 

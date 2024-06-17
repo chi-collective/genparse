@@ -19,7 +19,7 @@ profile.json
 .ruff_cache
 .pytest_cache
 *.c
-*.ccp
+*.cpp
 *.html
 *.so
 build/
