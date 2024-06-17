@@ -155,11 +155,11 @@ def main():
         predicted.append(output[0]['generated_text'][len(prompt) :])
 
     gold = spider_dev_data[:n_query]
-    with open(f'spider-eval/gold-{args.exp_name}.txt', 'w+') as f:
+    with open(f'bench/spider-eval/gold-{args.exp_name}.txt', 'w+') as f:
         for datum in gold:
             print(f'{datum.query}\t{datum.schema_name}', file=f)
 
-    with open(f'spider-eval/predicted-{args.exp_name}.txt', 'w+') as f:
+    with open(f'bench/spider-eval/predicted-{args.exp_name}.txt', 'w+') as f:
         for datum in predicted:
             datum = datum.replace('\n', ' ')
             assert '\t' not in datum
