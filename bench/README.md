@@ -13,6 +13,7 @@ pip install gdown
 assuming you're currently in the `bench` directory, do
 
 ```bash
+mkdir spider/data
 cd spider/data
 gdown 'https://drive.google.com/u/0/uc?id=1iRDVHLr4mX2wQKSgA9J8Pire73Jahh0m&export=download'
 unzip spider.zip
