@@ -268,7 +268,7 @@ class AsyncGreedilyTokenizedLLM(LM):
 
         _logp = await self._model.next_token_logprobs(tokens)
         _logp = _logp.cpu().numpy() if hasattr(_logp, 'cpu') else _logp
-        _p = np.exp(_logp.cpu().numpy())
+        _p = np.exp(_logp)
 
         assert top is None
         return LazyProb(_p, self._encode, self._decode)
