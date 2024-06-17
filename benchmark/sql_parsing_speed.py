@@ -36,7 +36,6 @@ def main():
         help='text file with one example per line',
         default=root / 'benchmark/datasets/spider_dev_set.txt',
     )
-    parser.add_argument('--out_path', type=str, help='output file')
     parser.add_argument('--plot', action='store_true')
 
     args = parser.parse_args()
