@@ -13,18 +13,20 @@ pip install gdown
 assuming you're currently in the `bench` directory, do
 
 ```bash
+mkdir spider/data
 cd spider/data
 gdown 'https://drive.google.com/u/0/uc?id=1iRDVHLr4mX2wQKSgA9J8Pire73Jahh0m&export=download'
 unzip spider.zip
 ```
 
-also, download the evaluation codebase:
+also, go back to the `genparse/bench` directory and download the evaluation codebase:
 
 ```bash
+cd ../..
 git clone https://github.com/taoyds/spider.git spider-eval
 ```
 
-before running any evaluation, `spider-eval` depends on `punkt` package of `nltk, so download that first:
+before running any evaluation, `spider-eval` depends on `punkt` package of `nltk`, so download that first:
 
 ```
   >>> import nltk
