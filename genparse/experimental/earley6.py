@@ -1,3 +1,6 @@
+import numpy as np
+from arsenal import Integerizer, colors
+
 from collections import defaultdict
 from functools import lru_cache
 
@@ -79,8 +82,6 @@ class Earley:
             R[A, B] += Boolean.one
         self.R = R
 
-        import numpy as np
-        from arsenal import Integerizer, colors
         intern_Ys = Integerizer()
         assert intern_Ys(()) == 0
 
