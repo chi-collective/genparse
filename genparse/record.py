@@ -225,8 +225,8 @@ class SMCRecord(dict):
         )
 
         # Get resample or no-resample steps, add vline on the resample ones
-        resample_steps = d_[d_['resample?'] == True]['step'].unique()
-        no_resample_steps = d_[d_['resample?'] == False]['step'].unique()
+        resample_steps = d_[d_['resample?']]['step'].unique()
+        no_resample_steps = d_[~d_['resample?']]['step'].unique()
         for step in resample_steps:
             fig.add_vline(x=step, line_width=4, opacity=0.15, line_color='gray')
 

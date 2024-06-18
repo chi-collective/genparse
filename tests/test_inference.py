@@ -51,8 +51,6 @@ def run_test(lm1, lm2):
 # some diagnostics to characterize the quality of the approximation.
 class CheckParticles(BruteForceGlobalProductOfExperts):
     def check(self, particles):
-        n_particles = len(particles)
-
         # TODO: weight finalization should be part of the inference algorithm!
         w = Float.chart()
         for p in particles:

@@ -1,10 +1,9 @@
 import numpy as np
-from arsenal import Integerizer, colors
+from arsenal import Integerizer
 
 from collections import defaultdict
-from functools import lru_cache
 
-#from arsenal.datastructures.pdict import pdict
+# from arsenal.datastructures.pdict import pdict
 from arsenal.datastructures.heap import LocatorMaxHeap
 
 from genparse.cfglm import EOS, add_EOS
@@ -14,7 +13,6 @@ from genparse.semiring import Boolean
 
 
 class EarleyLM(LM):
-
     def __init__(self, cfg):
         if EOS not in cfg.V:
             cfg = add_EOS(cfg)
@@ -33,7 +31,7 @@ class EarleyLM(LM):
 
 
 class Column:
-    __slots__ = ("k", "i_chart", "c_chart", "waiting_for", "Q")
+    __slots__ = ('k', 'i_chart', 'c_chart', 'waiting_for', 'Q')
 
     def __init__(self, k):
         self.k = k
@@ -45,7 +43,7 @@ class Column:
         self.waiting_for = defaultdict(set)
 
         # priority queue used when first filling the column
-#        self.Q = pdict()
+        #        self.Q = pdict()
         self.Q = LocatorMaxHeap()
 
 
@@ -55,11 +53,23 @@ class Earley:
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
-    __slots__ = ("cfg", "order", "_chart", "V", "eos", "_initial_column", "R", 'rhs',
-                 'ORDER_MAX', 'intern_Ys', 'unit_Ys', 'first_Ys', 'rest_Ys')
+    __slots__ = (
+        'cfg',
+        'order',
+        '_chart',
+        'V',
+        'eos',
+        '_initial_column',
+        'R',
+        'rhs',
+        'ORDER_MAX',
+        'intern_Ys',
+        'unit_Ys',
+        'first_Ys',
+        'rest_Ys',
+    )
 
     def __init__(self, cfg):
-
         cfg = cfg.nullaryremove(binarize=True).unarycycleremove().renumber()
         self.cfg = cfg
 
@@ -96,7 +106,8 @@ class Earley:
         for X in self.cfg.N:
             self.rhs[X] = []
             for r in self.cfg.rhs[X]:
-                if r.body == (): continue
+                if r.body == ():
+                    continue
                 self.rhs[X].append((r.w, intern_Ys(r.body)))
 
         self.first_Ys = np.zeros(len(intern_Ys), dtype=object)
@@ -104,7 +115,7 @@ class Earley:
         self.unit_Ys = np.zeros(len(intern_Ys), dtype=int)
 
         for Ys, code in list(self.intern_Ys.items()):
-            self.unit_Ys[code] = (len(Ys) == 1)
+            self.unit_Ys[code] = len(Ys) == 1
             if len(Ys) > 0:
                 self.first_Ys[code] = Ys[0]
                 self.rest_Ys[code] = intern_Ys(Ys[1:])
@@ -152,7 +163,6 @@ class Earley:
         return self.next_token_weights(self.chart(prefix))
 
     def next_column(self, prev_cols, token):
-
         prev_col = prev_cols[-1]
         next_col = Column(prev_cols[-1].k + 1)
         next_col_c_chart = next_col.c_chart
@@ -181,8 +191,6 @@ class Earley:
     def PREDICT(self, col):
         # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with some filtering heuristics
         k = col.k
-        col_chart = col.i_chart
-        col_waiting_for = col.waiting_for
 
         # Filtering heuristic: Don't create the predicted item (K, X, [...], K)
         # unless there exists an item that wants the X item that it may
@@ -277,7 +285,7 @@ class Earley:
         for Y in col_waiting_for:
             if is_terminal(Y):
                 total = zero
-                for (I, X, Ys) in col_waiting_for[Y]:
+                for I, X, Ys in col_waiting_for[Y]:
                     if self.unit_Ys[Ys]:
                         node = (I, X)
                         value = self._helper(node, cols, q)
@@ -287,7 +295,6 @@ class Earley:
         return p
 
     def _helper(self, top, cols, q):
-
         value = q.get(top)
         if value is not None:
             return value
@@ -296,7 +303,7 @@ class Earley:
         stack = [Node(top, None, zero)]
 
         while stack:
-            node = stack[-1]   # 👀
+            node = stack[-1]  # 👀
 
             # place neighbors above the node on the stack
             (J, Y) = node.node
@@ -330,6 +337,7 @@ class Earley:
 
 class Node:
     __slots__ = ('value', 'node', 'edges', 'cursor')
+
     def __init__(self, node, edges, value):
         self.node = node
         self.edges = edges

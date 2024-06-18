@@ -11,7 +11,9 @@ import torch
 import transformers
 from arsenal.maths import logsumexp, sample_dict
 
-from genparse.cfglm import EOS
+from hfppl import Model
+
+from genparse import EOS
 from genparse.inference import (
     TraceSWOR,
     importance_sampling,
@@ -107,7 +109,7 @@ class LocalProduct(LM):
             p *= self.p_next(ys[:t])[ys[t]]
         return p
 
-    def p_next(self, prefix):
+    def p_next(self, ys):
         p1 = self.lm1.p_next(ys)
         p2 = self.lm2.p_next(ys)
 
@@ -203,10 +205,6 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
 # Approximate inference with HFPPL
 # This code is still experimental and actively being developed
 # TODO: write tests
-
-from hfppl import Model
-
-from genparse import EOS
 
 
 class HFPPLParticle(Model):

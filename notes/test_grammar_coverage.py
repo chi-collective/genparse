@@ -1,15 +1,9 @@
 import argparse
-import getpass
 import logging
-import sys
-
-logger = logging.getLogger(__name__)
-
-if getpass.getuser() == 'benjamin.lebrun':
-    sys.path.append('/home/mila/b/benjamin.lebrun/genparse')
-
 from genparse.cfglm import EarleyBoolMaskCFGLM
 from genparse.util import LarkStuff
+
+logger = logging.getLogger(__name__)
 
 
 def load_guide(grammar_name):
