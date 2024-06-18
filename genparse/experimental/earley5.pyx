@@ -245,7 +245,7 @@ cdef class Earley:
 
         return next_col
 
-    cdef PREDICT(self, Column prev_col):
+    cdef void PREDICT(self, Column prev_col):
         cdef IncompleteItem item
         #cdef dict rhs
         cdef long Ys, k   # XXX: X and Y might be a string | integer.
