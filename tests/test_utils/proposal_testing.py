@@ -151,9 +151,6 @@ def enumerate_traces_uncorrected(proposal, prompt, context):
     )
 
 
-from arsenal.maths import random_dist
-
-
 def enumerate_target(proposal, prompt, context):
     p_next = Float.chart()
     for token in proposal.llm.V:
@@ -164,58 +161,14 @@ def enumerate_target(proposal, prompt, context):
     return p_next
 
 
-def make_character_proposal(V=None, uniform=False, grammar=None):
+def make_character_proposal(V, grammar, uniform=False):
     from genparse.lm import MockLLM
     from genparse.proposal import CharacterProposal
     from genparse.cfglm import EarleyBoolMaskCFGLM
     from genparse.util import LarkStuff
-
-    if V is None:
-        V = {
-            '▪',
-            ' ',
-            '  ',
-            ' W',
-            ' O',
-            ' S',
-            ' s' ' WHE',
-            ' ORD',
-            ' SEL',
-            ' ORD',
-            ' sta',
-            ' WHER',
-            ' ORDE',
-            ' SELE',
-            ' ORDE',
-            ' stat',
-            ' stad' ' SELECT',
-            ' WHERE',
-            ' ORDER',
-            ' state',
-            ' stadium',
-        }
+    from arsenal.maths import random_dist
 
     llm = MockLLM(V=V, eos='▪', _p=None if uniform else random_dist(len(V)))
-
-    if grammar is None:
-        grammar = r"""
-            start: WS? "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
-            EOS: "▪"
-            select_expr: STAR | select_list
-            bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
-            bool_expr: var "=" value | var ">" value | var "<" value
-            from_expr: "data"
-            orderby_expr: var_list WS "ASC" | var_list WS "DESC"
-            select_list: select_var ("," WS select_var)*
-            var_list: var ("," WS var)*
-            select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
-            var: "state" | "stadium"
-            value: NUMBER | "'red'"
-            STAR: "*"
-            NUMBER: /\d+/
-            WS: /[ ]/
-        """
-
     guide = EarleyBoolMaskCFGLM(LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?'))
 
     return CharacterProposal(llm=llm, guide=guide)
