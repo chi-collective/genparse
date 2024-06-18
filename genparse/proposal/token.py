@@ -53,7 +53,10 @@ class TokenProposal(TokenCharacterTrie):
             p_llm = await self.llm.p_next(prompt + context)
 
         with self.timer['cfg+trie'](t=len(context)):
-            Q = Float.chart(take(self.K, self.traverse_trie(context, p_llm))).normalize()
+            Q = Float.chart(
+                take(self.K - 1, self.traverse_trie(context, p_llm))
+            ).normalize()
+            rest = bottom_K(p_llm, len(self.llm.V) - self.K - 1)
             token = sample_dict(Q)
 
             llm_prob = p_llm[self.old_eos if token == self.new_eos else token]
@@ -62,7 +65,7 @@ class TokenProposal(TokenCharacterTrie):
         if compare_time:
             self.timer.compare()
 
-        return (token, llm_prob, guide_prob, Q[token])
+        return (token, llm_prob + guide_prob, Q[token])
 
     def _update_internal(self):
         # overrides base method.  Takes max rather than sum of internal nodes

@@ -225,18 +225,13 @@ class HFPPLParticle(Model):
         self.verbosity = verbosity
 
     async def step(self):
-        (
-            token,
-            llm_prob,
-            guide_prob,
-            proposal_prob,
-        ) = await self.proposal.sample_next_token(
+        (token, weight_update) = await self.proposal.sample_next_token(
             prompt=self.prompt,
             context=''.join(self.context),
             compare_time=(self.verbosity > 1),
         )
         self.context.append(token)
-        self.weight += np.log(llm_prob) + np.log(guide_prob) - np.log(proposal_prob)
+        self.weight += np.log(weight_update)
         self.max_tokens -= 1
 
         if self.verbosity > 1:
