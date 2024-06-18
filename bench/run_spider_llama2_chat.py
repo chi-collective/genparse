@@ -126,8 +126,9 @@ def main():
     prompt_formatter = PromptFormatter(spider_train_data, spider_schemas)
 
     model = 'meta-llama/Llama-2-7b-chat-hf'
-    model.replace('7b', args.model_size)
+    model = model.replace('7b', args.model_size)
     access_token = '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'
+    logger.info(f"using model {model}")
 
     tokenizer = AutoTokenizer.from_pretrained(model, token=access_token)
     pipe = pipeline(
