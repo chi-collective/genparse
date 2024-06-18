@@ -36,7 +36,7 @@ html/docs/index.html : $(NAME)/*.py
 .PHONY : test
 test: ruff pytest
 ruff: env
-	@ruff check --fix --exit-zero
+	@ruff check --fix
 pytest : env html/coverage/index.html
 html/coverage/index.html : html/pytest/report.html
 	@coverage html -d $(@D)
