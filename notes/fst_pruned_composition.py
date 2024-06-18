@@ -1,5 +1,5 @@
+import numpy as np
 from time import time
-
 from arsenal import colors, timers
 
 from genparse import Float
@@ -310,7 +310,7 @@ class CoarseCompositionFilter:
         # perfectly trimmed states
         T = fine.trim.states
 
-        precision = len(F & T) / len(F) if len(F) > 0 else 1
+        # precision = len(F & T) / len(F) if len(F) > 0 else 1
         recall = len(F & T) / len(T) if len(T) > 0 else 1
 
         print()
@@ -370,7 +370,6 @@ class CoarseCompositionFilter:
 
 # XXX: Be careful - epsilon cannot be merged like the other labels (that should
 # probably be enforced in the coarsen method).
-import numpy as np
 
 
 def random_hash(domain):

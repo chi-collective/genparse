@@ -143,8 +143,6 @@ class Earley:
 
         self.PREDICT(next_col)
 
-        k = next_col.k
-
         num = prev_col.chart[0, self.cfg.S]
         den = next_col.chart[0, self.cfg.S]
 

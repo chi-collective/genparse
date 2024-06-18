@@ -9,6 +9,7 @@ from bench.spider.evaluation import (
     eval_exec_match,
 )
 
+
 class Evaluator:
     def __init__(self, spider_dir: Path):
         self.tables_path = spider_dir / 'tables.json'
@@ -23,15 +24,15 @@ class Evaluator:
         * `invalid` if `pred` sql is not a well-formed sql statement that can be parsed by sqlite
         * `mismatch` if `pred` is a well-formed sql but the execution result is different from that of the `gold`.
         """
-        db = self.db_path / db_name / (db_name + ".sqlite")
+        db = self.db_path / db_name / (db_name + '.sqlite')
         schema = E.Schema(E.get_schema(db))
         g_sql = E.get_sql(schema, gold)
 
         try:
             p_sql = E.get_sql(schema, pred)
-        except:
+        except Exception:
             # sql is ill-formed (can't be parsed by sqlite engine)
-            return False, "invalid"
+            return False, 'invalid'
 
         kmap = self.kmaps[db_name]
         g_valid_col_units = build_valid_col_units(g_sql['from']['table_units'], schema)
@@ -42,6 +43,6 @@ class Evaluator:
         p_sql = rebuild_sql_col(p_valid_col_units, p_sql, kmap)
 
         exec_match = eval_exec_match(db, pred, gold, p_sql, g_sql)
-        reason = None if exec_match else "mismatch"
+        reason = None if exec_match else 'mismatch'
 
         return exec_match, reason

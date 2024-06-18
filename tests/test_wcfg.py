@@ -359,7 +359,7 @@ def test_palindrome_derivations():
         Real,
     )
 
-    s = 'a b c b a'.split()
+    # s = 'a b c b a'.split()
 
     n = 0
     print(colors.yellow % 'Derivations:')

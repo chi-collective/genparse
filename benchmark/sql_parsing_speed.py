@@ -2,24 +2,24 @@ from path import Path
 import genparse
 import pylab as pl
 import argparse
-import logging
 from time import time
 from arsenal import iterview, timers, timeit, colors
 from arsenal.iterextras import unique
 from genparse.segmentation import prefixes
 
-#from genparse.cfglm import EarleyBoolMaskCFGLM
+# from genparse.cfglm import EarleyBoolMaskCFGLM
 from genparse.util import LarkStuff
 
-from genparse.cfglm import CFGLM
 from genparse.experimental.earley import EarleyLM
 
 
 def load_examples(example_path):
-    return unique(map(str.strip, open(example_path, 'r')))   # XXX: why are there duplicates?
+    return unique(
+        map(str.strip, open(example_path, 'r'))
+    )  # XXX: why are there duplicates?
+
 
 def main():
-
     root = Path(genparse.__file__).dirname() / '..'
 
     parser = argparse.ArgumentParser(
@@ -44,7 +44,7 @@ def main():
     with timeit('preprocessing'):
         cfg = LarkStuff(open(args.grammar).read()).char_cfg(0.9, ignore='[ ]?')
         guide['earley'] = EarleyLM(cfg)
-#        guide['cfglm'] = CFGLM(cfg)
+    #        guide['cfglm'] = CFGLM(cfg)
 
     T = timers()
 
@@ -56,12 +56,12 @@ def main():
             guide[name].clear_cache()
 
         for prefix in prefixes(example):
-
             for name in guide:
                 with T[name](n=len(prefix)):
                     p = guide[name].p_next(prefix)
 
-                if not p: print(colors.light.red % f'FAILED {i}: {prefix}')
+                if not p:
+                    print(colors.light.red % f'FAILED {i}: {prefix}')
 
     print('total time:', time() - start, 'seconds')
 

@@ -1,6 +1,5 @@
 from path import Path
 
-import bench
 from bench.spider.dialogue import load_spider_data
 from bench.spider.schema import load_schemas
 from bench.spider.evaluator import Evaluator
@@ -9,16 +8,24 @@ import genparse
 
 
 class SpiderInterface:
-
     def __init__(self, root=None):
-        if root is None: root = Path(genparse.__file__).dirname() / '..' / 'bench/spider/data/spider'
+        if root is None:
+            root = Path(genparse.__file__).dirname() / '..' / 'bench/spider/data/spider'
         if not root.exists():
-            raise AssertionError('spider dataset not found follow the instruction in bench/README')
-        self.schemas = load_schemas(schemas_path=root / 'tables.json', db_path=root / 'database')
+            raise AssertionError(
+                'spider dataset not found follow the instruction in bench/README'
+            )
+        self.schemas = load_schemas(
+            schemas_path=root / 'tables.json', db_path=root / 'database'
+        )
         self.evaluator = Evaluator(root)
         self.evaluate = self.evaluator.evaluate
-        self.dev_data = [SpiderExample(self, x) for x in load_spider_data(root / 'dev.json')]
-        self.train_data = [SpiderExample(self, x) for x in load_spider_data(root / 'train_spider.json')]
+        self.dev_data = [
+            SpiderExample(self, x) for x in load_spider_data(root / 'dev.json')
+        ]
+        self.train_data = [
+            SpiderExample(self, x) for x in load_spider_data(root / 'train_spider.json')
+        ]
 
 
 class SpiderExample:
@@ -41,7 +48,9 @@ class SpiderExample:
         for table in self.db_schema.tables:
             column_strs = []
             for column in table.columns:
-                column_strs.append(f'* {column.name} ({column.tpe.value}): {column.nl_name}')
+                column_strs.append(
+                    f'* {column.name} ({column.tpe.value}): {column.nl_name}'
+                )
             table_str = '\n'.join([table.name] + column_strs)
             table_strs.append(table_str)
         return '\n\n'.join(table_strs)

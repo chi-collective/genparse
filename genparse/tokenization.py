@@ -8,6 +8,18 @@ TODO: write tests for this
 from typing import Dict, List
 
 
+def ints2bytes(sequence: List[int]) -> bytes:
+    # check in the range of 0-255
+    for item in sequence:
+        if not 0 <= item <= 255:
+            raise ValueError(f'item: {item} is not in the range [0, 255]')
+    return bytes(sequence)
+
+
+def bytes2ints(byte_sequence: bytes) -> List[int]:
+    return list(byte_sequence)
+
+
 def get_tokenizer_mapping(tokenizer):
     """
     Very similar to get_mapping in transformers_cfg.tokenization.mapping
@@ -65,8 +77,6 @@ class Mapping:
 
     def map(self, token_id: int, verbose=False) -> bytes:
         token = self._map(token_id)
-        if verbose:
-            log.debug(f'token_id: {token_id}, token: {token}')
         return bytes(token, 'utf-8')
 
 
@@ -100,8 +110,6 @@ class UnicodeBBPEMapping(Mapping):
 
     def map(self, token_id: int, verbose=False) -> bytes:
         raw_token = self._map(token_id, verbose)
-        if verbose:
-            log.debug(f'token_id: {token_id}, raw_token: {raw_token}')
         return self.intermediate_encoding.token2bytes(raw_token)
 
     @staticmethod
@@ -188,6 +196,8 @@ class ByteEncoding:
     def __init__(self, tokenizer):
         # check if the tokenizer is fast, if so, convert it to slow
         if tokenizer.is_fast:
+            from transformers import AutoTokenizer
+
             tokenizer = AutoTokenizer.from_pretrained(
                 tokenizer.name_or_path, use_fast=False
             )

@@ -12,7 +12,7 @@ def test_misc():
     b = WFSA.lift('b', 1)
     c = WFSA.lift('c', 1)
 
-    M = one + a + a * b + a * b * c
+    M = zero + one + a + a * b + a * b * c
 
     # dry run
     M.graphviz()

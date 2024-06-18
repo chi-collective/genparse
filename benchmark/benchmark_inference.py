@@ -120,7 +120,6 @@ def main():
 
     guide = EarleyBoolMaskCFGLM(character_cfg)
 
-    MAX_TOKENS = 100
     BATCH_SIZE = 80
 
     hfppl_llm.batch_size = BATCH_SIZE
@@ -137,7 +136,6 @@ def main():
     else:
         raise ValueError(f'invalid proposal name {args.proposal!r}')
 
-    Particles = []
     for _ in range(args.reps):
         for sql_prompt in prompts:
             prompt = prompt_template % sql_prompt
