@@ -4,6 +4,8 @@ NAME = genparse
 RUN = python -m
 INSTALL = $(RUN) pip install
 .DEFAULT_GOAL := help
+SRC_FILES := $(shell find genparse -name '*.py')
+TEST_FILES := $(shell find tests -name '*.py')
 
 ## help      : print available commands.
 .PHONY : help
@@ -34,11 +36,11 @@ html/docs/index.html : $(NAME)/*.py
 
 ## test      : run linting and tests.
 .PHONY : test
-test: ruff pytest
-ruff: env
+test : ruff pytest
+ruff : env
 	@ruff check --fix
 pytest : env html/coverage/index.html
 html/coverage/index.html : html/pytest/report.html
 	@coverage html -d $(@D)
-html/pytest/report.html : $(NAME)/*.py tests/*.py
-	@coverage run --branch -m pytest --html=$@ --self-contained-html
+html/pytest/report.html : $(SRC_FILES) $(TEST_FILES)
+	@coverage run --branch -m pytest --html=$@ --self-contained-html tests/ genparse/
