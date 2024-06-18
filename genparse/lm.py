@@ -311,7 +311,6 @@ class LazyProb:
 
 from functools import lru_cache
 
-
 @lru_cache(None)
 def make_mock_llm(**kwargs):
     from genparse.util import hf_tokenizer
@@ -325,17 +324,16 @@ class MockLLM(LM):
     Uniform distribution over next token; used for testing.
     """
 
-    def __init__(self, V, eos):
+    def __init__(self, V, eos, _p=None):
         n = len(V)
-        self._p = Float.chart({w: 1 / n for w in V})
-        self._logp = Float.chart({w: -np.log(n) for w in V})
-        super().__init__(
-            eos=eos,
-            V=V,
-        )
+        self._p = np.array([1 / n for _ in range(len(V))]) if _p is None else _p
+        self._logp = np.log(self._p)
+        self._decode = list(V)
+        self._encode = {x: i for i, x in enumerate(self._decode)}
+        super().__init__(eos=eos, V=V)
 
     def p_next(self, _):
-        return self._p
+        return LazyProb(self._p, self._encode, self._decode)
 
     def __call__(self, x):
         assert x[-1] == self.eos
