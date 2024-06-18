@@ -108,6 +108,7 @@ cdef class Earley:
         int eos
         Column _initial_column
         dict R_outgoing
+        dict rhs
         int ORDER_MAX
         object intern_Ys
         object _encode_symbol
@@ -150,6 +151,13 @@ cdef class Earley:
         for r in self.cfg:
             for p in range(len(r.body) + 1):
                 intern_Ys.add(r.body[p:])
+
+        self.rhs = {}
+        for X in self.cfg.N:
+            self.rhs[X] = []
+            for r in self.cfg.rhs[X]:
+                if r.body == (): continue
+                self.rhs[X].append((r.w, intern_Ys(r.body)))
 
         self.intern_Ys = intern_Ys
         self._encode_symbol = Integerizer()
@@ -247,7 +255,7 @@ cdef class Earley:
 
     cdef void PREDICT(self, Column prev_col):
         cdef IncompleteItem item
-        #cdef dict rhs
+        cdef dict rhs
         cdef long Ys, k   # XXX: X and Y might be a string | integer.
         # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with some filtering heuristics
         k = prev_col.k
@@ -272,20 +280,17 @@ cdef class Earley:
                     reachable.add(Y)
                     agenda.append(Y)
 
-        rhs = self.cfg.rhs
+        rhs = self.rhs
         for X in reachable:
-            for r in rhs[X]:
-                Ys = self.intern_Ys(r.body)
-                if Ys == 0:    # 0 is the empty body
-                    continue
+            for w, Ys in rhs.get(X, ()):
                 item = (k, X, Ys)
                 was = prev_col_chart.get(item)
                 if was is None:
                     Y = self.first_Ys[Ys]
                     prev_col.waiting_for[Y].add(item)
-                    prev_col_chart[item] = r.w
+                    prev_col_chart[item] = w
                 else:
-                    prev_col_chart[item] = was + r.w
+                    prev_col_chart[item] = was + w
 
     cdef inline void _update(self, Column col, long I, long X, long Ys, double value):
         cdef CompleteItem c_item
