@@ -56,7 +56,7 @@ class TokenProposal(TokenCharacterTrie):
             Q = Float.chart(
                 take(self.K - 1, self.traverse_trie(context, p_llm))
             ).normalize()
-            rest = bottom_K(p_llm, len(self.llm.V) - self.K - 1)
+            # rest = bottom_K(p_llm, len(self.llm.V) - self.K - 1)
             token = sample_dict(Q)
 
             llm_prob = p_llm[self.old_eos if token == self.new_eos else token]
