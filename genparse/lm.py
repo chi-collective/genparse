@@ -311,6 +311,7 @@ class LazyProb:
 
 from functools import lru_cache
 
+
 @lru_cache(None)
 def make_mock_llm(**kwargs):
     from genparse.util import hf_tokenizer
