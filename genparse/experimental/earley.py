@@ -55,7 +55,7 @@ class Earley:
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
-    __slots__ = ("cfg", "order", "_chart", "V", "eos", "_initial_column", "R",
+    __slots__ = ("cfg", "order", "_chart", "V", "eos", "_initial_column", "R", 'rhs',
                  'ORDER_MAX', 'intern_Ys', 'unit_Ys', 'first_Ys', 'rest_Ys')
 
     def __init__(self, cfg):
@@ -91,6 +91,13 @@ class Earley:
                 intern_Ys.add(r.body[p:])
 
         self.intern_Ys = intern_Ys
+
+        self.rhs = {}
+        for X in self.cfg.N:
+            self.rhs[X] = []
+            for r in self.cfg.rhs[X]:
+                if r.body == (): continue
+                self.rhs[X].append((r.w, intern_Ys(r.body)))
 
         self.first_Ys = np.zeros(len(intern_Ys), dtype=object)
         self.rest_Ys = np.zeros(len(intern_Ys), dtype=int)
@@ -196,20 +203,17 @@ class Earley:
                     reachable.add(Y)
                     agenda.append(Y)
 
-        rhs = self.cfg.rhs
+        rhs = self.rhs
         for X in reachable:
-            for r in rhs[X]:
-                Ys = self.intern_Ys(r.body)
-                if Ys == 0:    # 0 is the empty body
-                    continue
+            for w, Ys in rhs.get(X, ()):
                 item = (k, X, Ys)
                 was = prev_col_chart.get(item)
                 if was is None:
                     Y = self.first_Ys[Ys]
                     prev_col_waiting_for[Y].add(item)
-                    prev_col_chart[item] = r.w
+                    prev_col_chart[item] = w
                 else:
-                    prev_col_chart[item] = was + r.w
+                    prev_col_chart[item] = was + w
 
     def _update(self, col, I, X, Ys, value):
         K = col.k
