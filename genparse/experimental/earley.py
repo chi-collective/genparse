@@ -206,14 +206,7 @@ class Earley:
         rhs = self.rhs
         for X in reachable:
             for w, Ys in rhs.get(X, ()):
-                item = (k, X, Ys)
-                was = col_chart.get(item)
-                if was is None:
-                    Y = self.first_Ys[Ys]
-                    col_waiting_for[Y].add(item)
-                    col_chart[item] = w
-                else:
-                    col_chart[item] = was + w
+                self._update(col, k, X, Ys, w)
 
     def _update(self, col, I, X, Ys, value):
         K = col.k
@@ -287,15 +280,18 @@ class Earley:
                 for (I, X, Ys) in col_waiting_for[Y]:
                     if self.unit_Ys[Ys]:
                         node = (I, X)
-                        value = q.get(node)
-                        if value is None:
-                            value = self._helper(node, cols, q)
+                        value = self._helper(node, cols, q)
                         total += col_i_chart[I, X, Ys] * value
                 p[Y] = total
 
         return p
 
     def _helper(self, top, cols, q):
+
+        value = q.get(top)
+        if value is not None:
+            return value
+
         zero = self.cfg.R.zero
         stack = [Node(top, None, zero)]
 
