@@ -1,7 +1,6 @@
 import numba
 import numpy as np
-
-# from typing import Dict, List
+from numba.typed import List
 
 
 class TokenCharacterTrie:
@@ -117,9 +116,6 @@ class TokenCharacterTrie:
         for a in self.children[node]:
             yield from self._order_full(self.children[node][a])
         yield node
-
-
-from numba.typed import List
 
 
 @numba.jit(nopython=True)

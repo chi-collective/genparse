@@ -5,6 +5,7 @@ Language models go here
 import numpy as np
 import torch
 from arsenal.maths import sample_dict
+from functools import lru_cache
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from genparse.semiring import Float
@@ -308,8 +309,6 @@ class LazyProb:
     def __repr__(self):
         return repr(self.materialize())
 
-
-from functools import lru_cache
 
 @lru_cache(None)
 def make_mock_llm(**kwargs):

@@ -1,7 +1,4 @@
 import argparse
-import getpass
-import os
-import sys
 
 PROMPT = """
     You have access to a political survey data table named "data", which includes the following columns:
@@ -39,18 +36,9 @@ VERY_RESTRICTED_SQL = r"""
 """
 
 
-def set_environment():
-    if getpass.getuser() == 'benjamin.lebrun':
-        sys.path.append('/home/mila/b/benjamin.lebrun/genparse')
-        os.environ['HF_HOME'] = os.path.join(os.environ['SCRATCH'], 'hf_cache')
-        print('HF cache set; path updated')
-
-
 def main(
     model_name, proposal_name, batch_size, n_particles, method, max_tokens, verbosity
 ):
-    set_environment()
-
     from genparse.cfglm import EarleyBoolMaskCFGLM
     from genparse.lm import AsyncGreedilyTokenizedLLM
     from genparse.proposal import CharacterProposal, TokenProposal

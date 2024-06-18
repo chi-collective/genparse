@@ -46,7 +46,7 @@ def is_number(s: str) -> bool:
     try:
         float(s.replace(',', ''))
         return True
-    except:
+    except ValueError:
         return False
 
 

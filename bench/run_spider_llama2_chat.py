@@ -128,9 +128,9 @@ def main():
     model = 'meta-llama/Llama-2-7b-chat-hf'
     model = model.replace('7b', args.model_size)
     access_token = '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'
-    logger.info(f"using model {model}")
+    logger.info(f'using model {model}')
 
-    tokenizer = AutoTokenizer.from_pretrained(model, token=access_token)
+    # tokenizer = AutoTokenizer.from_pretrained(model, token=access_token)
     pipe = pipeline(
         'text-generation',
         model=model,

@@ -95,7 +95,19 @@ class Derivation:
 
 
 class CFG:
-    def __init__(self, R: 'semiring', S: 'start symbol', V: 'terminal vocabulary'):  # type: ignore
+    """
+    Weighted Context-free Grammar
+
+    R: semiring
+    S: start symbol
+    V: terminal vocabulary
+
+    N: nonterminal set
+    rules: set of weighted rules (`list[Rule]`).
+
+    """
+
+    def __init__(self, R, S, V):
         self.R = R  # semiring
         self.V = V  # alphabet
         self.N = {S}  # nonterminals
