@@ -178,21 +178,21 @@ class Earley:
 
         return next_col
 
-    def PREDICT(self, prev_col):
+    def PREDICT(self, col):
         # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with some filtering heuristics
-        k = prev_col.k
-        prev_col_chart = prev_col.i_chart
-        prev_col_waiting_for = prev_col.waiting_for
+        k = col.k
+        col_chart = col.i_chart
+        col_waiting_for = col.waiting_for
 
         # Filtering heuristic: Don't create the predicted item (K, X, [...], K)
         # unless there exists an item that wants the X item that it may
         # eventually provide.  In other words, for predicting this item to be
         # useful there must be an item of the form (I, X', [X, ...], K) in this
         # column for which lc(X', X) is true.
-        if prev_col.k == 0:
+        if col.k == 0:
             targets = {self.cfg.S}
         else:
-            targets = set(prev_col.waiting_for)
+            targets = set(col.waiting_for)
 
         reachable = set(targets)
         agenda = list(targets)
@@ -207,13 +207,13 @@ class Earley:
         for X in reachable:
             for w, Ys in rhs.get(X, ()):
                 item = (k, X, Ys)
-                was = prev_col_chart.get(item)
+                was = col_chart.get(item)
                 if was is None:
                     Y = self.first_Ys[Ys]
-                    prev_col_waiting_for[Y].add(item)
-                    prev_col_chart[item] = w
+                    col_waiting_for[Y].add(item)
+                    col_chart[item] = w
                 else:
-                    prev_col_chart[item] = was + w
+                    col_chart[item] = was + w
 
     def _update(self, col, I, X, Ys, value):
         K = col.k
