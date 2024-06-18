@@ -17,9 +17,6 @@ exclude = [
     "profile.html",
     "profile.json",
     "*.log",
-    "notes",
-    "bench",
-    "benchmark",
 ]
 
 line-length = 90
