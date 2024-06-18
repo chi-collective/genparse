@@ -27,7 +27,7 @@ extend-include = ["*.ipynb"]
 
 [lint]
 select = ["E4", "E7", "E9", "F"]
-ignore = ["E731", "E701", "F401", "E741", "E743"]
+ignore = ["E731", "E701", "F401", "E741", "E743", 'E702', 'E402']
 fixable = ["ALL"]
 unfixable = []
 
