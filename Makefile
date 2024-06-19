@@ -44,4 +44,4 @@ pytest : env html/coverage/index.html
 html/coverage/index.html : html/pytest/report.html
 	@coverage html -d $(@D)
 html/pytest/report.html : $(SRC_FILES) $(TEST_FILES)
-	@coverage run --branch -m pytest --html=$@ --self-contained-html $(TEST)/ $(NAME)/
+	@coverage run --branch -m pytest --html=$@ --self-contained-html $(SRC_FILES) $(TEST_FILES)
