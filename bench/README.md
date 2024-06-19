@@ -33,6 +33,22 @@ before running any evaluation, `spider-eval` depends on `punkt` package of `nltk
   >>> nltk.download('punkt')
 ```
 
+***vLLM*** 
+
+To run the evaluation script on vLLM, first serve the vLLM model, by doing
+
+```bash
+python -m vllm.entrypoints.openai.api_server --model meta-llama/Meta-Llama-3-8B-Instruct --port 9999
+```
+
+and then the server will be up at `http://localhost:9999`.  
+
+If vLLM complains the model is gated, you might want to follow the printed instruction to get permission to use the model
+and then set your Hugginface token:
+```bash
+export HF_TOKEN=xxx
+```
+
 ### Generation
 
 to generate sql on the first 100 examples on the spider dev set on llama-2-chat-13b model, from the root directory, do
