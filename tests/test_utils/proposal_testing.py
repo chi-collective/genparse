@@ -164,11 +164,11 @@ def enumerate_target(proposal, prompt, context):
 def make_character_proposal(V, grammar, uniform=False):
     from genparse.lm import MockLLM
     from genparse.proposal import CharacterProposal
-    from genparse.cfglm import EarleyBoolMaskCFGLM
+    from genparse.cfglm import BoolMaskCFGLM
     from genparse.util import LarkStuff
     from arsenal.maths import random_dist
 
     llm = MockLLM(V=V, eos='▪', _p=None if uniform else random_dist(len(V)))
-    guide = EarleyBoolMaskCFGLM(LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?'))
+    guide = BoolMaskCFGLM(LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?'))
 
     return CharacterProposal(llm=llm, guide=guide)

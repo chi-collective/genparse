@@ -23,9 +23,9 @@ class EarleyLM(LM):
     def p_next(self, context):
         return self.model.p_next(context)
 
-    def __call__(self, context):
-        assert context[-1] == EOS
-        return self.p_next(context[:-1])[EOS]
+    #    def __call__(self, context):
+    #        assert context[-1] == EOS
+    #        return self.p_next(context[:-1])[EOS]
 
     def clear_cache(self):
         self.model.clear_cache()

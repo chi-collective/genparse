@@ -9,7 +9,7 @@ from torch import manual_seed
 from transformers import AutoTokenizer, set_seed
 
 from genparse import Float
-from genparse.cfglm import EarleyBoolMaskCFGLM
+from genparse.cfglm import BoolMaskCFGLM
 from genparse.lm import AsyncGreedilyTokenizedLLM
 from genparse.proposal import CharacterProposal, TokenProposal
 from genparse.steer import HFPPLSampler
@@ -118,7 +118,7 @@ prompts = [
 def main():
     character_cfg = LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?')
 
-    guide = EarleyBoolMaskCFGLM(character_cfg)
+    guide = BoolMaskCFGLM(character_cfg)
 
     BATCH_SIZE = 80
 
@@ -127,7 +127,7 @@ def main():
         model=hfppl_llm, tokenizer=tokenizer, batch_size=BATCH_SIZE
     )
 
-    guide = EarleyBoolMaskCFGLM(LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?'))
+    guide = BoolMaskCFGLM(LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?'))
     sampler = HFPPLSampler(llm=genparse_llm, guide=guide)
     if args.proposal == 'character':
         proposal = CharacterProposal(llm=genparse_llm, guide=guide)
