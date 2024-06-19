@@ -15,7 +15,7 @@ from genparse.proposal import CharacterProposal, TokenProposal
 from genparse.steer import HFPPLSampler
 from genparse.util import LarkStuff
 
-import vllm
+# from vllm import LLM, LLMEngine
 
 p = ArgumentParser()
 p.add_argument('--model', choices=['gpt2', 'codellama'], required=True)
@@ -40,38 +40,159 @@ manual_seed(RANDOM_SEED)
 
 
 # TODO:
-# replace hfppl_llm with vllm
+# 1. replace hfppl_llm with vllm
 # need to implement p_next / next_token_logprobs for vllm
+# 2. write VLLMParticle, VLLMSampler in steer.py
 
-# class vllmppl_llm(vllm):
-# ...
-#   def next_token_logprobs(xs):
-#       ...
+import vllm
+from typing import Optional, List, Union
+import time
+from vllm.engine.output_processor.util import create_output_by_sequence_group
+from vllm.engine.arg_utils import EngineArgs
+from vllm.utils import Counter
+from vllm.usage.usage_lib import UsageContext
+from vllm.outputs import (EmbeddingRequestOutput, RequestOutput,
+                          RequestOutputFactory)
+from vllm.sequence import ExecuteModelRequest
 
-class vllmppl_llm(vllm.VLLM):
 
-    def next_token_logprobs(self, xs):
+class ppl_LLMEngine(vllm.LLMEngine):
+    def next_token_logprobs(self):
+        logits, output = self.model_executor.execute_model(
+            execute_model_req=self.execute_model_req)
+        
+        return logits.log_softmax(dim=-1)
+
+
+    # def _process_model_outputs(
+    #     self,
+    #     output,
+    #     scheduled_seq_groups,
+    #     ignored_seq_groups,
+    #     seq_group_metadata_list,
+    # ):
+    #     """Apply the model output to the sequences in the scheduled seq groups.
+    #     Returns RequestOutputs that can be returned to the client.
+    #     """
+    #     now = time.time()
+
+    #     # Organize outputs by [sequence group][step] instead of
+    #     # [step][sequence group].
+    #     output_by_sequence_group = create_output_by_sequence_group(
+    #         output, num_seq_groups=len(scheduled_seq_groups))
+
+    #     # Update the scheduled sequence groups with the model outputs.
+    #     for scheduled_seq_group, outputs, seq_group_meta in zip(
+    #             scheduled_seq_groups, output_by_sequence_group,
+    #             seq_group_metadata_list):
+    #         seq_group = scheduled_seq_group.seq_group
+    #         seq_group.update_num_computed_tokens(
+    #             scheduled_seq_group.token_chunk_size)
+
+    #         # self.output_processor.process_prompt_logprob(seq_group, outputs)
+    #         # if seq_group_meta.do_sample:
+    #         #     # This is important. Update the generator state with sampled 
+    #         #     # token. Should leave the selection of next token to hfppl
+    #         #     self.output_processor.process_outputs(seq_group, outputs)
+
+    #     # Free the finished sequence groups.
+    #     self.scheduler.free_finished_seq_groups()
+
+    #     # # Create the outputs.
+    #     # request_outputs = []
+    #     # for scheduled_seq_group in scheduled_seq_groups:
+    #     #     seq_group = scheduled_seq_group.seq_group
+    #     #     seq_group.maybe_set_first_token_time(now)
+    #     #     request_output = RequestOutputFactory.create(seq_group)
+    #     #     request_outputs.append(request_output)
+    #     # for seq_group in ignored_seq_groups:
+    #     #     request_output = RequestOutputFactory.create(seq_group)
+    #     #     request_outputs.append(request_output)
+    #     return request_outputs
+
+class LogitsSampler(torch.nn.Module):
+    def __init__(self, base_sampler):
+        self.base_sampler = base_sampler
+        super().__init__()
+
+        self.include_gpu_probs_tensor = False
+
+    def forward(
+        self,
+        logits,
+        sampling_metadata,
+    ):
+        return logits, self.base_sampler(logits, sampling_metadata)
+
+
+class vllmppl_llm(vllm.LLM):
+
+    def __init__(
+        self,
+        model: str,
+        tokenizer: Optional[str] = None,
+        tokenizer_mode: str = "auto",
+        skip_tokenizer_init: bool = False,
+        trust_remote_code: bool = False,
+        tensor_parallel_size: int = 1,
+        dtype: str = "auto",
+        quantization: Optional[str] = None,
+        revision: Optional[str] = None,
+        tokenizer_revision: Optional[str] = None,
+        seed: int = 0,
+        gpu_memory_utilization: float = 0.9,
+        swap_space: int = 4,
+        enforce_eager: bool = False,
+        max_context_len_to_capture: Optional[int] = None,
+        max_seq_len_to_capture: int = 8192,
+        disable_custom_all_reduce: bool = False,
+        **kwargs,
+    ) -> None:
+        if "disable_log_stats" not in kwargs:
+            kwargs["disable_log_stats"] = True
+        engine_args = EngineArgs(
+            model=model,
+            tokenizer=tokenizer,
+            tokenizer_mode=tokenizer_mode,
+            skip_tokenizer_init=skip_tokenizer_init,
+            trust_remote_code=trust_remote_code,
+            tensor_parallel_size=tensor_parallel_size,
+            dtype=dtype,
+            quantization=quantization,
+            revision=revision,
+            tokenizer_revision=tokenizer_revision,
+            seed=seed,
+            gpu_memory_utilization=gpu_memory_utilization,
+            swap_space=swap_space,
+            enforce_eager=enforce_eager,
+            max_context_len_to_capture=max_context_len_to_capture,
+            max_seq_len_to_capture=max_seq_len_to_capture,
+            disable_custom_all_reduce=disable_custom_all_reduce,
+            **kwargs,
+        )
+        self.llm_engine = ppl_LLMEngine.from_engine_args(
+            engine_args, usage_context=UsageContext.LLM_CLASS)
+        # the sampler of the model
+        self.llm_engine.model_executor.driver_worker.model_runner.model.sampler = LogitsSampler(
+            self.llm_engine.model_executor.driver_worker.model_runner.model.sampler
+        )
+        self.request_counter = Counter()
+        self.eos = self.llm_engine.model_executor.driver_worker.model_runner.model.eos_token_id
+
+        # TODO: 
+        # modify methods to get the next token logprobs
+        # the core model
+        self.llm_engine.model_executor.driver_worker.model_runner.model
+        self.llm_engine._process_model_outputs
+
+    def next_token_logprobs(self,):
+        return self.llm_engine.next_token_logprobs()
+
+    def p_next(self, input_ids):        
         # call the vllm engine of VLLM
-        step_outputs = self.llm_engine.step()
-        # TODO:
-        # Check what's in step_outputs
-        for output in step_outputs:
-            if output.finished:
-                outputs.append(output)
-                if use_tqdm:
-                    if isinstance(output, RequestOutput):
-                        # Calculate tokens only for RequestOutput
-                        total_in_toks += len(output.prompt_token_ids)
-                        in_spd = total_in_toks / pbar.format_dict["elapsed"]
-                        total_out_toks += sum(
-                            len(stp.token_ids) for stp in output.outputs)
-                        out_spd = total_out_toks / pbar.format_dict[
-                            "elapsed"]
-                        pbar.postfix = (
-                            f"est. speed input: {in_spd:.2f} toks/s, "
-                            f"output: {out_spd:.2f} toks/s")
-                    pbar.update(1)
-        return self.model(xs)
+        return self.next_token_logprobs().exp()
+
+    
 
 if args.model == 'gpt2':
     import transformers

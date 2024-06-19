@@ -201,11 +201,156 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
         raise AssertionError(METHOD)
 
 
+class VLLMParticle(Model):
+    def __init__(self, llm, guide, proposal, prompt, max_tokens, verbosity=0):
+        from vllm.sampling_params import SamplingParams
+
+        super().__init__()
+        self.llm = llm # type: VLLM
+        # call the vllm engine of VLLM
+        inputs = self.llm._convert_v1_inputs(prompts=prompt, prompt_token_ids=None)
+        # add request for prompt
+        self.llm._validate_and_add_requests(
+            inputs=inputs,
+            params=SamplingParams(), # using default params because we only rely on logits
+            lora_request=None
+        )
+
+        self.guide = guide
+        self.prompt = prompt
+        self.context = []
+        self.proposal = proposal
+        self.max_tokens = max_tokens
+        self.verbosity = verbosity
+
+    async def step(self) -> List[Union[RequestOutput, EmbeddingRequestOutput]]:
+        from vllm.sequence import ExecuteModelRequest
+        seq_group_metadata_list, scheduler_outputs = self.llm.llm_engine.scheduler.schedule()
+
+        self.llm.llm_engine.execute_model_req = ExecuteModelRequest(
+            seq_group_metadata_list=seq_group_metadata_list,
+            blocks_to_swap_in=scheduler_outputs.blocks_to_swap_in,
+            blocks_to_swap_out=scheduler_outputs.blocks_to_swap_out,
+            blocks_to_copy=scheduler_outputs.blocks_to_copy,
+            num_lookahead_slots=scheduler_outputs.num_lookahead_slots,
+            running_queue_size=scheduler_outputs.running_queue_size,
+        )
+
+        # executing:
+        (token, weight_update) = await self.proposal.sample_next_token(
+            prompt=self.prompt,
+            context=''.join(self.context),
+            compare_time=(self.verbosity > 1),
+        )
+        self.context.append(token)
+        self.weight += np.log(weight_update)
+        self.max_tokens -= 1
+        if self.verbosity > 1:
+            print(f"`{token}` : {''.join(self.context)} : {self.weight}")
+
+        # TODO: fit token back into SampleOutput, so vllm can
+        # process it correctly
+        output = SamplerOutput(
+            outputs=sampler_output,
+        )
+
+        # post-processing. Do after sample is chosen
+        request_outputs = self.llm.llm_engine._process_model_outputs(
+            output, scheduler_outputs.scheduled_seq_groups,
+            scheduler_outputs.ignored_seq_groups, seq_group_metadata_list)
+
+        # Log stats.
+        self.llm.llm_engine.do_log_stats(scheduler_outputs, output)
+
+        if not request_outputs:
+            self.llm.llm_engine.model_executor.stop_remote_worker_execution_loop()
+
+        # if token == self.llm.eos or self.max_tokens == 0 or token == EOS:
+        #     self.finish()
+        #     return
+
+        return request_outputs
+
+    def immutable_properties(self):
+        return ['llm', 'prompt', 'guide', 'verbosity']
+
+    def __repr__(self):
+        return f"`{'' if not self.context else self.context[-1]}` : {''.join(self.context)} : {self.weight}"
+
+    def __str__(self):
+        return ''.join(self.context)
+
+
+class VLLMSampler:
+    def __init__(self, llm, guide):
+        """
+        Args:
+            llm (vllm.VLLM)
+            guide (LM)
+        Returns:
+            particle_approximation (ParticleApproximation)
+            record (dict | NoneType): information about the run
+        """
+        self.llm = llm
+        self.guide = guide
+
+    def run_inference(
+        self,
+        prompt,
+        proposal,
+        method,
+        n_particles,
+        n_beam=None,
+        max_tokens=float('inf'),
+        verbosity=0,
+        return_record=False,
+        seed=None,
+    ):
+        if seed is not None:
+            set_seed(seed)
+
+        model = VLLMParticle(
+            llm=self.llm,
+            guide=self.guide,
+            prompt=prompt,
+            proposal=proposal,
+            max_tokens=max_tokens,
+            verbosity=verbosity,
+        )
+
+        record = None
+        if method == 'smc-steer':
+            assert n_beam is not None
+            if return_record:
+                raise Warning('Record not yet implemented for smc-steer')
+            particles = asyncio.run(
+                smc_steer(model, n_particles=n_particles, n_beam=n_beam)
+            )
+
+        elif method == 'smc-standard':
+            if return_record:
+                particles, record = asyncio.run(
+                    smc_standard_record(
+                        model, n_particles=n_particles, return_record=return_record
+                    )
+                )
+            else:
+                particles = asyncio.run(smc_standard(model, n_particles=n_particles))
+
+        elif method == 'importance-sampling':
+            particles = asyncio.run(importance_sampling(model, n_particles=n_particles))
+
+        else:
+            raise ValueError(f'Unknown inference method: {method}.')
+
+        return ParticleApproximation(particles), record
+
+
+
 # ____________________________________________________________________________________
 # Approximate inference with HFPPL
 # This code is still experimental and actively being developed
 # TODO: write tests
-
 
 class HFPPLParticle(Model):
     """
