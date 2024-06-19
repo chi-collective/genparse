@@ -23,7 +23,7 @@ from genparse.inference import (
 )
 from genparse.lm import LM
 from genparse.semiring import Float
-from genparse.util import format_table, normalize, set_seed
+from genparse.util import format_table, set_seed
 
 
 class BruteForceGlobalProductOfExperts:
