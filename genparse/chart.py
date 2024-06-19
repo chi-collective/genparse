@@ -102,7 +102,10 @@ class Chart(dict):
         return min(self, key=self.__getitem__)
 
     def top(self, k):
-        return {k: self[k] for k in sorted(self, key=self.__getitem__, reverse=True)[:k]}
+        return Chart(
+            self.semiring,
+            {k: self[k] for k in sorted(self, key=self.__getitem__, reverse=True)[:k]},
+        )
 
     def max(self):
         return max(self.values())
