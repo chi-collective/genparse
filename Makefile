@@ -1,11 +1,12 @@
 SHELL := /usr/bin/env bash
 EXEC = python=3.10
 NAME = genparse
+TEST = tests
 RUN = python -m
 INSTALL = $(RUN) pip install
+SRC_FILES := $(shell find $(NAME) -name '*.py')
+TEST_FILES := $(shell find $(TEST) -name '*.py')
 .DEFAULT_GOAL := help
-SRC_FILES := $(shell find genparse -name '*.py')
-TEST_FILES := $(shell find tests -name '*.py')
 
 ## help      : print available commands.
 .PHONY : help
@@ -31,7 +32,7 @@ format : env
 ## docs      : build documentation.
 .PHONY : docs
 docs : env html/docs/index.html
-html/docs/index.html : $(NAME)/*.py
+html/docs/index.html : $(SRC_FILES)
 	@pdoc $(NAME) -o $(@D)
 
 ## test      : run linting and tests.
@@ -43,4 +44,4 @@ pytest : env html/coverage/index.html
 html/coverage/index.html : html/pytest/report.html
 	@coverage html -d $(@D)
 html/pytest/report.html : $(SRC_FILES) $(TEST_FILES)
-	@coverage run --branch -m pytest --html=$@ --self-contained-html tests/ genparse/
+	@coverage run --branch -m pytest --html=$@ --self-contained-html $(TEST)/ $(NAME)/
