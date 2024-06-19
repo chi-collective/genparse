@@ -7,7 +7,6 @@ from arsenal import iterview, timers, timeit, colors
 from arsenal.iterextras import unique
 from genparse.segmentation import prefixes
 
-# from genparse.cfglm import EarleyBoolMaskCFGLM
 from genparse.util import LarkStuff
 
 from genparse.experimental.earley import EarleyLM

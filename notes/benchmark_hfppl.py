@@ -7,14 +7,14 @@ PROMPT = """
     - "year" (integer)
     - "state_color" ("blue" or "red")
     - "zipcode" (integer)
-    - "vote" ("democrat" or "republican") 
+    - "vote" ("democrat" or "republican")
     - "race_ethnicity" ("white", "black", or "latino").
 
     Q: Write a SQL query that shows individuals' age and gender, for people over 50 years old.
     A: SELECT age, gender FROM data WHERE age>50 </s>
     Q: Write a SQL query that shows individuals' vote and zipcode, ordered from lowest to highest age.
     A: SELECT vote, zipcode, age FROM data ORDER BY age ASC </s>
-    Q: Write a SQL query that returns white voters' average age for each state color. 
+    Q: Write a SQL query that returns white voters' average age for each state color.
     A:"""
 
 VERY_RESTRICTED_SQL = r"""
@@ -39,16 +39,14 @@ VERY_RESTRICTED_SQL = r"""
 def main(
     model_name, proposal_name, batch_size, n_particles, method, max_tokens, verbosity
 ):
-    from genparse.cfglm import EarleyBoolMaskCFGLM
+    from genparse.cfglm import BoolMaskCFGLM
     from genparse.lm import AsyncGreedilyTokenizedLLM
     from genparse.proposal import CharacterProposal, TokenProposal
     from genparse.steer import HFPPLSampler
     from genparse.util import LarkStuff
 
     genparse_llm = AsyncGreedilyTokenizedLLM.from_name(model_name, batch_size=batch_size)
-    guide = EarleyBoolMaskCFGLM(
-        LarkStuff(VERY_RESTRICTED_SQL).char_cfg(0.99, ignore='[ ]?')
-    )
+    guide = BoolMaskCFGLM(LarkStuff(VERY_RESTRICTED_SQL).char_cfg(0.99, ignore='[ ]?'))
     sampler = HFPPLSampler(llm=genparse_llm, guide=guide)
     if proposal_name == 'character':
         proposal = CharacterProposal(llm=genparse_llm, guide=guide)

@@ -29,10 +29,16 @@ class LM:
         self.eos = eos
         self.V = V
 
-    # TODO: give a default implementation in terms of p_next
     def __call__(self, ys):
         "Compute the probability of a complete string."
-        raise NotImplementedError()
+        assert ys[-1] == self.eos
+        P = 1
+        for i, y in enumerate(ys):
+            assert y in self.V
+            P *= self.p_next(ys[:i]).normalize()[y]
+            if P == 0:
+                break
+        return P
 
     def p_next(self, context):
         "Compute the (conditional) distribution over the next token given the `prefix`."
@@ -72,8 +78,7 @@ class LLM(LM):
         self._cache = {}
 
         # TODO: add the vocabulary and EOS symbols!
-
-    #        super().__init__(set(range()), eos=eos)
+        # super().__init__(set(range()), eos=eos)
 
     def __call__(self, input_ids):
         if isinstance(input_ids, list):
@@ -281,6 +286,11 @@ class AsyncGreedilyTokenizedLLM(LM):
 
 
 class LazyProb:
+    """
+    This class is used to efficiently associate string with the indices of LLM's
+    tokens distribution over next tokens.
+    """
+
     def __init__(self, _p: torch.tensor, encode: dict[str, int], decode: dict[int, str]):
         self._p = _p
         self._encode = encode
@@ -339,9 +349,9 @@ class MockLLM(LM):
     def p_next(self, _):
         return LazyProb(self._p, self._encode, self._decode)
 
-    #    def __call__(self, x):
-    #        assert x[-1] == self.eos
-    #        return (1 / len(self.V)) ** len(x)
+    # def __call__(self, x):
+    #    assert x[-1] == self.eos
+    #    return (1 / len(self.V)) ** len(x)
 
     def clear_cache(self):
         pass
