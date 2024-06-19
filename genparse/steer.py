@@ -68,7 +68,7 @@ class generation_tree:
         D = Float.chart()
         while tracer.root.mass > 0:
             with tracer:
-                s, p = lm.sample(draw=tracer, prob=True, **opts)
+                s, p = lm.sample(draw=tracer, **opts)
                 D[s] += p
         D = Float.chart((k, D[k]) for k in sorted(D))
         self.D = D

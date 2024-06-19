@@ -53,7 +53,9 @@ class CharacterProposal(TokenCharacterTrie):
 
         super().__init__(words, encode=llm._encode, old_eos=llm.eos, new_eos=guide.eos)
 
-    def sample(self, prompt, max_tokens=float('inf'), verbosity=0, **kwargs):
+    def sample(
+        self, prompt, max_tokens=float('inf'), verbosity=0, draw=sample_dict, **kwargs
+    ):
         context = ''
         W = 1
         t = 0
@@ -65,7 +67,7 @@ class CharacterProposal(TokenCharacterTrie):
                 with self.timer['cfg+trie'](t=len(context)):
                     self._update_trie(p_llm)
                     token, weight_update = self._guided_sample_trie(
-                        self.root, context, verbosity=verbosity, **kwargs
+                        context, verbosity=verbosity, draw=draw, **kwargs
                     )
             else:
                 token = self.guide.eos
@@ -78,7 +80,6 @@ class CharacterProposal(TokenCharacterTrie):
             context += token
         if verbosity > 0:
             print()
-        self.timer.compare()
         return (context, W)
 
     async def sample_next_token(
@@ -88,6 +89,7 @@ class CharacterProposal(TokenCharacterTrie):
         verbosity=0,
         compare_time=False,
         correct_weights=True,
+        draw=sample_dict,
         **kwargs,
     ):
         """
@@ -110,11 +112,11 @@ class CharacterProposal(TokenCharacterTrie):
             self._update_trie(p_llm)
             if correct_weights:
                 (token, weight_update) = self._guided_sample_trie(
-                    self.root, context, verbosity=verbosity, **kwargs
+                    context, verbosity=verbosity, draw=draw, **kwargs
                 )
             else:
                 (token, weight_update) = self._guided_sample_trie_uncorrected(
-                    self.root, context, verbosity=verbosity, **kwargs
+                    context, verbosity=verbosity, draw=draw, **kwargs
                 )
         if compare_time:
             self.timer.compare()
@@ -141,7 +143,7 @@ class CharacterProposal(TokenCharacterTrie):
 
         return cpy
 
-    def _guided_sample_trie(self, root, context, draw=sample_dict, verbosity=0):
+    def _guided_sample_trie(self, context, draw, verbosity=0):
         """
         This function samples a token from the trie and computes the incremental weight update.
 
@@ -157,7 +159,7 @@ class CharacterProposal(TokenCharacterTrie):
             5. Set the incremental SMC weight update $w^\prime(x) = \sum_{x \in S} w(x)$
 
         """
-        curr = root
+        curr = self.root
         path = []
 
         inclusion_prob = 1  # path prefix probability
@@ -236,9 +238,7 @@ class CharacterProposal(TokenCharacterTrie):
 
         return (token, weight_update)
 
-    def _guided_sample_trie_uncorrected(
-        self, root, context, draw=sample_dict, verbosity=0
-    ):
+    def _guided_sample_trie_uncorrected(self, context, draw, verbosity=0):
         """
         This function samples a token from the trie and computes the incremental weight update.
 
@@ -247,7 +247,7 @@ class CharacterProposal(TokenCharacterTrie):
         and S is the path through the trie from which x is sampled.
 
         """
-        curr = root
+        curr = self.root
         path = []
         guide_prob = 1
         proposal_prob = 1
