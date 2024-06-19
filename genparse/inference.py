@@ -123,6 +123,16 @@ async def smc_steer(model, n_particles, n_beam):
             super_particles[i].weight = (
                 total_weight - np.log(c) + np.log(n_particles) - np.log(n_total)
             )
+        
+        if verbosity > 0:
+            print('│└ 'f'resample_optimal: det={det_indices}, stoch={stoch_indices}, c={c}')
+            for i, p in enumerate(particles):
+                print(
+                    f'├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}'
+                )
+            avg_weight = logsumexp(np.array([p.weight for p in particles])) - np.log(n_particles)
+            print(f'└╼ Step {step_num:3d} average weight: {avg_weight:.4f}')
+            step_num += 1
 
         if verbosity > 0:
             print(
