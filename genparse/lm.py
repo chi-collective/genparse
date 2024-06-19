@@ -37,7 +37,7 @@ class LM:
         "Compute the (conditional) distribution over the next token given the `prefix`."
         raise NotImplementedError()
 
-    def sample(self, ys=(), draw=sample_dict, prob=False, verbose=0, max_tokens=np.inf):
+    def sample(self, ys=(), draw=sample_dict, prob=True, verbose=0, max_tokens=np.inf):
         P = 1.0
         t = 0
         while True:

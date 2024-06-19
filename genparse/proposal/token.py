@@ -47,7 +47,7 @@ class TokenProposal(TokenCharacterTrie):
             return Float.chart(take(K, self.traverse_trie(context, p_llm))).normalize()
 
     async def sample_next_token(
-        self, prompt, context, verbosity=0, compare_time=False, **kwargs
+        self, prompt, context, verbosity=0, compare_time=False, draw=sample_dict, **kwargs
     ):
         with self.timer['llm'](t=len(context)):
             p_llm = await self.llm.p_next(prompt + context)
@@ -56,7 +56,7 @@ class TokenProposal(TokenCharacterTrie):
             Q = Float.chart(
                 take(self.K - 1, self.traverse_trie(context, p_llm))
             ).normalize()
-            token = sample_dict(Q)
+            token = draw(Q)
 
             llm_prob = p_llm[self.old_eos if token == self.new_eos else token]
             guide_prob = self._p_guide[token]
