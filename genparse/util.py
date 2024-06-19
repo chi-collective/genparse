@@ -58,12 +58,12 @@ class hf_tokenizer:
         return bpe_wfst(self.pairs)
 
 
-def normalize(p):
-    Z = sum(p[x] for x in p)
-    q = p.copy()
-    for x in q:
-        q[x] /= Z
-    return q
+# def normalize(p):
+#    Z = sum(p[x] for x in p)
+#    q = p.copy()
+#    for x in q:
+#        q[x] /= Z
+#    return q
 
 
 def bpe2term_approx(tokenizer, bpe_sequence):
