@@ -4,6 +4,8 @@ from functools import cached_property
 
 from IPython.display import HTML, display
 
+from genparse.tokenization import decode_tokenizer_vocab
+
 import numpy as np
 import random
 import torch
@@ -41,11 +43,7 @@ class hf_tokenizer:
         # token from the HF tokenizers.
 
         # tokenizer.convert_ids_to_tokens
-        self.decode = [
-            self.tokenizer.convert_ids_to_tokens(i).replace('Ġ', ' ')
-            for i in range(self.tokenizer.vocab_size)
-        ]
-
+        self.decode = decode_tokenizer_vocab(self.tokenizer)
         # string <-> token id mappings
         # self.str2int = dict(self.tokenizer.vocab)
         # self.int2str = {v: k for k, v in self.tokenizer.vocab.items()}
