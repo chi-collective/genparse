@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Evaluate spider on llama2-chat models without any grammar restriction."""
+"""Evaluate spider on vLLM Llama models without any grammar restriction."""
 
 import argparse
 import logging
 import os
 from pathlib import Path
 
-import torch
+from openai import OpenAI
 from tqdm import tqdm
-from transformers import AutoTokenizer, pipeline
 
 from bench.spider.dialogue import load_spider_data
 from bench.spider.schema import load_schemas
@@ -22,8 +21,12 @@ def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--n-query', type=int, default=100)
-    parser.add_argument('--model-size', type=str, default='7b', choices=['7b', '13b'])
-    parser.add_argument('--exp-name', type=str, default='7b-100')
+    parser.add_argument('--model-name', type=str,
+                        default="meta-llama/Meta-Llama-3-8B-Instruct",
+                        choices=["meta-llama/Meta-Llama-3-8B-Instruct"])
+    parser.add_argument('--exp-name', type=str, default='llama3-8b-100')
+    parser.add_argument("--api-base", type=str, default="http://localhost:9999/v1")
+    parser.add_argument("--api-key", type=str, default="EMPTY")
 
     return parser
 
@@ -34,10 +37,12 @@ def main():
         datefmt='%Y-%m-%d %H:%M:%S',
         level=os.environ.get('LOGLEVEL', 'INFO').upper(),
     )
+    # disable unnecessary logs from httpx used by openai client
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     parser = get_parser()
     args = parser.parse_args()
-    torch.manual_seed(0)
 
+    logger.info("loading spider data...")
     raw_spider_dir = Path('bench/spider/data/spider')
     spider_schemas = load_schemas(
         schemas_path=raw_spider_dir / 'tables.json', db_path=raw_spider_dir / 'database'
@@ -45,44 +50,53 @@ def main():
 
     spider_dev_data = load_spider_data(raw_spider_dir / 'dev.json')
     spider_train_data = load_spider_data(raw_spider_dir / 'train_spider.json')
+    logger.info("spider data loaded.")
+
     prompt_formatter = SpiderPromptFormatter(spider_train_data, spider_schemas)
 
-    model = 'meta-llama/Llama-2-7b-chat-hf'
-    model = model.replace('7b', args.model_size)
-    access_token = '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'
-    logger.info(f'using model {model}')
-
-    # tokenizer = AutoTokenizer.from_pretrained(model, token=access_token)
-    pipe = pipeline(
-        'text-generation',
-        model=model,
-        model_kwargs={'load_in_8bit': True},
-        torch_dtype=torch.float16,
-        device_map='auto',
-        token=access_token,
+    logger.info(f"Creating client for '{args.model_name}' served at {args.api_base}")
+    client = OpenAI(
+        api_key=args.api_key,
+        base_url=args.api_base,
     )
-
     n_query = args.n_query
 
     gold = []
     predicted = []
 
     for i, dev_datum in tqdm(enumerate(spider_dev_data[:n_query]), total=n_query):
-        prompt = prompt_formatter.format_llama2(dev_datum)
-        if i == 0:
+        messages = prompt_formatter.format_openai(dev_datum)
+
+        if i == 0:  # print an example for demonstration
             print('=' * 30 + ' Example prompt ' + '=' * 30)
-            print(prompt)
+            for msg in messages:
+                print(msg["role"] + ":")
+                print("=" * (len(msg["role"])+1))
+                print(msg["content"])
+                print("-" * 100)
             print('=' * 30 + '  End of prompt ' + '=' * 30)
-        output = pipe(prompt, do_sample=False, top_p=None, temperature=None)
+
+        chat_response = client.chat.completions.create(
+            model=args.model_name,
+            # model="mistralai/Mistral-7B-Instruct-v0.1",
+            messages=messages,
+            seed=0
+        )
         gold.append(dev_datum)
-        predicted.append(output[0]['generated_text'][len(prompt) :])
+        predicted.append(chat_response.choices[0].message.content)
 
     gold = spider_dev_data[:n_query]
-    with open(f'bench/spider-eval/gold-{args.exp_name}.txt', 'w+') as f:
+
+    gold_outfile = f'bench/spider-eval/gold-{args.exp_name}.txt'
+    pred_outfile = f'bench/spider-eval/predicted-{args.exp_name}.txt'
+
+    logger.info(f"saving output to {gold_outfile} and {pred_outfile}")
+
+    with open(gold_outfile, 'w+') as f:
         for datum in gold:
             print(f'{datum.query}\t{datum.schema_name}', file=f)
 
-    with open(f'bench/spider-eval/predicted-{args.exp_name}.txt', 'w+') as f:
+    with open(pred_outfile, 'w+') as f:
         for datum in predicted:
             datum = datum.replace('\n', ' ')
             assert '\t' not in datum
