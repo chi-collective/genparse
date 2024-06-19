@@ -41,30 +41,30 @@ def locally_normalize(self, **kwargs):
     return new
 
 
+# class BoolMaskCFGLM(LM):
+#    "LM-like interface for Boolean-masking CFG models; uses CKY for inference."
+#
+#    def __init__(self, cfg):
+#        if EOS not in cfg.V:
+#            cfg = add_EOS(cfg)
+#        if cfg.R != Boolean:
+#            cfg = cfg.map_values(lambda x: Boolean(x > 0), Boolean)
+#        self.model = CFGLM(cfg)
+#        super().__init__(eos=self.model.eos, V=self.model.V)
+#
+#    def p_next(self, context):
+#        p = self.model.p_next(context).trim()
+#        return Float.chart({w: 1 for w in p})
+#
+#    def __call__(self, context):
+#        assert context[-1] == EOS
+#        return float(self.model(context) != Boolean.zero)
+#
+#    def clear_cache(self):
+#        self.model.clear_cache()
+
+
 class BoolMaskCFGLM(LM):
-    "LM-like interface for Boolean-masking CFG models; uses CKY for inference."
-
-    def __init__(self, cfg):
-        if EOS not in cfg.V:
-            cfg = add_EOS(cfg)
-        if cfg.R != Boolean:
-            cfg = cfg.map_values(lambda x: Boolean(x > 0), Boolean)
-        self.model = CFGLM(cfg)
-        super().__init__(eos=self.model.eos, V=self.model.V)
-
-    def p_next(self, context):
-        p = self.model.p_next(context).trim()
-        return Float.chart({w: 1 for w in p})
-
-    def __call__(self, context):
-        assert context[-1] == EOS
-        return float(self.model(context) != Boolean.zero)
-
-    def clear_cache(self):
-        self.model.clear_cache()
-
-
-class EarleyBoolMaskCFGLM(LM):
     "LM-like interface for Boolean-masking CFG models; uses Earley's algorithm for inference."
 
     def __init__(self, cfg):
@@ -87,6 +87,9 @@ class EarleyBoolMaskCFGLM(LM):
 
     def clear_cache(self):
         self.model.clear_cache()
+
+
+EarleyBoolMaskCFGLM = BoolMaskCFGLM
 
 
 class CFGLM(LM):

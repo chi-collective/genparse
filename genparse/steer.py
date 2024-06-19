@@ -23,23 +23,7 @@ from genparse.inference import (
 )
 from genparse.lm import LM
 from genparse.semiring import Float
-from genparse.util import format_table, normalize
-
-# ____________________________________________________________________________________
-#
-
-
-def set_seed(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    transformers.set_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-
-# ____________________________________________________________________________________
-#
+from genparse.util import format_table, normalize, set_seed
 
 
 class BruteForceGlobalProductOfExperts:
@@ -78,49 +62,45 @@ class generation_tree:
         return format_table([[self.D, self.tracer]])
 
 
-# ____________________________________________________________________________________
+# class LocalProduct(LM):
+#    """This class implements a *local* product of experts, an LM that is derived by
+#    multiplying the conditional distributions of each token in a pair of
+#    token-synchronized LM.
 #
-
-
-class LocalProduct(LM):
-    """This class implements a *local* product of experts, an LM that is derived by
-    multiplying the conditional distributions of each token in a pair of
-    token-synchronized LM.
-
-    Typically, `LocalProduct` is a baseline method or a proposal distribution
-    for the *global* product of experts.
-
-    [Some people call LocalProduct the "locally optimal proposal distribution" -
-    what does it actually optimize?]
-
-    """
-
-    def __init__(self, lm1, lm2):
-        self.lm1 = lm1
-        self.lm2 = lm2
-        assert lm1.V == lm2.V
-        assert lm1.eos == lm2.eos
-        super().__init__(V=lm1.V, eos=lm1.eos)
-
-    def __call__(self, ys):
-        assert ys[-1] == self.eos
-        p = 1
-        for t in range(len(ys)):
-            p *= self.p_next(ys[:t])[ys[t]]
-        return p
-
-    def p_next(self, ys):
-        p1 = self.lm1.p_next(ys)
-        p2 = self.lm2.p_next(ys)
-
-        # TODO: p_next should already be normalized!  Skipping the normalization
-        # below would allow energy-based models.
-        p1 = normalize(p1)
-        p2 = normalize(p2)
-
-        # Below, we could alternatively use p2's support; any `k` that's not in
-        # both must have probability zero.
-        return (p1 * p2).normalize()
+#    Typically, `LocalProduct` is a baseline method or a proposal distribution
+#    for the *global* product of experts.
+#
+#    [Some people call LocalProduct the "locally optimal proposal distribution" -
+#    what does it actually optimize?]
+#
+#    """
+#
+#    def __init__(self, lm1, lm2):
+#        self.lm1 = lm1
+#        self.lm2 = lm2
+#        assert lm1.V == lm2.V
+#        assert lm1.eos == lm2.eos
+#        super().__init__(V=lm1.V, eos=lm1.eos)
+#
+#    def __call__(self, ys):
+#        assert ys[-1] == self.eos
+#        p = 1
+#        for t in range(len(ys)):
+#            p *= self.p_next(ys[:t])[ys[t]]
+#        return p
+#
+#    def p_next(self, ys):
+#        p1 = self.lm1.p_next(ys)
+#        p2 = self.lm2.p_next(ys)
+#
+#        # TODO: p_next should already be normalized!  Skipping the normalization
+#        # below would allow energy-based models.
+#        p1 = normalize(p1)
+#        p2 = normalize(p2)
+#
+#        # Below, we could alternatively use p2's support; any `k` that's not in
+#        # both must have probability zero.
+#        return (p1 * p2).normalize()
 
 
 # _______________________________________________________________________________
@@ -488,27 +468,29 @@ class HFPPLSampler:
         else:
             raise ValueError(f'Unknown inference method: {method}.')
 
-        return ParticleApproximation(particles), record
+        return ParticleApproximation(particles, record=record)
 
 
 class ParticleApproximation:
-    def __init__(self, particles):
+    def __init__(self, particles, record=None):
         self.particles = particles
         self.log_weights = [p.weight for p in self.particles]
         self.log_ml = logsumexp(self.log_weights) - np.log(len(self.log_weights))
-        self._compute_posterior()
+        self.record = record
+
+        posterior = Float.chart()
+        for p in self.particles:
+            posterior[''.join(p.context)] += np.exp(p.weight)
+        self.posterior = posterior.normalize()
 
     def __iter__(self):
         return iter(self.particles)
-
-    def _compute_posterior(self):
-        self.posterior = Float.chart()
-        for p in self.particles:
-            self.posterior[str(p)] += np.exp(p.weight)
-        self.posterior = self.posterior.normalize()
 
     def sample(self, n=None, draw=sample_dict):
         if n is None:
             return draw(self.posterior)
         else:
             return [draw(self.posterior) for _ in range(n)]
+
+    def __repr__(self):
+        return repr(self.posterior)
