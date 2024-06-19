@@ -142,20 +142,20 @@ def main():
             print(colors.cyan % colors.line(100))
             print(colors.cyan % sql_prompt)
 
-            particles, record = sampler.run_inference(
+            particles = sampler.run_inference(
                 prompt=prompt,
                 proposal=proposal,
                 method=args.inference,
                 n_particles=args.particles,
                 max_tokens=args.max_tokens,
                 verbosity=args.verbosity,
-                return_record=True,
+                return_record=False,
             )
 
-            if args.particles > 1 and record is not None:
-                fig = record.plot_particles_trajectory()
-                fig.write_html('viz.html')
-                print('wrote to viz.html')
+            # if args.particles > 1 and record is not None:
+            #    fig = record.plot_particles_trajectory()
+            #    fig.write_html('viz.html')
+            #    print('wrote to viz.html')
 
             print(colors.yellow % 'character posterior')
             posterior = Float.chart()
