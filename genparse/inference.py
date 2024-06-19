@@ -63,11 +63,16 @@ async def smc_steer(model, n_particles, n_beam):
     Returns:
         particles (list[hfppl.modeling.Model]): The completed particles after inference.
     """
+    verbosity = model.verbosity if hasattr(model, 'verbosity') else 0
+
     # Create n_particles copies of the model
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
 
     for particle in particles:
         particle.start()
+
+    if verbosity > 0:
+        step_num = 1
 
     while any(map(lambda p: not p.done_stepping(), particles)):
         # Count the number of finished particles
@@ -91,21 +96,43 @@ async def smc_steer(model, n_particles, n_beam):
         )
 
         # Use optimal resampling to resample
-        W = np.array([p.weight for p in super_particles])
-        W_tot = logsumexp(W)
-        W_normalized = softmax(W)
-        det_indices, stoch_indices, c = resample_optimal(W_normalized, n_particles)
+        weights = np.array([p.weight for p in super_particles])
+        total_weight = logsumexp(weights)
+        normalized_weights = softmax(weights)
+        det_indices, stoch_indices, c = resample_optimal(normalized_weights, n_particles)
+
+        if verbosity > 0:
+            for i, p in enumerate(particles):
+                print(
+                    f'├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}'
+                )
+            for i, p in enumerate(super_particles):
+                print(
+                    f'│├ Super-particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}'
+                )
+
         particles = [
             super_particles[i] for i in np.concatenate((det_indices, stoch_indices))
         ]
+
         # For deterministic particles: w = w * N/N'
         for i in det_indices:
             super_particles[i].weight += np.log(n_particles) - np.log(n_total)
         # For stochastic particles: w = 1/c * total       sum(stoch weights) / num_stoch = sum(stoch weights / total) / num_stoch * total * N/M
         for i in stoch_indices:
             super_particles[i].weight = (
-                W_tot - np.log(c) + np.log(n_particles) - np.log(n_total)
+                total_weight - np.log(c) + np.log(n_particles) - np.log(n_total)
             )
+        
+        if verbosity > 0:
+            print('│└ 'f'resample_optimal: det={det_indices}, stoch={stoch_indices}, c={c}')
+            for i, p in enumerate(particles):
+                print(
+                    f'├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}'
+                )
+            avg_weight = logsumexp(np.array([p.weight for p in particles])) - np.log(n_particles)
+            print(f'└╼ Step {step_num:3d} average weight: {avg_weight:.4f}')
+            step_num += 1
 
     # Return the particles
     return particles
@@ -174,6 +201,8 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
         particles (list[hfppl.modeling.Model]): The completed particles after inference.
     """
     verbosity = model.verbosity if hasattr(model, 'verbosity') else 0
+
+    # Create n_particles copies of the model
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
 
     for particle in particles:
@@ -199,7 +228,6 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
                     f'├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}'
                 )
             avg_weight = total_weight - np.log(n_particles)
-            print(f'│ Step {step_num:3d} average weight: {avg_weight:.4f}')
             step_num += 1
 
         # Resample if necessary
@@ -244,6 +272,8 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
         record (SMCRecord): Information about inference run history.
     """
     verbosity = model.verbosity if hasattr(model, 'verbosity') else 0
+
+    # Create n_particles copies of the model
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
 
     for particle in particles:
