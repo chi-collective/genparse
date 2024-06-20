@@ -7,12 +7,11 @@ from genparse.cfglm import CFGLM, BoolMaskCFGLM, locally_normalize
 from genparse.lm import GreedilyTokenizedLLM
 from genparse.proposal import CharacterProposal
 from genparse.semiring import Float
-from genparse.util import LarkStuff
+from genparse.util import LarkStuff, set_seed
 
 
 def test_timothy():
-    np.random.seed(0)
-    random.seed(0)
+    set_seed(0)
 
     pcfg = CFGLM(
         locally_normalize(
@@ -43,8 +42,7 @@ def test_timothy():
 
 
 def todo_chomsky():
-    np.random.seed(0)
-    random.seed(0)
+    set_seed(0)
 
     pcfg = CFGLM(
         locally_normalize(
@@ -53,7 +51,7 @@ def todo_chomsky():
 
     start: /Noam[ ]Chomsky[ ]famously[ ]wrote,[ ]"/ expr /\."/
 
-//    expr: /[A-Za-z0-9,; ]+/
+    //expr: /[A-Za-z0-9,; ]+/
     expr: /[Tt]ime[ ]flies[ ]like[ ]an[ ]arrow/
         | /[iI][ ]like[ ]to[ ]dance/
         | /[cC]olorless[ ]green[ ]ideas[ ]sleep[ ]furiously/
@@ -91,55 +89,6 @@ def todo_chomsky():
     #    from IPython import embed; embed()
 
     prompt = ' '
-    llm = GreedilyTokenizedLLM('gpt2')
-
-    W = Float.chart()
-
-    proposal = CharacterProposal(llm=llm, guide=pcfg)
-    for _ in range(10):
-        print('----------------------------------')
-        with timeit('sample'):
-            ys, _, w = proposal.sample(prompt, verbosity=1)
-
-        W[ys] += w
-
-        print(colors.light.yellow % 'sample:', ys)
-
-        print(W.normalize())
-
-
-def todo_fruit():
-    np.random.seed(0)
-    random.seed(0)
-
-    pcfg = CFGLM(
-        locally_normalize(
-            LarkStuff(
-                r"""
-    start: (|" ") sentence
-
-    sentence: noun verb noun
-            | noun verb "like" noun
-
-    noun: det adj? NOUN
-    verb: VERB
-    adj: ADJ
-    det: "a" | "the"
-
-    NOUN: "flies" | "banana" | "fruit"
-    VERB: "like" | "flies"
-    ADJ: "smelly"
-
-    """
-            ).char_cfg(0.99, ignore='[ ]?'),
-            tol=1e-100,
-        )
-    )
-
-    pcfg = BoolMaskCFGLM(pcfg.cfg)
-
-    prompt = 'The following is a favorite sentence among linguists:'
-
     llm = GreedilyTokenizedLLM('gpt2')
 
     W = Float.chart()

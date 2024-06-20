@@ -4,6 +4,116 @@ from functools import cached_property
 
 from IPython.display import HTML, display
 
+from genparse.tokenization import decode_tokenizer_vocab
+
+import numpy as np
+import random
+import torch
+import transformers
+
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    transformers.set_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def lark_guide(grammar, decay=1, ignore=''):
+    from genparse.cfglm import BoolMaskCFGLM
+
+    return BoolMaskCFGLM(LarkStuff(grammar).char_cfg(decay, ignore=ignore))
+
+
+def load_model_by_name(model_name, batch_size=None):
+    import transformers
+    from hfppl import CachedCausalLM
+    from genparse.lm import AsyncGreedilyTokenizedLLM, LLM
+
+    if model_name == 'gpt2':
+        MODEL_ID = 'gpt2'
+        return AsyncGreedilyTokenizedLLM(
+            model=LLM(transformers.AutoModelForCausalLM.from_pretrained(MODEL_ID)),
+            tokenizer=transformers.AutoTokenizer.from_pretrained(MODEL_ID),
+            batch_size=batch_size,
+        )
+
+    elif model_name == 'codellama':
+        assert torch.cuda.is_available()
+        MODEL_ID = 'codellama/CodeLlama-7b-Instruct-hf'
+        return AsyncGreedilyTokenizedLLM(
+            model=CachedCausalLM.from_pretrained(MODEL_ID, load_in_8bit=False),
+            tokenizer=transformers.AutoTokenizer.from_pretrained(
+                MODEL_ID,
+                use_fast=True,
+                eot_token=None,
+                fill_token=None,
+                prefix_token=None,
+                middle_token=None,
+                suffix_token=None,
+            ),
+            batch_size=batch_size,
+        )
+
+    else:
+        raise ValueError(model_name)
+
+
+class InferenceSetup:
+    def __init__(self, model_name, grammar, proposal_name='character', seed=None):
+        from genparse.steer import HFPPLSampler
+        from genparse.proposal import CharacterProposal, TokenProposal
+
+        if seed is not None:
+            set_seed(seed)
+
+        llm = load_model_by_name(model_name)
+        guide = lark_guide(grammar)
+        sampler = HFPPLSampler(llm=llm, guide=guide)
+
+        if proposal_name == 'character':
+            proposal = CharacterProposal(llm=llm, guide=guide)
+        elif proposal_name == 'token':
+            proposal = TokenProposal(llm=llm, guide=guide)
+        else:
+            raise ValueError(f'invalid proposal name {proposal!r}')
+
+        self.sampler = sampler
+        self.proposal = proposal
+
+    def __call__(
+        self, prompt, n_particles, method='smc-standard', max_tokens=1000, **kwargs
+    ):
+        return self.sampler.run_inference(
+            prompt=prompt,
+            proposal=self.proposal,
+            method=method,
+            n_particles=n_particles,
+            max_tokens=max_tokens,
+            **kwargs,
+        )
+
+
+#        if args.particles > 1 and record is not None:
+#            fig = record.plot_particles_trajectory()
+#            fig.write_html('viz.html')
+#            print('wrote to viz.html')
+#
+#        print(colors.yellow % 'character posterior')
+#        posterior = Float.chart()
+#        for p in particles:
+#            posterior[''.join(p.context).strip()] += np.exp(p.weight)
+#        print(posterior.normalize())
+#
+#        if 0:
+#            print(colors.yellow % 'token posterior')
+#            posterior = Float.chart()
+#            for p in particles:
+#                posterior[tuple(p.context)] += np.exp(p.weight)
+#            print(posterior.normalize())
+
 
 class hf_tokenizer:
     def __init__(self, name='gpt2', **kwargs):
@@ -27,11 +137,7 @@ class hf_tokenizer:
         # token from the HF tokenizers.
 
         # tokenizer.convert_ids_to_tokens
-        self.decode = [
-            self.tokenizer.convert_ids_to_tokens(i).replace('Ġ', ' ')
-            for i in range(self.tokenizer.vocab_size)
-        ]
-
+        self.decode = decode_tokenizer_vocab(self.tokenizer)
         # string <-> token id mappings
         # self.str2int = dict(self.tokenizer.vocab)
         # self.int2str = {v: k for k, v in self.tokenizer.vocab.items()}
@@ -46,12 +152,12 @@ class hf_tokenizer:
         return bpe_wfst(self.pairs)
 
 
-def normalize(p):
-    Z = sum(p[x] for x in p)
-    q = p.copy()
-    for x in q:
-        q[x] /= Z
-    return q
+# def normalize(p):
+#    Z = sum(p[x] for x in p)
+#    q = p.copy()
+#    for x in q:
+#        q[x] /= Z
+#    return q
 
 
 def bpe2term_approx(tokenizer, bpe_sequence):
@@ -436,150 +542,3 @@ def format_table(rows, headings=None):
 
 def display_table(*args, **kwargs):
     return display(HTML(format_table(*args, **kwargs)))
-
-
-class Node:
-    """
-    This class represents a node in the directed acyclic word graph (DAWG). It
-    has a list of edges to other nodes. It has functions for testing whether it
-    is equivalent to another node. Nodes are equivalent if they have identical
-    edges, and each identical edge leads to identical states. The __hash__ and
-    __eq__ functions allow it to be used as a key in a python dictionary.
-    """
-
-    NextId = 0
-
-    def __init__(self):
-        self.id = Node.NextId
-        Node.NextId += 1
-        self.final = False
-        self.edges = {}
-
-    def __getitem__(self, x):
-        return self.edges[x]
-
-    def __setitem__(self, x, v):
-        self.edges[x] = v
-
-    def __str__(self):
-        arr = []
-        if self.final:
-            arr.append('1')
-        else:
-            arr.append('0')
-        for label, node in self.edges.items():
-            arr.append(label)
-            arr.append(str(node.id))
-        return '_'.join(arr)
-
-    def __hash__(self):
-        return hash(str(self))
-
-    def __eq__(self, other):
-        return str(self) == str(other)
-
-
-class DAWG:
-    """
-    Directed acyclic word graph (DAWG).
-
-    Original implementation by Steve Hanov, 2011.
-    http://stevehanov.ca/blog/?id=115
-    """
-
-    def __init__(self):
-        self.root = Node()
-
-    @classmethod
-    def build(cls, words):
-        d = DAWG()
-
-        # Here is a list of nodes that have not been checked for duplication.
-        uncheckedNodes = []
-        # Here is a list of unique nodes that have been checked for
-        # duplication.
-        minimizedNodes = {}
-
-        def _minimize(downTo):
-            # proceed from the leaf up to a certain point
-            for i in reversed(range(downTo, len(uncheckedNodes))):
-                (parent, letter, child) = uncheckedNodes[i]
-                if child in minimizedNodes:
-                    # replace the child with the previously encountered one
-                    parent[letter] = minimizedNodes[child]
-                else:
-                    # add the state to the minimized nodes.
-                    minimizedNodes[child] = child
-                uncheckedNodes.pop()
-
-        previousWord = ''
-        for word in sorted(words):
-            # assert previousWord <= word, "Words must be inserted in alphabetical order."
-
-            # find common prefix between word and previous word
-            commonPrefix = common_prefix(previousWord, word)
-
-            # Check the uncheckedNodes for redundant nodes, proceeding from last
-            # one down to the common prefix size. Then truncate the list at that
-            # point.
-            _minimize(commonPrefix)
-
-            # add the suffix, starting from the correct node mid-way through the
-            # graph
-            if len(uncheckedNodes) == 0:
-                node = d.root
-            else:
-                node = uncheckedNodes[-1][2]
-
-            for letter in word[commonPrefix:]:
-                nextNode = Node()
-                node[letter] = nextNode
-                uncheckedNodes.append((node, letter, nextNode))
-                node = nextNode
-
-            node.final = True
-            previousWord = word
-
-        _minimize(0)
-
-        return d
-
-    def lookup(self, word):
-        node = self.root
-        for letter in word:
-            if letter not in node.edges:
-                return False
-            node = node.edges[letter]
-        return node.final
-
-
-def common_prefix(x, y):
-    p = 0
-    for i in range(min(len(x), len(y))):
-        if x[i] != y[i]:
-            break
-        p += 1
-    return p
-
-
-def dawg_wfsa_from_strings(strings):
-    from genparse import WFSA, Float
-
-    d = DAWG.build(strings)
-
-    dawg = WFSA(Float)
-    dawg.set_I(d.root.id, 1)
-    visited = set()
-
-    def traverse(x):
-        assert isinstance(x, Node)
-        if x in visited:
-            return
-        if x.final:
-            dawg.set_F(x.id, 1)
-        for a, y in x.edges.items():
-            dawg.set_arc(x.id, a, y.id, 1)
-            traverse(y)
-
-    traverse(d.root)
-    return dawg

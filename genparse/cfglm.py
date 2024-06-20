@@ -14,9 +14,6 @@ from genparse.semiring import Boolean, Float
 # EOS = '🛑'
 EOS = '▪'
 
-# spacer is a kind of end-of-token marker
-# SPACER = '$SPACER'
-SPACER = '#'
 # EOT = '#'
 
 ERROR = '💥'
@@ -41,40 +38,45 @@ def locally_normalize(self, **kwargs):
     return new
 
 
+# class BoolMaskCFGLM(LM):
+#    "LM-like interface for Boolean-masking CFG models; uses CKY for inference."
+#
+#    def __init__(self, cfg):
+#        if EOS not in cfg.V:
+#            cfg = add_EOS(cfg)
+#        if cfg.R != Boolean:
+#            cfg = cfg.map_values(lambda x: Boolean(x > 0), Boolean)
+#        self.model = CFGLM(cfg)
+#        super().__init__(eos=self.model.eos, V=self.model.V)
+#
+#    def p_next(self, context):
+#        p = self.model.p_next(context).trim()
+#        return Float.chart({w: 1 for w in p})
+#
+#    def __call__(self, context):
+#        assert context[-1] == EOS
+#        return float(self.model(context) != Boolean.zero)
+#
+#    def clear_cache(self):
+#        self.model.clear_cache()
+
+
 class BoolMaskCFGLM(LM):
-    "LM-like interface for Boolean-masking CFG models; uses CKY for inference."
-
-    def __init__(self, cfg):
-        if EOS not in cfg.V:
-            cfg = add_EOS(cfg)
-        if cfg.R != Boolean:
-            cfg = cfg.map_values(lambda x: Boolean(x > 0), Boolean)
-        self.model = CFGLM(cfg)
-        super().__init__(eos=self.model.eos, V=self.model.V)
-
-    def p_next(self, context):
-        p = self.model.p_next(context).trim()
-        return Float.chart({w: 1 for w in p})
-
-    def __call__(self, context):
-        assert context[-1] == EOS
-        return float(self.model(context) != Boolean.zero)
-
-    def clear_cache(self):
-        self.model.clear_cache()
-
-
-class EarleyBoolMaskCFGLM(LM):
     "LM-like interface for Boolean-masking CFG models; uses Earley's algorithm for inference."
 
-    def __init__(self, cfg):
-        from genparse.experimental.earley import Earley
-
+    def __init__(self, cfg, alg='earley'):
         if EOS not in cfg.V:
             cfg = add_EOS(cfg)
         if cfg.R != Boolean:
             cfg = cfg.map_values(lambda x: Boolean(x > 0), Boolean)
-        self.model = Earley(cfg.prefix_grammar)
+        if alg == 'earley':
+            from genparse.experimental.earley import Earley
+
+            self.model = Earley(cfg.prefix_grammar)
+        elif alg == 'cky':
+            self.model = CFGLM(cfg)
+        else:
+            raise ValueError(f'unrecognized option {alg}')
         super().__init__(eos=EOS, V=cfg.V)
 
     def p_next(self, context):
@@ -89,6 +91,9 @@ class EarleyBoolMaskCFGLM(LM):
         self.model.clear_cache()
 
 
+EarleyBoolMaskCFGLM = BoolMaskCFGLM
+
+
 class CFGLM(LM):
     """
     Probabilistic Context-Free Grammar Language Model.
@@ -96,24 +101,22 @@ class CFGLM(LM):
     Uses CKY and the prefix grammar transformation for efficient inference.
     """
 
-    def __init__(self, cfg, renumber=True):
+    def __init__(self, cfg, **kwargs):
         if EOS not in cfg.V:
             cfg = add_EOS(cfg)
 
-        if renumber:
-            self.cfg = cfg.renumber()
-            self.pfg = self.cfg.cnf.prefix_grammar.cnf.renumber().cnf
-        else:
-            self.cfg = cfg
-            self.pfg = self.cfg.cnf.prefix_grammar.cnf
+        self.cfg = cfg
+        self.pfg = self.cfg.cnf.prefix_grammar.cnf
 
-        self.model = IncrementalCKY(self.pfg)
+        from genparse.experimental.cky import IncrementalCKY
+
+        self.model = IncrementalCKY(self.pfg, **kwargs)
 
         super().__init__(V=cfg.V, eos=EOS)
 
-    def __call__(self, x):
-        assert x[-1] == EOS
-        return self.model(x)
+    #    def __call__(self, x):
+    #        assert x[-1] == EOS
+    #        return self.model(x)
 
     def p_next(self, prefix):
         return self.model.p_next(prefix)
@@ -129,124 +132,6 @@ class CFGLM(LM):
         self.model.clear_cache()
 
 
-class IncrementalCKY:
-    def __init__(self, cfg):
-        self.cfg = cfg
-        self.S = cfg.S
-
-        # cache columns of the chart indexed by prefix
-        self._chart = {}
-
-        [self.nullary, self.terminal, binary] = cfg._cnf
-        r_y_xz = defaultdict(list)
-        for r in binary:  # binary rules
-            r_y_xz[r.body[0]].append(r)
-        self.r_y_xz = r_y_xz
-
-    def clear_cache(self):
-        self._chart.clear()
-
-    def __call__(self, x):
-        return self.chart(x)[len(x)][0][self.S]
-
-    def p_next(self, prefix):
-        return self.next_token_weights(self.chart(prefix), prefix)
-
-    def chart(self, prefix):
-        c = self._chart.get(prefix)
-        if c is None:
-            c = self._compute_chart(prefix)
-            self._chart[prefix] = c
-        return c
-
-    def _compute_chart(self, prefix):
-        if len(prefix) == 0:
-            tmp = [defaultdict(self.cfg.R.chart)]
-            tmp[0][0][self.cfg.S] = self.nullary
-            return tmp
-        else:
-            chart = self.chart(prefix[:-1])
-            last_chart = self.extend_chart(chart, prefix)
-            return chart + [
-                last_chart
-            ]  # TODO: avoid list addition here as it is not constant time!
-
-    def next_token_weights(self, chart, prefix):
-        """
-        An O(N²) time algorithm to the total weight of a each next-token
-        extension of `prefix`.
-        """
-        k = len(prefix) + 1
-
-        cfg = self.cfg
-        terminal = self.terminal
-        r_y_xz = self.r_y_xz
-
-        # the code below is just backprop / outside algorithm
-        α = defaultdict(cfg.R.chart)
-        α[0][cfg.S] += cfg.R.one
-
-        # Binary rules
-        for span in reversed(range(2, k + 1)):
-            i = k - span
-            α_i = α[i]
-            for j in range(i + 1, k):
-                chart_ij = chart[j][i]
-
-                α_j = α[j]
-                for Y, y in chart_ij.items():
-                    for r in r_y_xz[Y]:
-                        X = r.head
-                        Z = r.body[1]
-                        α_j[Z] += r.w * y * α_i[X]
-
-        # Preterminal
-        q = cfg.R.chart()
-        tmp = α[k - 1]
-        for w in cfg.V:
-            for r in terminal[w]:
-                q[w] += r.w * tmp[r.head]
-
-        return q
-
-    def extend_chart(self, chart, prefix):
-        """
-        An O(N²) time algorithm to extend to the `chart` with the last token
-        appearing at the end of `prefix`; returns a new chart column.
-        """
-        k = len(prefix)
-
-        cfg = self.cfg
-        r_y_xz = self.r_y_xz
-
-        new = defaultdict(cfg.R.chart)
-
-        # Nullary
-        new[k][cfg.S] += self.nullary
-
-        # Preterminal
-        tmp = new[k - 1]
-        for r in self.terminal[prefix[k - 1]]:
-            tmp[r.head] += r.w
-
-        # Binary rules
-        for span in range(2, k + 1):
-            i = k - span
-            new_i = new[i]
-            for j in range(i + 1, k):
-                chart_ij = chart[j][i]
-                new_j = new[j]
-                for Y, y in chart_ij.items():
-                    for r in r_y_xz[Y]:
-                        X = r.head
-                        Z = r.body[1]
-                        z = new_j[Z]
-                        x = r.w * y * z
-                        new_i[X] += x
-
-        return new
-
-
 def add_EOS(cfg):
     "Append the EOS symbol to the language generated by `cfg`."
     S = _gen_nt('<START>')
@@ -256,33 +141,6 @@ def add_EOS(cfg):
     new.add(cfg.R.one, S, cfg.S, EOS)
     for r in cfg:
         new.add(r.w, r.head, *r.body)
-    return new
-
-
-def explode_terminal(y):
-    assert y != SPACER
-    if y == EOS:  # don't explode EOS!
-        return [y]
-    else:
-        return list(y + SPACER)
-
-
-def explode(cfg):
-    """
-    Explode the terminals into characters - this is a special case of composition
-    with a transducer.
-    """
-    new = cfg.spawn(V=set())
-    for r in cfg:
-        ys = []
-        for y in r.body:
-            if cfg.is_terminal(y):
-                yy = explode_terminal(y)
-                ys.extend(yy)
-                new.V |= set(yy)
-            else:
-                ys.append(y)
-        new.add(r.w, r.head, *ys)
     return new
 
 

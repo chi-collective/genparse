@@ -1,6 +1,6 @@
 import argparse
 import logging
-from genparse.cfglm import EarleyBoolMaskCFGLM
+from genparse.cfglm import BoolMaskCFGLM
 from genparse.util import LarkStuff
 
 logger = logging.getLogger(__name__)
@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 def load_guide(grammar_name):
     cfg = LarkStuff(open(grammar_name).read()).char_cfg(0.99, ignore='[ ]?')
-    return EarleyBoolMaskCFGLM(cfg)
+    return BoolMaskCFGLM(cfg)
 
 
 def load_examples(example_path):

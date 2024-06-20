@@ -30,7 +30,14 @@ class LM:
 
     def __call__(self, ys):
         "Compute the probability of a complete string."
-        raise NotImplementedError()
+        assert ys[-1] == self.eos
+        P = 1
+        for i, y in enumerate(ys):
+            assert y in self.V
+            P *= self.p_next(ys[:i]).normalize()[y]
+            if P == 0:
+                break
+        return P
 
     def p_next(self, context):
         "Compute the (conditional) distribution over the next token given the `prefix`."
@@ -70,8 +77,7 @@ class LLM(LM):
         self._cache = {}
 
         # TODO: add the vocabulary and EOS symbols!
-
-    #        super().__init__(set(range()), eos=eos)
+        # super().__init__(set(range()), eos=eos)
 
     def __call__(self, input_ids):
         if isinstance(input_ids, list):
@@ -128,31 +134,31 @@ class LLM(LM):
         return probs[0, :]  # return the conditional distribution of just the last token
 
 
-class NoCacheLLM(LM):
-    """
-    This is a simple class that wraps HuggingFace transformers.
-    """
-
-    def __init__(self, model):
-        self.model = model
-        self.model.eval()  # Set the model in "evaluation mode"
-
-        # TODO: Add vocabulary and EOS
-
-    #        super().__init__(set(range()), eos=eos)
-
-    def __call__(self, input_ids):
-        raise NotImplementedError()
-
-    def p_next(self, input_ids):
-        if isinstance(input_ids, (tuple, list)):
-            input_ids = torch.LongTensor([input_ids])
-        with torch.no_grad():
-            outputs = self.model(input_ids=input_ids, labels=input_ids)
-            lprobs = torch.nn.functional.softmax(outputs.logits, dim=-1)
-        return lprobs[
-            0, -1, :
-        ]  # return the conditional distribution of just the last token
+# class NoCacheLLM(LM):
+#    """
+#    This is a simple class that wraps HuggingFace transformers.
+#    """
+#
+#    def __init__(self, model):
+#        self.model = model
+#        self.model.eval()  # Set the model in "evaluation mode"
+#
+#        # TODO: Add vocabulary and EOS
+#
+#    #        super().__init__(set(range()), eos=eos)
+#
+#    def __call__(self, input_ids):
+#        raise NotImplementedError()
+#
+#    def p_next(self, input_ids):
+#        if isinstance(input_ids, (tuple, list)):
+#            input_ids = torch.LongTensor([input_ids])
+#        with torch.no_grad():
+#            outputs = self.model(input_ids=input_ids, labels=input_ids)
+#            lprobs = torch.nn.functional.softmax(outputs.logits, dim=-1)
+#        return lprobs[
+#            0, -1, :
+#        ]  # return the conditional distribution of just the last token
 
 
 class GreedilyTokenizedLLM(LM):
@@ -242,8 +248,8 @@ class AsyncGreedilyTokenizedLLM(LM):
         from hfppl import CachedCausalLM
 
         return cls(
-            tokenizer=AutoTokenizer.from_pretrained(name, use_fast=True),
             model=CachedCausalLM.from_pretrained(name, load_in_8bit=True),
+            tokenizer=AutoTokenizer.from_pretrained(name, use_fast=True),
             batch_size=batch_size,
         )
 
@@ -276,6 +282,11 @@ class AsyncGreedilyTokenizedLLM(LM):
 
 
 class LazyProb:
+    """
+    This class is used to efficiently associate string with the indices of LLM's
+    tokens distribution over next tokens.
+    """
+
     def __init__(self, _p: torch.tensor, encode: dict[str, int], decode: dict[int, str]):
         self._p = _p
         self._encode = encode
@@ -334,9 +345,9 @@ class MockLLM(LM):
     def p_next(self, _):
         return LazyProb(self._p, self._encode, self._decode)
 
-    def __call__(self, x):
-        assert x[-1] == self.eos
-        return (1 / len(self.V)) ** len(x)
+    # def __call__(self, x):
+    #    assert x[-1] == self.eos
+    #    return (1 / len(self.V)) ** len(x)
 
     def clear_cache(self):
         pass
