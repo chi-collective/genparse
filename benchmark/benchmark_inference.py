@@ -1,19 +1,14 @@
 import pickle
 from argparse import ArgumentParser
-from random import seed
 
 import numpy as np
 from arsenal import colors
 from hfppl import CachedCausalLM
-from torch import manual_seed
-from transformers import AutoTokenizer, set_seed
 
 from genparse import Float
-from genparse.cfglm import BoolMaskCFGLM
-from genparse.lm import AsyncGreedilyTokenizedLLM
 from genparse.proposal import CharacterProposal, TokenProposal
 from genparse.steer import HFPPLSampler
-from genparse.util import LarkStuff
+from genparse.util import lark_guide, load_model_by_name, set_seed
 
 p = ArgumentParser()
 p.add_argument('--model', choices=['gpt2', 'codellama'], required=True)
@@ -31,40 +26,7 @@ p.add_argument(
 args = p.parse_args()
 
 
-RANDOM_SEED = args.seed
-set_seed(RANDOM_SEED)
-seed(RANDOM_SEED)
-manual_seed(RANDOM_SEED)
-
-
-if args.model == 'gpt2':
-    import transformers
-
-    from genparse.lm import LLM
-
-    MODEL_ID = 'gpt2'
-    hfppl_llm = LLM(transformers.AutoModelForCausalLM.from_pretrained(MODEL_ID))
-    tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_ID)
-
-elif args.model == 'codellama':
-    import torch
-
-    assert torch.cuda.is_available()
-
-    MODEL_ID = 'codellama/CodeLlama-7b-Instruct-hf'
-    hfppl_llm = CachedCausalLM.from_pretrained(MODEL_ID, load_in_8bit=False)
-    tokenizer = AutoTokenizer.from_pretrained(
-        MODEL_ID,
-        use_fast=True,
-        eot_token=None,
-        fill_token=None,
-        prefix_token=None,
-        middle_token=None,
-        suffix_token=None,
-    )
-
-else:
-    raise ValueError(args.model)
+set_seed(args.seed)
 
 
 prompt_template = """
@@ -116,23 +78,17 @@ prompts = [
 
 
 def main():
-    character_cfg = LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?')
-
-    guide = BoolMaskCFGLM(character_cfg)
+    guide = lark_guide(grammar, ignore='[ ]?')
 
     BATCH_SIZE = 80
 
-    hfppl_llm.batch_size = BATCH_SIZE
-    genparse_llm = AsyncGreedilyTokenizedLLM(
-        model=hfppl_llm, tokenizer=tokenizer, batch_size=BATCH_SIZE
-    )
+    llm = load_model_by_name(args.model, batch_size=BATCH_SIZE)
 
-    guide = BoolMaskCFGLM(LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?'))
-    sampler = HFPPLSampler(llm=genparse_llm, guide=guide)
+    sampler = HFPPLSampler(llm=llm, guide=guide)
     if args.proposal == 'character':
-        proposal = CharacterProposal(llm=genparse_llm, guide=guide)
+        proposal = CharacterProposal(llm=llm, guide=guide)
     elif args.proposal == 'token':
-        proposal = TokenProposal(llm=genparse_llm, guide=guide, K=5)
+        proposal = TokenProposal(llm=llm, guide=guide, K=5)
     else:
         raise ValueError(f'invalid proposal name {args.proposal!r}')
 

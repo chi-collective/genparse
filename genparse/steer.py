@@ -492,5 +492,8 @@ class ParticleApproximation:
         else:
             return [draw(self.posterior) for _ in range(n)]
 
-    def __repr__(self):
-        return repr(self.posterior)
+    def __str__(self):
+        return str(self.posterior)
+
+    def _repr_html_(self):
+        return self.posterior._repr_html_()

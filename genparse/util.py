@@ -21,6 +21,100 @@ def set_seed(seed):
         torch.cuda.manual_seed_all(seed)
 
 
+def lark_guide(grammar, decay=1, ignore=''):
+    from genparse.cfglm import BoolMaskCFGLM
+
+    return BoolMaskCFGLM(LarkStuff(grammar).char_cfg(decay, ignore=ignore))
+
+
+def load_model_by_name(model_name, batch_size=None):
+    import transformers
+    from hfppl import CachedCausalLM
+    from genparse.lm import AsyncGreedilyTokenizedLLM, LLM
+
+    if model_name == 'gpt2':
+        MODEL_ID = 'gpt2'
+        return AsyncGreedilyTokenizedLLM(
+            model=LLM(transformers.AutoModelForCausalLM.from_pretrained(MODEL_ID)),
+            tokenizer=transformers.AutoTokenizer.from_pretrained(MODEL_ID),
+            batch_size=batch_size,
+        )
+
+    elif model_name == 'codellama':
+        assert torch.cuda.is_available()
+        MODEL_ID = 'codellama/CodeLlama-7b-Instruct-hf'
+        return AsyncGreedilyTokenizedLLM(
+            model=CachedCausalLM.from_pretrained(MODEL_ID, load_in_8bit=False),
+            tokenizer=transformers.AutoTokenizer.from_pretrained(
+                MODEL_ID,
+                use_fast=True,
+                eot_token=None,
+                fill_token=None,
+                prefix_token=None,
+                middle_token=None,
+                suffix_token=None,
+            ),
+            batch_size=batch_size,
+        )
+
+    else:
+        raise ValueError(model_name)
+
+
+class InferenceSetup:
+    def __init__(self, model_name, grammar, proposal_name='character', seed=None):
+        from genparse.steer import HFPPLSampler
+        from genparse.proposal import CharacterProposal, TokenProposal
+
+        if seed is not None:
+            set_seed(seed)
+
+        llm = load_model_by_name(model_name)
+        guide = lark_guide(grammar)
+        sampler = HFPPLSampler(llm=llm, guide=guide)
+
+        if proposal_name == 'character':
+            proposal = CharacterProposal(llm=llm, guide=guide)
+        elif proposal_name == 'token':
+            proposal = TokenProposal(llm=llm, guide=guide)
+        else:
+            raise ValueError(f'invalid proposal name {proposal!r}')
+
+        self.sampler = sampler
+        self.proposal = proposal
+
+    def __call__(
+        self, prompt, n_particles, method='smc-standard', max_tokens=1000, **kwargs
+    ):
+        return self.sampler.run_inference(
+            prompt=prompt,
+            proposal=self.proposal,
+            method=method,
+            n_particles=n_particles,
+            max_tokens=max_tokens,
+            **kwargs,
+        )
+
+
+#        if args.particles > 1 and record is not None:
+#            fig = record.plot_particles_trajectory()
+#            fig.write_html('viz.html')
+#            print('wrote to viz.html')
+#
+#        print(colors.yellow % 'character posterior')
+#        posterior = Float.chart()
+#        for p in particles:
+#            posterior[''.join(p.context).strip()] += np.exp(p.weight)
+#        print(posterior.normalize())
+#
+#        if 0:
+#            print(colors.yellow % 'token posterior')
+#            posterior = Float.chart()
+#            for p in particles:
+#                posterior[tuple(p.context)] += np.exp(p.weight)
+#            print(posterior.normalize())
+
+
 class hf_tokenizer:
     def __init__(self, name='gpt2', **kwargs):
         from transformers import AutoTokenizer
