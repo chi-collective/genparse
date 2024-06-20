@@ -88,6 +88,7 @@ class CharacterProposal(TokenCharacterTrie):
         verbosity=0,
         compare_time=False,
         correct_weights=True,
+        execute_model_req=None,
         **kwargs,
     ):
         """
@@ -105,7 +106,7 @@ class CharacterProposal(TokenCharacterTrie):
             weight_update : Incremental SMC weight update.
         """
         with self.timer['llm'](t=len(context)):
-            p_llm = await self.llm.p_next(prompt + context)
+            p_llm = await self.llm.p_next(prompt + context, execute_model_req=execute_model_req)
         with self.timer['cfg+trie'](t=len(context)):
             self._update_trie(p_llm)
             if correct_weights:

@@ -204,30 +204,55 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
 class VLLMParticle(Model):
     def __init__(self, llm, guide, proposal, prompt, max_tokens, verbosity=0):
         from vllm.sampling_params import SamplingParams
+        from genparse.tokenization import decode_tokenizer_vocab
+
 
         super().__init__()
-        self.llm = llm # type: VLLM
+        self.llm = llm # type: async
+        # self.llm._model: VLLM
         # call the vllm engine of VLLM
-        inputs = self.llm._convert_v1_inputs(prompts=prompt, prompt_token_ids=None)
+        inputs = self.llm._model._convert_v1_inputs(prompts=prompt, prompt_token_ids=None)
         # add request for prompt
-        self.llm._validate_and_add_requests(
+        self.llm._model._validate_and_add_requests(
             inputs=inputs,
-            params=SamplingParams(), # using default params because we only rely on logits
+            # using default params because we only rely on logits
+            params=SamplingParams(max_tokens=max_tokens, stop_token_ids=[self.llm.eos]),
             lora_request=None
         )
+        self.token_to_id = {x: i for i, x in enumerate(decode_tokenizer_vocab(self.llm.tokenizer))}
 
         self.guide = guide
         self.prompt = prompt
         self.context = []
+        
+        self.sampler_output = []
+
         self.proposal = proposal
         self.max_tokens = max_tokens
+        
+        
         self.verbosity = verbosity
 
-    async def step(self) -> List[Union[RequestOutput, EmbeddingRequestOutput]]:
-        from vllm.sequence import ExecuteModelRequest
-        seq_group_metadata_list, scheduler_outputs = self.llm.llm_engine.scheduler.schedule()
 
-        self.llm.llm_engine.execute_model_req = ExecuteModelRequest(
+    async def step(self):
+        from vllm.sequence import (
+            CompletionSequenceGroupOutput, SequenceOutput, 
+            ExecuteModelRequest, SamplerOutput, Logprob
+        )
+
+        seq_group_metadata_list, scheduler_outputs = self.llm._model.llm_engine.scheduler.schedule()
+        
+        if scheduler_outputs.is_empty():
+            # finishing due to resource
+            self.llm._model.llm_engine._process_model_outputs(
+                [], scheduler_outputs.scheduled_seq_groups,
+                scheduler_outputs.ignored_seq_groups, seq_group_metadata_list)
+            self.llm._model.llm_engine.model_executor.stop_remote_worker_execution_loop()
+            self.finish()
+
+            return
+
+        execute_model_req = ExecuteModelRequest(
             seq_group_metadata_list=seq_group_metadata_list,
             blocks_to_swap_in=scheduler_outputs.blocks_to_swap_in,
             blocks_to_swap_out=scheduler_outputs.blocks_to_swap_out,
@@ -241,35 +266,40 @@ class VLLMParticle(Model):
             prompt=self.prompt,
             context=''.join(self.context),
             compare_time=(self.verbosity > 1),
+            execute_model_req=execute_model_req
         )
+        token_id = self.token_to_id.get(token, self.llm._model.eos_token_id)
         self.context.append(token)
         self.weight += np.log(weight_update)
         self.max_tokens -= 1
+        print("token, token_id", token, token_id)
         if self.verbosity > 1:
+            
             print(f"`{token}` : {''.join(self.context)} : {self.weight}")
 
         # TODO: fit token back into SampleOutput, so vllm can
         # process it correctly
-        output = SamplerOutput(
-            outputs=sampler_output,
-        )
+        output = []
+        for seq_group_md in seq_group_metadata_list:
+            parent_seq_id = list(seq_group_md.seq_data.keys())[0]
+            output.append(SamplerOutput(
+                outputs=[
+                    CompletionSequenceGroupOutput(
+                        samples=[SequenceOutput(parent_seq_id=parent_seq_id, output_token=token_id, logprobs={token_id: Logprob(logprob=np.log(weight_update))})],
+                        prompt_logprobs=None)]
+            ))
+        self.sampler_output = self.sampler_output + output
 
         # post-processing. Do after sample is chosen
-        request_outputs = self.llm.llm_engine._process_model_outputs(
+        self.llm._model.llm_engine._process_model_outputs(
             output, scheduler_outputs.scheduled_seq_groups,
             scheduler_outputs.ignored_seq_groups, seq_group_metadata_list)
 
         # Log stats.
-        self.llm.llm_engine.do_log_stats(scheduler_outputs, output)
+        self.llm._model.llm_engine.do_log_stats(scheduler_outputs, output)
 
-        if not request_outputs:
-            self.llm.llm_engine.model_executor.stop_remote_worker_execution_loop()
+        return
 
-        # if token == self.llm.eos or self.max_tokens == 0 or token == EOS:
-        #     self.finish()
-        #     return
-
-        return request_outputs
 
     def immutable_properties(self):
         return ['llm', 'prompt', 'guide', 'verbosity']

@@ -10,6 +10,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from genparse.semiring import Float
 from genparse.tokenization import decode_tokenizer_vocab
+from genparse.vllm_compatibility import vllmpplLLM
 
 
 class LM:
@@ -263,11 +264,14 @@ class AsyncGreedilyTokenizedLLM(LM):
     async def next_token_logprobs(self, xs, top=None):
         return self.p_next(xs, top=top).map_values(np.log)
 
-    async def p_next(self, xs, top=None):
+    async def p_next(self, xs, top=None, **kwargs):
         assert isinstance(xs, str)
         tokens = self.tokenizer.encode(xs)
 
-        _logp = await self._model.next_token_logprobs(tokens)
+        if isinstance(self._model, vllmpplLLM):
+            _logp = await self._model.next_token_logprobs(tokens, **kwargs)
+        else:
+            _logp = await self._model.next_token_logprobs(tokens)
         _logp = _logp.cpu().numpy() if hasattr(_logp, 'cpu') else _logp
         _p = np.exp(_logp)
 
