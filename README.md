@@ -22,7 +22,7 @@ make env # install dependencies in current env
 ... start: "Sequential Monte Carlo is " ( "good" | "bad" )
 ... """
 >>> m = InferenceSetup('gpt2', grammar, proposal_name='character')
->>> m(' ', n_particles=15))
+>>> m(' ', n_particles=15)
 {
   'Sequential Monte Carlo is good▪': 0.7770842914205952,
   'Sequential Monte Carlo is bad▪': 0.22291570857940482,
