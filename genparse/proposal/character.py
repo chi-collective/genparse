@@ -89,7 +89,6 @@ class CharacterProposal(TokenCharacterTrie):
         verbosity=0,
         compare_time=False,
         correct_weights=True,
-        execute_model_req=None,
         draw=sample_dict,
         execute_model_req=None,
         **kwargs,
