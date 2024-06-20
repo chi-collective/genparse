@@ -1,10 +1,15 @@
 from arsenal import timeit
+from arsenal.maths import assert_equal
+
+import random
+import numpy as np
 
 from genparse.cfglm import add_EOS, locally_normalize
 from genparse.experimental.earley import EarleyLM
 from genparse.lm import make_mock_llm
 from genparse.proposal import TokenProposal
 from genparse.util import LarkStuff
+from genparse import CFGLM
 
 # TODO: test equivalence of `traverse_trie` and `traverse_naive`.
 # def traverse_naive(self, context):
@@ -98,6 +103,205 @@ def test_basic_aligned_model_iql_small():
         }
 
     print(proposal.sample())
+
+
+from test_utils.proposal_testing import (
+    enumerate_traces,
+    enumerate_target,
+    make_token_proposal,
+    assert_proper_weighting,
+    assert_unbiased_Z,
+)
+
+
+def test_normalizing_constant_unbiased():
+    """
+    The expected importance weight should provide an unbiased estimate of the normalizing constant.
+    That is, we expect E_{(x,S) ~ q(x,S)}[w(x,S)] = Σ_x p(x).
+    """
+    np.random.seed(0)
+    random.seed(0)
+
+    V = {
+        '▪',
+        ' ',
+        '  ',
+        ' W',
+        ' O',
+        ' S',
+        ' s',
+        ' WHE',
+        ' ORD',
+        ' SEL',
+        ' ORD',
+        ' sta',
+        ' WHER',
+        ' ORDE',
+        ' SELE',
+        ' ORDE',
+        ' stat',
+        ' stad',
+        ' SELECT',
+        ' WHERE',
+        ' ORDER',
+        ' state',
+        ' stadium',
+    }
+
+    grammar = r"""
+            start: WS? "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
+            EOS: "▪"
+            select_expr: STAR | select_list
+            bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
+            bool_expr: var "=" value | var ">" value | var "<" value
+            from_expr: "data"
+            orderby_expr: var_list WS "ASC" | var_list WS "DESC"
+            select_list: select_var ("," WS select_var)*
+            var_list: var ("," WS var)*
+            select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
+            var: "state" | "stadium"
+            value: NUMBER | "'red'"
+            STAR: "*"
+            NUMBER: /\d+/
+            WS: /[ ]/
+     """
+
+    proposal = make_token_proposal(V=V, guide_spec=grammar, K=10, uniform=True)
+
+    prompt = ''
+    context = ' '
+
+    assert_unbiased_Z(prompt, context, proposal, tol=1e-8)
+
+    prompt = ''
+    context = ' SELECT'
+
+    assert_unbiased_Z(prompt, context, proposal, tol=1e-8)
+
+    prompt = ''
+    context = ' SELECT * FROM data'
+
+    assert_unbiased_Z(prompt, context, proposal, tol=1e-8)
+
+
+def test_proper_weighting():
+    """
+    A particle (x,w) is *properly weighted* for unnormalized density p' if, for any function f,
+
+        E_{(x,w) ~ \\tilde{q}}[f(x)w] = Σ_x p'(x) f(x)
+
+    where Z normalizes p'. In our case, we have that
+
+        E_{(x,w) ~ \\tilde{q}}[f(x)w] = E_{(x,S) ~ q}[f(x)w(x,S)]
+
+    Thus, we expect
+
+        E_{(x,S) ~ q}[f(x)w(x,S)] = Σ_x p'(x) f(x)
+
+    for the local product of experts distributions. We test this for f(x) = δ(x', x) for all x' ∈ V.
+    """
+    np.random.seed(0)
+    random.seed(0)
+
+    V = {' ', ' a', ' b', '▪'}
+
+    grammar = r"""
+        start: WS x EOS
+        EOS: "▪"
+        x: "a" | "b" | "ab"
+        WS: /[ ]/
+    """
+
+    proposal = make_token_proposal(V=V, guide_spec=grammar, K=2, uniform=True)
+
+    prompt = ''
+    context = ''
+
+    assert_proper_weighting(prompt, context, proposal, tol=1e-8)
+
+    V = {
+        '▪',
+        ' ',
+        '  ',
+        ' W',
+        ' O',
+        ' S',
+        ' s',
+        ' WHE',
+        ' ORD',
+        ' SEL',
+        ' ORD',
+        ' sta',
+        ' WHER',
+        ' ORDE',
+        ' SELE',
+        ' ORDE',
+        ' stat',
+        ' stad',
+        ' SELECT',
+        ' WHERE',
+        ' ORDER',
+        ' state',
+        ' stadium',
+    }
+
+    grammar = r"""
+        start: WS? "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
+        EOS: "▪"
+        select_expr: STAR | select_list
+        bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
+        bool_expr: var "=" value | var ">" value | var "<" value
+        from_expr: "data"
+        orderby_expr: var_list WS "ASC" | var_list WS "DESC"
+        select_list: select_var ("," WS select_var)*
+        var_list: var ("," WS var)*
+        select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
+        var: "state" | "stadium"
+        value: NUMBER | "'red'"
+        STAR: "*"
+        NUMBER: /\d+/
+        WS: /[ ]/
+    """
+
+    proposal = make_token_proposal(V=V, guide_spec=grammar, K=10, uniform=False)
+
+    prompt = ''
+    context = ' SELECT'
+
+    assert_proper_weighting(prompt, context, proposal, tol=1e-8)
+
+    prompt = ''
+    context = ' SELECT * FROM data'
+
+    assert_proper_weighting(prompt, context, proposal, tol=1e-8)
+
+    #######################
+    # Probabilistic guide #
+    #######################
+
+    pcfg = CFGLM.from_string(
+        """
+
+        1: S -> a
+        1: S -> a a
+        2: S -> a a a
+
+        """
+    )
+
+    V = {'a', 'aa', 'aaa', '▪'}
+
+    proposal = make_token_proposal(V=V, guide_spec=pcfg, K=2, uniform=True)
+
+    prompt = ''
+    context = ''
+
+    assert_proper_weighting(prompt, context, proposal, tol=1e-8)
+
+    prompt = ''
+    context = 'a'
+
+    assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
 
 if __name__ == '__main__':

@@ -5,6 +5,8 @@ from arsenal.maths import sample_dict
 from genparse.proposal.trie_numba import TokenCharacterTrie
 from genparse.semiring import Float
 
+from inspect import iscoroutinefunction
+
 
 class CharacterProposal(TokenCharacterTrie):
     """
@@ -58,6 +60,7 @@ class CharacterProposal(TokenCharacterTrie):
     ):
         context = ''
         W = 1
+        P = 1
         t = 0
         while True:
             t += 1
@@ -66,13 +69,15 @@ class CharacterProposal(TokenCharacterTrie):
                     p_llm = self.llm.p_next(prompt + context)
                 with self.timer['cfg+trie'](t=len(context)):
                     self._update_trie(p_llm)
-                    token, weight_update = self._guided_sample_trie(
+                    token, proposal_p, weight_update = self._guided_sample_trie(
                         context, verbosity=verbosity, draw=draw, **kwargs
                     )
             else:
                 token = self.guide.eos
                 weight_update = 1
+                proposal_p = 1
             W *= weight_update
+            P *= proposal_p
             if self.guide.eos == token:
                 break
             if verbosity > 0:
@@ -80,14 +85,13 @@ class CharacterProposal(TokenCharacterTrie):
             context += token
         if verbosity > 0:
             print()
-        return (context, W)
+        return (context, P, W)
 
     async def sample_next_token(
         self,
         prompt,
         context,
         verbosity=0,
-        compare_time=False,
         correct_weights=True,
         draw=sample_dict,
         execute_model_req=None,
@@ -100,28 +104,31 @@ class CharacterProposal(TokenCharacterTrie):
             prompt : The LLM prompt.
             context : The previous generated tokens.
             verbosity : > 1 prints sampling process.
-            compare_time : true compares time spent in LLM to cfg+trie.
             correct_weights : whether to correct the importance weights with RAVI.
                 false leads to probabilistically incorrect inference.
         Returns:
             token : Proposed LLM token.
             weight_update : Incremental SMC weight update.
         """
-        with self.timer['llm'](t=len(context)):
+
+        if iscoroutinefunction(self.llm.p_next):
             p_llm = await self.llm.p_next(prompt + context, execute_model_req=execute_model_req)
-        with self.timer['cfg+trie'](t=len(context)):
-            self._update_trie(p_llm)
-            if correct_weights:
-                (token, weight_update) = self._guided_sample_trie(
-                    context, verbosity=verbosity, draw=draw, **kwargs
-                )
-            else:
-                (token, weight_update) = self._guided_sample_trie_uncorrected(
-                    context, verbosity=verbosity, draw=draw, **kwargs
-                )
-        if compare_time:
-            self.timer.compare()
-        return (token, weight_update)
+        else:
+            p_llm = self.llm.p_next(prompt + context, execute_model_req=execute_model_req)
+
+        self._update_trie(p_llm)
+
+        if correct_weights:
+            (token, proposal_p, weight_update) = self._guided_sample_trie(
+                context, draw=draw, verbosity=verbosity, **kwargs
+            )
+        else:
+            (token, proposal_p, weight_update) = self._guided_sample_trie_uncorrected(
+                context, draw=draw, verbosity=verbosity, **kwargs
+            )
+
+        return (token, proposal_p, weight_update)
+      
 
     def __deepcopy__(self, memo):
         cpy = type(self).__new__(type(self))
@@ -165,6 +172,7 @@ class CharacterProposal(TokenCharacterTrie):
 
         inclusion_prob = 1  # path prefix probability
         cfg_prob = 1
+        proposal_p = 1  # probability of trace
 
         weights = Float.chart()
 
@@ -216,6 +224,7 @@ class CharacterProposal(TokenCharacterTrie):
             a = draw(q)
             inclusion_prob *= q[a]
             cfg_prob *= p2[a]
+            proposal_p *= q[a]
 
             curr = children_curr[a]
 
@@ -231,13 +240,14 @@ class CharacterProposal(TokenCharacterTrie):
             print(colors.light.green % 'token probs:', normalized_weights)
 
         token = draw(normalized_weights)
+        proposal_p *= normalized_weights[token]
         weight_update = weights.sum()
 
         if verbosity > 1:
             print(colors.orange % 'sampled token=', repr(token))
             print(colors.orange % 'weight update=', weight_update)
 
-        return (token, weight_update)
+        return (token, proposal_p, weight_update)
 
     def _guided_sample_trie_uncorrected(self, context, draw, verbosity=0):
         """
@@ -319,4 +329,4 @@ class CharacterProposal(TokenCharacterTrie):
 
         weight_update = (llm_prob * guide_prob) / proposal_prob
 
-        return (token, weight_update)
+        return (token, proposal_prob, weight_update)
