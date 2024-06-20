@@ -18,6 +18,7 @@ requirements = [
     'svgling',  # nltk uses svgling to draw derivations
     'torch',
     'transformers',
+    'vllm'
 ]
 
 test_requirements = [
