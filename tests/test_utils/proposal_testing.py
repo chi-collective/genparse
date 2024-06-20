@@ -1,174 +1,92 @@
-###########################
-# Trace enumeration utils
+from genparse.lm import MockLLM, LM
+from genparse.proposal import TokenProposal, CharacterProposal
+from genparse.cfglm import EarleyBoolMaskCFGLM
+from genparse.util import LarkStuff
+from arsenal.maths import random_dist, assert_equal
 
+
+def _make_guide(guide_spec):
+    if isinstance(guide_spec, str):
+        return EarleyBoolMaskCFGLM(LarkStuff(guide_spec).char_cfg(0.99, ignore='[ ]?'))
+    elif isinstance(guide_spec, LM):
+        return guide_spec
+    else:
+        raise ValueError('Unknown guide specification')
+
+
+def _make_mock_llm(V, uniform):
+    return MockLLM(V=V, eos='▪', _p=None if uniform else random_dist(len(V)))
+
+
+def make_character_proposal(V, guide_spec, uniform=False):
+    llm = _make_mock_llm(V, uniform)
+    guide = _make_guide(guide_spec)
+
+    return CharacterProposal(llm=llm, guide=guide)
+
+
+def make_token_proposal(V, guide_spec, K, uniform=False):
+    llm = _make_mock_llm(V, uniform)
+    guide = _make_guide(guide_spec)
+
+    return TokenProposal(llm=llm, guide=guide, K=K)
+
+
+from genparse.inference import TraceSWOR
 from genparse import Float
-import copy
-
-
-class Trace:
-    def __init__(self):
-        self.score = 1
-        self.choices = []
-        self.path = None
-        self.token = None
-        self.weight = None
-
-    def record(self, name, outcome, dist):
-        self.score *= dist[outcome]
-        self.choices.append(
-            {'name': name, 'outcome': outcome, 'p': dist[outcome], 'dist': dist}
-        )
-
-    def __repr__(self):
-        return f'{self.path}→`{self.token}` : {self.weight}'
+import asyncio
 
 
 def enumerate_traces(proposal, prompt, context):
-    p_llm = proposal.llm.p_next(prompt + context)
-    proposal._update_trie(p_llm)
+    """
+    This function uses program tracing and sampling without replacement to compute
 
-    curr = proposal.root
-    children = proposal.children
-    mass = proposal.mass
+        E_{(x,w) ~ q'}[ δ(x, x') * w ] = E_{(x,S) ~ q}[ δ(x, x') * w(x,S) ]
+                                       = Σ_{x,S} δ(x, x') * q(x,S) * w(x,S)
 
-    def _enum_traces(chars, trace, children_curr, mass_curr, cfg_p, inc_p, weights):
-        p1 = Float.chart((a, mass[c] / mass_curr) for a, c in children_curr.items())
-        p2 = proposal.guide.p_next(context + ''.join(chars)).trim()
+    for each x' in V.
 
-        if None in p1:
-            weights[''.join(chars)] = (mass[children_curr[None]] * cfg_p) / inc_p
-
-        _q = (p1 * p2).trim()
-
-        traces = []
-        if not _q:
-            normalized_weights = weights.normalize()
-            for token in normalized_weights.keys():
-                new_trace = copy.deepcopy(trace)
-                new_trace.record('exit', token, normalized_weights)
-
-                new_trace.token = token
-                new_trace.weight = weights.sum()
-                new_trace.path = '→'.join(chars)
-
-                traces.append(new_trace)
-        else:
-            q = _q.normalize()
-            for a, q_ in q.items():
-                curr = children_curr[a]
-                new_chars = chars.copy()
-                new_chars.append(a)
-
-                new_trace = copy.deepcopy(trace)
-                new_trace.record(f'char {len(new_chars)}', a, q)
-
-                traces.extend(
-                    _enum_traces(
-                        chars=new_chars,
-                        trace=new_trace,
-                        children_curr=children[curr],
-                        mass_curr=mass[curr],
-                        inc_p=inc_p * q_,
-                        cfg_p=cfg_p * p2[a],
-                        weights=weights.copy(),
-                    )
-                )
-
-        return traces
-
-    return _enum_traces(
-        chars=[],
-        trace=Trace(),
-        children_curr=children[curr],
-        mass_curr=mass[curr],
-        cfg_p=1,
-        inc_p=1,
-        weights=Float.chart(),
-    )
-
-
-def enumerate_traces_uncorrected(proposal, prompt, context):
-    p_llm = proposal.llm.p_next(prompt + context)
-    proposal._update_trie(p_llm)
-
-    curr = proposal.root
-    children = proposal.children
-    mass = proposal.mass
-
-    def _enum_traces(chars, trace, children_curr, mass_curr, cfg_p, exits):
-        p1 = Float.chart((a, mass[c] / mass_curr) for a, c in children_curr.items())
-        p2 = proposal.guide.p_next(context + ''.join(chars)).trim()
-
-        if None in p1:
-            exits[''.join(chars)] = mass[children_curr[None]]
-
-        _q = (p1 * p2).trim()
-
-        traces = []
-        if not _q:
-            # no more paths to explore
-            exits_norm = exits.normalize()
-            for token, exit_p in exits_norm.items():
-                new_trace = copy.deepcopy(trace)
-                new_trace.record('exit', token, exits_norm)
-
-                new_trace.token = token
-                new_trace.weight = (
-                    cfg_p * mass[proposal.word2leaf[token]] / new_trace.score
-                )
-                new_trace.path = '→'.join(chars)
-
-                traces.append(new_trace)
-        else:
-            q = _q.normalize()
-            for a, q_ in q.items():
-                curr = children_curr[a]
-                new_chars = chars.copy()
-                new_chars.append(a)
-
-                new_trace = copy.deepcopy(trace)
-                new_trace.record(f'char {len(new_chars)}', a, q)
-
-                traces.extend(
-                    _enum_traces(
-                        chars=new_chars,
-                        trace=new_trace,
-                        children_curr=children[curr],
-                        cfg_p=cfg_p * p2[a],
-                        mass_curr=mass[curr],
-                        exits=exits.copy(),
-                    )
-                )
-        return traces
-
-    return _enum_traces(
-        chars=[],
-        trace=Trace(),
-        children_curr=children[curr],
-        mass_curr=mass[curr],
-        cfg_p=1,
-        exits=Float.chart(),
-    )
+    Its use is to check whether our proposal satisfies properties like proper weighting through exact enumeration.
+    """
+    tracer = TraceSWOR()
+    P = Float.chart()
+    # sample without replacement until all traces have been exhausted
+    while tracer.root.mass > 0:
+        with tracer:
+            s, q, w = asyncio.run(
+                proposal.sample_next_token(draw=tracer, prompt=prompt, context=context)
+            )
+            P[s] += w * q
+    return (P, tracer)
 
 
 def enumerate_target(proposal, prompt, context):
+    """
+    This function exactly computes the unnormalized local POE target over next tokens given a prompt and context.
+    """
     p_next = Float.chart()
     for token in proposal.llm.V:
         cfg_prob = 1
-        for i in range(0, len(token)):
-            cfg_prob *= proposal.guide.p_next(context + token[:i])[token[i]]
+        for i, c in enumerate(token):
+            cfg_prob *= proposal.guide.p_next(context + token[:i])[c]
         p_next[token] = cfg_prob * proposal.llm.p_next(prompt + context)[token]
     return p_next
 
 
-def make_character_proposal(V, grammar, uniform=False):
-    from genparse.lm import MockLLM
-    from genparse.proposal import CharacterProposal
-    from genparse.cfglm import EarleyBoolMaskCFGLM
-    from genparse.util import LarkStuff
-    from arsenal.maths import random_dist
+def assert_proper_weighting(prompt, context, proposal, tol=1e-8):
+    pi_q, _ = enumerate_traces(proposal, prompt, context)
+    pi_true = enumerate_target(proposal, prompt, context)
 
-    llm = MockLLM(V=V, eos='▪', _p=None if uniform else random_dist(len(V)))
-    guide = EarleyBoolMaskCFGLM(LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?'))
+    for x in proposal.llm.V:
+        have = pi_q[x]
+        want = pi_true[x]
+        assert_equal(have, want, tol=tol)
 
-    return CharacterProposal(llm=llm, guide=guide)
+
+def assert_unbiased_Z(prompt, context, proposal, tol=1e-8):
+    pi_q, _ = enumerate_traces(proposal, prompt, context)
+    pi_true = enumerate_target(proposal, prompt, context)
+
+    have = pi_q.sum()
+    want = pi_true.sum()
+    assert_equal(have, want, tol=tol)

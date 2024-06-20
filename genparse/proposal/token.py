@@ -6,6 +6,8 @@ from arsenal.maths import sample_dict
 from genparse.proposal.trie import TokenCharacterTrie
 from genparse.semiring import Float
 
+from inspect import iscoroutinefunction
+
 # TODO: It's tempting to require proposal distributions to implement the `LM`
 # interface, but it might be difficult to correctly implement `__call__` and
 # `p_next` as proposal distributions may only be distributions over sample paths
@@ -40,32 +42,56 @@ class TokenProposal(TokenCharacterTrie):
         super().__init__(words, old_eos=llm.eos, new_eos=guide.eos)
 
     def _p_next(self, context, K=None):
-        with self.timer['llm'](t=len(context)):
-            p_llm = self.llm.p_next(self._prompt + context)
+        p_llm = self.llm.p_next(self._prompt + context)
+        return Float.chart(take(K, self.traverse_trie(context, p_llm))).normalize()
 
-        with self.timer['cfg+trie'](t=len(context)):
-            return Float.chart(take(K, self.traverse_trie(context, p_llm))).normalize()
+    async def sample_next_token(self, prompt, context, draw=sample_dict, **kwargs):
+        """
+        Proposes a token and incremental weight update.
 
-    async def sample_next_token(
-        self, prompt, context, verbosity=0, compare_time=False, draw=sample_dict, **kwargs
-    ):
-        with self.timer['llm'](t=len(context)):
+        The following procedure, justified using RAVI, gives the way we sample a token and compute the incremental SMC weight update.
+
+        1. Sample a subset S of size K of the token vocabulary by
+            a. enumerating the top K - 1 tokens
+            b. sampling a wilcard token from the remainder of the vocabulary proportional to p_llm(x)
+        2. Compute *unnormalized target* p(x) of each x \in S according to p_llm(x)p_cfg(x).
+        3. Compute (local) weight w(x) of each token as p(x)/Pr(x \in S) where Pr(x \in S) is the *inclusion probability*.
+            * Pr(x \in S) = 1 if x in top K - 1
+            * Pr(x \in S) \propto p_llm(x) for the wilcard token
+        4. Renormalize the weights of the tokens in S and sample one of them.
+        5. Set the incremental SMC weight update w'(x) = \sum_{x \in S} w(x)
+        """
+
+        if iscoroutinefunction(self.llm.p_next):
             p_llm = await self.llm.p_next(prompt + context)
+        else:
+            p_llm = self.llm.p_next(prompt + context)
 
-        with self.timer['cfg+trie'](t=len(context)):
-            Q = Float.chart(
-                take(self.K - 1, self.traverse_trie(context, p_llm))
-            ).normalize()
-            token = draw(Q)
+        # enumerate top K - 1 tokens
+        Ws = Float.chart(take(self.K - 1, self.traverse_trie(context, p_llm)))
 
-            llm_prob = p_llm[self.old_eos if token == self.new_eos else token]
-            guide_prob = self._p_guide[token]
+        # sample wildcard token from p_llm
+        P_wc = Float.chart({x: p for x, p in p_llm.items() if x not in Ws}).normalize()
+        wildcard = draw(P_wc)
+        proposal_p = P_wc[wildcard]
 
-        if compare_time:
-            self.timer.compare()
+        # compute wild card weight
+        p_cfg_wc = 1
+        for i, c in enumerate(wildcard):
+            p_cfg_wc *= self.guide.p_next(context + wildcard[:i])[c]
+        Ws[wildcard] = (
+            p_llm[self.old_eos if wildcard == self.new_eos else wildcard]
+            * p_cfg_wc
+            / P_wc[wildcard]
+        )
 
-        # temp fix because hfppl step now requires only two return values
-        return (token, llm_prob * guide_prob / Q[token])
+        # sample token from weights and compute update
+        Ws_norm = Ws.normalize()
+        token = draw(Ws_norm)
+        proposal_p *= Ws_norm[token]
+        weight_update = Ws.sum()
+
+        return (token, proposal_p, weight_update)
 
     def _update_internal(self):
         # overrides base method.  Takes max rather than sum of internal nodes
