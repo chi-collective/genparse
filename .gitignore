@@ -24,3 +24,6 @@ build/
 *.pyx
 *.so
 *.html
+*.pkl
+*.pdf
+
