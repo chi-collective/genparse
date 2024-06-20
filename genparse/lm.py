@@ -346,7 +346,7 @@ class MockLLM(LM):
         self._encode = {x: i for i, x in enumerate(self._decode)}
         super().__init__(eos=eos, V=V)
 
-    def p_next(self, _):
+    def p_next(self, _, **kwargs):
         return LazyProb(self._p, self._encode, self._decode)
 
     # def __call__(self, x):
