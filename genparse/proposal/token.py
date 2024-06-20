@@ -41,13 +41,21 @@ class TokenProposal(TokenCharacterTrie):
 
         super().__init__(words, old_eos=llm.eos, new_eos=guide.eos)
 
-        
     def _p_next(self, context, K=None, execute_model_req=None, **kwargs):
-        p_llm = self.llm.p_next(self._prompt + context, execute_model_req=execute_model_req)
+        p_llm = self.llm.p_next(
+            self._prompt + context, execute_model_req=execute_model_req
+        )
         return Float.chart(take(K, self.traverse_trie(context, p_llm))).normalize()
-      
 
-    async def sample_next_token(self, prompt, context, draw=sample_dict, **kwargs):
+    async def sample_next_token(
+        self,
+        prompt,
+        context,
+        verbosity=0,
+        draw=sample_dict,
+        execute_model_req=None,
+        **kwargs,
+    ):
         """
         Proposes a token and incremental weight update.
 
@@ -63,14 +71,10 @@ class TokenProposal(TokenCharacterTrie):
         4. Renormalize the weights of the tokens in S and sample one of them.
         5. Set the incremental SMC weight update w'(x) = \sum_{x \in S} w(x)
         """
-
-    async def sample_next_token(
-        self, prompt, context, verbosity=0, draw=sample_dict, 
-        execute_model_req=None,
-        **kwargs
-    ):
         if iscoroutinefunction(self.llm.p_next):
-            p_llm = await self.llm.p_next(prompt + context, execute_model_req=execute_model_req)
+            p_llm = await self.llm.p_next(
+                prompt + context, execute_model_req=execute_model_req
+            )
         else:
             p_llm = self.llm.p_next(prompt + context, execute_model_req=execute_model_req)
 
@@ -99,7 +103,6 @@ class TokenProposal(TokenCharacterTrie):
         weight_update = Ws.sum()
 
         return (token, proposal_p, weight_update)
-
 
     def _update_internal(self):
         # overrides base method.  Takes max rather than sum of internal nodes

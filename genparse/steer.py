@@ -203,32 +203,41 @@ class VLLMParticle(Model):
             inputs=inputs,
             # using default params because we only rely on logits
             params=SamplingParams(max_tokens=max_tokens, stop_token_ids=[self.llm.eos]),
-            lora_request=None
+            lora_request=None,
         )
-        self.token_to_id = {x: i for i, x in enumerate(decode_tokenizer_vocab(self.llm.tokenizer))}
+        self.token_to_id = {
+            x: i for i, x in enumerate(decode_tokenizer_vocab(self.llm.tokenizer))
+        }
 
         self.guide = guide
         self.prompt = prompt
         self.context = []
-        
+
         self.proposal = proposal
         self.max_tokens = max_tokens
         self.verbosity = verbosity
 
-
     async def step(self):
         from vllm.sequence import (
-            CompletionSequenceGroupOutput, SequenceOutput, 
-            ExecuteModelRequest, SamplerOutput, Logprob
+            CompletionSequenceGroupOutput,
+            SequenceOutput,
+            ExecuteModelRequest,
+            SamplerOutput,
+            Logprob,
         )
 
-        seq_group_metadata_list, scheduler_outputs = self.llm._model.llm_engine.scheduler.schedule()
-        
+        seq_group_metadata_list, scheduler_outputs = (
+            self.llm._model.llm_engine.scheduler.schedule()
+        )
+
         if scheduler_outputs.is_empty():
             # finishing due to resource
             self.llm._model.llm_engine._process_model_outputs(
-                [], scheduler_outputs.scheduled_seq_groups,
-                scheduler_outputs.ignored_seq_groups, seq_group_metadata_list)
+                [],
+                scheduler_outputs.scheduled_seq_groups,
+                scheduler_outputs.ignored_seq_groups,
+                seq_group_metadata_list,
+            )
             self.llm._model.llm_engine.model_executor.stop_remote_worker_execution_loop()
             self.finish()
 
@@ -244,44 +253,57 @@ class VLLMParticle(Model):
         )
 
         # sample next token with llm and guide
-        (token, weight_update) = await self.proposal.sample_next_token(
+        (token, _, weight_update) = await self.proposal.sample_next_token(
             prompt=self.prompt,
             context=''.join(self.context),
-            compare_time=(self.verbosity > 1),
-            execute_model_req=execute_model_req
+            execute_model_req=execute_model_req,
         )
         token_id = self.token_to_id.get(token, self.llm._model.eos_token_id)
         self.context.append(token)
         self.weight += np.log(weight_update)
         self.max_tokens -= 1
-        
+
         if self.verbosity > 1:
-            print("token, token_id", token, token_id)
+            print('token, token_id', token, token_id)
             print(f"`{token}` : {''.join(self.context)} : {self.weight}")
 
         # Post-processing. Do after sample is chosen.
         # Feed output list to vllm engine scheduler and prepare for next step
         output = []
         for seq_group_md in seq_group_metadata_list:
-            # len(seq_group_md.seq_data.keys()) should be one because we are 
+            # len(seq_group_md.seq_data.keys()) should be one because we are
             # using greedy sampling
             parent_seq_id = list(seq_group_md.seq_data.keys())[0]
-            output.append(SamplerOutput(
-                outputs=[
-                    CompletionSequenceGroupOutput(
-                        samples=[SequenceOutput(parent_seq_id=parent_seq_id, output_token=token_id, logprobs={token_id: Logprob(logprob=np.log(weight_update))})],
-                        prompt_logprobs=None)]
-            ))
+            output.append(
+                SamplerOutput(
+                    outputs=[
+                        CompletionSequenceGroupOutput(
+                            samples=[
+                                SequenceOutput(
+                                    parent_seq_id=parent_seq_id,
+                                    output_token=token_id,
+                                    logprobs={
+                                        token_id: Logprob(logprob=np.log(weight_update))
+                                    },
+                                )
+                            ],
+                            prompt_logprobs=None,
+                        )
+                    ]
+                )
+            )
 
         self.llm._model.llm_engine._process_model_outputs(
-            output, scheduler_outputs.scheduled_seq_groups,
-            scheduler_outputs.ignored_seq_groups, seq_group_metadata_list)
+            output,
+            scheduler_outputs.scheduled_seq_groups,
+            scheduler_outputs.ignored_seq_groups,
+            seq_group_metadata_list,
+        )
 
         # Log stats.
         self.llm._model.llm_engine.do_log_stats(scheduler_outputs, output)
 
         return
-
 
     def immutable_properties(self):
         return ['llm', 'prompt', 'guide', 'verbosity']
@@ -358,11 +380,11 @@ class VLLMSampler:
         return ParticleApproximation(particles), record
 
 
-
 # ____________________________________________________________________________________
 # Approximate inference with HFPPL
 # This code is still experimental and actively being developed
 # TODO: write tests
+
 
 class HFPPLParticle(Model):
     """
