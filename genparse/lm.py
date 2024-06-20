@@ -275,6 +275,8 @@ class AsyncGreedilyTokenizedLLM(LM):
         tokens = self.tokenizer.encode(xs)
 
         if isinstance(self._model, vllmpplLLM):
+            # Pass the kwargs to the model. 
+            # This is useful for passing the `execute_model_req`
             _logp = await self._model.next_token_logprobs(tokens, **kwargs)
         else:
             _logp = await self._model.next_token_logprobs(tokens)

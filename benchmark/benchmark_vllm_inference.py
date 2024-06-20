@@ -17,7 +17,6 @@ from genparse.steer import HFPPLSampler, VLLMSampler
 from genparse.util import LarkStuff
 
 import torch
-# from vllm import LLM, LLMEngine
 
 p = ArgumentParser()
 p.add_argument('--model', choices=['gpt2', 'codellama'], required=True)

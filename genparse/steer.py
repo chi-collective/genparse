@@ -186,10 +186,16 @@ class VLLMParticle(Model):
         from vllm.sampling_params import SamplingParams
         from genparse.tokenization import decode_tokenizer_vocab
 
-
         super().__init__()
-        self.llm = llm # type: async
-        # self.llm._model: VLLM
+        # type: AsyncGreedilyTokenizedLLM
+        self.llm = llm
+        """
+            One VLLMParticle is initialized for each prompt.
+            All VLLMParticle point to the same AsyncGreedilyTokenizedLLM 
+            based on one VLLM instance (self.llm).
+            We add the prompt in the VLLMParticle constructor.
+        """
+
         # call the vllm engine of VLLM
         inputs = self.llm._model._convert_v1_inputs(prompts=prompt, prompt_token_ids=None)
         # add request for prompt
@@ -205,12 +211,8 @@ class VLLMParticle(Model):
         self.prompt = prompt
         self.context = []
         
-        self.sampler_output = []
-
         self.proposal = proposal
         self.max_tokens = max_tokens
-        
-        
         self.verbosity = verbosity
 
 
@@ -241,7 +243,7 @@ class VLLMParticle(Model):
             running_queue_size=scheduler_outputs.running_queue_size,
         )
 
-        # executing:
+        # sample next token with llm and guide
         (token, weight_update) = await self.proposal.sample_next_token(
             prompt=self.prompt,
             context=''.join(self.context),
@@ -252,15 +254,17 @@ class VLLMParticle(Model):
         self.context.append(token)
         self.weight += np.log(weight_update)
         self.max_tokens -= 1
-        print("token, token_id", token, token_id)
+        
         if self.verbosity > 1:
-            
+            print("token, token_id", token, token_id)
             print(f"`{token}` : {''.join(self.context)} : {self.weight}")
 
-        # TODO: fit token back into SampleOutput, so vllm can
-        # process it correctly
+        # Post-processing. Do after sample is chosen.
+        # Feed output list to vllm engine scheduler and prepare for next step
         output = []
         for seq_group_md in seq_group_metadata_list:
+            # len(seq_group_md.seq_data.keys()) should be one because we are 
+            # using greedy sampling
             parent_seq_id = list(seq_group_md.seq_data.keys())[0]
             output.append(SamplerOutput(
                 outputs=[
@@ -268,9 +272,7 @@ class VLLMParticle(Model):
                         samples=[SequenceOutput(parent_seq_id=parent_seq_id, output_token=token_id, logprobs={token_id: Logprob(logprob=np.log(weight_update))})],
                         prompt_logprobs=None)]
             ))
-        self.sampler_output = self.sampler_output + output
 
-        # post-processing. Do after sample is chosen
         self.llm._model.llm_engine._process_model_outputs(
             output, scheduler_outputs.scheduled_seq_groups,
             scheduler_outputs.ignored_seq_groups, seq_group_metadata_list)

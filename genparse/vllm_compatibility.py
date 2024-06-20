@@ -18,79 +18,45 @@ from vllm.sequence import ExecuteModelRequest
 
 
 class LogitsSampler(torch.nn.Module):
-    def __init__(self, base_sampler):
+    """
+        Dummy sampler that returns logits as is.
+        Will be called in model_executor.execute_model.
+    """
+    def __init__(self):
         super().__init__()
 
-        self.base_sampler = base_sampler
         self.include_gpu_probs_tensor = False
 
     def forward(
         self,
         logits,
         sampling_metadata,
-    ):
-    
+    ):    
         return logits
 
 
 class pplLMEngine(vllm.LLMEngine):
-    async def next_token_logprobs(self, execute_model_req):
+    async def next_token_logprobs(self, execute_model_req, **kwargs):
+        """
+            execute_model_req is the request parameter to the vllm's model_executor        
+        """
+
+        # logits: list of torch.Tensor each with shape [n_sample, vocab_size]
+        # each tensor is the logits for a `sequence_group`
+        # n_sample = 1 for in our case
         logits = self.model_executor.execute_model(
             execute_model_req=execute_model_req)
 
-        # tensor([[-73.3893, -75.2677, -74.1485,  ..., -81.7179, -80.7128, -69.3829]],
-        #        device='cuda:0')
-        # SamplerOutput(outputs=[CompletionSequenceGroupOutput(samples=[SequenceOutput(parent_seq_id=0, output_token=33493, logprobs={33493: Logprob(logprob=-0.14365723729133606, rank=1, decoded_token=None)})], prompt_logprobs=None)], sampled_token_probs=None, sampled_token_ids=None, spec_decode_worker_metrics=None)
-        
-        return logits[0][0].log_softmax(dim=-1).float() #.tolist()
+        # cast to float32
+        return logits[0][0].log_softmax(dim=-1).float()
     
-    def _process_model_outputs(
-            self,
-            output,
-            scheduled_seq_groups,
-            ignored_seq_groups,
-            seq_group_metadata_list,
-        ):
-            now = time.time()
-            """Apply the model output to the sequences in the scheduled seq groups.
-            Returns RequestOutputs that can be returned to the client.
-            """
-            # Organize outputs by [sequence group][step] instead of
-            # [step][sequence group].
-            output_by_sequence_group = create_output_by_sequence_group(
-                output, num_seq_groups=len(scheduled_seq_groups))
-            # Update the scheduled sequence groups with the model outputs.
-            for scheduled_seq_group, outputs, seq_group_meta in zip(
-                    scheduled_seq_groups, output_by_sequence_group,
-                    seq_group_metadata_list):
-                seq_group = scheduled_seq_group.seq_group
-                seq_group.update_num_computed_tokens(
-                    scheduled_seq_group.token_chunk_size)
-
-                self.output_processor.process_prompt_logprob(seq_group, outputs)
-                if seq_group_meta.do_sample:
-                    # This is important. Update the generator state with sampled 
-                    # token. Should leave the selection of next token to hfppl
-                    self.output_processor.process_outputs(seq_group, outputs)
-
-            # Free the finished sequence groups.
-            self.scheduler.free_finished_seq_groups()
-
-            # # Create the outputs.
-            request_outputs = []
-            for scheduled_seq_group in scheduled_seq_groups:
-                seq_group = scheduled_seq_group.seq_group
-                seq_group.maybe_set_first_token_time(now)
-                request_output = RequestOutputFactory.create(seq_group)
-                request_outputs.append(request_output)
-            for seq_group in ignored_seq_groups:
-                request_output = RequestOutputFactory.create(seq_group)
-                request_outputs.append(request_output)
-            return # request_outputs
-
-
 
 class vllmpplLLM(vllm.LLM):
+    """
+        Wrapper around VLLM to make it compatible with hfppl.
+            1. vllm sampler replaced with LogitsSampler
+            2. added next_token_logprobs, p_next methods
+    """
 
     def __init__(
         self,
@@ -139,18 +105,17 @@ class vllmpplLLM(vllm.LLM):
         self.llm_engine = pplLMEngine.from_engine_args(
             engine_args, usage_context=UsageContext.LLM_CLASS)
         # sampler of the model
-        self.llm_engine.model_executor.driver_worker.model_runner.model.sampler = LogitsSampler(
-            self.llm_engine.model_executor.driver_worker.model_runner.model.sampler
-        )
+        self.llm_engine.model_executor.driver_worker.model_runner.model.sampler = LogitsSampler()
         self.request_counter = Counter()
-        # self.eos = self.llm_engine.model_executor.driver_worker.model_runner.model.eos_token_id
         self.eos_token_id = self.llm_engine._get_eos_token_id(lora_request=None)
-        print("self.eos_token_id", self.eos_token_id)
 
 
     def next_token_logprobs(self, input_ids, **kwargs): 
         # call the vllm engine of VLLM
+        # kwargs contains the execute_model_req
         return self.llm_engine.next_token_logprobs(**kwargs)
 
+
     def p_next(self, input_ids, **kwargs):
+        # kwargs contains the execute_model_req
         return self.next_token_logprobs(**kwargs).exp()
