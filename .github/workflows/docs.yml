@@ -8,14 +8,13 @@ on:
 
 jobs:
   run_tests:
-
     runs-on:           ubuntu-latest
-
     steps:
+      # - name:          free disk space
+      #   uses:          jlumbroso/free-disk-space@v1.3.1
       - name:          checkout repo
         uses:          actions/checkout@v3.0.0
         with:
           fetch-depth: 1
-
       - name:          check docs build
         run:           make docs
