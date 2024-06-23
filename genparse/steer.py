@@ -5,6 +5,7 @@ Language model steering methods
 import asyncio
 import random
 import warnings
+import copy
 
 import numpy as np
 import torch
@@ -24,6 +25,7 @@ from genparse.inference import (
 from genparse.lm import LM
 from genparse.semiring import Float
 from genparse.util import format_table, set_seed
+
 
 
 class BruteForceGlobalProductOfExperts:
@@ -180,204 +182,6 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
     else:
         raise AssertionError(METHOD)
 
-
-class VLLMParticle(Model):
-    def __init__(self, llm, guide, proposal, prompt, max_tokens, verbosity=0):
-        from vllm.sampling_params import SamplingParams
-        from genparse.tokenization import decode_tokenizer_vocab
-
-        super().__init__()
-        # type: AsyncGreedilyTokenizedLLM
-        self.llm = llm
-        """
-            One VLLMParticle is initialized for each prompt.
-            All VLLMParticle point to the same AsyncGreedilyTokenizedLLM 
-            based on one VLLM instance (self.llm).
-            We add the prompt in the VLLMParticle constructor.
-        """
-
-        # call the vllm engine of VLLM
-        inputs = self.llm._model._convert_v1_inputs(prompts=prompt, prompt_token_ids=None)
-        # add request for prompt
-        self.llm._model._validate_and_add_requests(
-            inputs=inputs,
-            # using default params because we only rely on logits
-            params=SamplingParams(max_tokens=max_tokens, stop_token_ids=[self.llm.eos]),
-            lora_request=None,
-        )
-        self.token_to_id = {
-            x: i for i, x in enumerate(decode_tokenizer_vocab(self.llm.tokenizer))
-        }
-
-        self.guide = guide
-        self.prompt = prompt
-        self.context = []
-
-        self.proposal = proposal
-        self.max_tokens = max_tokens
-        self.verbosity = verbosity
-
-    async def step(self):
-        from vllm.sequence import (
-            CompletionSequenceGroupOutput,
-            SequenceOutput,
-            ExecuteModelRequest,
-            SamplerOutput,
-            Logprob,
-        )
-
-        seq_group_metadata_list, scheduler_outputs = (
-            self.llm._model.llm_engine.scheduler.schedule()
-        )
-
-        if scheduler_outputs.is_empty():
-            # finishing due to resource
-            self.llm._model.llm_engine._process_model_outputs(
-                [],
-                scheduler_outputs.scheduled_seq_groups,
-                scheduler_outputs.ignored_seq_groups,
-                seq_group_metadata_list,
-            )
-            self.llm._model.llm_engine.model_executor.stop_remote_worker_execution_loop()
-            self.finish()
-
-            return
-
-        execute_model_req = ExecuteModelRequest(
-            seq_group_metadata_list=seq_group_metadata_list,
-            blocks_to_swap_in=scheduler_outputs.blocks_to_swap_in,
-            blocks_to_swap_out=scheduler_outputs.blocks_to_swap_out,
-            blocks_to_copy=scheduler_outputs.blocks_to_copy,
-            num_lookahead_slots=scheduler_outputs.num_lookahead_slots,
-            running_queue_size=scheduler_outputs.running_queue_size,
-        )
-
-        # sample next token with llm and guide
-        (token, _, weight_update) = await self.proposal.sample_next_token(
-            prompt=self.prompt,
-            context=''.join(self.context),
-            execute_model_req=execute_model_req,
-        )
-        token_id = self.token_to_id.get(token, self.llm._model.eos_token_id)
-        self.context.append(token)
-        self.weight += np.log(weight_update)
-        self.max_tokens -= 1
-
-        if self.verbosity > 1:
-            print('token, token_id', token, token_id)
-            print(f"`{token}` : {''.join(self.context)} : {self.weight}")
-
-        # Post-processing. Do after sample is chosen.
-        # Feed output list to vllm engine scheduler and prepare for next step
-        output = []
-        for seq_group_md in seq_group_metadata_list:
-            # len(seq_group_md.seq_data.keys()) should be one because we are
-            # using greedy sampling
-            parent_seq_id = list(seq_group_md.seq_data.keys())[0]
-            output.append(
-                SamplerOutput(
-                    outputs=[
-                        CompletionSequenceGroupOutput(
-                            samples=[
-                                SequenceOutput(
-                                    parent_seq_id=parent_seq_id,
-                                    output_token=token_id,
-                                    logprobs={
-                                        token_id: Logprob(logprob=np.log(weight_update))
-                                    },
-                                )
-                            ],
-                            prompt_logprobs=None,
-                        )
-                    ]
-                )
-            )
-
-        self.llm._model.llm_engine._process_model_outputs(
-            output,
-            scheduler_outputs.scheduled_seq_groups,
-            scheduler_outputs.ignored_seq_groups,
-            seq_group_metadata_list,
-        )
-
-        # Log stats.
-        self.llm._model.llm_engine.do_log_stats(scheduler_outputs, output)
-
-        return
-
-    def immutable_properties(self):
-        return ['llm', 'prompt', 'guide', 'verbosity']
-
-    def __repr__(self):
-        return f"`{'' if not self.context else self.context[-1]}` : {''.join(self.context)} : {self.weight}"
-
-    def __str__(self):
-        return ''.join(self.context)
-
-
-class VLLMSampler:
-    def __init__(self, llm, guide):
-        """
-        Args:
-            llm (vllm.VLLM)
-            guide (LM)
-        Returns:
-            particle_approximation (ParticleApproximation)
-            record (dict | NoneType): information about the run
-        """
-        self.llm = llm
-        self.guide = guide
-
-    def run_inference(
-        self,
-        prompt,
-        proposal,
-        method,
-        n_particles,
-        n_beam=None,
-        max_tokens=float('inf'),
-        verbosity=0,
-        return_record=False,
-        seed=None,
-    ):
-        if seed is not None:
-            set_seed(seed)
-
-        model = VLLMParticle(
-            llm=self.llm,
-            guide=self.guide,
-            prompt=prompt,
-            proposal=proposal,
-            max_tokens=max_tokens,
-            verbosity=verbosity,
-        )
-
-        record = None
-        if method == 'smc-steer':
-            assert n_beam is not None
-            if return_record:
-                raise Warning('Record not yet implemented for smc-steer')
-            particles = asyncio.run(
-                smc_steer(model, n_particles=n_particles, n_beam=n_beam)
-            )
-
-        elif method == 'smc-standard':
-            if return_record:
-                particles, record = asyncio.run(
-                    smc_standard_record(
-                        model, n_particles=n_particles, return_record=return_record
-                    )
-                )
-            else:
-                particles = asyncio.run(smc_standard(model, n_particles=n_particles))
-
-        elif method == 'importance-sampling':
-            particles = asyncio.run(importance_sampling(model, n_particles=n_particles))
-
-        else:
-            raise ValueError(f'Unknown inference method: {method}.')
-
-        return ParticleApproximation(particles), record
 
 
 # ____________________________________________________________________________________

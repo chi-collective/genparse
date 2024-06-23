@@ -54,6 +54,7 @@ class TokenProposal(TokenCharacterTrie):
         verbosity=0,
         draw=sample_dict,
         execute_model_req=None,
+        p_llm=None,
         **kwargs,
     ):
         """
@@ -71,12 +72,13 @@ class TokenProposal(TokenCharacterTrie):
         4. Renormalize the weights of the tokens in S and sample one of them.
         5. Set the incremental SMC weight update w'(x) = \sum_{x \in S} w(x)
         """
-        if iscoroutinefunction(self.llm.p_next):
-            p_llm = await self.llm.p_next(
-                prompt + context, execute_model_req=execute_model_req
-            )
-        else:
-            p_llm = self.llm.p_next(prompt + context, execute_model_req=execute_model_req)
+        if p_llm is None:
+            if iscoroutinefunction(self.llm.p_next):
+                p_llm = await self.llm.p_next(
+                    prompt + context, execute_model_req=execute_model_req
+                )
+            else:
+                p_llm = self.llm.p_next(prompt + context, execute_model_req=execute_model_req)
 
         # enumerate top K - 1 tokens
         Ws = Float.chart(take(self.K - 1, self.traverse_trie(context, p_llm)))

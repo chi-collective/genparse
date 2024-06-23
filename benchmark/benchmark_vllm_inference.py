@@ -13,15 +13,17 @@ from genparse.cfglm import EarleyBoolMaskCFGLM
 from genparse.lm import AsyncGreedilyTokenizedLLM
 from genparse.vllm_compatibility import vllmpplLLM
 from genparse.proposal import CharacterProposal, TokenProposal
-from genparse.steer import HFPPLSampler, VLLMSampler
+from genparse.vllm_steer import VLLMSampler
 from genparse.util import LarkStuff
 
 import torch
 
 p = ArgumentParser()
 p.add_argument('--model', choices=['gpt2', 'codellama'], required=True)
-p.add_argument('--proposal', choices=['token', 'character'], default='character')
+p.add_argument(
+    '--proposal', choices=['token', 'character'], default='character')
 p.add_argument('--particles', type=int, default=1)
+p.add_argument('--n-beam', type=int, default=1)
 p.add_argument('--reps', type=int, default=1)
 p.add_argument('--max-tokens', type=int, default=100)
 p.add_argument('--verbosity', type=int, default=0)
@@ -38,7 +40,7 @@ RANDOM_SEED = args.seed
 set_seed(RANDOM_SEED)
 seed(RANDOM_SEED)
 manual_seed(RANDOM_SEED)
-   
+
 
 if args.model == 'gpt2':
     import transformers
@@ -123,7 +125,8 @@ def main():
         model=hfppl_llm, tokenizer=tokenizer, batch_size=BATCH_SIZE
     )
 
-    guide = EarleyBoolMaskCFGLM(LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?'))
+    guide = EarleyBoolMaskCFGLM(
+        LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?'))
     sampler = VLLMSampler(llm=genparse_llm, guide=guide)
     if args.proposal == 'character':
         proposal = CharacterProposal(llm=genparse_llm, guide=guide)
@@ -133,6 +136,7 @@ def main():
         raise ValueError(f'invalid proposal name {args.proposal!r}')
 
     for _ in range(args.reps):
+
         for sql_prompt in prompts:
             prompt = prompt_template % sql_prompt
             print(colors.cyan % colors.line(100))
@@ -144,14 +148,15 @@ def main():
                 method=args.inference,
                 n_particles=args.particles,
                 max_tokens=args.max_tokens,
+                n_beam=args.n_beam,
                 verbosity=args.verbosity,
-                return_record=True,
+                return_record=False,
             )
 
-            if args.particles > 1 and record is not None:
-                fig = record.plot_particles_trajectory()
-                fig.write_html('viz.html')
-                print('wrote to viz.html')
+            # if args.particles > 1 and record is not None:
+            #     fig = record.plot_particles_trajectory()
+            #     fig.write_html('viz.html')
+            #     print('wrote to viz.html')
 
             print(colors.yellow % 'character posterior')
             posterior = Float.chart()
@@ -166,9 +171,9 @@ def main():
                     posterior[tuple(p.context)] += np.exp(p.weight)
                 print(posterior.normalize())
 
-    proposal.timer.plot_feature('t')
+    sampler.timer.plot_feature('t')
     with open('vllm_runtime.pkl', 'wb') as f:
-        pickle.dump(proposal.timer, f)
+        pickle.dump(sampler.timer, f)
     print('wrote to vllm_runtime.pkl')
 
     import pylab as pl

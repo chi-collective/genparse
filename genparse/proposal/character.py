@@ -95,6 +95,7 @@ class CharacterProposal(TokenCharacterTrie):
         correct_weights=True,
         draw=sample_dict,
         execute_model_req=None,
+        p_llm=None,
         **kwargs,
     ):
         """
@@ -106,16 +107,17 @@ class CharacterProposal(TokenCharacterTrie):
             verbosity : > 1 prints sampling process.
             correct_weights : whether to correct the importance weights with RAVI.
                 false leads to probabilistically incorrect inference.
+            p_llm: provide the model with pre-computed p_llm. For VLLM.
         Returns:
             token : Proposed LLM token.
             weight_update : Incremental SMC weight update.
         """
-
-        if iscoroutinefunction(self.llm.p_next):
-            p_llm = await self.llm.p_next(prompt + context, execute_model_req=execute_model_req)
-        else:
-            p_llm = self.llm.p_next(prompt + context, execute_model_req=execute_model_req)
-
+        if p_llm is None:
+            if iscoroutinefunction(self.llm.p_next):
+                p_llm = await self.llm.p_next(prompt + context, execute_model_req=execute_model_req)
+            else:
+                p_llm = self.llm.p_next(prompt + context, execute_model_req=execute_model_req)
+    
         self._update_trie(p_llm)
 
         if correct_weights:

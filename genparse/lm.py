@@ -270,15 +270,16 @@ class AsyncGreedilyTokenizedLLM(LM):
     async def next_token_logprobs(self, xs, top=None):
         return self.p_next(xs, top=top).map_values(np.log)
 
-    async def p_next(self, xs, top=None, **kwargs):
-        assert isinstance(xs, str)
-        tokens = self.tokenizer.encode(xs)
+    async def p_next(self, xs="", top=None, _logp=None, **kwargs):
 
         if isinstance(self._model, vllmpplLLM):
             # Pass the kwargs to the model. 
             # This is useful for passing the `execute_model_req`
-            _logp = await self._model.next_token_logprobs(tokens, **kwargs)
+            # _logp is provided by the vllm centralized step function
+            assert _logp is not None, "Please provide the log probabilities when using VLLM."
         else:
+            assert isinstance(xs, str)
+            tokens = self.tokenizer.encode(xs)
             _logp = await self._model.next_token_logprobs(tokens)
         _logp = _logp.cpu().numpy() if hasattr(_logp, 'cpu') else _logp
         _p = np.exp(_logp)
