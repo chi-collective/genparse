@@ -17,12 +17,11 @@ from vllm.core.scheduler import ScheduledSequenceGroup, Scheduler, SchedulerOutp
 class LogitsSampler(torch.nn.Module):
     """
     Dummy sampler that returns logits as is.
-    Will be called in model_executor.execute_model.
+    Will be called by model_executor.execute_model in VLLMWrapper.prepare_logprobs.
     """
 
     def __init__(self):
         super().__init__()
-
         self.include_gpu_probs_tensor = False
 
     def forward(
@@ -41,7 +40,7 @@ class LogitsSampler(torch.nn.Module):
             num_parent_seqs = len(seq_ids)
             grouped_logprobs.append(
                 # (seq_bs, vocab_size)
-                logprobs[sample_idx : sample_idx + num_parent_seqs]
+                logprobs[sample_idx: sample_idx + num_parent_seqs]
             )
             grouped_seq_ids.append(seq_ids)
             sample_idx += num_parent_seqs
@@ -58,22 +57,20 @@ class pplLMEngine(vllm.LLMEngine):
         ignored_seq_groups,
         seq_group_metadata_list,
     ):
-        """Apply the model output to the sequences in the scheduled seq groups.
-
+        """
+        Apply the model output to the sequences in the scheduled seq groups.
         Returns RequestOutputs that can be returned to the client.
         """
 
         now = time.time()
-
-        # Organize outputs by [sequence group][step] instead of
-        # [step][sequence group].
 
         # Update the scheduled sequence groups with the model outputs.
         for scheduled_seq_group, outputs, seq_group_meta in zip(
             scheduled_seq_groups, output, seq_group_metadata_list
         ):
             seq_group = scheduled_seq_group.seq_group
-            seq_group.update_num_computed_tokens(scheduled_seq_group.token_chunk_size)
+            seq_group.update_num_computed_tokens(
+                scheduled_seq_group.token_chunk_size)
 
             self.output_processor.process_prompt_logprob(seq_group, outputs)
             if seq_group_meta.do_sample:
@@ -93,20 +90,6 @@ class pplLMEngine(vllm.LLMEngine):
             request_output = RequestOutputFactory.create(seq_group)
             request_outputs.append(request_output)
         return request_outputs
-
-    async def next_token_logprobs(self, execute_model_req, **kwargs):
-        """
-        execute_model_req is the request parameter to the vllm's model_executor
-        """
-
-        # logits: list of torch.Tensor each with shape [n_sample, vocab_size]
-        # each tensor is the logits for a `sequence_group`
-        # n_sample = 1 for in our case
-        logits = self.model_executor.execute_model(execute_model_req=execute_model_req)
-
-        # cast to float32
-        # return: list of torch.Tensor each with shape [n_sample, vocab_size]
-        return [l.log_softmax(dim=-1).float() for l in logits]
 
 
 class vllmpplLLM(vllm.LLM):
@@ -167,20 +150,5 @@ class vllmpplLLM(vllm.LLM):
             LogitsSampler()
         )
         self.request_counter = Counter()
-        self.eos_token_id = self.llm_engine._get_eos_token_id(lora_request=None)
-
-    def next_token_logprobs(self, input_ids, **kwargs):
-        # call the vllm engine of VLLM
-        # kwargs contains the execute_model_req
-        if self.input_ids_to_key(input_ids) in self.cache:
-            return self.cache[self.input_ids_to_key(input_ids)]
-        else:
-            batched_log_probs = self.llm_engine.next_token_logprobs(**kwargs)
-            self.cache[self.input_ids_to_key(input_ids)] = batched_log_probs
-
-    def p_next(self, input_ids, **kwargs):
-        """
-        not used in the current implementation
-        """
-        # kwargs contains the execute_model_req
-        return self.next_token_logprobs(input_ids, **kwargs).exp()
+        self.eos_token_id = self.llm_engine._get_eos_token_id(
+            lora_request=None)

@@ -53,7 +53,6 @@ class TokenProposal(TokenCharacterTrie):
         context,
         verbosity=0,
         draw=sample_dict,
-        execute_model_req=None,
         p_llm=None,
         **kwargs,
     ):
@@ -71,16 +70,29 @@ class TokenProposal(TokenCharacterTrie):
             * Pr(x \in S) \propto p_llm(x) for the wilcard token
         4. Renormalize the weights of the tokens in S and sample one of them.
         5. Set the incremental SMC weight update w'(x) = \sum_{x \in S} w(x)
+
+        Args:
+            prompt : The LLM prompt.
+            context : The previous generated tokens.
+            verbosity : > 1 prints sampling process.
+            p_llm: Provide the model with pre-computed p_llm. Since for VLLM, p_llm is computed
+                for all particles altogether. We directly pass the corresponding p_llm to
+                the proposal of each particle.
+        Returns:
+            token : Proposed LLM token.
+            weight_update : Incremental SMC weight update.
+
         """
         if p_llm is None:
-            if iscoroutinefunction(self.llm.p_next):
-                p_llm = await self.llm.p_next(
-                    prompt + context, execute_model_req=execute_model_req
-                )
-            else:
-                p_llm = self.llm.p_next(
-                    prompt + context, execute_model_req=execute_model_req
-                )
+            with self.timer['llm'](t=len(context)):
+                if iscoroutinefunction(self.llm.p_next):
+                    p_llm = await self.llm.p_next(
+                        prompt + context
+                    )
+                else:
+                    p_llm = self.llm.p_next(
+                        prompt + context
+                    )
 
         # enumerate top K - 1 tokens
         Ws = Float.chart(take(self.K - 1, self.traverse_trie(context, p_llm)))
@@ -92,8 +104,9 @@ class TokenProposal(TokenCharacterTrie):
 
         # compute wild card weight
         p_cfg_wc = 1
-        for i, c in enumerate(wildcard):
-            p_cfg_wc *= self.guide.p_next(context + wildcard[:i])[c]
+        with self.timer['cfg+trie'](t=len(context)):
+            for i, c in enumerate(wildcard):
+                p_cfg_wc *= self.guide.p_next(context + wildcard[:i])[c]
         Ws[wildcard] = (
             p_llm[self.old_eos if wildcard == self.new_eos else wildcard]
             * p_cfg_wc
