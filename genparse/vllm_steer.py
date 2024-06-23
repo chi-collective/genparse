@@ -31,6 +31,8 @@ from genparse.semiring import Float
 from genparse.util import format_table, set_seed
 from genparse.steer import ParticleApproximation
 
+from typing import List
+
 
 class VLLMWrapper:
     def __init__(
@@ -230,7 +232,7 @@ class VLLMWrapper:
                 group_results.append((token_id, weight_update, parent_id, par_id))
 
                 if self.verbosity > 1:
-                    print('particle, token, token_id', i, token, token_id)
+                    print('token, token_id', token, token_id)
                     print(
                         f"`{token} {token_id}` : {''.join(particle.context)} : {particle.weight}"
                     )
@@ -253,7 +255,7 @@ class VLLMWrapper:
         # fork new particles and kill old ones
         # by repeating samples in processed_output or removing
 
-        token_ids, weight_updates, parent_ids, particle_ids = [], [], [], []
+        token_ids, weight_updates, parent_ids = [], [], []
         for group_results in results:
             token_ids.append([token_id for token_id, _, _, _ in group_results])
             weight_updates.append(
@@ -276,7 +278,6 @@ class VLLMWrapper:
             weight_updates,
             parent_ids,
         ):
-            request_id = seq_group_md.request_id
             seq_outputs: List[SequenceOutput] = []
 
             for parent_id, next_token_id, logprobs in zip(
