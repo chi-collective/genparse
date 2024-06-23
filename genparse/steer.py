@@ -27,7 +27,6 @@ from genparse.semiring import Float
 from genparse.util import format_table, set_seed
 
 
-
 class BruteForceGlobalProductOfExperts:
     def __init__(self, lm1, lm2, MAX_LENGTH):
         # Create a reference distribution for the global product of experts by
@@ -181,7 +180,6 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
         return asyncio.run(smc_standard(Particle(), n_particles=n_particles))
     else:
         raise AssertionError(METHOD)
-
 
 
 # ____________________________________________________________________________________

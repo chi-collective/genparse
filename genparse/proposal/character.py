@@ -114,10 +114,14 @@ class CharacterProposal(TokenCharacterTrie):
         """
         if p_llm is None:
             if iscoroutinefunction(self.llm.p_next):
-                p_llm = await self.llm.p_next(prompt + context, execute_model_req=execute_model_req)
+                p_llm = await self.llm.p_next(
+                    prompt + context, execute_model_req=execute_model_req
+                )
             else:
-                p_llm = self.llm.p_next(prompt + context, execute_model_req=execute_model_req)
-    
+                p_llm = self.llm.p_next(
+                    prompt + context, execute_model_req=execute_model_req
+                )
+
         self._update_trie(p_llm)
 
         if correct_weights:
@@ -130,7 +134,6 @@ class CharacterProposal(TokenCharacterTrie):
             )
 
         return (token, proposal_p, weight_update)
-      
 
     def __deepcopy__(self, memo):
         cpy = type(self).__new__(type(self))

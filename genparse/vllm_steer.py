@@ -1,6 +1,7 @@
 """
 Language model steering methods (VLLM compatible)
 """
+
 from arsenal import colors, timers
 
 import asyncio
@@ -23,7 +24,7 @@ from genparse.vllm_inference import (
     smc_standard,
     smc_standard_record,
     smc_steer,
-    VLLMParticle
+    VLLMParticle,
 )
 from genparse.lm import LM
 from genparse.semiring import Float
@@ -32,7 +33,17 @@ from genparse.steer import ParticleApproximation
 
 
 class VLLMWrapper:
-    def __init__(self, llm, n_particles, guide, proposal, prompt, max_tokens, verbosity=0, timer=None):
+    def __init__(
+        self,
+        llm,
+        n_particles,
+        guide,
+        proposal,
+        prompt,
+        max_tokens,
+        verbosity=0,
+        timer=None,
+    ):
         from vllm.sampling_params import SamplingParams
         from genparse.tokenization import decode_tokenizer_vocab
 
@@ -67,22 +78,25 @@ class VLLMWrapper:
         from vllm.sampling_params import SamplingParams
 
         if isinstance(prompt, str):
-            request_id = str(
-                next(copy.deepcopy(self.llm._model.request_counter)))
+            request_id = str(next(copy.deepcopy(self.llm._model.request_counter)))
             self.particles[request_id] = [
                 VLLMParticle(
-                    prompt=prompt, max_tokens=self.max_tokens, proposal=copy.deepcopy(
-                        self.proposal)
-                ) for _ in range(self.n_particles)
+                    prompt=prompt,
+                    max_tokens=self.max_tokens,
+                    proposal=copy.deepcopy(self.proposal),
+                )
+                for _ in range(self.n_particles)
             ]
 
             self.llm._model._validate_and_add_requests(
                 inputs=self.llm._model._convert_v1_inputs(
-                    prompts=prompt, prompt_token_ids=None),
+                    prompts=prompt, prompt_token_ids=None
+                ),
                 # using default params because we only rely on logits
-                params=SamplingParams(max_tokens=self.max_tokens,
-                                      stop_token_ids=[self.llm.eos]),
-                lora_request=None
+                params=SamplingParams(
+                    max_tokens=self.max_tokens, stop_token_ids=[self.llm.eos]
+                ),
+                lora_request=None,
             )
             return request_id
         elif isinstance(prompt, list):
@@ -98,7 +112,7 @@ class VLLMWrapper:
             SequenceOutput,
             ExecuteModelRequest,
             SamplerOutput,
-            Logprob
+            Logprob,
         )
 
         seq_group_metadata_list, scheduler_outputs = (
@@ -116,34 +130,49 @@ class VLLMWrapper:
         # logprobs, seq_ids are
         # list of torch.Tensor each with shape [n_sample, vocab_size]
         res = self.llm._model.llm_engine.model_executor.execute_model(
-            execute_model_req=execute_model_req)
+            execute_model_req=execute_model_req
+        )
         logprobs, seq_ids = zip(*res)
 
         next_logprobs_by_sequence_group = create_output_by_sequence_group(
-            logprobs, num_seq_groups=len(scheduler_outputs.scheduled_seq_groups))
+            logprobs, num_seq_groups=len(scheduler_outputs.scheduled_seq_groups)
+        )
         next_seq_ids_by_sequence_group = create_output_by_sequence_group(
-            seq_ids, num_seq_groups=len(scheduler_outputs.scheduled_seq_groups))
+            seq_ids, num_seq_groups=len(scheduler_outputs.scheduled_seq_groups)
+        )
 
-        return scheduler_outputs, seq_group_metadata_list, next_logprobs_by_sequence_group, next_seq_ids_by_sequence_group
+        return (
+            scheduler_outputs,
+            seq_group_metadata_list,
+            next_logprobs_by_sequence_group,
+            next_seq_ids_by_sequence_group,
+        )
 
-    async def sample_next_token(self, scheduler_outputs, seq_group_metadata_list, next_logprobs_by_sequence_group, next_seq_ids_by_sequence_group):
-
+    async def sample_next_token(
+        self,
+        scheduler_outputs,
+        seq_group_metadata_list,
+        next_logprobs_by_sequence_group,
+        next_seq_ids_by_sequence_group,
+    ):
         from vllm.sequence import (
             CompletionSequenceGroupOutput,
             SequenceOutput,
             ExecuteModelRequest,
             SamplerOutput,
-            Logprob
+            Logprob,
         )
 
         # sample next token with llm and guide
 
         results = []
-        for seq_group_md, seq_group_next_logprob, seq_group_ids in zip(seq_group_metadata_list, next_logprobs_by_sequence_group, next_seq_ids_by_sequence_group):
-
+        for seq_group_md, seq_group_next_logprob, seq_group_ids in zip(
+            seq_group_metadata_list,
+            next_logprobs_by_sequence_group,
+            next_seq_ids_by_sequence_group,
+        ):
             group_results = []
-            assert len(
-                seq_group_next_logprob) == 1, "We are using one-step decoding."
+            assert len(seq_group_next_logprob) == 1, 'We are using one-step decoding.'
             # take the only step
             seq_group_next_logprob = seq_group_next_logprob[0]
             seq_group_ids = seq_group_ids[0]
@@ -152,7 +181,8 @@ class VLLMWrapper:
             is_prompt = seq_group_md.is_prompt
             # running parent_ids
             parent_id_to_result_id = {
-                parent_id: i for i, parent_id in enumerate(seq_group_ids)}
+                parent_id: i for i, parent_id in enumerate(seq_group_ids)
+            }
 
             output_ids_to_seq_ids = {
                 tuple(x.output_token_ids): k for k, x in seq_group_md.seq_data.items()
@@ -162,8 +192,10 @@ class VLLMWrapper:
                 if is_prompt:
                     # all particles are forked from one prompt and are equivalent
                     # so we don't need a parent_id for them in this case
-                    assert seq_group_next_logprob.size(
-                        0) == 1, (seq_group_next_logprob.size(), len(self.particles[request_id]))
+                    assert seq_group_next_logprob.size(0) == 1, (
+                        seq_group_next_logprob.size(),
+                        len(self.particles[request_id]),
+                    )
                     logp = seq_group_next_logprob[0]
                     parent_id = seq_group_ids[0]
                 else:
@@ -187,33 +219,28 @@ class VLLMWrapper:
                 (token, _, weight_update) = await particle.proposal.sample_next_token(
                     prompt=self.prompt,
                     context=''.join(particle.context),
-                    p_llm=await self.llm.p_next(_logp=logp)
+                    p_llm=await self.llm.p_next(_logp=logp),
                 )
-                token_id = self.token_to_id.get(
-                    token, self.llm._model.eos_token_id)
+                token_id = self.token_to_id.get(token, self.llm._model.eos_token_id)
                 particle.context.append(token)
                 particle.context_ids.append(token_id)
                 particle.weight += np.log(weight_update)
                 particle.max_tokens -= 1
 
-                group_results.append(
-                    (token_id, weight_update, parent_id, par_id))
+                group_results.append((token_id, weight_update, parent_id, par_id))
 
                 if self.verbosity > 1:
                     print('particle, token, token_id', i, token, token_id)
                     print(
-                        f"`{token} {token_id}` : {''.join(particle.context)} : {particle.weight}")
+                        f"`{token} {token_id}` : {''.join(particle.context)} : {particle.weight}"
+                    )
 
             results.append(group_results)
 
         return results
 
     def prepare_particles_for_next_step(
-        self,
-        scheduler_outputs,
-        seq_group_metadata_list,
-        results,
-        repeats
+        self, scheduler_outputs, seq_group_metadata_list, results, repeats
     ):
         from vllm.sequence import (
             CompletionSequenceGroupOutput,
@@ -221,7 +248,7 @@ class VLLMWrapper:
             ExecuteModelRequest,
             SamplerOutput,
             Logprob,
-            SequenceStatus
+            SequenceStatus,
         )
         # fork new particles and kill old ones
         # by repeating samples in processed_output or removing
@@ -230,27 +257,36 @@ class VLLMWrapper:
         for group_results in results:
             token_ids.append([token_id for token_id, _, _, _ in group_results])
             weight_updates.append(
-                [weight_update for _, weight_update, _, _ in group_results])
-            parent_ids.append(
-                [parent_id for _, _, parent_id, _ in group_results])
+                [weight_update for _, weight_update, _, _ in group_results]
+            )
+            parent_ids.append([parent_id for _, _, parent_id, _ in group_results])
 
         processed_output = []
 
-        for scheduled_seq_group, seq_group_md, next_token_ids, weight_update, group_parent_ids in zip(
-            scheduler_outputs.scheduled_seq_groups, seq_group_metadata_list, token_ids, weight_updates, parent_ids
+        for (
+            scheduled_seq_group,
+            seq_group_md,
+            next_token_ids,
+            weight_update,
+            group_parent_ids,
+        ) in zip(
+            scheduler_outputs.scheduled_seq_groups,
+            seq_group_metadata_list,
+            token_ids,
+            weight_updates,
+            parent_ids,
         ):
             request_id = seq_group_md.request_id
             seq_outputs: List[SequenceOutput] = []
 
-            for parent_id, next_token_id, logprobs in zip(group_parent_ids, next_token_ids, weight_update):
-
+            for parent_id, next_token_id, logprobs in zip(
+                group_parent_ids, next_token_ids, weight_update
+            ):
                 sample = SequenceOutput(
                     # parent_id is the id that the current continuation is based on
                     parent_seq_id=parent_id,
                     output_token=next_token_id,
-                    logprobs={
-                        next_token_id: Logprob(logprob=np.log(logprobs))
-                    },
+                    logprobs={next_token_id: Logprob(logprob=np.log(logprobs))},
                 )
                 seq_outputs.append(sample)
 
@@ -267,8 +303,9 @@ class VLLMWrapper:
 
         return processed_output
 
-    def process_model_outputs(self, scheduler_outputs, seq_group_metadata_list, processed_output):
-
+    def process_model_outputs(
+        self, scheduler_outputs, seq_group_metadata_list, processed_output
+    ):
         # Post-processing. Do after sample is chosen.
         # Feed output list to vllm engine scheduler and prepare for next step
         self.llm._model.llm_engine._process_model_outputs(
@@ -279,28 +316,42 @@ class VLLMWrapper:
         )
 
         # Log stats.
-        self.llm._model.llm_engine.do_log_stats(
-            scheduler_outputs, processed_output)
+        self.llm._model.llm_engine.do_log_stats(scheduler_outputs, processed_output)
 
         return
 
     async def update(self):
         # prepare logprobs
-        with self.timer['llm'](t=len("".join(list(self.particles.values())[0][0].context))):
-            scheduler_outputs, seq_group_metadata_list, next_logprobs_by_sequence_group, next_seq_ids_by_sequence_group = await self.prepare_logprobs()
+        with self.timer['llm'](
+            t=len(''.join(list(self.particles.values())[0][0].context))
+        ):
+            (
+                scheduler_outputs,
+                seq_group_metadata_list,
+                next_logprobs_by_sequence_group,
+                next_seq_ids_by_sequence_group,
+            ) = await self.prepare_logprobs()
         # sampling
-        with self.timer['cfg+trie'](t=len("".join(list(self.particles.values())[0][0].context))):
-            results = await self.sample_next_token(scheduler_outputs, seq_group_metadata_list, next_logprobs_by_sequence_group, next_seq_ids_by_sequence_group)
+        with self.timer['cfg+trie'](
+            t=len(''.join(list(self.particles.values())[0][0].context))
+        ):
+            results = await self.sample_next_token(
+                scheduler_outputs,
+                seq_group_metadata_list,
+                next_logprobs_by_sequence_group,
+                next_seq_ids_by_sequence_group,
+            )
 
         return scheduler_outputs, seq_group_metadata_list, results
 
     def postprocess(self, scheduler_outputs, seq_group_metadata_list, results, repeats):
-
         processed_output = self.prepare_particles_for_next_step(
-            scheduler_outputs, seq_group_metadata_list, results, repeats)
+            scheduler_outputs, seq_group_metadata_list, results, repeats
+        )
         # post processing: update scheduler states
         self.process_model_outputs(
-            scheduler_outputs, seq_group_metadata_list, processed_output)
+            scheduler_outputs, seq_group_metadata_list, processed_output
+        )
 
         return
 
@@ -308,8 +359,7 @@ class VLLMWrapper:
         scheduler_outputs, seq_group_metadata_list, results = await self.update()
 
         repeats = defaultdict(lambda: 1)
-        self.postprocess(scheduler_outputs,
-                         seq_group_metadata_list, results, repeats)
+        self.postprocess(scheduler_outputs, seq_group_metadata_list, results, repeats)
 
         return
 
@@ -351,7 +401,7 @@ class VLLMSampler:
             proposal=proposal,
             max_tokens=max_tokens,
             verbosity=verbosity,
-            timer=self.timer
+            timer=self.timer,
         )
 
         record = None
@@ -371,12 +421,10 @@ class VLLMSampler:
                     )
                 )
             else:
-                particles = asyncio.run(smc_standard(
-                    model, n_particles=n_particles))
+                particles = asyncio.run(smc_standard(model, n_particles=n_particles))
 
         elif method == 'importance-sampling':
-            particles = asyncio.run(importance_sampling(
-                model, n_particles=n_particles))
+            particles = asyncio.run(importance_sampling(model, n_particles=n_particles))
 
         else:
             raise ValueError(f'Unknown inference method: {method}.')

@@ -78,7 +78,9 @@ class TokenProposal(TokenCharacterTrie):
                     prompt + context, execute_model_req=execute_model_req
                 )
             else:
-                p_llm = self.llm.p_next(prompt + context, execute_model_req=execute_model_req)
+                p_llm = self.llm.p_next(
+                    prompt + context, execute_model_req=execute_model_req
+                )
 
         # enumerate top K - 1 tokens
         Ws = Float.chart(take(self.K - 1, self.traverse_trie(context, p_llm)))

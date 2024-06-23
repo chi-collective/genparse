@@ -21,12 +21,15 @@ def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--n-query', type=int, default=100)
-    parser.add_argument('--model-name', type=str,
-                        default="meta-llama/Meta-Llama-3-8B-Instruct",
-                        choices=["meta-llama/Meta-Llama-3-8B-Instruct"])
+    parser.add_argument(
+        '--model-name',
+        type=str,
+        default='meta-llama/Meta-Llama-3-8B-Instruct',
+        choices=['meta-llama/Meta-Llama-3-8B-Instruct'],
+    )
     parser.add_argument('--exp-name', type=str, default='llama3-8b-100')
-    parser.add_argument("--api-base", type=str, default="http://localhost:9999/v1")
-    parser.add_argument("--api-key", type=str, default="EMPTY")
+    parser.add_argument('--api-base', type=str, default='http://localhost:9999/v1')
+    parser.add_argument('--api-key', type=str, default='EMPTY')
 
     return parser
 
@@ -38,11 +41,11 @@ def main():
         level=os.environ.get('LOGLEVEL', 'INFO').upper(),
     )
     # disable unnecessary logs from httpx used by openai client
-    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger('httpx').setLevel(logging.WARNING)
     parser = get_parser()
     args = parser.parse_args()
 
-    logger.info("loading spider data...")
+    logger.info('loading spider data...')
     raw_spider_dir = Path('bench/spider/data/spider')
     spider_schemas = load_schemas(
         schemas_path=raw_spider_dir / 'tables.json', db_path=raw_spider_dir / 'database'
@@ -50,7 +53,7 @@ def main():
 
     spider_dev_data = load_spider_data(raw_spider_dir / 'dev.json')
     spider_train_data = load_spider_data(raw_spider_dir / 'train_spider.json')
-    logger.info("spider data loaded.")
+    logger.info('spider data loaded.')
 
     prompt_formatter = SpiderPromptFormatter(spider_train_data, spider_schemas)
 
@@ -70,17 +73,17 @@ def main():
         if i == 0:  # print an example for demonstration
             print('=' * 30 + ' Example prompt ' + '=' * 30)
             for msg in messages:
-                print(msg["role"] + ":")
-                print("=" * (len(msg["role"])+1))
-                print(msg["content"])
-                print("-" * 100)
+                print(msg['role'] + ':')
+                print('=' * (len(msg['role']) + 1))
+                print(msg['content'])
+                print('-' * 100)
             print('=' * 30 + '  End of prompt ' + '=' * 30)
 
         chat_response = client.chat.completions.create(
             model=args.model_name,
             # model="mistralai/Mistral-7B-Instruct-v0.1",
             messages=messages,
-            seed=0
+            seed=0,
         )
         gold.append(dev_datum)
         predicted.append(chat_response.choices[0].message.content)
@@ -90,7 +93,7 @@ def main():
     gold_outfile = f'bench/spider-eval/gold-{args.exp_name}.txt'
     pred_outfile = f'bench/spider-eval/predicted-{args.exp_name}.txt'
 
-    logger.info(f"saving output to {gold_outfile} and {pred_outfile}")
+    logger.info(f'saving output to {gold_outfile} and {pred_outfile}')
 
     with open(gold_outfile, 'w+') as f:
         for datum in gold:

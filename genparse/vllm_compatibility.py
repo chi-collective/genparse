@@ -7,19 +7,17 @@ from vllm.engine.output_processor.util import create_output_by_sequence_group
 from vllm.engine.arg_utils import EngineArgs
 from vllm.utils import Counter
 from vllm.usage.usage_lib import UsageContext
-from vllm.outputs import (EmbeddingRequestOutput, RequestOutput,
-                          RequestOutputFactory)
+from vllm.outputs import EmbeddingRequestOutput, RequestOutput, RequestOutputFactory
 from vllm.sequence import ExecuteModelRequest
 from typing import Sequence as GenericSequence
-from typing import Set, Type, TypeVar, Union
-from vllm.core.scheduler import (ScheduledSequenceGroup, Scheduler,
-                                 SchedulerOutputs)
+from typing import Set, Type, TypeVar
+from vllm.core.scheduler import ScheduledSequenceGroup, Scheduler, SchedulerOutputs
 
 
 class LogitsSampler(torch.nn.Module):
     """
-        Dummy sampler that returns logits as is.
-        Will be called in model_executor.execute_model.
+    Dummy sampler that returns logits as is.
+    Will be called in model_executor.execute_model.
     """
 
     def __init__(self):
@@ -32,7 +30,6 @@ class LogitsSampler(torch.nn.Module):
         logits,
         sampling_metadata,
     ):
-
         logprobs = logits.log_softmax(dim=-1, dtype=torch.float).cpu()
 
         grouped_logprobs = []
@@ -40,16 +37,13 @@ class LogitsSampler(torch.nn.Module):
         sample_idx = 0
 
         for seq_group in sampling_metadata.seq_groups:
-
             seq_ids = seq_group.seq_ids
             num_parent_seqs = len(seq_ids)
             grouped_logprobs.append(
                 # (seq_bs, vocab_size)
-                logprobs[sample_idx:sample_idx+num_parent_seqs]
+                logprobs[sample_idx : sample_idx + num_parent_seqs]
             )
-            grouped_seq_ids.append(
-                seq_ids
-            )
+            grouped_seq_ids.append(seq_ids)
             sample_idx += num_parent_seqs
         # return logprobs and seq_ids
         # seq_ids denotes which seq_id the first dimension of logprobs corresponds to
@@ -57,7 +51,6 @@ class LogitsSampler(torch.nn.Module):
 
 
 class pplLMEngine(vllm.LLMEngine):
-
     def _process_model_outputs(
         self,
         output,
@@ -77,13 +70,12 @@ class pplLMEngine(vllm.LLMEngine):
 
         # Update the scheduled sequence groups with the model outputs.
         for scheduled_seq_group, outputs, seq_group_meta in zip(
-                scheduled_seq_groups, output,
-                seq_group_metadata_list):
+            scheduled_seq_groups, output, seq_group_metadata_list
+        ):
             request_id = seq_group_meta.request_id
 
             seq_group = scheduled_seq_group.seq_group
-            seq_group.update_num_computed_tokens(
-                scheduled_seq_group.token_chunk_size)
+            seq_group.update_num_computed_tokens(scheduled_seq_group.token_chunk_size)
 
             self.output_processor.process_prompt_logprob(seq_group, outputs)
             if seq_group_meta.do_sample:
@@ -106,14 +98,13 @@ class pplLMEngine(vllm.LLMEngine):
 
     async def next_token_logprobs(self, execute_model_req, **kwargs):
         """
-            execute_model_req is the request parameter to the vllm's model_executor
+        execute_model_req is the request parameter to the vllm's model_executor
         """
 
         # logits: list of torch.Tensor each with shape [n_sample, vocab_size]
         # each tensor is the logits for a `sequence_group`
         # n_sample = 1 for in our case
-        logits = self.model_executor.execute_model(
-            execute_model_req=execute_model_req)
+        logits = self.model_executor.execute_model(execute_model_req=execute_model_req)
 
         # cast to float32
         # return: list of torch.Tensor each with shape [n_sample, vocab_size]
@@ -122,20 +113,20 @@ class pplLMEngine(vllm.LLMEngine):
 
 class vllmpplLLM(vllm.LLM):
     """
-        Wrapper around VLLM to make it compatible with hfppl.
-            1. vllm sampler replaced with LogitsSampler
-            2. added next_token_logprobs, p_next methods
+    Wrapper around VLLM to make it compatible with hfppl.
+        1. vllm sampler replaced with LogitsSampler
+        2. added next_token_logprobs, p_next methods
     """
 
     def __init__(
         self,
         model: str,
         tokenizer: Optional[str] = None,
-        tokenizer_mode: str = "auto",
+        tokenizer_mode: str = 'auto',
         skip_tokenizer_init: bool = False,
         trust_remote_code: bool = False,
         tensor_parallel_size: int = 1,
-        dtype: str = "auto",
+        dtype: str = 'auto',
         quantization: Optional[str] = None,
         revision: Optional[str] = None,
         tokenizer_revision: Optional[str] = None,
@@ -148,9 +139,8 @@ class vllmpplLLM(vllm.LLM):
         disable_custom_all_reduce: bool = False,
         **kwargs,
     ) -> None:
-
-        if "disable_log_stats" not in kwargs:
-            kwargs["disable_log_stats"] = True
+        if 'disable_log_stats' not in kwargs:
+            kwargs['disable_log_stats'] = True
         engine_args = EngineArgs(
             model=model,
             tokenizer=tokenizer,
@@ -172,12 +162,14 @@ class vllmpplLLM(vllm.LLM):
             **kwargs,
         )
         self.llm_engine = pplLMEngine.from_engine_args(
-            engine_args, usage_context=UsageContext.LLM_CLASS)
+            engine_args, usage_context=UsageContext.LLM_CLASS
+        )
         # sampler of the model
-        self.llm_engine.model_executor.driver_worker.model_runner.model.sampler = LogitsSampler()
+        self.llm_engine.model_executor.driver_worker.model_runner.model.sampler = (
+            LogitsSampler()
+        )
         self.request_counter = Counter()
-        self.eos_token_id = self.llm_engine._get_eos_token_id(
-            lora_request=None)
+        self.eos_token_id = self.llm_engine._get_eos_token_id(lora_request=None)
 
     def next_token_logprobs(self, input_ids, **kwargs):
         # call the vllm engine of VLLM
@@ -190,7 +182,7 @@ class vllmpplLLM(vllm.LLM):
 
     def p_next(self, input_ids, **kwargs):
         """
-            not used in the current implementation
+        not used in the current implementation
         """
         # kwargs contains the execute_model_req
         return self.next_token_logprobs(input_ids, **kwargs).exp()
