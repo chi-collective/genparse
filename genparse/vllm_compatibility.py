@@ -70,9 +70,8 @@ class pplLMEngine(vllm.LLMEngine):
 
         # Update the scheduled sequence groups with the model outputs.
         for scheduled_seq_group, outputs, seq_group_meta in zip(
-                scheduled_seq_groups, output,
-                seq_group_metadata_list):
-
+            scheduled_seq_groups, output, seq_group_metadata_list
+        ):
             seq_group = scheduled_seq_group.seq_group
             seq_group.update_num_computed_tokens(scheduled_seq_group.token_chunk_size)
 
