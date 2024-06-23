@@ -23,8 +23,7 @@ torch.backends.cuda.matmul.allow_tf32 = True
 
 p = ArgumentParser()
 p.add_argument('--model', choices=['gpt2', 'codellama'], required=True)
-p.add_argument(
-    '--proposal', choices=['token', 'character'], default='character')
+p.add_argument('--proposal', choices=['token', 'character'], default='character')
 p.add_argument('--particles', type=int, default=1)
 p.add_argument('--n-beam', type=int, default=1)
 p.add_argument('--reps', type=int, default=1)
@@ -128,8 +127,7 @@ def main():
         model=hfppl_llm, tokenizer=tokenizer, batch_size=BATCH_SIZE
     )
 
-    guide = EarleyBoolMaskCFGLM(
-        LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?'))
+    guide = EarleyBoolMaskCFGLM(LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?'))
     sampler = VLLMSampler(llm=genparse_llm, guide=guide)
     if args.proposal == 'character':
         proposal = CharacterProposal(llm=genparse_llm, guide=guide)

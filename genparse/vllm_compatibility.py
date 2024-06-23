@@ -40,7 +40,7 @@ class LogitsSampler(torch.nn.Module):
             num_parent_seqs = len(seq_ids)
             grouped_logprobs.append(
                 # (seq_bs, vocab_size)
-                logprobs[sample_idx: sample_idx + num_parent_seqs]
+                logprobs[sample_idx : sample_idx + num_parent_seqs]
             )
             grouped_seq_ids.append(seq_ids)
             sample_idx += num_parent_seqs
@@ -69,8 +69,7 @@ class pplLMEngine(vllm.LLMEngine):
             scheduled_seq_groups, output, seq_group_metadata_list
         ):
             seq_group = scheduled_seq_group.seq_group
-            seq_group.update_num_computed_tokens(
-                scheduled_seq_group.token_chunk_size)
+            seq_group.update_num_computed_tokens(scheduled_seq_group.token_chunk_size)
 
             self.output_processor.process_prompt_logprob(seq_group, outputs)
             if seq_group_meta.do_sample:
@@ -150,5 +149,4 @@ class vllmpplLLM(vllm.LLM):
             LogitsSampler()
         )
         self.request_counter = Counter()
-        self.eos_token_id = self.llm_engine._get_eos_token_id(
-            lora_request=None)
+        self.eos_token_id = self.llm_engine._get_eos_token_id(lora_request=None)

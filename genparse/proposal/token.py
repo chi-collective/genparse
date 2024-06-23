@@ -86,13 +86,9 @@ class TokenProposal(TokenCharacterTrie):
         if p_llm is None:
             with self.timer['llm'](t=len(context)):
                 if iscoroutinefunction(self.llm.p_next):
-                    p_llm = await self.llm.p_next(
-                        prompt + context
-                    )
+                    p_llm = await self.llm.p_next(prompt + context)
                 else:
-                    p_llm = self.llm.p_next(
-                        prompt + context
-                    )
+                    p_llm = self.llm.p_next(prompt + context)
 
         # enumerate top K - 1 tokens
         Ws = Float.chart(take(self.K - 1, self.traverse_trie(context, p_llm)))

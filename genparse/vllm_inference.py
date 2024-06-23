@@ -53,7 +53,7 @@ async def importance_sampling(model, n_particles):
         model (VLLMWrapper): The VLLMWrapper to perform inference on.
         n_particles (int): Number of particles to execute concurrently.
     """
-    # 
+    #
     # Create n_particles copies of the model
 
     # model is the mother_particle, which controls the llm engine

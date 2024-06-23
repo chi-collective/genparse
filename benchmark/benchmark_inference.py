@@ -132,7 +132,7 @@ def main():
                 for p in particles:
                     posterior[tuple(p.context)] += np.exp(p.weight)
                 print(posterior.normalize())
-    
+
     proposal.timer.plot_feature('t')
     if not os.path.exists('benchmark/results'):
         os.makedirs('benchmark/results')
