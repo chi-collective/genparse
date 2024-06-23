@@ -1,6 +1,7 @@
 import pickle
 from argparse import ArgumentParser
 from random import seed
+import os
 
 import numpy as np
 from arsenal import colors
@@ -18,9 +19,12 @@ from genparse.util import LarkStuff
 
 import torch
 
+torch.backends.cuda.matmul.allow_tf32 = True
+
 p = ArgumentParser()
 p.add_argument('--model', choices=['gpt2', 'codellama'], required=True)
-p.add_argument('--proposal', choices=['token', 'character'], default='character')
+p.add_argument(
+    '--proposal', choices=['token', 'character'], default='character')
 p.add_argument('--particles', type=int, default=1)
 p.add_argument('--n-beam', type=int, default=1)
 p.add_argument('--reps', type=int, default=1)
@@ -124,7 +128,8 @@ def main():
         model=hfppl_llm, tokenizer=tokenizer, batch_size=BATCH_SIZE
     )
 
-    guide = EarleyBoolMaskCFGLM(LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?'))
+    guide = EarleyBoolMaskCFGLM(
+        LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?'))
     sampler = VLLMSampler(llm=genparse_llm, guide=guide)
     if args.proposal == 'character':
         proposal = CharacterProposal(llm=genparse_llm, guide=guide)
@@ -169,16 +174,20 @@ def main():
                 print(posterior.normalize())
 
     sampler.timer.plot_feature('t')
-    with open('vllm_runtime.pkl', 'wb') as f:
+
+    if not os.path.exists('benchmark/results'):
+        os.makedirs('benchmark/results')
+    file_name = f'benchmark/results/vllm_runtime_{args.model}_{args.max_tokens}_{args.proposal}_{args.inference}_{args.particles}_{args.n_beam}'
+    with open(f'{file_name}.pkl', 'wb') as f:
         pickle.dump(sampler.timer, f)
-    print('wrote to vllm_runtime.pkl')
+    print(f'wrote to {file_name}.pkl')
 
     import pylab as pl
 
     pl.title(args)
     pl.xlabel('context size (characters)')
-    pl.savefig('vllm_runtime.pdf')
-    print('wrote to vllm_runtime.pdf')
+    pl.savefig(f'{file_name}.pdf')
+    print(f'wrote to {file_name}.pdf')
     pl.show()
 
     # from arsenal.debug import ip

@@ -1,5 +1,6 @@
 import pickle
 from argparse import ArgumentParser
+import os
 
 import numpy as np
 from arsenal import colors
@@ -10,10 +11,15 @@ from genparse.proposal import CharacterProposal, TokenProposal
 from genparse.steer import HFPPLSampler
 from genparse.util import lark_guide, load_model_by_name, set_seed
 
+import torch
+
+torch.backends.cuda.matmul.allow_tf32 = True
+
 p = ArgumentParser()
 p.add_argument('--model', choices=['gpt2', 'codellama'], required=True)
 p.add_argument('--proposal', choices=['token', 'character'], default='character')
 p.add_argument('--particles', type=int, default=1)
+p.add_argument('--n-beam', type=int, default=1)
 p.add_argument('--reps', type=int, default=1)
 p.add_argument('--max-tokens', type=int, default=100)
 p.add_argument('--verbosity', type=int, default=0)
@@ -103,6 +109,7 @@ def main():
                 proposal=proposal,
                 method=args.inference,
                 n_particles=args.particles,
+                n_beam=args.n_beam,
                 max_tokens=args.max_tokens,
                 verbosity=args.verbosity,
                 return_record=False,
@@ -125,18 +132,21 @@ def main():
                 for p in particles:
                     posterior[tuple(p.context)] += np.exp(p.weight)
                 print(posterior.normalize())
-
+    
     proposal.timer.plot_feature('t')
-    with open('runtime.pkl', 'wb') as f:
+    if not os.path.exists('benchmark/results'):
+        os.makedirs('benchmark/results')
+    file_name = f'benchmark/results/runtime_{args.model}_{args.max_tokens}_{args.proposal}_{args.inference}_{args.particles}_{args.n_beam}'
+    with open(f'{file_name}.pkl', 'wb') as f:
         pickle.dump(proposal.timer, f)
-    print('wrote to runtime.pkl')
+    print(f'wrote to {file_name}.pkl')
 
     import pylab as pl
 
     pl.title(args)
     pl.xlabel('context size (characters)')
-    pl.savefig('runtime.pdf')
-    print('wrote to runtime.pdf')
+    pl.savefig(f'{file_name}.pdf')
+    print(f'wrote to {file_name}.pdf')
     pl.show()
 
     # from arsenal.debug import ip
