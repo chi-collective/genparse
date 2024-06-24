@@ -5,6 +5,7 @@ Language model steering methods
 import asyncio
 import random
 import warnings
+import copy
 
 import numpy as np
 import torch

@@ -94,6 +94,7 @@ class CharacterProposal(TokenCharacterTrie):
         verbosity=0,
         correct_weights=True,
         draw=sample_dict,
+        p_llm=None,
         **kwargs,
     ):
         """
@@ -103,29 +104,33 @@ class CharacterProposal(TokenCharacterTrie):
             prompt : The LLM prompt.
             context : The previous generated tokens.
             verbosity : > 1 prints sampling process.
-            compare_time : true compares time spent in LLM to cfg+trie.
-            correct_weights : whether to correct the importance weights with RAVI.
+            correct_weights : Whether to correct the importance weights with RAVI.
                 false leads to probabilistically incorrect inference.
+            p_llm: Provide the model with pre-computed p_llm. Since for VLLM, p_llm is computed
+                for all particles altogether. We directly pass the corresponding p_llm to
+                the proposal of each particle.
         Returns:
             token : Proposed LLM token.
             weight_update : Incremental SMC weight update.
         """
-
-        if iscoroutinefunction(self.llm.p_next):
-            p_llm = await self.llm.p_next(prompt + context)
-        else:
-            p_llm = self.llm.p_next(prompt + context)
+        if p_llm is None:
+            with self.timer['llm'](t=len(context)):
+                if iscoroutinefunction(self.llm.p_next):
+                    p_llm = await self.llm.p_next(prompt + context)
+                else:
+                    p_llm = self.llm.p_next(prompt + context)
 
         self._update_trie(p_llm)
 
-        if correct_weights:
-            (token, proposal_p, weight_update) = self._guided_sample_trie(
-                context, draw=draw, verbosity=verbosity, **kwargs
-            )
-        else:
-            (token, proposal_p, weight_update) = self._guided_sample_trie_uncorrected(
-                context, draw=draw, verbosity=verbosity, **kwargs
-            )
+        with self.timer['cfg+trie'](t=len(context)):
+            if correct_weights:
+                (token, proposal_p, weight_update) = self._guided_sample_trie(
+                    context, draw=draw, verbosity=verbosity, **kwargs
+                )
+            else:
+                (token, proposal_p, weight_update) = self._guided_sample_trie_uncorrected(
+                    context, draw=draw, verbosity=verbosity, **kwargs
+                )
 
         return (token, proposal_p, weight_update)
 

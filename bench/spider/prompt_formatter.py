@@ -83,7 +83,7 @@ Remember, DO NOT provide any commentary or explanation of what the code does, ju
 
     def format_openai(self, datum):
         messages = [
-            {"role": "system", "content": self.system_prompt},
+            {'role': 'system', 'content': self.system_prompt},
         ]
         for example_id in [10, 100, 1000]:
             train_datum = self.spider_train_data[example_id]
@@ -91,13 +91,13 @@ Remember, DO NOT provide any commentary or explanation of what the code does, ju
                 schema_str=serialize_schema(self.db_map[train_datum.schema_name]),
                 utterance=train_datum.utterance,
             )
-            messages.append({"role": "user", "content": user_message})
-            messages.append({"role": "system", "content": train_datum.query + ";"})
+            messages.append({'role': 'user', 'content': user_message})
+            messages.append({'role': 'system', 'content': train_datum.query + ';'})
 
         # the actual question
         user_message = self.user_message_template.format(
             schema_str=serialize_schema(self.db_map[datum.schema_name]),
             utterance=datum.utterance,
         )
-        messages.append({"role": "user", "content": user_message})
+        messages.append({'role': 'user', 'content': user_message})
         return messages

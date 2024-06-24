@@ -10,6 +10,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from genparse.semiring import Float
 from genparse.tokenization import decode_tokenizer_vocab
+from genparse.vllm_compatibility import vllmpplLLM
 
 
 class LM:
@@ -269,11 +270,18 @@ class AsyncGreedilyTokenizedLLM(LM):
     async def next_token_logprobs(self, xs, top=None):
         return self.p_next(xs, top=top).map_values(np.log)
 
-    async def p_next(self, xs, top=None):
-        assert isinstance(xs, str)
-        tokens = self.tokenizer.encode(xs)
-
-        _logp = await self._model.next_token_logprobs(tokens)
+    async def p_next(self, xs='', top=None, _logp=None, **kwargs):
+        # Pass the kwargs to the model.
+        # For vllm, we need to provide the log probabilities, and
+        # _logp is provided by the vllm centralized step function
+        if isinstance(self._model, vllmpplLLM):
+            assert (
+                _logp is not None
+            ), 'Please provide the log probabilities when using VLLM.'
+        if _logp is None:
+            assert isinstance(xs, str)
+            tokens = self.tokenizer.encode(xs)
+            _logp = await self._model.next_token_logprobs(tokens)
         _logp = _logp.cpu().numpy() if hasattr(_logp, 'cpu') else _logp
         _p = np.exp(_logp)
 
@@ -342,7 +350,7 @@ class MockLLM(LM):
         self._encode = {x: i for i, x in enumerate(self._decode)}
         super().__init__(eos=eos, V=V)
 
-    def p_next(self, _):
+    def p_next(self, _, **kwargs):
         return LazyProb(self._p, self._encode, self._decode)
 
     # def __call__(self, x):

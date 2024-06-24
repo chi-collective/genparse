@@ -1,15 +1,21 @@
 import pickle
 from argparse import ArgumentParser
+from random import seed
 import os
 
 import numpy as np
 from arsenal import colors
 from hfppl import CachedCausalLM
+from torch import manual_seed
+from transformers import AutoTokenizer, set_seed
 
 from genparse import Float
+from genparse.cfglm import EarleyBoolMaskCFGLM
+from genparse.lm import AsyncGreedilyTokenizedLLM
+from genparse.vllm_compatibility import vllmpplLLM
 from genparse.proposal import CharacterProposal, TokenProposal
-from genparse.steer import HFPPLSampler
-from genparse.util import lark_guide, load_model_by_name, set_seed
+from genparse.vllm_steer import VLLMSampler
+from genparse.util import LarkStuff
 
 import torch
 
@@ -32,7 +38,33 @@ p.add_argument(
 args = p.parse_args()
 
 
-set_seed(args.seed)
+RANDOM_SEED = args.seed
+set_seed(RANDOM_SEED)
+seed(RANDOM_SEED)
+manual_seed(RANDOM_SEED)
+
+
+if args.model == 'gpt2':
+    import transformers
+
+    from genparse.lm import LLM
+
+    MODEL_ID = 'gpt2'
+    hfppl_llm = vllmpplLLM(MODEL_ID)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_ID)
+
+elif args.model == 'codellama':
+    import transformers
+    import torch
+
+    assert torch.cuda.is_available()
+
+    MODEL_ID = 'codellama/CodeLlama-7b-Instruct-hf'
+    hfppl_llm = vllmpplLLM(MODEL_ID, dtype=torch.float32, max_model_len=4096)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_ID)
+
+else:
+    raise ValueError(args.model)
 
 
 prompt_template = """
@@ -84,17 +116,23 @@ prompts = [
 
 
 def main():
-    guide = lark_guide(grammar, ignore='[ ]?')
+    character_cfg = LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?')
+
+    guide = EarleyBoolMaskCFGLM(character_cfg)
 
     BATCH_SIZE = 80
 
-    llm = load_model_by_name(args.model, batch_size=BATCH_SIZE)
+    hfppl_llm.batch_size = BATCH_SIZE
+    genparse_llm = AsyncGreedilyTokenizedLLM(
+        model=hfppl_llm, tokenizer=tokenizer, batch_size=BATCH_SIZE
+    )
 
-    sampler = HFPPLSampler(llm=llm, guide=guide)
+    guide = EarleyBoolMaskCFGLM(LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?'))
+    sampler = VLLMSampler(llm=genparse_llm, guide=guide)
     if args.proposal == 'character':
-        proposal = CharacterProposal(llm=llm, guide=guide)
+        proposal = CharacterProposal(llm=genparse_llm, guide=guide)
     elif args.proposal == 'token':
-        proposal = TokenProposal(llm=llm, guide=guide, K=5)
+        proposal = TokenProposal(llm=genparse_llm, guide=guide, K=5)
     else:
         raise ValueError(f'invalid proposal name {args.proposal!r}')
 
@@ -104,21 +142,21 @@ def main():
             print(colors.cyan % colors.line(100))
             print(colors.cyan % sql_prompt)
 
-            particles = sampler.run_inference(
+            particles, record = sampler.run_inference(
                 prompt=prompt,
                 proposal=proposal,
                 method=args.inference,
                 n_particles=args.particles,
-                n_beam=args.n_beam,
                 max_tokens=args.max_tokens,
+                n_beam=args.n_beam,
                 verbosity=args.verbosity,
                 return_record=False,
             )
 
             # if args.particles > 1 and record is not None:
-            #    fig = record.plot_particles_trajectory()
-            #    fig.write_html('viz.html')
-            #    print('wrote to viz.html')
+            #     fig = record.plot_particles_trajectory()
+            #     fig.write_html('viz.html')
+            #     print('wrote to viz.html')
 
             print(colors.yellow % 'character posterior')
             posterior = Float.chart()
@@ -133,12 +171,13 @@ def main():
                     posterior[tuple(p.context)] += np.exp(p.weight)
                 print(posterior.normalize())
 
-    proposal.timer.plot_feature('t')
+    sampler.timer.plot_feature('t')
+
     if not os.path.exists('benchmark/results'):
         os.makedirs('benchmark/results')
-    file_name = f'benchmark/results/runtime_{args.model}_{args.max_tokens}_{args.proposal}_{args.inference}_{args.particles}_{args.n_beam}'
+    file_name = f'benchmark/results/vllm_runtime_{args.model}_{args.max_tokens}_{args.proposal}_{args.inference}_{args.particles}_{args.n_beam}'
     with open(f'{file_name}.pkl', 'wb') as f:
-        pickle.dump(proposal.timer, f)
+        pickle.dump(sampler.timer, f)
     print(f'wrote to {file_name}.pkl')
 
     import pylab as pl
