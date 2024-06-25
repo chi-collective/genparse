@@ -277,6 +277,8 @@ class HFPPLSampler:
             )
 
         elif method == 'smc-standard':
+            if n_beam is not None:
+                warnings.warn('`n_beam` is set, but will be ignored by smc-standard')
             if return_record:
                 particles, record = asyncio.run(
                     smc_standard_record(
