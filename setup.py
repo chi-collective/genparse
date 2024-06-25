@@ -18,7 +18,6 @@ requirements = [
     'svgling',  # nltk uses svgling to draw derivations
     'torch',
     'transformers',
-    'vllm==0.5.0.post1',
 ]
 
 test_requirements = [
@@ -35,7 +34,7 @@ setup(
     version='0.0.1',
     description='',
     install_requires=requirements,
-    extras_require={'test': test_requirements},
+    extras_require={'test': test_requirements, 'vllm': ['vllm==0.5.0.post1']},
     python_requires='>=3.10',
     authors=[
         'Tim Vieira',

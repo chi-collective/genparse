@@ -22,7 +22,11 @@ update :
 .PHONY : env
 env : $(NAME).egg-info/
 $(NAME).egg-info/ : setup.py
+ifeq ($(shell uname -s),Darwin)
 	@$(INSTALL) -e ".[test]" && pre-commit install
+else
+	@$(INSTALL) -e ".[test,vllm]" && pre-commit install
+endif
 
 ## format    : format code style.
 .PHONY : format

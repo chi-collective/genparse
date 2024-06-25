@@ -2,33 +2,22 @@
 Language model steering methods (VLLM compatible)
 """
 
-from arsenal import colors, timers
+from arsenal import timers
 
 import asyncio
-import random
-import warnings
 import copy
 from collections import defaultdict
 
 import numpy as np
-import torch
-import transformers
-from arsenal.maths import logsumexp, sample_dict
 
-from hfppl import Model
-
-from genparse import EOS
 from genparse.vllm_inference import (
-    TraceSWOR,
     importance_sampling,
     smc_standard,
     smc_standard_record,
     smc_steer,
     VLLMParticle,
 )
-from genparse.lm import LM
-from genparse.semiring import Float
-from genparse.util import format_table, set_seed
+from genparse.util import set_seed
 from genparse.steer import ParticleApproximation
 
 from typing import List
@@ -46,7 +35,6 @@ class VLLMWrapper:
         verbosity=0,
         timer=None,
     ):
-        from vllm.sampling_params import SamplingParams
         from genparse.tokenization import decode_tokenizer_vocab
 
         super().__init__()
@@ -109,13 +97,7 @@ class VLLMWrapper:
 
     async def prepare_logprobs(self):
         from vllm.engine.output_processor.util import create_output_by_sequence_group
-        from vllm.sequence import (
-            CompletionSequenceGroupOutput,
-            SequenceOutput,
-            ExecuteModelRequest,
-            SamplerOutput,
-            Logprob,
-        )
+        from vllm.sequence import ExecuteModelRequest
 
         seq_group_metadata_list, scheduler_outputs = (
             self.llm._model.llm_engine.scheduler.schedule()
@@ -157,14 +139,6 @@ class VLLMWrapper:
         next_logprobs_by_sequence_group,
         next_seq_ids_by_sequence_group,
     ):
-        from vllm.sequence import (
-            CompletionSequenceGroupOutput,
-            SequenceOutput,
-            ExecuteModelRequest,
-            SamplerOutput,
-            Logprob,
-        )
-
         # sample next token with llm and guide
 
         results = []
@@ -247,10 +221,8 @@ class VLLMWrapper:
         from vllm.sequence import (
             CompletionSequenceGroupOutput,
             SequenceOutput,
-            ExecuteModelRequest,
             SamplerOutput,
             Logprob,
-            SequenceStatus,
         )
         # fork new particles and kill old ones
         # by repeating samples in processed_output or removing
@@ -415,8 +387,6 @@ class VLLMSampler:
             )
 
         elif method == 'smc-standard':
-            if n_beam is not None:
-                warnings.warn('`n_beam` is set, but will be ignored by smc-standard')
             if return_record:
                 particles, record = asyncio.run(
                     smc_standard_record(
