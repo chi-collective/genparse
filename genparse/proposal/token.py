@@ -24,7 +24,7 @@ class TokenProposal(TokenCharacterTrie):
 
       q(y | ys) ∝ p_llm(y | ys) * p_guide(φ(y) | φ(ys))
 
-    where φ: Y* → ∑* maps token strings to characters.
+    where φ: Y* → ∑* maps token strings to character strings.
 
     """
 
@@ -179,7 +179,7 @@ class TokenProposal(TokenCharacterTrie):
             (token, node) = agenda.pop()
 
             # Efficiently compute guide.p(x | context + token) for x ∈ guide.V.
-            # These are individal characters that are aligned with the trie.
+            # These are individual characters that are aligned with the trie.
             p = self.guide.p_next(context + token)
 
             children_node = self.children[node]
@@ -194,9 +194,10 @@ class TokenProposal(TokenCharacterTrie):
 
                 y = children_node[x]
 
-                P[y] = P_y = P[node] * p[x]
+                P_y = P[node] * p[x]
 
                 if P_y > 0:
+                    P[y] = P_y
                     agenda[token + x, y] = -P_y * self.mass[y]
 
     def sample(
