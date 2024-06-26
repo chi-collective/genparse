@@ -3,7 +3,7 @@ Language model steering methods (VLLM compatible)
 """
 
 from arsenal import timers
-
+import warnings
 import asyncio
 import copy
 from collections import defaultdict
@@ -387,6 +387,8 @@ class VLLMSampler:
             )
 
         elif method == 'smc-standard':
+            if n_beam is not None:
+                warnings.warn('`n_beam` is set, but will be ignored by smc-standard')
             if return_record:
                 particles, record = asyncio.run(
                     smc_standard_record(
