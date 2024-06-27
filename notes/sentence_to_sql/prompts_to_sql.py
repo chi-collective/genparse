@@ -58,7 +58,7 @@ def run_inference(
     model_name: str, prompts: list[str], *, batch_size: int, n_particles: int
 ) -> list[dict[str, float]]:
     llm = AsyncGreedilyTokenizedLLM(
-        model=vllm.VLLM(transformers.AutoModelForCausalLM.from_pretrained(model_name)),
+        model=vllm.LLM(transformers.AutoModelForCausalLM.from_pretrained(model_name)),
         tokenizer=transformers.AutoTokenizer.from_pretrained(model_name),
         batch_size=batch_size,
     )
