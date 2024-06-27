@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 _SQL_GRAMMAR = """
 start: "SELECT * FROM " location ";"
 
-location: people_location | orgs_location
+location: people_location
 people_location: "People WHERE " people_clause ( " AND " people_clause ) *
 orgs_location: "Organizations WHERE " orgs_clause ( " AND " orgs_clause ) *
 
