@@ -9,11 +9,11 @@ from pathlib import Path
 from typing import Any
 
 import transformers
-import vllm
 
 from genparse.cfglm import BoolMaskCFGLM
 from genparse.lm import AsyncGreedilyTokenizedLLM
 from genparse.proposal import CharacterProposal
+from genparse.vllm_compatibility import vllmpplLLM
 from genparse.vllm_steer import VLLMSampler
 from genparse.util import LarkStuff
 
@@ -58,7 +58,7 @@ def run_inference(
     model_name: str, prompts: list[str], *, batch_size: int, n_particles: int
 ) -> list[dict[str, float]]:
     llm = AsyncGreedilyTokenizedLLM(
-        model=vllm.LLM(transformers.AutoModelForCausalLM.from_pretrained(model_name)),
+        model=vllmpplLLM(model_name),
         tokenizer=transformers.AutoTokenizer.from_pretrained(model_name),
         batch_size=batch_size,
     )
@@ -72,7 +72,7 @@ def run_inference(
             method='smc-standard',
             n_particles=n_particles,
             verbosity=0,
-        ).posterior
+        )[0].posterior
         for prompt in prompts
     ]
     return result
