@@ -13,7 +13,7 @@ import transformers
 from genparse.cfglm import BoolMaskCFGLM
 from genparse.lm import AsyncGreedilyTokenizedLLM, LLM
 from genparse.proposal import CharacterProposal
-from genparse.steer import HFPPLSampler
+from genparse.vllm_steer import VLLMSampler
 from genparse.util import LarkStuff
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ def run_inference(
     )
     guide = BoolMaskCFGLM(LarkStuff(_SQL_GRAMMAR).char_cfg(0.99, ignore='[ ]?'))
     proposal = CharacterProposal(llm=llm, guide=guide)
-    sampler = HFPPLSampler(llm=llm, guide=guide)
+    sampler = VLLMSampler(llm=llm, guide=guide)
     result = [
         sampler.run_inference(
             prompt=prompt,
