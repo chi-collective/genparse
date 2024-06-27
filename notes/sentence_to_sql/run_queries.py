@@ -55,16 +55,19 @@ def main():
     inference_dicts = load_jsonl(inferences_path)
     connection = sqlite3.connect(database_path)
     cursor = connection.cursor()
-    outputs = [
-        {
-            **inference_dict,
-            'inferred_query_results': {
-                query: cursor.execute(query).fetchall()
-                for query in inference_dict['genparse_inference']
-            },
-        }
-        for inference_dict in inference_dicts
-    ]
+    outputs = []
+    for inference_dict in inference_dicts:
+        query_results = {}
+        for query in inference_dict['genparse_inference']:
+            try:
+                query_result = {
+                    'response': cursor.execute(query).fetchall(),
+                    'error': False,
+                }
+            except sqlite3.OperationalError as e:
+                query_result = str(e)
+            query_results[query] = {'response': query_result, 'error': True}
+        outputs.append({**inference_dict, 'inferred_query_results': query_results})
     cursor.close()
     save_jsonl(outputs, save_query_results_to)
 
