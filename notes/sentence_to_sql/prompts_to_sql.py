@@ -79,9 +79,11 @@ def run_inference(
 
 def main():
     parser = ArgumentParser(description=__doc__)
-    parser.add_argument('prompts_path', help='Path to the prompts file.')
+    parser.add_argument('prompts_path', type=Path, help='Path to the prompts file.')
     parser.add_argument(
-        'save_inferences_to', help='Where to save the JSONL file of inferences.'
+        'save_inferences_to',
+        type=Path,
+        help='Where to save the JSONL file of inferences.',
     )
     parser.add_argument(
         '--model', default='gpt-2', help='The language model to use for inference.'
