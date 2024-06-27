@@ -27,10 +27,12 @@ def save_jsonl(outputs: list[dict[str, Any]], path: Path) -> None:
 
 def main():
     parser = ArgumentParser(description=__doc__)
-    parser.add_argument('inferences_path', help='Path to the inferences file.')
-    parser.add_argument('database_path', help='Path to the database file.')
+    parser.add_argument('inferences_path', type=Path, help='Path to the inferences file.')
+    parser.add_argument('database_path', type=Path, help='Path to the database file.')
     parser.add_argument(
-        'save_query_results_to', help='Where to save the JSONL file of query results.'
+        'save_query_results_to',
+        type=Path,
+        help='Where to save the JSONL file of query results.',
     )
     parser.add_argument(
         '--logging-level',
