@@ -28,7 +28,7 @@ people_location: "People WHERE " people_clause ( " AND " people_clause ) *
 orgs_location: "Organizations WHERE " orgs_clause ( " AND " orgs_clause ) *
 
 people_clause: people_column " = " value
-people_column: "first_name" | "last_name"
+people_column: "given_name" | "surname" | "full_name" | "born" | "died"
 orgs_clause: orgs_column " = " value
 orgs_column: ORG_NAME
 ORG_NAME: "organization_name"
