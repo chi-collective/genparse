@@ -86,7 +86,7 @@ def main():
         help='Where to save the JSONL file of inferences.',
     )
     parser.add_argument(
-        '--model', default='gpt-2', help='The language model to use for inference.'
+        '--model', default='gpt2', help='The language model to use for inference.'
     )
     parser.add_argument(
         '--batch-size', type=int, default=10, help='The batch size to use for sampling.'
