@@ -87,7 +87,7 @@ from_item: table_name [ [ "AS"i ] alias ] -> table
             | cross_join -> cross_join_expression
             | subquery
 // new rule: table_name?
-table_name?: "People"
+?table_name: "People"
 subquery: ( "(" (set_expr | join | cross_join) ")" ) [ [ "AS"i ] alias ]
 
 cross_join: from_item "CROSS"i "JOIN"i from_item
