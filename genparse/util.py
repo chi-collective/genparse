@@ -68,6 +68,7 @@ class InferenceSetup:
         grammar,
         proposal_name='character',
         seed=None,
+        batch_size=None,
         guide_opts=None,
         proposal_opts=None,
     ):
@@ -82,7 +83,7 @@ class InferenceSetup:
         if seed is not None:
             set_seed(seed)
 
-        llm = load_model_by_name(model_name)
+        llm = load_model_by_name(model_name, batch_size=batch_size)
         guide = lark_guide(grammar, **guide_opts)
         sampler = HFPPLSampler(llm=llm, guide=guide)
 
@@ -158,7 +159,7 @@ class InferenceSetupVLLM:
         import transformers
         from genparse.lm import AsyncGreedilyTokenizedLLM
 
-        if model_name == 'gpt':
+        if model_name == 'gpt2':
             MODEL_ID = 'gpt2'
             llm = AsyncGreedilyTokenizedLLM(
                 model=vllmpplLLM(MODEL_ID),
