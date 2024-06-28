@@ -44,7 +44,7 @@ class VLLMWrapper:
 
         """
             One VLLMWrapper is initialized for each prompt.
-            All VLLMWrapper point to the same AsyncGreedilyTokenizedLLM 
+            All VLLMWrapper point to the same AsyncGreedilyTokenizedLLM
             based on one VLLM instance (self.llm).
             We add the prompt in the VLLMWrapper constructor.
         """
@@ -343,9 +343,6 @@ class VLLMSampler:
         Args:
             llm (vllm.VLLM)
             guide (LM)
-        Returns:
-            particle_approximation (ParticleApproximation)
-            record (dict | NoneType): information about the run
         """
         self.llm = llm
         self.guide = guide
@@ -363,6 +360,11 @@ class VLLMSampler:
         return_record=False,
         seed=None,
     ):
+        """
+        Returns:
+            particle_approximation (ParticleApproximation)
+            record (dict | NoneType): information about the run
+        """
         if seed is not None:
             set_seed(seed)
 
