@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 repo_root = Path(__file__).resolve().parent.parent.parent
 
 # TODO load https://github.com/probcomp/genparse/blob/main/benchmark/grammars/sql_case_insensitive.lark
-_SQL_GRAMMAR = """
+_SQL_GRAMMAR = r"""
 // Adapted from https://github.com/zbrookle/sql_to_ibis and https://github.com/lapp0/outlines 
 // License for https://github.com/zbrookle/sql_to_ibis follows
 //BSD 3-Clause License
