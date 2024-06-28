@@ -5,6 +5,8 @@ from bench.spider.schema import load_schemas
 from bench.spider.evaluator import Evaluator
 
 import genparse
+import sqlite3
+import pandas as pd
 
 
 class SpiderInterface:
@@ -73,6 +75,12 @@ Please write me a SQL statement that answers the following question: {self.text}
 
 Remember, DO NOT provide any commentary or explanation of what the code does, just the SQL statement ending in a semicolon.
 """
+
+    def run_query(self, query):
+        db = self.interface.evaluator.db_path / self.db_name / (self.db_name + '.sqlite')
+        with sqlite3.connect(db) as conn:
+            df = pd.read_sql_query(query, conn)
+        return df
 
 
 def test_interface():
