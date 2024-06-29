@@ -68,6 +68,12 @@ ctypedef (long,long) CompleteItem
 #    int I
 #    int X
 
+#ctypedef pair[long, long] CItem
+
+ctypedef vector[IncompleteItem] IncompleteItems
+
+ctypedef unordered_map[long, IncompleteItems] WaitingFor
+
 
 cdef class Column:
 
@@ -76,7 +82,9 @@ cdef class Column:
         dict i_chart
         dict c_chart
         LocatorMaxHeap Q
-        object waiting_for
+
+        WaitingFor _waiting_for
+
 #    cdef public:
 #        unordered_map[int, unordered_set[IncompleteItem]] _waiting_for
 #    cdef public:
@@ -89,7 +97,7 @@ cdef class Column:
 
         # Within column J, this datastructure maps nonterminals Y to a set of items
         #   Y => {(I, X, Ys) | phrase(I,X/[Y],J) ≠ 0}
-        self.waiting_for = defaultdict(set)
+        #self.waiting_for = defaultdict(set)
 
         # priority queue used when first filling the column
         self.Q = LocatorMaxHeap()
@@ -119,6 +127,7 @@ cdef class Earley:
         long[:] unit_Ys
 
     def __init__(self, cfg):
+        cdef int x
 
         cfg = cfg.nullaryremove(binarize=True).unarycycleremove().renumber()
         self.cfg = cfg
@@ -221,10 +230,13 @@ cdef class Earley:
     def p_next(self, prefix):
         return self.next_token_weights(self.chart(prefix))
 
-    def next_column(self, list[Column] prev_cols, str token):
-        cdef long I, J, X, Ys
+    cdef Column next_column(self, list[Column] prev_cols, str token):
+        cdef long I, J, X, Y, Ys, t
         cdef IncompleteItem item
         cdef double value, y
+        cdef LocatorMaxHeap Q
+        cdef Column col_J
+        cdef Column prev_col
 
         prev_col = prev_cols[-1]
         next_col = Column(prev_cols[-1].k + 1)
@@ -232,7 +244,8 @@ cdef class Earley:
         prev_col_i_chart = prev_col.i_chart
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
-        for item in prev_col.waiting_for[self._encode_symbol(token)]:
+        t = self._encode_symbol(token)
+        for item in prev_col._waiting_for[t]:
             (I, X, Ys) = item
             value = prev_col_i_chart[item]
             self._update(next_col, I, X, self.rest_Ys[Ys], value)
@@ -244,7 +257,7 @@ cdef class Earley:
             col_J = prev_cols[J]
             col_J_i_chart = col_J.i_chart
             y = next_col_c_chart[node]
-            for item in col_J.waiting_for[Y]:
+            for item in col_J._waiting_for[Y]:
                 (I, X, Ys) = item
                 value = col_J_i_chart[item] * y
                 self._update(next_col, I, X, self.rest_Ys[Ys], value)
@@ -253,23 +266,23 @@ cdef class Earley:
 
         return next_col
 
-    cdef void PREDICT(self, Column prev_col):
+    cdef void PREDICT(self, Column col):
         cdef IncompleteItem item
         cdef dict rhs
         cdef long Ys, k   # XXX: X and Y might be a string | integer.
         # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with some filtering heuristics
-        k = prev_col.k
-        prev_col_chart = prev_col.i_chart
+        k = col.k
+        col_chart = col.i_chart
 
         # Filtering heuristic: Don't create the predicted item (K, X, [...], K)
         # unless there exists an item that wants the X item that it may
         # eventually provide.  In other words, for predicting this item to be
         # useful there must be an item of the form (I, X', [X, ...], K) in this
         # column for which lc(X', X) is true.
-        if prev_col.k == 0:
+        if col.k == 0:
             targets = {self.cfg.S}
         else:
-            targets = set(prev_col.waiting_for)
+            targets = set(col._waiting_for)
 
         reachable = set(targets)
         agenda = list(targets)
@@ -283,18 +296,12 @@ cdef class Earley:
         rhs = self.rhs
         for X in reachable:
             for w, Ys in rhs.get(X, ()):
-                item = (k, X, Ys)
-                was = prev_col_chart.get(item)
-                if was is None:
-                    Y = self.first_Ys[Ys]
-                    prev_col.waiting_for[Y].add(item)
-                    prev_col_chart[item] = w
-                else:
-                    prev_col_chart[item] = was + w
+                self._update(col, k, X, Ys, w)
 
     cdef inline void _update(self, Column col, long I, long X, long Ys, double value):
         cdef CompleteItem c_item
         cdef IncompleteItem i_item
+        cdef long K
         K = col.k
         if Ys == 0:
             # Items of the form phrase(I, X/[], K)
@@ -309,7 +316,7 @@ cdef class Earley:
             # Items of the form phrase(I, X/[Y|Ys], K)
             i_item = (I, X, Ys)
             if col.i_chart.get(i_item) is None:
-                col.waiting_for[self.first_Ys[Ys]].add(i_item)
+                col._waiting_for[self.first_Ys[Ys]].push_back(i_item)
                 col.i_chart[i_item] = value
             else:
                 col.i_chart[i_item] += value
@@ -346,7 +353,12 @@ cdef class Earley:
     #
     cpdef object next_token_weights(self, list[Column] cols):
         cdef double total
-        cdef int I, X, Ys
+        cdef long I, X, Y, Ys
+        cdef Column col
+        cdef IncompleteItems waiting_for_Y
+        cdef IncompleteItem i_item
+        cdef (long, long) node
+        cdef pair[long, IncompleteItems] tmp
         q = {}
         q[0, self.cfg.S] = 1
 
@@ -358,27 +370,34 @@ cdef class Earley:
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         p = {}
 
-        for Y in col.waiting_for:
+        for tmp in col._waiting_for:
+            Y = tmp.first
+            waiting_for_Y = tmp.second
             W = self._encode_symbol[Y]
             if is_terminal(W):    # XXX: expensive to lookup the symbol like this
                 total = 0.0
-                for (I, X, Ys) in col.waiting_for[Y]:
+                for i_item in waiting_for_Y:
+                    (I, X, Ys) = i_item
                     if self.unit_Ys[Ys]:
                         node = (I, X)
                         value = q.get(node)
                         if value is None:
                             value = self._helper(node, cols, q)
-                        total += col_i_chart[I, X, Ys] * value
+                        total += col_i_chart[i_item] * value
                 p[W] = total
         return self.cfg.R.chart(p)
 
-    cdef double _helper(self, (int, int) top, list[Column] cols, dict q):
+    cdef double _helper(self, (long, long) top, list[Column] cols, dict q):
         cdef list[Node] stack
         cdef Node node
-        cdef int I, J, X, Y
+        cdef long I, J, X, Y, Ys
         cdef IncompleteItem x
+        cdef Column col_J
+        cdef IncompleteItem arc
+        cdef (long, long) neighbor
+        #cdef double neighbor_value   # XXX: can be None
 
-        stack = [Node(top, None, 0.0)]
+        stack = [Node(top)]
 
         while stack:
             node = stack[-1]   # 👀
@@ -388,27 +407,33 @@ cdef class Earley:
 
             t = node.cursor
 
-            if node.edges is None:
-                node.edges = [x for x in cols[J].waiting_for[Y] if self.unit_Ys[x[2]]]
+            if node.uninitialized:
+                col_J = cols[J]
+                for x in col_J._waiting_for[Y]:
+                    if self.unit_Ys[x[2]]:
+                        node.edges.push_back(x)
+                node.uninitialized = False
 
             # cursor is at the end, all neighbors are done
-            elif t == len(node.edges):
+            elif t == node.edges.size():
                 # clear the node from the stack
                 stack.pop()
                 # promote the incomplete value node.value to a complete value (q)
                 q[node.node] = node.value
 
             else:
-                (I, X, Ys) = arc = node.edges[t]
+                arc = node.edges[t]
+                (I, X, Ys) = arc
                 neighbor = (I, X)
                 neighbor_value = q.get(neighbor)
                 if neighbor_value is None:
-                    stack.append(Node(neighbor, None, 0.0))
+                    stack.append(Node(neighbor))
                 else:
                     # neighbor value is ready, advance the cursor, add the
                     # neighbors contribution to the nodes value
+                    col_J = cols[J]
                     node.cursor += 1
-                    node.value += cols[J].i_chart[arc] * neighbor_value
+                    node.value += col_J.i_chart[arc] * neighbor_value
 
         return q[top]
 
@@ -416,13 +441,16 @@ cdef class Earley:
 cdef class Node:
     cdef public:
         double value
-        (int, int) node
-        list edges
+        (long,long) node
+        vector[IncompleteItem] edges
         int cursor
-    def __init__(self, node, edges, value):
+        int uninitialized
+    def __init__(self, node):
+#        assert edges is None
         self.node = node
-        self.edges = edges
-        self.value = value
+        self.uninitialized = True
+#        self.edges = edges
+        self.value = 0.0
         self.cursor = 0
 
 
@@ -626,7 +654,7 @@ cdef class LocatorMaxHeap(MaxHeap):
     def __contains__(self, k):
         return k in self.loc
 
-    def __getitem__(self, k):
+    def __getitem__(self, int k):
         return self.val.val[self.loc[k]]
 
     def __setitem__(self, k, v):
