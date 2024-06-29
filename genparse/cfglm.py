@@ -7,6 +7,7 @@ from arsenal import colors
 from genparse.cfg import CFG, _gen_nt
 from genparse.lm import LM
 from genparse.semiring import Boolean, Float
+from genparse.experimental.cky import IncrementalCKY
 
 # EOS = '$EOS'
 # EOS = '🛑'
@@ -105,9 +106,6 @@ class CFGLM(LM):
 
         self.cfg = cfg
         self.pfg = self.cfg.cnf.prefix_grammar.cnf
-
-        from genparse.experimental.cky import IncrementalCKY
-
         self.model = IncrementalCKY(self.pfg, **kwargs)
 
         super().__init__(V=cfg.V, eos=EOS)

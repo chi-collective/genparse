@@ -6,28 +6,34 @@ from collections import defaultdict
 # from arsenal.datastructures.pdict import pdict
 from arsenal.datastructures.heap import LocatorMaxHeap
 
-from genparse.cfglm import EOS, add_EOS
+from genparse.cfglm import EOS, add_EOS, locally_normalize, CFG
 from genparse.linear import WeightedGraph
 from genparse.lm import LM
 from genparse.semiring import Boolean
+from genparse import Float
 
 
 class EarleyLM(LM):
     def __init__(self, cfg):
         if EOS not in cfg.V:
             cfg = add_EOS(cfg)
+        self.cfg = cfg  # Note: <- cfg before prefix transform & normalization!
         self.model = Earley(cfg.prefix_grammar)
         super().__init__(V=cfg.V, eos=EOS)
 
     def p_next(self, context):
         return self.model.p_next(context)
 
-    #    def __call__(self, context):
-    #        assert context[-1] == EOS
-    #        return self.p_next(context[:-1])[EOS]
+    def __call__(self, context):
+        assert context[-1] == EOS
+        return self.model(context)
 
     def clear_cache(self):
         self.model.clear_cache()
+
+    @classmethod
+    def from_string(cls, x, semiring=Float, **kwargs):
+        return cls(locally_normalize(CFG.from_string(x, semiring), **kwargs))
 
 
 class Column:

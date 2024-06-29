@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 from arsenal import colors
 
-from genparse.cfglm import CFGLM
+# from genparse.cfglm import CFGLM
+from genparse.experimental.earley import EarleyLM as CFGLM
 from genparse.semiring import Float
 from genparse.steer import BruteForceGlobalProductOfExperts, run
 
