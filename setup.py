@@ -35,7 +35,7 @@ setup(
     version='0.0.1',
     description='',
     install_requires=requirements,
-    extras_require={'test': test_requirements},
+    extras_require={'test': test_requirements, 'vllm': ['vllm==0.5.0.post1']},
     python_requires='>=3.10',
     authors=[
         'Tim Vieira',
@@ -46,5 +46,5 @@ setup(
     readme=open('README.md').read(),
     scripts=[],
     packages=['genparse'],
-    ext_modules = cythonize("**/*.pyx"),
+    ext_modules=cythonize('**/*.pyx'),
 )

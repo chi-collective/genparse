@@ -13,22 +13,40 @@ pip install gdown
 assuming you're currently in the `bench` directory, do
 
 ```bash
+mkdir spider/data
 cd spider/data
 gdown 'https://drive.google.com/u/0/uc?id=1iRDVHLr4mX2wQKSgA9J8Pire73Jahh0m&export=download'
 unzip spider.zip
 ```
 
-also, download the evaluation codebase:
+also, go back to the `genparse/bench` directory and download the evaluation codebase:
 
 ```bash
+cd ../..
 git clone https://github.com/taoyds/spider.git spider-eval
 ```
 
-before running any evaluation, `spider-eval` depends on `punkt` package of `nltk, so download that first:
+before running any evaluation, `spider-eval` depends on `punkt` package of `nltk`, so download that first:
 
 ```
   >>> import nltk
   >>> nltk.download('punkt')
+```
+
+***vLLM*** 
+
+To run the evaluation script on vLLM, first serve the vLLM model, by doing
+
+```bash
+python -m vllm.entrypoints.openai.api_server --model meta-llama/Meta-Llama-3-8B-Instruct --port 9999
+```
+
+and then the server will be up at `http://localhost:9999`.  
+
+If vLLM complains the model is gated, you might want to follow the printed instruction to get permission to use the model
+and then set your Hugginface token:
+```bash
+export HF_TOKEN=xxx
 ```
 
 ### Generation

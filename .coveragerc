@@ -2,7 +2,8 @@
 [run]
 branch = True
 
-omit =
+include =
+    genparse/*
 
 [report]
 # Regexes for lines to exclude from consideration

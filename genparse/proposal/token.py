@@ -6,6 +6,8 @@ from arsenal.maths import sample_dict
 from genparse.proposal.trie import TokenCharacterTrie
 from genparse.semiring import Float
 
+from inspect import iscoroutinefunction
+
 # TODO: It's tempting to require proposal distributions to implement the `LM`
 # interface, but it might be difficult to correctly implement `__call__` and
 # `p_next` as proposal distributions may only be distributions over sample paths
@@ -22,7 +24,7 @@ class TokenProposal(TokenCharacterTrie):
 
       q(y | ys) ∝ p_llm(y | ys) * p_guide(φ(y) | φ(ys))
 
-    where φ: Y* → ∑* maps token strings to characters.
+    where φ: Y* → ∑* maps token strings to character strings.
 
     """
 
@@ -39,30 +41,81 @@ class TokenProposal(TokenCharacterTrie):
 
         super().__init__(words, old_eos=llm.eos, new_eos=guide.eos)
 
-    def _p_next(self, context, K=None):
-        with self.timer['llm'](t=len(context)):
-            p_llm = self.llm.p_next(self._prompt + context)
-
-        with self.timer['cfg+trie'](t=len(context)):
-            return Float.chart(take(K, self.traverse_trie(context, p_llm))).normalize()
+    def _p_next(self, context, K=None, execute_model_req=None, **kwargs):
+        p_llm = self.llm.p_next(
+            self._prompt + context, execute_model_req=execute_model_req
+        )
+        return Float.chart(take(K, self.traverse_trie(context, p_llm))).normalize()
 
     async def sample_next_token(
-        self, prompt, context, verbosity=0, compare_time=False, **kwargs
+        self,
+        prompt,
+        context,
+        verbosity=0,
+        draw=sample_dict,
+        p_llm=None,
+        **kwargs,
     ):
-        with self.timer['llm'](t=len(context)):
-            p_llm = await self.llm.p_next(prompt + context)
+        """
+        Proposes a token and incremental weight update.
 
+        The following procedure, justified using RAVI, gives the way we sample a token and compute the incremental SMC weight update.
+
+        1. Sample a subset S of size K of the token vocabulary by
+            a. enumerating the top K - 1 tokens
+            b. sampling a wilcard token from the remainder of the vocabulary proportional to p_llm(x)
+        2. Compute *unnormalized target* p(x) of each x \in S according to p_llm(x)p_cfg(x).
+        3. Compute (local) weight w(x) of each token as p(x)/Pr(x \in S) where Pr(x \in S) is the *inclusion probability*.
+            * Pr(x \in S) = 1 if x in top K - 1
+            * Pr(x \in S) \propto p_llm(x) for the wilcard token
+        4. Renormalize the weights of the tokens in S and sample one of them.
+        5. Set the incremental SMC weight update w'(x) = \sum_{x \in S} w(x)
+
+        Args:
+            prompt : The LLM prompt.
+            context : The previous generated tokens.
+            verbosity : > 1 prints sampling process.
+            p_llm: Provide the model with pre-computed p_llm. Since for VLLM, p_llm is computed
+                for all particles altogether. We directly pass the corresponding p_llm to
+                the proposal of each particle.
+        Returns:
+            token : Proposed LLM token.
+            weight_update : Incremental SMC weight update.
+
+        """
+        if p_llm is None:
+            with self.timer['llm'](t=len(context)):
+                if iscoroutinefunction(self.llm.p_next):
+                    p_llm = await self.llm.p_next(prompt + context)
+                else:
+                    p_llm = self.llm.p_next(prompt + context)
+
+        # enumerate top K - 1 tokens
+        Ws = Float.chart(take(self.K - 1, self.traverse_trie(context, p_llm)))
+
+        # sample wildcard token from p_llm
+        P_wc = Float.chart({x: p for x, p in p_llm.items() if x not in Ws}).normalize()
+        wildcard = draw(P_wc)
+        proposal_p = P_wc[wildcard]
+
+        # compute wild card weight
+        p_cfg_wc = 1
         with self.timer['cfg+trie'](t=len(context)):
-            Q = Float.chart(take(self.K, self.traverse_trie(context, p_llm))).normalize()
-            token = sample_dict(Q)
+            for i, c in enumerate(wildcard):
+                p_cfg_wc *= self.guide.p_next(context + wildcard[:i])[c]
+        Ws[wildcard] = (
+            p_llm[self.old_eos if wildcard == self.new_eos else wildcard]
+            * p_cfg_wc
+            / P_wc[wildcard]
+        )
 
-            llm_prob = p_llm[self.old_eos if token == self.new_eos else token]
-            guide_prob = self._p_guide[token]
+        # sample token from weights and compute update
+        Ws_norm = Ws.normalize()
+        token = draw(Ws_norm)
+        proposal_p *= Ws_norm[token]
+        weight_update = Ws.sum()
 
-        if compare_time:
-            self.timer.compare()
-
-        return (token, llm_prob, guide_prob, Q[token])
+        return (token, proposal_p, weight_update)
 
     def _update_internal(self):
         # overrides base method.  Takes max rather than sum of internal nodes
@@ -126,7 +179,7 @@ class TokenProposal(TokenCharacterTrie):
             (token, node) = agenda.pop()
 
             # Efficiently compute guide.p(x | context + token) for x ∈ guide.V.
-            # These are individal characters that are aligned with the trie.
+            # These are individual characters that are aligned with the trie.
             p = self.guide.p_next(context + token)
 
             children_node = self.children[node]
@@ -141,9 +194,10 @@ class TokenProposal(TokenCharacterTrie):
 
                 y = children_node[x]
 
-                P[y] = P_y = P[node] * p[x]
+                P_y = P[node] * p[x]
 
                 if P_y > 0:
+                    P[y] = P_y
                     agenda[token + x, y] = -P_y * self.mass[y]
 
     def sample(

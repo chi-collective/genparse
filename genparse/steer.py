@@ -5,13 +5,16 @@ Language model steering methods
 import asyncio
 import random
 import warnings
+import copy
 
 import numpy as np
 import torch
 import transformers
 from arsenal.maths import logsumexp, sample_dict
 
-from genparse.cfglm import EOS
+from hfppl import Model
+
+from genparse import EOS
 from genparse.inference import (
     TraceSWOR,
     importance_sampling,
@@ -21,21 +24,7 @@ from genparse.inference import (
 )
 from genparse.lm import LM
 from genparse.semiring import Float
-from genparse.util import format_table, normalize
-
-# ____________________________________________________________________________________
-#
-
-
-def set_seed(seed):
-    random.seed(seed)
-    torch.manual_seed(seed)
-    transformers.set_seed(seed)
-    np.random.seed(seed)
-
-
-# ____________________________________________________________________________________
-#
+from genparse.util import format_table, set_seed
 
 
 class BruteForceGlobalProductOfExperts:
@@ -64,7 +53,7 @@ class generation_tree:
         D = Float.chart()
         while tracer.root.mass > 0:
             with tracer:
-                s, p = lm.sample(draw=tracer, prob=True, **opts)
+                s, p = lm.sample(draw=tracer, **opts)
                 D[s] += p
         D = Float.chart((k, D[k]) for k in sorted(D))
         self.D = D
@@ -74,49 +63,45 @@ class generation_tree:
         return format_table([[self.D, self.tracer]])
 
 
-# ____________________________________________________________________________________
+# class LocalProduct(LM):
+#    """This class implements a *local* product of experts, an LM that is derived by
+#    multiplying the conditional distributions of each token in a pair of
+#    token-synchronized LM.
 #
-
-
-class LocalProduct(LM):
-    """This class implements a *local* product of experts, an LM that is derived by
-    multiplying the conditional distributions of each token in a pair of
-    token-synchronized LM.
-
-    Typically, `LocalProduct` is a baseline method or a proposal distribution
-    for the *global* product of experts.
-
-    [Some people call LocalProduct the "locally optimal proposal distribution" -
-    what does it actually optimize?]
-
-    """
-
-    def __init__(self, lm1, lm2):
-        self.lm1 = lm1
-        self.lm2 = lm2
-        assert lm1.V == lm2.V
-        assert lm1.eos == lm2.eos
-        super().__init__(V=lm1.V, eos=lm1.eos)
-
-    def __call__(self, ys):
-        assert ys[-1] == self.eos
-        p = 1
-        for t in range(len(ys)):
-            p *= self.p_next(ys[:t])[ys[t]]
-        return p
-
-    def p_next(self, prefix):
-        p1 = self.lm1.p_next(ys)
-        p2 = self.lm2.p_next(ys)
-
-        # TODO: p_next should already be normalized!  Skipping the normalization
-        # below would allow energy-based models.
-        p1 = normalize(p1)
-        p2 = normalize(p2)
-
-        # Below, we could alternatively use p2's support; any `k` that's not in
-        # both must have probability zero.
-        return (p1 * p2).normalize()
+#    Typically, `LocalProduct` is a baseline method or a proposal distribution
+#    for the *global* product of experts.
+#
+#    [Some people call LocalProduct the "locally optimal proposal distribution" -
+#    what does it actually optimize?]
+#
+#    """
+#
+#    def __init__(self, lm1, lm2):
+#        self.lm1 = lm1
+#        self.lm2 = lm2
+#        assert lm1.V == lm2.V
+#        assert lm1.eos == lm2.eos
+#        super().__init__(V=lm1.V, eos=lm1.eos)
+#
+#    def __call__(self, ys):
+#        assert ys[-1] == self.eos
+#        p = 1
+#        for t in range(len(ys)):
+#            p *= self.p_next(ys[:t])[ys[t]]
+#        return p
+#
+#    def p_next(self, ys):
+#        p1 = self.lm1.p_next(ys)
+#        p2 = self.lm2.p_next(ys)
+#
+#        # TODO: p_next should already be normalized!  Skipping the normalization
+#        # below would allow energy-based models.
+#        p1 = normalize(p1)
+#        p2 = normalize(p2)
+#
+#        # Below, we could alternatively use p2's support; any `k` that's not in
+#        # both must have probability zero.
+#        return (p1 * p2).normalize()
 
 
 # _______________________________________________________________________________
@@ -202,10 +187,6 @@ def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
 # This code is still experimental and actively being developed
 # TODO: write tests
 
-from hfppl import Model
-
-from genparse import EOS
-
 
 class HFPPLParticle(Model):
     """
@@ -225,18 +206,11 @@ class HFPPLParticle(Model):
         self.verbosity = verbosity
 
     async def step(self):
-        (
-            token,
-            llm_prob,
-            guide_prob,
-            proposal_prob,
-        ) = await self.proposal.sample_next_token(
-            prompt=self.prompt,
-            context=''.join(self.context),
-            compare_time=(self.verbosity > 1),
+        (token, _, weight_update) = await self.proposal.sample_next_token(
+            prompt=self.prompt, context=''.join(self.context)
         )
         self.context.append(token)
-        self.weight += np.log(llm_prob) + np.log(guide_prob) - np.log(proposal_prob)
+        self.weight += np.log(weight_update)
         self.max_tokens -= 1
 
         if self.verbosity > 1:
@@ -297,12 +271,14 @@ class HFPPLSampler:
         if method == 'smc-steer':
             assert n_beam is not None
             if return_record:
-                raise Warning('Record not yet implemented for smc-steer')
+                warnings.warn('Record not yet implemented for smc-steer')
             particles = asyncio.run(
                 smc_steer(model, n_particles=n_particles, n_beam=n_beam)
             )
 
         elif method == 'smc-standard':
+            if n_beam is not None:
+                warnings.warn('`n_beam` is set, but will be ignored by smc-standard')
             if return_record:
                 particles, record = asyncio.run(
                     smc_standard_record(
@@ -318,27 +294,32 @@ class HFPPLSampler:
         else:
             raise ValueError(f'Unknown inference method: {method}.')
 
-        return ParticleApproximation(particles), record
+        return ParticleApproximation(particles, record=record)
 
 
 class ParticleApproximation:
-    def __init__(self, particles):
+    def __init__(self, particles, record=None):
         self.particles = particles
         self.log_weights = [p.weight for p in self.particles]
         self.log_ml = logsumexp(self.log_weights) - np.log(len(self.log_weights))
-        self._compute_posterior()
+        self.record = record
+
+        posterior = Float.chart()
+        for p in self.particles:
+            posterior[''.join(p.context)] += np.exp(p.weight)
+        self.posterior = posterior.normalize()
 
     def __iter__(self):
         return iter(self.particles)
-
-    def _compute_posterior(self):
-        self.posterior = Float.chart()
-        for p in self.particles:
-            self.posterior[str(p)] += np.exp(p.weight)
-        self.posterior = self.posterior.normalize()
 
     def sample(self, n=None, draw=sample_dict):
         if n is None:
             return draw(self.posterior)
         else:
             return [draw(self.posterior) for _ in range(n)]
+
+    def __str__(self):
+        return str(self.posterior)
+
+    def _repr_html_(self):
+        return self.posterior._repr_html_()

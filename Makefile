@@ -1,8 +1,11 @@
 SHELL := /usr/bin/env bash
 EXEC = python=3.10
 NAME = genparse
+TEST = tests
 RUN = python -m
 INSTALL = $(RUN) pip install
+SRC_FILES := $(shell find $(NAME) -name '*.py')
+TEST_FILES := $(shell find $(TEST) -name '*.py')
 .DEFAULT_GOAL := help
 
 ## help      : print available commands.
@@ -19,7 +22,11 @@ update :
 .PHONY : env
 env : $(NAME).egg-info/
 $(NAME).egg-info/ : setup.py
+ifeq ($(shell uname -s),Darwin)
 	@$(INSTALL) -e ".[test]" && pre-commit install
+else
+	@$(INSTALL) -e ".[test,vllm]" && pre-commit install
+endif
 
 ## format    : format code style.
 .PHONY : format
@@ -29,16 +36,16 @@ format : env
 ## docs      : build documentation.
 .PHONY : docs
 docs : env html/docs/index.html
-html/docs/index.html : $(NAME)/*.py
+html/docs/index.html : $(SRC_FILES)
 	@pdoc $(NAME) -o $(@D)
 
 ## test      : run linting and tests.
 .PHONY : test
-test: ruff pytest
-ruff: env
-	@ruff check --fix --exit-zero
+test : ruff pytest
+ruff : env
+	@ruff check --fix
 pytest : env html/coverage/index.html
 html/coverage/index.html : html/pytest/report.html
 	@coverage html -d $(@D)
-html/pytest/report.html : $(NAME)/*.py tests/*.py
-	@coverage run --branch -m pytest --html=$@ --self-contained-html
+html/pytest/report.html : $(SRC_FILES) $(TEST_FILES)
+	@coverage run --branch -m pytest --html=$@ --self-contained-html $(SRC_FILES) $(TEST_FILES)

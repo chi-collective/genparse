@@ -18,8 +18,12 @@ profile.json
 *.log
 .ruff_cache
 .pytest_cache
-*.c
-*.cpp
-*.html
-*.so
 build/
+*.cpp
+*.c
+*.pyx
+*.so
+*.html
+/benchmark/results
+*.pkl
+*.pdf

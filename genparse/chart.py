@@ -102,7 +102,10 @@ class Chart(dict):
         return min(self, key=self.__getitem__)
 
     def top(self, k):
-        return {k: self[k] for k in sorted(self, key=self.__getitem__, reverse=True)[:k]}
+        return Chart(
+            self.semiring,
+            {k: self[k] for k in sorted(self, key=self.__getitem__, reverse=True)[:k]},
+        )
 
     def max(self):
         return max(self.values())
@@ -115,6 +118,9 @@ class Chart(dict):
 
     def sort(self, **kwargs):
         return self.semiring.chart((k, self[k]) for k in sorted(self, **kwargs))
+
+    def sort_descending(self, **kwargs):
+        return self.semiring.chart((k, self[k]) for k in sorted(self, lambda k: -self[k]))
 
     def normalize(self):
         Z = self.sum()
