@@ -2,8 +2,6 @@
 Fast computation of the posterior distrubtion over the next word in a WCFG language model.
 """
 
-from collections import defaultdict
-
 from arsenal import colors
 
 from genparse.cfg import CFG, _gen_nt

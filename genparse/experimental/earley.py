@@ -1,8 +1,7 @@
 import numpy as np
-from arsenal import Integerizer, colors
+from arsenal import Integerizer
 
 from collections import defaultdict
-from functools import lru_cache
 
 # from arsenal.datastructures.pdict import pdict
 from arsenal.datastructures.heap import LocatorMaxHeap
@@ -136,7 +135,7 @@ class Earley:
             return sum(r.w for r in self.cfg.rhs[self.cfg.S] if r.body == ())
 
         # initialize bookkeeping structures
-        self._chart[()] = [col] = [self._initial_column]
+        self._chart[()] = [self._initial_column]
 
         cols = self.chart(x)
 
@@ -322,7 +321,7 @@ class Earley:
                 q[node.node] = node.value
 
             else:
-                (I, X, Ys) = arc = node.edges[t]
+                (I, X, _) = arc = node.edges[t]
                 neighbor = (I, X)
                 neighbor_value = q.get(neighbor)
                 if neighbor_value is None:

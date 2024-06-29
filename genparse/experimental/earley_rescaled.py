@@ -80,7 +80,7 @@ class Earley:
             return sum(r.w for r in self.cfg.rhs[self.cfg.S] if r.body == ())
 
         # initialize bookkeeping structures
-        self._chart[()] = [col] = [self._initial_column]
+        self._chart[()] = [self._initial_column]
 
         cols = self.chart(x)
 

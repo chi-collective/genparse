@@ -62,7 +62,7 @@ class LM:
             ys = ys + (y,)
 
 
-class LLM(LM):
+class LLM:
     """
     This is a simple class that wraps HuggingFace transformers with support for automatic caching.
     """

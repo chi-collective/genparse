@@ -3,13 +3,9 @@ Language model steering methods
 """
 
 import asyncio
-import random
 import warnings
-import copy
 
 import numpy as np
-import torch
-import transformers
 from arsenal.maths import logsumexp, sample_dict
 
 from hfppl import Model
@@ -22,7 +18,6 @@ from genparse.inference import (
     smc_standard_record,
     smc_steer,
 )
-from genparse.lm import LM
 from genparse.semiring import Float
 from genparse.util import format_table, set_seed
 
@@ -61,47 +56,6 @@ class generation_tree:
 
     def _repr_html_(self):
         return format_table([[self.D, self.tracer]])
-
-
-# class LocalProduct(LM):
-#    """This class implements a *local* product of experts, an LM that is derived by
-#    multiplying the conditional distributions of each token in a pair of
-#    token-synchronized LM.
-#
-#    Typically, `LocalProduct` is a baseline method or a proposal distribution
-#    for the *global* product of experts.
-#
-#    [Some people call LocalProduct the "locally optimal proposal distribution" -
-#    what does it actually optimize?]
-#
-#    """
-#
-#    def __init__(self, lm1, lm2):
-#        self.lm1 = lm1
-#        self.lm2 = lm2
-#        assert lm1.V == lm2.V
-#        assert lm1.eos == lm2.eos
-#        super().__init__(V=lm1.V, eos=lm1.eos)
-#
-#    def __call__(self, ys):
-#        assert ys[-1] == self.eos
-#        p = 1
-#        for t in range(len(ys)):
-#            p *= self.p_next(ys[:t])[ys[t]]
-#        return p
-#
-#    def p_next(self, ys):
-#        p1 = self.lm1.p_next(ys)
-#        p2 = self.lm2.p_next(ys)
-#
-#        # TODO: p_next should already be normalized!  Skipping the normalization
-#        # below would allow energy-based models.
-#        p1 = normalize(p1)
-#        p2 = normalize(p2)
-#
-#        # Below, we could alternatively use p2's support; any `k` that's not in
-#        # both must have probability zero.
-#        return (p1 * p2).normalize()
 
 
 # _______________________________________________________________________________

@@ -75,14 +75,14 @@ class Mapping:
         raw_token = self.tokenizer.convert_ids_to_tokens(token_id)
         return raw_token
 
-    def map(self, token_id: int, verbose=False) -> bytes:
+    def map(self, token_id: int) -> bytes:
         token = self._map(token_id)
         return bytes(token, 'utf-8')
 
 
 class BBPEMapping(Mapping):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    #    def __init__(self, *args, **kwargs):
+    #        super().__init__(*args, **kwargs)
 
     def _map(self, token_id: int) -> str:
         raw_token = super()._map(token_id)
@@ -102,14 +102,14 @@ class UnicodeBBPEMapping(Mapping):
             self.tokenizer
         )
 
-    def _map(self, token_id: int, verbose=False) -> str:
+    def _map(self, token_id: int) -> str:
         raw_token = super()._map(token_id)
         # if raw_token.startswith("Ġ"):
         #     raw_token = raw_token.replace("Ġ", " ")
         return raw_token
 
-    def map(self, token_id: int, verbose=False) -> bytes:
-        raw_token = self._map(token_id, verbose)
+    def map(self, token_id: int) -> bytes:
+        raw_token = self._map(token_id)
         return self.intermediate_encoding.token2bytes(raw_token)
 
     @staticmethod
@@ -146,8 +146,8 @@ class BPEMapping(Mapping):
 
 
 class LlamaBPEMapping(BPEMapping):
-    def __init__(self, tokenizer):
-        super().__init__(tokenizer)
+    #    def __init__(self, tokenizer):
+    #        super().__init__(tokenizer)
 
     def _map(self, token_id: int) -> str:
         raw_token = super()._map(token_id)
@@ -160,8 +160,8 @@ class LlamaBPEMapping(BPEMapping):
 
 
 class WordPieceMapping(Mapping):
-    def __init__(self, tokenizer):
-        super().__init__(tokenizer)
+    #    def __init__(self, tokenizer):
+    #        super().__init__(tokenizer)
 
     def map(self, token_id: int) -> bytes:
         if token_id in self.special:
@@ -173,8 +173,8 @@ class WordPieceMapping(Mapping):
 
 
 class UniGramMapping(Mapping):
-    def __init__(self, tokenizer):
-        super().__init__(tokenizer)
+    #    def __init__(self, tokenizer):
+    #        super().__init__(tokenizer)
 
     def map(self, token_id: int) -> bytes:
         if token_id in self.special:
@@ -219,9 +219,9 @@ class ByteEncoding:
         tokens = [
             '' if token in self.tokenizer.all_special_ids else token for token in tokens
         ]
-        bytes: List[List[int]] = [self.token2bytes(token) for token in tokens]
+        bytez: List[List[int]] = [self.token2bytes(token) for token in tokens]
         # join the bytes
-        return ints2bytes(sum(bytes, []))
+        return ints2bytes(sum(bytez, []))
 
     def token_id2bytes(self, token_id: int) -> bytes:
         token: str = self.tokenizer.convert_ids_to_tokens(token_id)

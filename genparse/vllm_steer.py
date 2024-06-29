@@ -37,17 +37,13 @@ class VLLMWrapper:
     ):
         from genparse.tokenization import decode_tokenizer_vocab
 
-        super().__init__()
-        # type: AsyncGreedilyTokenizedLLM
         self.llm = llm
         self.n_particles = n_particles
 
-        """
-            One VLLMWrapper is initialized for each prompt.
-            All VLLMWrapper point to the same AsyncGreedilyTokenizedLLM
-            based on one VLLM instance (self.llm).
-            We add the prompt in the VLLMWrapper constructor.
-        """
+        # One VLLMWrapper is initialized for each prompt.
+        # All VLLMWrapper point to the same AsyncGreedilyTokenizedLLM
+        # based on one VLLM instance (self.llm).
+        # We add the prompt in the VLLMWrapper constructor.
 
         self.particles = {}
 

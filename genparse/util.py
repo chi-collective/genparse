@@ -28,7 +28,6 @@ def lark_guide(grammar, decay=1, ignore=''):
 
 
 def load_model_by_name(model_name, batch_size=None):
-    import transformers
     from hfppl import CachedCausalLM
     from genparse.lm import AsyncGreedilyTokenizedLLM, LLM
 
@@ -142,7 +141,7 @@ class InferenceSetupVLLM:
     ):
         from genparse.vllm_compatibility import vllmpplLLM
         from genparse.vllm_steer import VLLMSampler
-
+        from genparse.lm import AsyncGreedilyTokenizedLLM
         from genparse.proposal import CharacterProposal, TokenProposal
 
         if guide_opts is None:
@@ -153,11 +152,7 @@ class InferenceSetupVLLM:
         if seed is not None:
             set_seed(seed)
 
-        import torch
-
         torch.backends.cuda.matmul.allow_tf32 = True
-        import transformers
-        from genparse.lm import AsyncGreedilyTokenizedLLM
 
         if model_name == 'gpt2':
             MODEL_ID = 'gpt2'
@@ -206,8 +201,6 @@ class InferenceSetupVLLM:
 
 class hf_tokenizer:
     def __init__(self, name='gpt2', **kwargs):
-        from transformers import AutoTokenizer
-
         if name == 'codellama':
             name = 'codellama/CodeLlama-7b-Instruct-hf'
             _kwargs = dict(
@@ -220,7 +213,7 @@ class hf_tokenizer:
             )
             _kwargs.update(**kwargs)
 
-        self.tokenizer = AutoTokenizer.from_pretrained(name, **kwargs)
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained(name, **kwargs)
 
         # there are many ways to extract the string representations of each
         # token from the HF tokenizers.

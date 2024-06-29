@@ -41,8 +41,9 @@ class VLLMParticle(Model):
 
 
 async def importance_sampling(model, n_particles):
-    "Importance sampling estimator"
     """
+    Importance sampling estimator
+
     Args:
         model (VLLMWrapper): The VLLMWrapper to perform inference on.
         n_particles (int): Number of particles to execute concurrently.
