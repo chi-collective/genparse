@@ -165,8 +165,8 @@ class WeightedGraph:
         )
 
         for i, j in self:
-            if self.E[i, j] == self.WeightType.zero:
-                continue
+            # if self.E[i, j] == self.WeightType.zero:
+            #    continue
             g.edge(str(name(i)), str(name(j)), label=label_format(self.E[i, j]))
 
         for i in self.N:
