@@ -97,7 +97,6 @@ def construct_canonicalizer_from_tokenizer(
     dfa = TokenDFA.from_dictionary(base_alphabet_as_int, merge_rules_as_int)
     transition_tensor = torch.tensor(list(dfa.get_transitions()))
     return dict(
-        num_states=dfa.num_states,
         vocabulary_size=vocabulary_size,
         eos_token_id=eos_token_id,
         transitions=transition_tensor,

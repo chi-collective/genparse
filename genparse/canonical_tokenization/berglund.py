@@ -14,8 +14,7 @@ class TokenDFA:
     # The start state is always implicitly state 0.
     # Note that in this construction, all states are accept states, so there
     # is no explicit set of accept states.
-    num_states: int
-    transitions: dict[State, dict[Symbol, State]]
+    transitions: list[dict[Symbol, State]]
 
     @staticmethod
     def from_dictionary(
@@ -31,35 +30,31 @@ class TokenDFA:
 
     @staticmethod
     def from_base_alphabet(base_alphabet: Iterable[Symbol]) -> 'TokenDFA':
-        return TokenDFA(num_states=1, transitions={0: {a: 0 for a in base_alphabet}})
+        return TokenDFA(transitions=[{a: 0 for a in base_alphabet}])
+
+    def states(self) -> range:
+        return range(len(self.transitions))
 
     def new_states(self, n: int) -> range:
-        lo = self.num_states
-        self.num_states += n
-        return range(lo, self.num_states)
+        prev_len = len(self.transitions)
+        for _ in range(n):
+            self.transitions.append({})
+        return range(prev_len, len(self.transitions))
 
     def get_state_to(self, state_from: State, symbol: Symbol) -> State | None:
-        d = self.transitions.get(state_from)
-        if d is not None:
-            return d.get(symbol)
+        return self.transitions[state_from].get(symbol)
 
     def get_transitions_from_state(
         self, state_from: State
     ) -> Iterable[tuple[Symbol, State]]:
-        d = self.transitions.get(state_from)
-        if d is not None:
-            return d.items()
-        else:
-            return ()
+        return self.transitions[state_from].items()
 
     def get_transitions(self) -> Iterable[tuple[State, Symbol, State]]:
-        for state_from, transitions_from_state in self.transitions.items():
+        for state_from, transitions_from_state in enumerate(self.transitions):
             for symbol, state_to in transitions_from_state.items():
                 yield state_from, symbol, state_to
 
     def set_transition(self, state_from: State, symbol: Symbol, state_to: State) -> None:
-        if state_from not in self.transitions:
-            self.transitions[state_from] = {}
         self.transitions[state_from][symbol] = state_to
 
     def merge_rule(self, rule: MergeRule) -> None:
@@ -67,7 +62,7 @@ class TokenDFA:
         u, v, uv = rule
         # Use dict to ensure deterministic iteration order.
         S2 = {}
-        for s1 in range(self.num_states):
+        for s1 in self.states():
             s2 = self.get_state_to(s1, u)
             if s2 is not None:
                 s3 = self.get_state_to(s2, v)
@@ -83,7 +78,7 @@ class TokenDFA:
                 if alpha not in excluded:
                     self.set_transition(fresh_s2, alpha, state_to)
         state_to_fresh = dict(zip(S2, fresh))
-        for q in range(self.num_states):
+        for q in self.states():
             state_to = self.get_state_to(q, u)
             if state_to is not None:
                 fresh_state_to = state_to_fresh.get(state_to)
