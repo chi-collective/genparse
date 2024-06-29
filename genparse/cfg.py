@@ -303,7 +303,10 @@ class CFG:
                         agenda.add(e.head)
 
         if bottomup_only:
-            return self._trim(C)
+            val = self._trim(C)
+            self._trim_cache[bottomup_only] = val
+            val._trim_cache[bottomup_only] = val
+            return val
 
         T = {self.S}
         agenda.update(T)
@@ -316,8 +319,10 @@ class CFG:
                         T.add(b)
                         agenda.add(b)
 
-        self._trim_cache[bottomup_only] = self._trim(T)
-        return self._trim_cache[bottomup_only]
+        val = self._trim(T)
+        self._trim_cache[bottomup_only] = val
+        val._trim_cache[bottomup_only] = val
+        return val
 
     def cotrim(self):
         return self.trim(bottomup_only=True)

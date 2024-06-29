@@ -61,28 +61,25 @@ def test_misc():
 
     cfg = CFG.from_string(
         """
-    2: X -> a
-    3: Y -> b
-    """,
+        2: X -> a
+        3: Y -> b
+        """,
         Float,
     )
-    cfg['Y'].trim().assert_equal("""
-    3: Y -> b
-    """)
+    cfg['Y'].trim().assert_equal('3: Y -> b')
 
     # call it twice to hit the trim cache
-    cfg.trim().trim()
+    cfg.trim().trim()  # serial
+    cfg.trim()  # parallel
 
 
 def test_agenda_misc():
     # test stopping early
     g = CFG.from_string(
         """
-
-    0.5: S → a S
-    1: S → a
-
-    """,
+        0.5: S → a S
+        1: S → a
+        """,
         Float,
     )
 
@@ -243,11 +240,9 @@ def test_semirings():
 def test_treesum():
     cfg = CFG.from_string(
         """
-
-    0.25: S → S S
-    0.75: S → a
-
-    """,
+        0.25: S → S S
+        0.75: S → a
+        """,
         Real,
     )
 
@@ -269,18 +264,18 @@ def test_trim():
     cfg = CFG.from_string(
         """
 
-    0.25: S → S S
-    0.75: S → a
+        0.25: S → S S
+        0.75: S → a
 
-    0.75: A → a
+        0.75: A → a
 
-    1: C → D
-    1: D → C
+        1: C → D
+        1: D → C
 
-    1: B → a
-    1: B → B
+        1: B → a
+        1: B → B
 
-    """,
+        """,
         Real,
     )
 
@@ -289,10 +284,10 @@ def test_trim():
     want = CFG.from_string(
         """
 
-    0.25: S → S S
-    0.75: S → a
+        0.25: S → S S
+        0.75: S → a
 
-    """,
+        """,
         Real,
     )
 
@@ -320,20 +315,20 @@ def test_cnf():
     cfg = CFG.from_string(
         """
 
-    1: S → S1
+        1: S → S1
 
-    1: S → A B C d
+        1: S → A B C d
 
-    0.5: S1 → S1
+        0.5: S1 → S1
 
-    0.1: S1 →
-    0.1: A →
+        0.1: S1 →
+        0.1: A →
 
-    1: A → a
-    1: B → d
-    1: C → c
+        1: A → a
+        1: B → d
+        1: C → c
 
-    """,
+        """,
         Real,
     )
 
@@ -349,18 +344,16 @@ def test_cnf():
 def test_grammar_size_metrics():
     cfg = CFG.from_string(
         """
+        1.0: S → A B C D
+        0.5: S → S
+        0.2: S →
+        0.1: A →
 
-    1.0: S → A B C D
-    0.5: S → S
-    0.2: S →
-    0.1: A →
-
-    1: A → a
-    1: B → d
-    1: C → c
-    1: D → d
-
-    """,
+        1: A → a
+        1: B → d
+        1: C → c
+        1: D → d
+        """,
         Real,
     )
 
@@ -371,12 +364,10 @@ def test_grammar_size_metrics():
 def test_palindrome_derivations():
     cfg = CFG.from_string(
         """
-
-    1: S → a S a
-    1: S → b S b
-    1: S → c
-
-    """,
+        1: S → a S a
+        1: S → b S b
+        1: S → c
+        """,
         Real,
     )
 
@@ -397,10 +388,10 @@ def test_palindrome_derivations():
 def test_unfold():
     cfg = CFG.from_string(
         """
-    1.0: S →
-    0.5: S → S a
-    0.5: B → b
-    """,
+        1.0: S →
+        0.5: S → S a
+        0.5: B → b
+        """,
         Real,
     )
 
@@ -413,13 +404,11 @@ def test_unfold():
     new.assert_equal(
         CFG.from_string(
             """
-
-    1.0: S →
-    0.5: S → a
-    0.25: S → S a a
-    0.5: B → b
-
-    """,
+            1.0: S →
+            0.5: S → a
+            0.25: S → S a a
+            0.5: B → b
+            """,
             Real,
         )
     )
@@ -436,14 +425,14 @@ def test_unfold():
 def test_cky():
     cfg = CFG.from_string(
         """
-    1: S ->  A B
-    0.1: A -> A B
-    0.4: A ->
-    0.5: A -> b
-    0.4: B -> a
-    0.5: B ->
-    0.1: B -> B A
-    """,
+        1: S ->  A B
+        0.1: A -> A B
+        0.4: A ->
+        0.5: A -> b
+        0.4: B -> a
+        0.5: B ->
+        0.1: B -> B A
+        """,
         Real,
     )
 
@@ -467,27 +456,49 @@ def test_cky():
 def test_unary_cycle_removal():
     cfg = CFG.from_string(
         """
-    0.5: S → A1
+        0.5: S → A1
 
-    0.5: A1 → B1
-    0.5: B1 → C1
-    0.5: C1 → A1
+        0.5: A1 → B1
+        0.5: B1 → C1
+        0.5: C1 → A1
 
-    0.5: C1 → C
-    0.25: C1 → C1
+        0.5: C1 → C
+        0.25: C1 → C1
 
-    0.25: C1 → C0
-    1.0: C0 → C
+        0.25: C1 → C0
+        1.0: C0 → C
 
-    0.5: C → c
+        0.5: C → c
 
-    """,
+        """,
         Float,
     )
 
     unaryfree = cfg.unarycycleremove(trim=False)
     assert not unaryfree.has_unary_cycle()
     unaryfree.agenda().assert_equal(cfg.agenda(), domain=cfg.N, tol=1e-10, verbose=1)
+
+
+def test_truncate_length():
+    cfg = CFG.from_string(
+        """
+        1: S → a S a
+        1: S → b S b
+        1: S →
+        """,
+        Real,
+    )
+
+    max_length = 5
+
+    cfg_t = cfg.truncate_length(max_length)
+    have = cfg_t.language(max_length * 2)
+
+    want = cfg.materialize(max_length=max_length)
+
+    have.assert_equal(want)
+    print(have)
+    assert len(have) == 7 or max_length != 5
 
 
 if __name__ == '__main__':

@@ -28,16 +28,8 @@ class BruteForceGlobalProductOfExperts:
         # materializing the distrbution over strings up to a maximum length
         self.lm1 = lm1
         self.lm2 = lm2
-        self.p1 = (
-            lm1.cfg.cnf.language(MAX_LENGTH)
-            .filter(lambda x: len(x) <= MAX_LENGTH)
-            .normalize()
-        )
-        self.p2 = (
-            lm2.cfg.cnf.language(MAX_LENGTH)
-            .filter(lambda x: len(x) <= MAX_LENGTH)
-            .normalize()
-        )
+        self.p1 = lm1.cfg.cnf.materialize(MAX_LENGTH).normalize()
+        self.p2 = lm2.cfg.cnf.materialize(MAX_LENGTH).normalize()
         self.target = (self.p1 * self.p2).normalize()
 
 
