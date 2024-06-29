@@ -40,7 +40,7 @@ class Column:
 
         # Within column J, this datastructure maps nonterminals Y to a set of items
         #   Y => {(I, X, Ys) | phrase(I,X/[Y],J) ≠ 0}
-        self.waiting_for = defaultdict(set)
+        self.waiting_for = defaultdict(list)
 
         # priority queue used when first filling the column
         #        self.Q = pdict()
@@ -224,7 +224,7 @@ class Earley:
             item = (I, X, Ys)
             was = col.i_chart.get(item)
             if was is None:
-                col.waiting_for[self.first_Ys[Ys]].add(item)
+                col.waiting_for[self.first_Ys[Ys]].append(item)
                 col.i_chart[item] = value
             else:
                 col.i_chart[item] = was + value

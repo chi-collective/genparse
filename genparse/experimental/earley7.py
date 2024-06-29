@@ -1,8 +1,7 @@
 import numpy as np
-from arsenal import Integerizer, colors
+from arsenal import Integerizer
 
 from collections import defaultdict
-from functools import lru_cache
 
 # from arsenal.datastructures.pdict import pdict
 from arsenal.datastructures.heap import LocatorMaxHeap
