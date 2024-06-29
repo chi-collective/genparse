@@ -34,6 +34,13 @@ def test_sdd1():
 def test_misc():
     Derivation(None, Derivation(None, 'X'))._repr_html_()
 
+    x = Derivation(None, Derivation(None, 'X'))
+    y = Derivation(None, Derivation(None, 'Y'))
+    assert x == x
+    assert hash(x) == hash(x)
+    assert x != y
+    assert hash(x) != hash(y)
+
     CFG.from_string('', Real)._repr_html_()
 
     Derivation.to_nltk(None)
