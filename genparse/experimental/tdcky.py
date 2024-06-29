@@ -62,9 +62,9 @@ class ExactTensorDecomp:
         (b, _) = self.chart(xs)
         return b[len(xs)][0][self.S]
 
-    def p_next(self, prefix):
-        (_, by) = self.chart(prefix)
-        return self.next_token_weights(by, prefix)
+    #    def p_next(self, prefix):
+    #        (_, by) = self.chart(prefix)
+    #        return self.next_token_weights(by, prefix)
 
     def chart(self, prefix):
         c = self._chart.get(prefix)
@@ -246,7 +246,7 @@ def test_cky():
         all_ok &= ok
         if ok:
             print(colors.mark(ok), repr('⋅'.join(x)), want)
-        else:
+        else:  # pragma: no cover
             print(
                 colors.mark(ok),
                 repr('⋅'.join(x)),

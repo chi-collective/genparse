@@ -114,9 +114,9 @@ class CFGLM(LM):
 
         super().__init__(V=cfg.V, eos=EOS)
 
-    #    def __call__(self, x):
-    #        assert x[-1] == EOS
-    #        return self.model(x)
+    def __call__(self, x):
+        assert x[-1] == EOS
+        return self.model(x)
 
     def p_next(self, prefix):
         return self.model.p_next(prefix)
