@@ -6,7 +6,7 @@ from arsenal import iterview, timers, timeit, colors
 from arsenal.iterextras import unique
 from genparse.segmentation import prefixes
 
-#from genparse.cfglm import EarleyBoolMaskCFGLM
+# from genparse.cfglm import EarleyBoolMaskCFGLM
 from genparse.util import LarkStuff
 
 from genparse.experimental import earley1
@@ -15,18 +15,21 @@ from genparse.experimental import earley3
 from genparse.experimental import earley4
 from genparse.experimental import earley5
 from genparse.experimental import earley6
+from genparse.experimental import earley7
 
 
 def load_examples(example_path):
-    return unique(map(str.strip, open(example_path, 'r')))   # XXX: why are there duplicates?
+    return unique(
+        map(str.strip, open(example_path, 'r'))
+    )  # XXX: why are there duplicates?
+
 
 def main(grammar_path, example_path, out_path):
-
     guide = {}
     with timeit('preprocessing'):
         cfg = LarkStuff(open(grammar_path).read()).char_cfg(0.9, ignore='[ ]?')
         guide[5] = earley5.EarleyLM(cfg)
-        guide[6] = earley6.EarleyLM(cfg)
+        guide[7] = earley7.EarleyLM(cfg)
 
     T = timers()
 
@@ -38,16 +41,17 @@ def main(grammar_path, example_path, out_path):
             guide[name].clear_cache()
 
         for prefix in prefixes(example):
-
             for name in guide:
                 with T[name](n=len(prefix)):
                     p = guide[name].p_next(prefix)
 
-                if not p: print(colors.light.red % f'FAILED {i}: {prefix}')
+                if not p:
+                    print(colors.light.red % f'FAILED {i}: {prefix}')
 
     print('total time:', time() - start, 'seconds')
 
     T.compare()
+
 
 #    T.plot_feature('n')
 #    pl.show()
@@ -56,6 +60,7 @@ def main(grammar_path, example_path, out_path):
 if __name__ == '__main__':
     from path import Path
     import genparse
+
     root = Path(genparse.__file__).dirname() / '..'
 
     parser = argparse.ArgumentParser(
