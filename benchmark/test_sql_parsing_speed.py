@@ -29,9 +29,9 @@ def main(grammar_path, example_path, out_path):
     guide = {}
     with timeit('preprocessing'):
         cfg = LarkStuff(open(grammar_path).read()).char_cfg(0.9, ignore='[ ]?')
-        guide[5] = earley5.EarleyLM(cfg)
+        guide['5'] = earley5.EarleyLM(cfg)
         guide['7'] = earley7.EarleyLM(cfg)
-    #        guide['ref'] = earley_ref.EarleyLM(cfg)
+        # guide['ref'] = earley_ref.EarleyLM(cfg)
 
     T = timers()
 
