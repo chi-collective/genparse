@@ -10,7 +10,7 @@ from genparse.segmentation import prefixes
 from genparse.util import LarkStuff
 
 from genparse.experimental.earley import EarleyLM
-from genparse.cfglm import CFGLM
+# from genparse.cfglm import CFGLM
 
 
 def load_examples(example_path):
@@ -44,7 +44,7 @@ def main():
     with timeit('preprocessing'):
         cfg = LarkStuff(open(args.grammar).read()).char_cfg(0.9, ignore='[ ]?')
         guide['earley'] = EarleyLM(cfg)
-        guide['cfglm'] = CFGLM(cfg)
+        # guide['cfglm'] = CFGLM(cfg)
 
     T = timers()
 
