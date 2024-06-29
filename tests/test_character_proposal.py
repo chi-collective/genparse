@@ -9,6 +9,14 @@ from genparse.proposal import CharacterProposal
 from genparse.semiring import Float
 from genparse.util import LarkStuff, set_seed
 
+from test_utils.proposal_testing import (
+    enumerate_traces,
+    enumerate_target,
+    make_character_proposal,
+    assert_proper_weighting,
+    assert_unbiased_Z,
+)
+
 
 def test_timothy():
     set_seed(0)
@@ -86,7 +94,6 @@ def todo_chomsky():
     #    x = 'Noam Chomsky famously wrote, "One of the most outrageous things about Modernity has always been muckraking in human nature; it has deceptively distorted the way in which one views human rights by making dece'
     #    lp = lpcfg.p_next(x)
     #    pp = pcfg.p_next(x)
-    #    from IPython import embed; embed()
 
     prompt = ' '
     llm = GreedilyTokenizedLLM('gpt2')
@@ -104,15 +111,6 @@ def todo_chomsky():
         print(colors.light.yellow % 'sample:', ys)
 
         print(W.normalize())
-
-
-from test_utils.proposal_testing import (
-    enumerate_traces,
-    enumerate_target,
-    make_character_proposal,
-    assert_proper_weighting,
-    assert_unbiased_Z,
-)
 
 
 def test_normalizing_constant_unbiased():

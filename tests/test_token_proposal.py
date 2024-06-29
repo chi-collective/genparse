@@ -4,12 +4,20 @@ from arsenal.maths import assert_equal
 import random
 import numpy as np
 
+from genparse.util import set_seed
 from genparse.cfglm import add_EOS, locally_normalize
 from genparse.experimental.earley import EarleyLM
 from genparse.lm import make_mock_llm
 from genparse.proposal import TokenProposal
 from genparse.util import LarkStuff
 from genparse import CFGLM
+from test_utils.proposal_testing import (
+    enumerate_traces,
+    enumerate_target,
+    make_token_proposal,
+    assert_proper_weighting,
+    assert_unbiased_Z,
+)
 
 # TODO: test equivalence of `traverse_trie` and `traverse_naive`.
 # def traverse_naive(self, context):
@@ -20,12 +28,7 @@ from genparse import CFGLM
 
 
 def test_basic_aligned_model_iql_small():
-    import random
-
-    import numpy as np
-
-    np.random.seed(0)
-    random.seed(0)
+    set_seed(0)
 
     llm = make_mock_llm()
 
@@ -105,22 +108,12 @@ def test_basic_aligned_model_iql_small():
     print(proposal.sample())
 
 
-from test_utils.proposal_testing import (
-    enumerate_traces,
-    enumerate_target,
-    make_token_proposal,
-    assert_proper_weighting,
-    assert_unbiased_Z,
-)
-
-
 def test_normalizing_constant_unbiased():
     """
     The expected importance weight should provide an unbiased estimate of the normalizing constant.
     That is, we expect E_{(x,S) ~ q(x,S)}[w(x,S)] = Σ_x p(x).
     """
-    np.random.seed(0)
-    random.seed(0)
+    set_seed(0)
 
     V = {
         '▪',
@@ -200,8 +193,7 @@ def test_proper_weighting():
 
     for the local product of experts distributions. We test this for f(x) = δ(x', x) for all x' ∈ V.
     """
-    np.random.seed(0)
-    random.seed(0)
+    set_seed(0)
 
     V = {' ', ' a', ' b', '▪'}
 

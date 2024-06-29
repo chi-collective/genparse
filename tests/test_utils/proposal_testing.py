@@ -1,8 +1,12 @@
+import asyncio
+from arsenal.maths import random_dist, assert_equal
+
+from genparse.inference import TraceSWOR
+from genparse import Float
 from genparse.lm import MockLLM, LM
 from genparse.proposal import TokenProposal, CharacterProposal
 from genparse.cfglm import EarleyBoolMaskCFGLM
 from genparse.util import LarkStuff
-from arsenal.maths import random_dist, assert_equal
 
 
 def _make_guide(guide_spec):
@@ -32,11 +36,6 @@ def make_token_proposal(V, guide_spec, K, uniform=False):
     return TokenProposal(llm=llm, guide=guide, K=K)
 
 
-from genparse.inference import TraceSWOR
-from genparse import Float
-import asyncio
-
-
 def enumerate_traces(proposal, prompt, context):
     """
     This function uses program tracing and sampling without replacement to compute
@@ -53,7 +52,7 @@ def enumerate_traces(proposal, prompt, context):
     # sample without replacement until all traces have been exhausted
     while tracer.root.mass > 0:
         with tracer:
-            s, q, w = asyncio.run(
+            (s, q, w) = asyncio.run(
                 proposal.sample_next_token(draw=tracer, prompt=prompt, context=context)
             )
             P[s] += w * q
