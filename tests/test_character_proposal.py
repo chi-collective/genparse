@@ -1,6 +1,3 @@
-import random
-
-import numpy as np
 from arsenal import colors, timeit
 
 from genparse.cfglm import CFGLM, BoolMaskCFGLM, locally_normalize
@@ -9,10 +6,8 @@ from genparse.proposal import CharacterProposal
 from genparse.semiring import Float
 from genparse.util import LarkStuff, set_seed
 
-from test_utils.proposal_testing import (
-    enumerate_traces,
-    enumerate_target,
-    make_character_proposal,
+from genparse.proposal.util import (
+    mock_character_proposal,
     assert_proper_weighting,
     assert_unbiased_Z,
 )
@@ -118,8 +113,7 @@ def test_normalizing_constant_unbiased():
     The expected importance weight should provide an unbiased estimate of the normalizing constant.
     That is, we expect E_{(x,S) ~ q(x,S)}[w(x,S)] = Σ_x p(x).
     """
-    np.random.seed(0)
-    random.seed(0)
+    set_seed(0)
 
     V = {
         '▪',
@@ -132,10 +126,8 @@ def test_normalizing_constant_unbiased():
         ' WHE',
         ' ORD',
         ' SEL',
-        ' ORD',
         ' sta',
         ' WHER',
-        ' ORDE',
         ' SELE',
         ' ORDE',
         ' stat',
@@ -165,7 +157,7 @@ def test_normalizing_constant_unbiased():
             WS: /[ ]/
      """
 
-    proposal = make_character_proposal(V=V, guide_spec=grammar, uniform=True)
+    proposal = mock_character_proposal(V=V, guide_spec=grammar, uniform=True)
 
     prompt = ''
     context = ' '
@@ -199,8 +191,7 @@ def test_proper_weighting():
 
     for the local product of experts distributions. We test this for f(x) = δ(x', x) for all x' ∈ V.
     """
-    np.random.seed(0)
-    random.seed(0)
+    set_seed(0)
 
     #################
     # Boolean guide #
@@ -215,7 +206,7 @@ def test_proper_weighting():
         WS: /[ ]/
     """
 
-    proposal = make_character_proposal(V=V, uniform=True, guide_spec=grammar)
+    proposal = mock_character_proposal(V=V, uniform=True, guide_spec=grammar)
 
     prompt = ''
     context = ''
@@ -233,12 +224,10 @@ def test_proper_weighting():
         ' WHE',
         ' ORD',
         ' SEL',
-        ' ORD',
         ' sta',
         ' WHER',
         ' ORDE',
         ' SELE',
-        ' ORDE',
         ' stat',
         ' stad',
         ' SELECT',
@@ -266,7 +255,7 @@ def test_proper_weighting():
         WS: /[ ]/
     """
 
-    proposal = make_character_proposal(V=V, guide_spec=grammar, uniform=True)
+    proposal = mock_character_proposal(V=V, guide_spec=grammar, uniform=True)
 
     prompt = ''
     context = ' SELECT'
@@ -294,7 +283,7 @@ def test_proper_weighting():
 
     V = {'a', 'aa', 'aaa', '▪'}
 
-    proposal = make_character_proposal(V=V, guide_spec=pcfg, uniform=True)
+    proposal = mock_character_proposal(V=V, guide_spec=pcfg, uniform=True)
 
     prompt = ''
     context = ''

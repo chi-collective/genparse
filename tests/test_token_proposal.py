@@ -1,8 +1,4 @@
 from arsenal import timeit
-from arsenal.maths import assert_equal
-
-import random
-import numpy as np
 
 from genparse.util import set_seed
 from genparse.cfglm import add_EOS, locally_normalize
@@ -11,10 +7,8 @@ from genparse.lm import make_mock_llm
 from genparse.proposal import TokenProposal
 from genparse.util import LarkStuff
 from genparse import CFGLM
-from test_utils.proposal_testing import (
-    enumerate_traces,
-    enumerate_target,
-    make_token_proposal,
+from genparse.proposal.util import (
+    mock_token_proposal,
     assert_proper_weighting,
     assert_unbiased_Z,
 )
@@ -124,12 +118,10 @@ def test_normalizing_constant_unbiased():
         ' S',
         ' s',
         ' WHE',
-        ' ORD',
         ' SEL',
         ' ORD',
         ' sta',
         ' WHER',
-        ' ORDE',
         ' SELE',
         ' ORDE',
         ' stat',
@@ -159,7 +151,7 @@ def test_normalizing_constant_unbiased():
             WS: /[ ]/
      """
 
-    proposal = make_token_proposal(V=V, guide_spec=grammar, K=10, uniform=True)
+    proposal = mock_token_proposal(V=V, guide_spec=grammar, K=10, uniform=True)
 
     prompt = ''
     context = ' '
@@ -204,7 +196,7 @@ def test_proper_weighting():
         WS: /[ ]/
     """
 
-    proposal = make_token_proposal(V=V, guide_spec=grammar, K=2, uniform=True)
+    proposal = mock_token_proposal(V=V, guide_spec=grammar, K=2, uniform=True)
 
     prompt = ''
     context = ''
@@ -220,12 +212,10 @@ def test_proper_weighting():
         ' S',
         ' s',
         ' WHE',
-        ' ORD',
         ' SEL',
         ' ORD',
         ' sta',
         ' WHER',
-        ' ORDE',
         ' SELE',
         ' ORDE',
         ' stat',
@@ -255,7 +245,7 @@ def test_proper_weighting():
         WS: /[ ]/
     """
 
-    proposal = make_token_proposal(V=V, guide_spec=grammar, K=10, uniform=False)
+    proposal = mock_token_proposal(V=V, guide_spec=grammar, K=10, uniform=False)
 
     prompt = ''
     context = ' SELECT'
@@ -283,7 +273,7 @@ def test_proper_weighting():
 
     V = {'a', 'aa', 'aaa', '▪'}
 
-    proposal = make_token_proposal(V=V, guide_spec=pcfg, K=2, uniform=True)
+    proposal = mock_token_proposal(V=V, guide_spec=pcfg, K=2, uniform=True)
 
     prompt = ''
     context = ''

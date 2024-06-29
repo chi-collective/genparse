@@ -6,10 +6,10 @@ from genparse.chart import Chart
 from genparse.semiring import Boolean, Entropy, Float, Log, MaxPlus, MaxTimes, Real
 from genparse.util import display_table
 
-tol = 1e-5
+TOL = 1e-5
 
 
-def assert_equal(have, want, tol=tol):
+def assert_equal(have, want, tol=TOL):
     error = have.metric(want)
     assert error <= tol, f'have = {have}, want = {want}, error = {error}'
 
@@ -94,7 +94,7 @@ def test_semirings():
         Entropy,
     )
 
-    assert np.allclose(g.treesum(tol=tol).H, 2.0)
+    assert np.allclose(g.treesum(tol=TOL).H, 2.0)
 
     z = Entropy.zero
     e = Entropy.one
@@ -218,6 +218,13 @@ def test_semirings():
             for c in [w, x, y]:
                 assert ((a + b) * c).metric(a * c + b * c) <= 1e-10
 
+    a = MaxPlus(1)
+    b = MaxPlus(2)
+    assert a.metric(a) == 0
+    assert a.metric(b) == 1
+    assert a + b == MaxPlus(2)  # despite the name it does not add!
+    assert a * b == MaxPlus(3)
+
 
 def test_treesum():
     cfg = CFG.from_string(
@@ -231,7 +238,7 @@ def test_treesum():
     )
 
     want = cfg.naive_bottom_up()
-    have = cfg.agenda(tol=tol)
+    have = cfg.agenda(tol=TOL)
 
     for x in want.keys() | have.keys():
         # print(x, want[x].score, have[x].score)
@@ -386,7 +393,7 @@ def test_unfold():
     new = cfg.unfold(1, 0)
     print(new)
 
-    err = cfg.treesum(tol=tol).metric(new.treesum(tol=tol))
+    err = cfg.treesum(tol=TOL).metric(new.treesum(tol=TOL))
     assert err <= 1e-5, err
 
     new.assert_equal(

@@ -67,8 +67,9 @@ class CheckParticles(BruteForceGlobalProductOfExperts):
             df.append(dict(x=x, target=self.target[x], empirical=empirical[x]))
 
         df = pd.DataFrame(df).sort_values('target', ascending=False)
-        df['rel_error'] = abs(df.target - df.empirical) / abs(df.target)
-        df['rel_error'] = df.rel_error.map(highlight)
+        df.loc[:, 'rel_error'] = (abs(df.target - df.empirical) / abs(df.target)).map(
+            highlight
+        )
 
         print(df)
 

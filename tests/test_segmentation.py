@@ -87,7 +87,7 @@ def test_util():
     want = ('aaa', 'a')
     assert have == want, [have, want]
 
-    assert t('aaa' 'aaa' 'aa') == ('aaa', 'aaa', 'aa')
+    assert t('aaa' + 'aaa' + 'aa') == ('aaa', 'aaa', 'aa')
 
     assert longest_suffix_in(['e', 'de'])('abcde') == 'de'
     assert longest_suffix_in([''])('abcde') == ''

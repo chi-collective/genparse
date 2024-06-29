@@ -1,4 +1,4 @@
-from decimal import Decimal, getcontext
+# from decimal import Decimal, getcontext
 
 import numpy as np
 
@@ -184,8 +184,7 @@ class Float:
         return float(x)
 
     def metric(x, y):  # pylint: disable=no-self-argument
-        if x == np.inf == y:
-            return 0
+        # if x == np.inf == y: return 0
         return abs(x - y)
 
     @classmethod
@@ -196,49 +195,49 @@ class Float:
     one = 1
 
 
-class F128:
-    def star(self):
-        return 1 / (1 - self)
-
-    @classmethod
-    def from_string(cls, x):
-        return np.float128(x)
-
-    def metric(x, y):  # pylint: disable=no-self-argument
-        if x == np.inf == y:
-            return 0
-        return abs(x - y)
-
-    @classmethod
-    def chart(cls, *args, **kwargs):
-        return Chart(cls, *args, **kwargs)
-
-    zero = 0
-    one = 1
-
-
-getcontext().prec = 77
-
-
-class D256:
-    def star(self):
-        return 1 / (1 - self)
-
-    @classmethod
-    def from_string(cls, x):
-        return Decimal(x)
-
-    def metric(x, y):  # pylint: disable=no-self-argument
-        if x == np.inf == y:
-            return 0
-        return abs(x - y)
-
-    @classmethod
-    def chart(cls, *args, **kwargs):
-        return Chart(cls, *args, **kwargs)
-
-    zero = 0
-    one = 1
+# class F128:
+#    def star(self):
+#        return 1 / (1 - self)
+#
+#    @classmethod
+#    def from_string(cls, x):
+#        return np.float128(x)
+#
+#    def metric(x, y):  # pylint: disable=no-self-argument
+#        if x == np.inf == y:
+#            return 0
+#        return abs(x - y)
+#
+#    @classmethod
+#    def chart(cls, *args, **kwargs):
+#        return Chart(cls, *args, **kwargs)
+#
+#    zero = 0
+#    one = 1
+#
+#
+# getcontext().prec = 77
+#
+#
+# class D256:
+#    def star(self):
+#        return 1 / (1 - self)
+#
+#    @classmethod
+#    def from_string(cls, x):
+#        return Decimal(x)
+#
+#    def metric(x, y):  # pylint: disable=no-self-argument
+#        if x == np.inf == y:
+#            return 0
+#        return abs(x - y)
+#
+#    @classmethod
+#    def chart(cls, *args, **kwargs):
+#        return Chart(cls, *args, **kwargs)
+#
+#    zero = 0
+#    one = 1
 
 
 class Real(Semiring):

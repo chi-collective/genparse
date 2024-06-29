@@ -22,14 +22,14 @@ def _make_mock_llm(V, uniform):
     return MockLLM(V=V, eos='▪', _p=None if uniform else random_dist(len(V)))
 
 
-def make_character_proposal(V, guide_spec, uniform=False):
+def mock_character_proposal(V, guide_spec, uniform=False):
     llm = _make_mock_llm(V, uniform)
     guide = _make_guide(guide_spec)
 
     return CharacterProposal(llm=llm, guide=guide)
 
 
-def make_token_proposal(V, guide_spec, K, uniform=False):
+def mock_token_proposal(V, guide_spec, K, uniform=False):
     llm = _make_mock_llm(V, uniform)
     guide = _make_guide(guide_spec)
 
