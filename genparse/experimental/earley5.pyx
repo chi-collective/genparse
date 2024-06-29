@@ -3,7 +3,6 @@
 #cython: boundscheck=False
 ###cython: wraparound=False
 ###cython: nonecheck=False
-#cython: cdivision=True
 #cython: infertypes=True
 #cython: cdivision=True
 #cython: overflowcheck=False
@@ -31,7 +30,6 @@ from genparse.lm import LM
 from genparse.semiring import Boolean
 
 from libcpp.unordered_map cimport unordered_map
-from libcpp.unordered_set cimport unordered_set
 from libcpp.vector cimport vector
 from libcpp.utility cimport pair
 
@@ -55,45 +53,35 @@ class EarleyLM(LM):
         self.model.clear_cache()
 
 
-ctypedef (long,long,long) IncompleteItem
-#ctypedef (long,long) CompleteItem
-ctypedef (long,long) CompleteItem
 
-#cdef struct IncompleteItem:
-#    int I
-#    int X
-#    int Ys
+from numpy cimport int_t, double_t, int16_t
 
-#cdef struct CompleteItem:
-#    int I
-#    int X
+ctypedef int16_t    D_t
+ctypedef double_t   V_t
+ctypedef int_t      K_t
 
-#ctypedef pair[long, long] CItem
+
+ctypedef (D_t,D_t,D_t) IncompleteItem
+ctypedef (D_t,D_t) CompleteItem
 
 ctypedef vector[IncompleteItem] IncompleteItems
 
-ctypedef unordered_map[long, IncompleteItems] WaitingFor
+ctypedef unordered_map[D_t, IncompleteItems] WaitingFor
 
 
 cdef class Column:
 
     cdef readonly:
-        long k
-        dict i_chart
-        dict c_chart
+        D_t k
+        unordered_map[D_t, unordered_map[D_t, unordered_map[D_t, double]]] i_chart
+        unordered_map[D_t, unordered_map[D_t, double]] c_chart
         LocatorMaxHeap Q
-
         WaitingFor _waiting_for
-
-#    cdef public:
-#        unordered_map[int, unordered_set[IncompleteItem]] _waiting_for
-#    cdef public:
-#        unordered_map[CompleteItem, double] _c_chart
 
     def __init__(self, k):
         self.k = k
-        self.i_chart = {}
-        self.c_chart = {}
+#        self.i_chart = {}
+#        self.c_chart = {}
 
         # Within column J, this datastructure maps nonterminals Y to a set of items
         #   Y => {(I, X, Ys) | phrase(I,X/[Y],J) ≠ 0}
@@ -121,10 +109,10 @@ cdef class Earley:
         object intern_Ys
         object _encode_symbol
 
-        long[:] order
-        long[:] first_Ys
-        long[:] rest_Ys
-        long[:] unit_Ys
+        D_t[:] order
+        D_t[:] first_Ys
+        D_t[:] rest_Ys
+        D_t[:] unit_Ys
 
     def __init__(self, cfg):
         cdef int x
@@ -138,7 +126,7 @@ cdef class Earley:
         # Topological ordering on the grammar symbols so that we process unary
         # rules in a topological order.
         order = cfg._unary_graph_transpose().buckets
-        self.order = np.zeros(len(self.cfg.N), dtype=int)
+        self.order = np.zeros(len(self.cfg.N), dtype=np.int16)
         for x in self.cfg.N:
             self.order[x] = order[x]
 
@@ -173,9 +161,9 @@ cdef class Earley:
         for x in self.cfg.N:
             self._encode_symbol(x)
 
-        self.first_Ys = np.zeros(len(intern_Ys), dtype=int)
-        self.rest_Ys = np.zeros(len(intern_Ys), dtype=int)
-        self.unit_Ys = np.zeros(len(intern_Ys), dtype=int)
+        self.first_Ys = np.zeros(len(intern_Ys), dtype=np.int16)
+        self.rest_Ys = np.zeros(len(intern_Ys), dtype=np.int16)
+        self.unit_Ys = np.zeros(len(intern_Ys), dtype=np.int16)
 
         cdef int code
         for Ys, code in list(self.intern_Ys.items()):
@@ -196,6 +184,8 @@ cdef class Earley:
         self._chart.clear()
 
     def __call__(self, x):
+        cdef D_t N
+
         N = len(x)
 
         # return if empty string
@@ -207,7 +197,7 @@ cdef class Earley:
 
         cols = self.chart(x)
 
-        value = cols[N].c_chart.get((0, self.cfg.S))
+        value = cols[N].c_chart[0][self.cfg.S]
         return value if value is not None else 0
 
     def chart(self, x):
@@ -231,7 +221,7 @@ cdef class Earley:
         return self.next_token_weights(self.chart(prefix))
 
     cdef Column next_column(self, list[Column] prev_cols, str token):
-        cdef long I, J, X, Y, Ys, t
+        cdef D_t I, J, X, Y, Ys, t
         cdef IncompleteItem item
         cdef double value, y
         cdef LocatorMaxHeap Q
@@ -240,14 +230,12 @@ cdef class Earley:
 
         prev_col = prev_cols[-1]
         next_col = Column(prev_cols[-1].k + 1)
-        next_col_c_chart = next_col.c_chart
-        prev_col_i_chart = prev_col.i_chart
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         t = self._encode_symbol(token)
         for item in prev_col._waiting_for[t]:
             (I, X, Ys) = item
-            value = prev_col_i_chart[item]
+            value = prev_col.i_chart[I][X][Ys]
             self._update(next_col, I, X, self.rest_Ys[Ys], value)
 
         # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
@@ -255,11 +243,10 @@ cdef class Earley:
         while Q:
             (J, Y) = node = Q.pop()[0]
             col_J = prev_cols[J]
-            col_J_i_chart = col_J.i_chart
-            y = next_col_c_chart[node]
+            y = next_col.c_chart[node[0]][node[1]]
             for item in col_J._waiting_for[Y]:
                 (I, X, Ys) = item
-                value = col_J_i_chart[item] * y
+                value = col_J.i_chart[I][X][Ys] * y
                 self._update(next_col, I, X, self.rest_Ys[Ys], value)
 
         self.PREDICT(next_col)
@@ -269,10 +256,9 @@ cdef class Earley:
     cdef void PREDICT(self, Column col):
         cdef IncompleteItem item
         cdef dict rhs
-        cdef long Ys, k   # XXX: X and Y might be a string | integer.
+        cdef D_t Ys, k   # XXX: X and Y might be a string | integer.
         # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with some filtering heuristics
         k = col.k
-        col_chart = col.i_chart
 
         # Filtering heuristic: Don't create the predicted item (K, X, [...], K)
         # unless there exists an item that wants the X item that it may
@@ -298,28 +284,33 @@ cdef class Earley:
             for w, Ys in rhs.get(X, ()):
                 self._update(col, k, X, Ys, w)
 
-    cdef inline void _update(self, Column col, long I, long X, long Ys, double value):
-        cdef CompleteItem c_item
+    cdef inline void _update(self, Column col, D_t I, D_t X, D_t Ys, double value):
         cdef IncompleteItem i_item
-        cdef long K
+        cdef D_t K
+        cdef double was
         K = col.k
+
+        if value == 0:
+            return
+
         if Ys == 0:
             # Items of the form phrase(I, X/[], K)
-            c_item = (I, X)
-            if col.c_chart.get(c_item) is None:
-                col.Q[c_item] = -((K - I) * self.ORDER_MAX + self.order[X])
-                col.c_chart[c_item] = value
+            was = col.c_chart[I][X]
+            if was == 0:
+                col.Q[I, X] = -((K - I) * self.ORDER_MAX + self.order[X])
+                col.c_chart[I][X] = value
             else:
-                col.c_chart[c_item] += value
+                col.c_chart[I][X] = was + value
 
         else:
             # Items of the form phrase(I, X/[Y|Ys], K)
-            i_item = (I, X, Ys)
-            if col.i_chart.get(i_item) is None:
+            was = col.i_chart[I][X][Ys]
+            if was == 0:
+                i_item = (I, X, Ys)
                 col._waiting_for[self.first_Ys[Ys]].push_back(i_item)
-                col.i_chart[i_item] = value
+                col.i_chart[I][X][Ys] = value
             else:
-                col.i_chart[i_item] += value
+                col.i_chart[I][X][Ys] = was + value
 
     # We have derived the `next_token_weights` algorithm by backpropagation on
     # the program with respect to the item `phrase(0, s, K)`.
@@ -353,19 +344,18 @@ cdef class Earley:
     #
     cpdef object next_token_weights(self, list[Column] cols):
         cdef double total
-        cdef long I, X, Y, Ys
+        cdef D_t I, X, Y, Ys
         cdef Column col
         cdef IncompleteItems waiting_for_Y
         cdef IncompleteItem i_item
-        cdef (long, long) node
-        cdef pair[long, IncompleteItems] tmp
+        cdef (D_t, D_t) node
+        cdef pair[D_t, IncompleteItems] tmp
         q = {}
         q[0, self.cfg.S] = 1
 
         is_terminal = self.cfg.is_terminal
 
         col = cols[-1]
-        col_i_chart = col.i_chart
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         p = {}
@@ -383,18 +373,18 @@ cdef class Earley:
                         value = q.get(node)
                         if value is None:
                             value = self._helper(node, cols, q)
-                        total += col_i_chart[i_item] * value
+                        total += col.i_chart[I][X][Ys] * value
                 p[W] = total
         return self.cfg.R.chart(p)
 
-    cdef double _helper(self, (long, long) top, list[Column] cols, dict q):
+    cdef double _helper(self, (D_t, D_t) top, list[Column] cols, dict q):
         cdef list[Node] stack
         cdef Node node
-        cdef long I, J, X, Y, Ys
+        cdef D_t I, J, X, Y, Ys
         cdef IncompleteItem x
         cdef Column col_J
         cdef IncompleteItem arc
-        cdef (long, long) neighbor
+        cdef (D_t, D_t) neighbor
         #cdef double neighbor_value   # XXX: can be None
 
         stack = [Node(top)]
@@ -433,7 +423,7 @@ cdef class Earley:
                     # neighbors contribution to the nodes value
                     col_J = cols[J]
                     node.cursor += 1
-                    node.value += col_J.i_chart[arc] * neighbor_value
+                    node.value += col_J.i_chart[I][X][Ys] * neighbor_value
 
         return q[top]
 
@@ -441,7 +431,7 @@ cdef class Earley:
 cdef class Node:
     cdef public:
         double value
-        (long,long) node
+        (D_t,D_t) node
         vector[IncompleteItem] edges
         int cursor
         int uninitialized
