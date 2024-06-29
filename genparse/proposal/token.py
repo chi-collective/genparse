@@ -56,7 +56,7 @@ class TokenProposal(TokenCharacterTrie):
         p_llm=None,
         **kwargs,
     ):
-        """
+        r"""
         Proposes a token and incremental weight update.
 
         The following procedure, justified using RAVI, gives the way we sample a token and compute the incremental SMC weight update.
@@ -94,11 +94,16 @@ class TokenProposal(TokenCharacterTrie):
         Ws = Float.chart(take(self.K - 1, self.traverse_trie(context, p_llm)))
 
         # sample wildcard token from p_llm
-        P_wc = Float.chart({x: p for x, p in p_llm.items() if x not in Ws}).normalize()
+        P_wc = Float.chart({x: p for x, p in p_llm.items() if x not in Ws and p > 0})
+
+        # TODO: P_wc could be empty!
+        # print(f'{P_wc=}')
+
+        P_wc = P_wc.normalize()
         wildcard = draw(P_wc)
         proposal_p = P_wc[wildcard]
 
-        # compute wild card weight
+        # compute the wildcard's weight
         p_cfg_wc = 1
         with self.timer['cfg+trie'](t=len(context)):
             for i, c in enumerate(wildcard):
@@ -109,8 +114,15 @@ class TokenProposal(TokenCharacterTrie):
             / P_wc[wildcard]
         )
 
+        # TODO: Ws[wildcard] could be zero!
+        # print(f'{Ws[wildcard]=}')
+
         # sample token from weights and compute update
         Ws_norm = Ws.normalize()
+
+        # TODO: Ws_norm could be empty!
+        # print(f'{Ws=} {P_wc=} {Ws_norm=}')
+
         token = draw(Ws_norm)
         proposal_p *= Ws_norm[token]
         weight_update = Ws.sum()

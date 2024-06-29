@@ -1,12 +1,12 @@
+import numpy as np
 from arsenal import timeit
 
 from genparse.util import set_seed
-from genparse.cfglm import add_EOS, locally_normalize
+from genparse.cfglm import add_EOS, locally_normalize, BoolMaskCFGLM
 from genparse.experimental.earley import EarleyLM
-from genparse.lm import make_mock_llm
+from genparse.lm import make_mock_llm, MockLLM
 from genparse.proposal import TokenProposal
 from genparse.util import LarkStuff
-from genparse import CFGLM
 from genparse.proposal.util import (
     mock_token_proposal,
     assert_proper_weighting,
@@ -54,7 +54,6 @@ def test_basic_aligned_model_iql_small():
     )
 
     guide = EarleyLM(cfg)
-    # guide = CFGLM(cfg)
 
     proposal = TokenProposal(guide=guide, llm=llm)
 
@@ -170,14 +169,14 @@ def test_normalizing_constant_unbiased():
 
 
 def test_proper_weighting():
-    """
+    r"""
     A particle (x,w) is *properly weighted* for unnormalized density p' if, for any function f,
 
-        E_{(x,w) ~ \\tilde{q}}[f(x)w] = Σ_x p'(x) f(x)
+        E_{(x,w) ~ \tilde{q}}[f(x)w] = Σ_x p'(x) f(x)
 
     where Z normalizes p'. In our case, we have that
 
-        E_{(x,w) ~ \\tilde{q}}[f(x)w] = E_{(x,S) ~ q}[f(x)w(x,S)]
+        E_{(x,w) ~ \tilde{q}}[f(x)w] = E_{(x,S) ~ q}[f(x)w(x,S)]
 
     Thus, we expect
 
@@ -261,7 +260,7 @@ def test_proper_weighting():
     # Probabilistic guide #
     #######################
 
-    pcfg = CFGLM.from_string(
+    pcfg = EarleyLM.from_string(
         """
 
         1: S -> a
@@ -284,6 +283,29 @@ def test_proper_weighting():
     context = 'a'
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
+
+
+# TODO: fix this error!
+def todo_github_issue_15_wildcard_divide_by_zero():
+    guide = BoolMaskCFGLM.from_string(
+        """
+
+        1: S -> a
+        1: S -> a a
+        1: S -> a a a
+
+        """
+    )
+
+    V = ['a', 'aa', 'aaa', '▪']
+
+    llm = MockLLM(V=V, eos='▪', _p=np.array([0, 0, 1, 0]))
+
+    proposal = TokenProposal(llm=llm, guide=guide, K=1)
+
+    context = 'aa'
+
+    assert_proper_weighting('', context, proposal, tol=1e-8)
 
 
 if __name__ == '__main__':

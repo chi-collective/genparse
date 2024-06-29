@@ -89,6 +89,10 @@ class BoolMaskCFGLM(LM):
     def clear_cache(self):
         self.model.clear_cache()
 
+    @classmethod
+    def from_string(cls, x, semiring=Boolean, **kwargs):
+        return cls(CFG.from_string(x, semiring), **kwargs)
+
 
 EarleyBoolMaskCFGLM = BoolMaskCFGLM
 
