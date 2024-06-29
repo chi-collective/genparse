@@ -15,7 +15,7 @@ def _make_guide(guide_spec):
     elif isinstance(guide_spec, LM):
         return guide_spec
     else:
-        raise ValueError('Unknown guide specification')
+        raise ValueError('Unknown guide specification')  # pragma: no cover
 
 
 def _make_mock_llm(V, uniform):

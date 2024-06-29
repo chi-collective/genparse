@@ -59,6 +59,20 @@ def test_misc():
     else:
         raise AssertionError('test failed')
 
+    cfg = CFG.from_string(
+        """
+    2: X -> a
+    3: Y -> b
+    """,
+        Float,
+    )
+    cfg['Y'].trim().assert_equal("""
+    3: Y -> b
+    """)
+
+    # call it twice to hit the trim cache
+    cfg.trim().trim()
+
 
 def test_agenda_misc():
     # test stopping early

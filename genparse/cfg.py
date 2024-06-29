@@ -443,7 +443,7 @@ class CFG:
         # A really wide rule can take a very long time because of the power set
         # in this rule so it is really important to binarize.
         if binarize:
-            self = self.binarize()
+            self = self.binarize()  # pragma: no cover
         self = self.separate_start()
         tmp = self._push_null_weights(self.null_weight(), **kwargs)
         return tmp.trim() if trim else tmp
@@ -643,8 +643,8 @@ class CFG:
             else:
                 yield r
 
-    def has_nullary(self):
-        return any((len(p.body) == 0) for p in self if p.head != self.S)
+    #    def has_nullary(self):
+    #        return any((len(p.body) == 0) for p in self if p.head != self.S)
 
     def has_unary_cycle(self):
         f = self._unary_graph().buckets
