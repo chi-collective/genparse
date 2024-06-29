@@ -5,7 +5,7 @@ import pathlib
 
 import torch
 
-from .canonicalizer import (
+from genparse.canonical_tokenization.canonicalizer import (
     NonCanonicalTokenizationError,
     CanonicalizerIterator,
     Canonicalizer,
