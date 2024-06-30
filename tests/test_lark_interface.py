@@ -1,7 +1,7 @@
 import numpy as np
 
 from genparse.cfglm import CFGLM, locally_normalize
-from genparse.experimental.earley import Earley
+from genparse.parse.earley import Earley
 from genparse.util import LarkStuff, expand_case_insensitive
 
 grammar1 = r"""

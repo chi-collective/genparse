@@ -3,7 +3,7 @@ from arsenal import timeit
 
 from genparse.util import set_seed
 from genparse.cfglm import add_EOS, locally_normalize, BoolMaskCFGLM
-from genparse.experimental.earley import EarleyLM
+from genparse.parse.earley import EarleyLM
 from genparse.lm import make_mock_llm, MockLLM
 from genparse.proposal import TokenProposal
 from genparse.util import LarkStuff

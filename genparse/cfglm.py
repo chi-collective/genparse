@@ -7,7 +7,7 @@ from arsenal import colors
 from genparse.cfg import CFG, _gen_nt
 from genparse.lm import LM
 from genparse.semiring import Boolean, Float
-from genparse.experimental.cky import IncrementalCKY
+from genparse.parse.cky import IncrementalCKY
 
 # EOS = '$EOS'
 # EOS = '🛑'
@@ -69,7 +69,7 @@ class BoolMaskCFGLM(LM):
         if cfg.R != Boolean:
             cfg = cfg.map_values(lambda x: Boolean(x > 0), Boolean)
         if alg == 'earley':
-            from genparse.experimental.earley import Earley
+            from genparse.parse.earley import Earley
 
             self.model = Earley(cfg.prefix_grammar)
         elif alg == 'cky':

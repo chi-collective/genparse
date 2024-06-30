@@ -1,7 +1,7 @@
 from example_grammars import arith, iql_small
 
 from genparse import locally_normalize
-from genparse.experimental.earley import EarleyLM
+from genparse.parse.earley import EarleyLM
 from genparse.lm import make_mock_llm
 from genparse.proposal import CharacterProposal, TokenProposal
 from genparse.util import LarkStuff, set_seed

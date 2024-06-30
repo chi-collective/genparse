@@ -2,10 +2,10 @@ import numpy as np
 from arsenal import colors
 
 from genparse import CFG, Float, Log as _Log
-from genparse.experimental.earley_rescaled import Earley, EarleyLM
 from genparse import examples
 from genparse.cfglm import CFGLM, add_EOS, EOS
-from genparse.experimental.cky import IncrementalCKY
+from genparse.parse.cky import IncrementalCKY
+from genparse.parse.earley_rescaled import Earley, EarleyLM
 
 
 class Log(_Log):

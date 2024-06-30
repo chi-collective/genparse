@@ -9,7 +9,7 @@ from genparse.segmentation import prefixes
 
 from genparse.util import LarkStuff
 
-from genparse.experimental.earley import EarleyLM
+from genparse.parse.earley import EarleyLM
 # from genparse.cfglm import CFGLM
 
 

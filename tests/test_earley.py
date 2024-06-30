@@ -3,8 +3,8 @@ from arsenal import colors
 from genparse import examples
 from genparse.cfg import CFG
 from genparse.cfglm import CFGLM, add_EOS
-from genparse.experimental.earley import Earley, EarleyLM
-from genparse.experimental.cky import IncrementalCKY
+from genparse.parse.earley import Earley, EarleyLM
+from genparse.parse.cky import IncrementalCKY
 from genparse.semiring import Float, MaxTimes
 
 

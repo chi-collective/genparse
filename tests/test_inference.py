@@ -3,7 +3,7 @@ import pandas as pd
 from arsenal import colors
 
 # from genparse.cfglm import CFGLM
-from genparse.experimental.earley import EarleyLM as CFGLM
+from genparse.parse.earley import EarleyLM
 from genparse.semiring import Float
 from genparse.steer import BruteForceGlobalProductOfExperts, run
 
@@ -95,29 +95,25 @@ def test_empty():
     # will generate forever!
 
     run_test(
-        CFGLM.from_string(
+        EarleyLM.from_string(
             """
-
-        0.45: S -> a S a
-        0.45: S -> b S b
-        0.1: S ->
-
-        """
+            0.45: S -> a S a
+            0.45: S -> b S b
+            0.1: S ->
+            """
         ),
-        CFGLM.from_string(
+        EarleyLM.from_string(
             """
-
-        0.5: S -> a b S
-        0.5: S ->
-
-        """
+            0.5: S -> a b S
+            0.5: S ->
+            """
         ),
     )
 
 
 def test_finite_finite():
     run_test(
-        CFGLM.from_string(
+        EarleyLM.from_string(
             """
 
         1: S -> a a a
@@ -127,7 +123,7 @@ def test_finite_finite():
 
         """
         ),
-        CFGLM.from_string(
+        EarleyLM.from_string(
             """
 
         2: S -> a a a
@@ -141,7 +137,7 @@ def test_finite_finite():
 
 def test_palindrome_universal():
     run_test(
-        CFGLM.from_string(
+        EarleyLM.from_string(
             """
 
         0.45: S -> a S a
@@ -150,7 +146,7 @@ def test_palindrome_universal():
 
         """
         ),
-        CFGLM.from_string(
+        EarleyLM.from_string(
             """
 
         0.8: S -> a S
@@ -164,7 +160,7 @@ def test_palindrome_universal():
 
 def test_palindrome_finite():
     run_test(
-        CFGLM.from_string(
+        EarleyLM.from_string(
             """
 
         0.45: S -> a S a
@@ -173,7 +169,7 @@ def test_palindrome_finite():
 
         """
         ),
-        CFGLM.from_string(
+        EarleyLM.from_string(
             """
 
         1: S -> a a a a a a a a
