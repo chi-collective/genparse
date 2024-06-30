@@ -37,29 +37,6 @@ def locally_normalize(self, **kwargs):
     return new
 
 
-# class BoolMaskCFGLM(LM):
-#    "LM-like interface for Boolean-masking CFG models; uses CKY for inference."
-#
-#    def __init__(self, cfg):
-#        if EOS not in cfg.V:
-#            cfg = add_EOS(cfg)
-#        if cfg.R != Boolean:
-#            cfg = cfg.map_values(lambda x: Boolean(x > 0), Boolean)
-#        self.model = CFGLM(cfg)
-#        super().__init__(eos=self.model.eos, V=self.model.V)
-#
-#    def p_next(self, context):
-#        p = self.model.p_next(context).trim()
-#        return Float.chart({w: 1 for w in p})
-#
-#    def __call__(self, context):
-#        assert context[-1] == EOS
-#        return float(self.model(context) != Boolean.zero)
-#
-#    def clear_cache(self):
-#        self.model.clear_cache()
-
-
 class BoolMaskCFGLM(LM):
     "LM-like interface for Boolean-masking CFG models; uses Earley's algorithm for inference."
 
@@ -73,7 +50,7 @@ class BoolMaskCFGLM(LM):
 
             self.model = Earley(cfg.prefix_grammar)
         elif alg == 'cky':
-            self.model = CFGLM(cfg)
+            self.model = CKYLM(cfg)
         else:
             raise ValueError(f'unrecognized option {alg}')
         super().__init__(eos=EOS, V=cfg.V)
@@ -94,11 +71,8 @@ class BoolMaskCFGLM(LM):
         return cls(CFG.from_string(x, semiring), **kwargs)
 
 
-EarleyBoolMaskCFGLM = BoolMaskCFGLM
-
-
-# TODO: rename CFGLM -> CKYLM
-class CFGLM(LM):
+# TODO: move to genparse.parse.cky
+class CKYLM(LM):
     """
     Probabilistic Context-Free Grammar Language Model.
 

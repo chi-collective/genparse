@@ -8,13 +8,7 @@ from arsenal import Integerizer, colors
 
 import genparse.examples
 from genparse.cfg import CFG
-from genparse.cfglm import add_EOS
 from genparse.semiring import Float
-
-# https://github.com/google-deepmind/synjax/blob/master/synjax/_src/constituency_tensor_decomposition_pcfg.py
-
-# https://aclanthology.org/2022.naacl-main.353.pdf
-# https://github.com/sustcsonglin/TN-PCFG/blob/main/parser/pcfgs/tdpcfg.py
 
 
 class ExactTensorDecomp:
@@ -200,6 +194,8 @@ class ExactTensorDecomp:
 
 
 def test_cky():
+    from arsenal import timers
+
     cfg = CFG.from_string(
         """
     1: S ->  A B
@@ -217,19 +213,8 @@ def test_cky():
 
     decomp = ExactTensorDecomp(cfg)
 
-    #    import genparse.cfglm
-    #    prefix = 'bab'
-    #    b, by, bz = decomp.chart(prefix)
-    #    q = decomp.next_token_weights(by, prefix)
-    #    print('have=', q)
-
-    #    want = genparse.cfglm.CFGLM(cfg).p_next(prefix)
-    #    print('want=', want)
-
     # brute-force enumerate of the weighted language
     L = cfg.language(4)
-
-    from arsenal import timers
 
     TIMER = timers()
 
@@ -261,11 +246,11 @@ def test_cky():
 
 
 def test_new_papa():
-    from genparse import CFGLM
+    from genparse.cfglm import add_EOS, CKYLM
 
     cfg = add_EOS(genparse.examples.papa)
 
-    cfglm = CFGLM(cfg)
+    ref = CKYLM(cfg)
 
     decomp = ExactTensorDecomp(cfg.prefix_grammar)
 
@@ -282,7 +267,7 @@ def test_new_papa():
         (_, by) = decomp.chart(prefix)
         have = decomp.next_token_weights(by, prefix)
 
-        want = cfglm.p_next(prefix)
+        want = ref.p_next(prefix)
         print(want)
         print(have)
         print(colors.mark(have.metric(want) <= 1e-5))

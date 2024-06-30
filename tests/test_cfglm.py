@@ -7,12 +7,12 @@ from arsenal import colors
 import genparse
 import genparse.examples
 from genparse.cfg import CFG
-from genparse.cfglm import CFGLM, add_EOS
+from genparse.cfglm import CKYLM, add_EOS
 from genparse.semiring import Float
 
 
 def fast_posterior(cfg, prefix):
-    return CFGLM(cfg).p_next(tuple(prefix))
+    return CKYLM(cfg).p_next(tuple(prefix))
 
 
 def next_token_weights_slow(cfg, prefix):
@@ -105,7 +105,7 @@ def test_new_papa():
 
 
 def test_sample():
-    cfg = CFGLM(genparse.examples.papa)
+    cfg = CKYLM(genparse.examples.papa)
     sample = cfg.sample(prob=True)
     print(sample)
 
@@ -113,7 +113,7 @@ def test_sample():
 def test_lm():
     from genparse.lm import LM
 
-    cfg = CFGLM(genparse.examples.papa)
+    cfg = CKYLM(genparse.examples.papa)
     sample = cfg.sample(prob=False) + (cfg.eos,)
     print(sample)
 
@@ -121,7 +121,7 @@ def test_lm():
 
 
 def test_clear_cache():
-    cfg = CFGLM(genparse.examples.papa)
+    cfg = CKYLM(genparse.examples.papa)
     assert len(cfg.model._chart) == 0
     sample = cfg.sample(prob=False) + (cfg.eos,)
     p = cfg(sample)

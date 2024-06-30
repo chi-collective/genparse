@@ -2,7 +2,7 @@ from itertools import product
 
 from arsenal import colors, iterview
 
-from genparse.cfglm import CFGLM, EOS
+from genparse.parse.earley import EarleyLM, EOS
 from genparse.segmentation import (
     longest_suffix_in,
     max_munch,
@@ -94,14 +94,12 @@ def test_util():
 
 
 def test_distortion():
-    c = CFGLM.from_string(
+    c = EarleyLM.from_string(
         """
-
-    1: S -> a
-    1: S -> a a
-    2: S -> a a a
-
-    """
+        1: S -> a
+        1: S -> a a
+        2: S -> a a a
+        """
     )
 
     alphabet = {'a'}

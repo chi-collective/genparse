@@ -2,7 +2,7 @@ from arsenal import colors
 
 from genparse import examples
 from genparse.cfg import CFG
-from genparse.cfglm import CFGLM, add_EOS
+from genparse.cfglm import CKYLM
 from genparse.parse.earley import Earley, EarleyLM
 from genparse.parse.cky import IncrementalCKY
 from genparse.semiring import Float, MaxTimes
@@ -309,26 +309,24 @@ def test_parse_ambiguous_maxtimes():
 
 
 def test_p_next_new_abcdx():
-    cfg = add_EOS(
-        CFG.from_string(
-            """
-            1: S -> a b c d
-            1: S -> a b c x
-            1: S -> a b x x
-            1: S -> a x x x
-            1: S -> x x x x
-            """,
-            Float,
-        )
+    cfg = CFG.from_string(
+        """
+        1: S -> a b c d
+        1: S -> a b c x
+        1: S -> a b x x
+        1: S -> a x x x
+        1: S -> x x x x
+        """,
+        Float,
     )
 
-    cfglm = CFGLM(cfg)
+    ckylm = CKYLM(cfg)
     earley = EarleyLM(cfg)
 
     for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
         print()
         print(colors.light.blue % prefix)
-        want = cfglm.p_next(prefix)
+        want = ckylm.p_next(prefix)
         print(want)
         have = earley.p_next(prefix)
         print(have)
@@ -338,15 +336,15 @@ def test_p_next_new_abcdx():
 
 
 def test_p_next_palindrome():
-    cfg = add_EOS(examples.palindrome_ab)
+    cfg = examples.palindrome_ab
 
-    cfglm = CFGLM(cfg)
+    ckylm = CKYLM(cfg)
     earley = EarleyLM(cfg)
 
     for prefix in ['', 'a', 'ab']:
         print()
         print(colors.light.blue % prefix)
-        want = cfglm.p_next(prefix)
+        want = ckylm.p_next(prefix)
         print(want)
         have = earley.p_next(prefix)
         print(have)
@@ -356,9 +354,9 @@ def test_p_next_palindrome():
 
 
 def test_p_next_papa():
-    cfg = add_EOS(examples.papa)
+    cfg = examples.papa
 
-    cfglm = CFGLM(cfg)
+    ckylm = CKYLM(cfg)
     earley = EarleyLM(cfg)
 
     for prefix in [
@@ -371,7 +369,7 @@ def test_p_next_papa():
         prefix = tuple(prefix)
         print()
         print(colors.light.blue % (prefix,))
-        want = cfglm.p_next(prefix)
+        want = ckylm.p_next(prefix)
         print(want)
         have = earley.p_next(prefix)
         print(have)

@@ -3,7 +3,7 @@ from arsenal import colors
 
 from genparse import CFG, Float, Log as _Log
 from genparse import examples
-from genparse.cfglm import CFGLM, add_EOS, EOS
+from genparse.cfglm import CKYLM, EOS
 from genparse.parse.cky import IncrementalCKY
 from genparse.parse.earley_rescaled import Earley, EarleyLM
 
@@ -324,26 +324,24 @@ def test_parse_ambiguous_real():
 
 
 def test_p_next_new_abcdx():
-    cfg = add_EOS(
-        CFG.from_string(
-            """
-            1: S -> a b c d
-            1: S -> a b c x
-            1: S -> a b x x
-            1: S -> a x x x
-            1: S -> x x x x
-            """,
-            Float,
-        )
+    cfg = CFG.from_string(
+        """
+        1: S -> a b c d
+        1: S -> a b c x
+        1: S -> a b x x
+        1: S -> a x x x
+        1: S -> x x x x
+        """,
+        Float,
     )
 
-    cfglm = CFGLM(cfg)
+    ckylm = CKYLM(cfg)
     earley = EarleyLM(cfg)
 
     for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
         print()
         print(colors.light.blue % prefix)
-        want = cfglm.p_next(prefix)
+        want = ckylm.p_next(prefix)
         want = want.normalize() if want.trim() else want
         print(want)
         have = earley.p_next(prefix)
@@ -354,15 +352,15 @@ def test_p_next_new_abcdx():
 
 
 def test_p_next_palindrome():
-    cfg = add_EOS(examples.palindrome_ab)
+    cfg = examples.palindrome_ab
 
-    cfglm = CFGLM(cfg)
+    ckylm = CKYLM(cfg)
     earley = EarleyLM(cfg)
 
     for prefix in ['', 'a', 'ab']:
         print()
         print(colors.light.blue % prefix)
-        want = cfglm.p_next(prefix).normalize()
+        want = ckylm.p_next(prefix).normalize()
         print(want)
         have = earley.p_next(prefix)
         print(have)
@@ -372,9 +370,9 @@ def test_p_next_palindrome():
 
 
 def test_p_next_papa():
-    cfg = add_EOS(examples.papa)
+    cfg = examples.papa
 
-    cfglm = CFGLM(cfg)
+    ckylm = CKYLM(cfg)
     earley = EarleyLM(cfg)
 
     for prefix in [
@@ -387,7 +385,7 @@ def test_p_next_papa():
         prefix = tuple(prefix)
         print()
         print(colors.light.blue % (prefix,))
-        want = cfglm.p_next(prefix).normalize()
+        want = ckylm.p_next(prefix).normalize()
         print(want)
         have = earley.p_next(prefix)
         print(have)

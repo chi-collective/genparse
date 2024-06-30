@@ -431,7 +431,7 @@ class LarkStuff:
             cfg.add(1 / lhs_count[r.head], r.head, *r.body)
         return cfg.renumber()
 
-    def char_cfg(self, decay, ignore=''):
+    def char_cfg(self, decay=1, ignore=''):
         from genparse import CFG, Float
 
         cfg = self.convert()
