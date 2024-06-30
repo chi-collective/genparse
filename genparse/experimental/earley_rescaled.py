@@ -1,16 +1,23 @@
+import numpy as np
+from arsenal import Integerizer
+
 from collections import defaultdict
 
-import numpy as np
-from arsenal.datastructures.pdict import pdict
+# from arsenal.datastructures.pdict import pdict
+from arsenal.datastructures.heap import LocatorMaxHeap
 
-from genparse.cfglm import EOS, add_EOS
+from genparse.cfglm import EOS, add_EOS, locally_normalize, CFG
+from genparse.linear import WeightedGraph
 from genparse.lm import LM
+from genparse.semiring import Boolean
+from genparse import Float
 
 
 class EarleyLM(LM):
     def __init__(self, cfg):
         if EOS not in cfg.V:
             cfg = add_EOS(cfg)
+        self.cfg = cfg  # Note: <- cfg before prefix transform & normalization!
         self.model = Earley(cfg.prefix_grammar)
         super().__init__(V=cfg.V, eos=EOS)
 
@@ -19,24 +26,31 @@ class EarleyLM(LM):
 
     def __call__(self, context):
         assert context[-1] == EOS
-        return self.p_next(context[:-1])[EOS]
+        return self.model(context)
+
+    def clear_cache(self):
+        self.model.clear_cache()
+
+    @classmethod
+    def from_string(cls, x, semiring=Float, **kwargs):
+        return cls(locally_normalize(CFG.from_string(x, semiring), **kwargs))
 
 
 class Column:
-    __slots__ = ('k', 'chart', 'waiting_for', 'Q', 'very_close_terminal', 'rescale')
+    __slots__ = ('k', 'i_chart', 'c_chart', 'waiting_for', 'Q', 'rescale')
 
-    def __init__(self, k, chart):
+    def __init__(self, k):
         self.k = k
-        self.chart = chart
+        self.i_chart = {}
+        self.c_chart = {}
 
         # Within column J, this datastructure maps nonterminals Y to a set of items
         #   Y => {(I, X, Ys) | phrase(I,X/[Y],J) ≠ 0}
-        self.waiting_for = defaultdict(set)
+        self.waiting_for = defaultdict(list)
 
         # priority queue used when first filling the column
-        self.Q = pdict()
-
-        self.very_close_terminal = []
+        #        self.Q = pdict()
+        self.Q = LocatorMaxHeap()
 
         self.rescale = None
 
@@ -47,7 +61,21 @@ class Earley:
     Warning: Assumes that nullary rules and unary chain cycles have been removed
     """
 
-    __slots__ = ('cfg', 'order', '_chart', 'CLOSE', 'V', 'eos', '_initial_column')
+    __slots__ = (
+        'cfg',
+        'order',
+        '_chart',
+        'V',
+        'eos',
+        '_initial_column',
+        'R',
+        'rhs',
+        'ORDER_MAX',
+        'intern_Ys',
+        'unit_Ys',
+        'first_Ys',
+        'rest_Ys',
+    )
 
     def __init__(self, cfg):
         cfg = cfg.nullaryremove(binarize=True).unarycycleremove().renumber()
@@ -60,17 +88,53 @@ class Earley:
         # rules in a topological order.
         self.order = cfg._unary_graph_transpose().buckets
 
-        # The `CLOSE` index is used in the `p_next` computation.  It is a data
-        # structure implements the following function:
-        #
-        #   (I,X) => {(J,Y) | phrase(I,X/[Y],J) ≠ 0, Y ∈ cfg.N}
-        #
-        self.CLOSE = defaultdict(lambda: defaultdict(set))
+        self.ORDER_MAX = max(self.order.values())
 
-        col = Column(0, self.cfg.R.chart())
+        # left-corner graph
+        R = WeightedGraph(Boolean)
+        for r in cfg:
+            if len(r.body) == 0:
+                continue
+            A = r.head
+            B = r.body[0]
+            R[A, B] += Boolean.one
+        self.R = R
+
+        # Integerize rule right-hand side states
+        intern_Ys = Integerizer()
+        assert intern_Ys(()) == 0
+
+        for r in self.cfg:
+            for p in range(len(r.body) + 1):
+                intern_Ys.add(r.body[p:])
+
+        self.intern_Ys = intern_Ys
+
+        self.rhs = {}
+        for X in self.cfg.N:
+            self.rhs[X] = []
+            for r in self.cfg.rhs[X]:
+                if r.body == ():
+                    continue
+                self.rhs[X].append((r.w, intern_Ys(r.body)))
+
+        self.first_Ys = np.zeros(len(intern_Ys), dtype=object)
+        self.rest_Ys = np.zeros(len(intern_Ys), dtype=int)
+        self.unit_Ys = np.zeros(len(intern_Ys), dtype=int)
+
+        for Ys, code in list(self.intern_Ys.items()):
+            self.unit_Ys[code] = len(Ys) == 1
+            if len(Ys) > 0:
+                self.first_Ys[code] = Ys[0]
+                self.rest_Ys[code] = intern_Ys(Ys[1:])
+
+        col = Column(0)
         self.PREDICT(col)
         col.rescale = self.cfg.R.one
         self._initial_column = col
+
+    def clear_cache(self):
+        self._chart.clear()
 
     def __call__(self, x):
         N = len(x)
@@ -84,7 +148,8 @@ class Earley:
 
         cols = self.chart(x)
 
-        return cols[N].chart[0, self.cfg.S] / self.rescale(cols, 0, N)
+        value = cols[N].c_chart.get((0, self.cfg.S), self.cfg.R.zero)
+        return value / self.rescale(cols, 0, N)
 
     def rescale(self, cols, I, K):
         "returns the product of the rescaling coefficients for `cols[I:K]`."
@@ -120,31 +185,42 @@ class Earley:
     def logp(self, x):
         cols = self.chart(x)
         N = len(x)
-        return np.log(cols[N].chart[0, self.cfg.S]) - self.log_rescale(cols, 0, N)
+        return np.log(
+            cols[N].c_chart.get((0, self.cfg.S), self.cfg.R.zero)
+        ) - self.log_rescale(cols, 0, N)
 
     def next_column(self, prev_cols, token):
-        next_col = Column(prev_cols[-1].k + 1, self.cfg.R.chart())
+        prev_col = prev_cols[-1]
+        next_col = Column(prev_cols[-1].k + 1)
+        next_col_c_chart = next_col.c_chart
+        prev_col_i_chart = prev_col.i_chart
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
-        prev_col = prev_cols[-1]
-        for I, X, Ys in prev_col.waiting_for[token]:
+        for item in prev_col.waiting_for[token]:
+            (I, X, Ys) = item
             self._update(
-                next_col, I, X, Ys[1:], prev_col.chart[I, X, Ys] * prev_col.rescale
+                next_col,
+                I,
+                X,
+                self.rest_Ys[Ys],
+                prev_col_i_chart[item] * prev_col.rescale,
             )
 
         # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
         Q = next_col.Q
         while Q:
-            (J, Y) = Q.pop()
+            (J, Y) = item = Q.pop()[0]
             col_J = prev_cols[J]
-            y = next_col.chart[J, Y]
-            for I, X, Ys in col_J.waiting_for[Y]:
-                self._update(next_col, I, X, Ys[1:], col_J.chart[I, X, Ys] * y)
+            col_J_i_chart = col_J.i_chart
+            y = next_col_c_chart[item]
+            for item in col_J.waiting_for[Y]:
+                (I, X, Ys) = item
+                self._update(next_col, I, X, self.rest_Ys[Ys], col_J_i_chart[item] * y)
 
         self.PREDICT(next_col)
 
-        num = prev_col.chart[0, self.cfg.S]
-        den = next_col.chart[0, self.cfg.S]
+        num = prev_col.c_chart.get((0, self.cfg.S), self.cfg.R.zero)
+        den = next_col.c_chart.get((0, self.cfg.S), self.cfg.R.zero)
 
         if den == 0 or num == 0:
             next_col.rescale = 1
@@ -153,54 +229,55 @@ class Earley:
 
         return next_col
 
-    def PREDICT(self, prev_col):
-        # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with lookahead to prune
-        k = prev_col.k
-        zero = self.cfg.R.zero
-        for r in self.cfg:
-            if r.body == ():
-                continue
-            Y = r.body[0]
-            item = (k, r.head, r.body)
-            was = prev_col.chart[item]
-            if was == zero:
-                prev_col.waiting_for[Y].add(item)
+    def PREDICT(self, col):
+        # PREDICT: phrase(K, X/Ys, K) += rule(X -> Ys) with some filtering heuristics
+        k = col.k
 
-                if len(r.body) == 1:
-                    if self.cfg.is_terminal(Y):
-                        prev_col.very_close_terminal.append(item)
-                    else:
-                        # very_close[J]((I,X,Ys)) = phrase(I,X/[Y],J)
-                        #
-                        # (I,X) -> (J,Y)
-                        self.CLOSE[k, r.head][k].add(Y)
+        # Filtering heuristic: Don't create the predicted item (K, X, [...], K)
+        # unless there exists an item that wants the X item that it may
+        # eventually provide.  In other words, for predicting this item to be
+        # useful there must be an item of the form (I, X', [X, ...], K) in this
+        # column for which lc(X', X) is true.
+        if col.k == 0:
+            targets = {self.cfg.S}
+        else:
+            targets = set(col.waiting_for)
 
-            prev_col.chart[item] = was + r.w
+        reachable = set(targets)
+        agenda = list(targets)
+        while agenda:
+            X = agenda.pop()
+            for Y in self.R.outgoing[X]:
+                if Y not in reachable:
+                    reachable.add(Y)
+                    agenda.append(Y)
+
+        rhs = self.rhs
+        for X in reachable:
+            for w, Ys in rhs.get(X, ()):
+                self._update(col, k, X, Ys, w)
 
     def _update(self, col, I, X, Ys, value):
         K = col.k
-        if Ys == ():
+        if Ys == 0:
             # Items of the form phrase(I, X/[], K)
-            was = col.chart[I, X]
-            if was == self.cfg.R.zero:
-                col.Q[I, X] = (K if I == K else (K - I - 1), self.order[X])
-            col.chart[I, X] = was + value
+            item = (I, X)
+            was = col.c_chart.get(item)
+            if was is None:
+                col.Q[item] = -((K - I) * self.ORDER_MAX + self.order[X])
+                col.c_chart[item] = value
+            else:
+                col.c_chart[item] = was + value
 
         else:
             # Items of the form phrase(I, X/[Y|Ys], K)
             item = (I, X, Ys)
-            was = col.chart[item]
-            if was == self.cfg.R.zero:
-                col.waiting_for[Ys[0]].add(item)
-
-                if len(Ys) == 1:
-                    Y = Ys[0]
-                    if self.cfg.is_terminal(Y):
-                        col.very_close_terminal.append(item)
-                    else:
-                        self.CLOSE[I, X][col.k].add(Y)
-
-            col.chart[item] = was + value
+            was = col.i_chart.get(item)
+            if was is None:
+                col.waiting_for[self.first_Ys[Ys]].append(item)
+                col.i_chart[item] = value
+            else:
+                col.i_chart[item] = was + value
 
     # We have derived the `next_token_weights` algorithm by backpropagation on
     # the program with respect to the item `phrase(0, s, K)`.
@@ -227,79 +304,83 @@ class Earley:
     # These items satisfy (I > J) and (X > Y) where the latter is the
     # nonterminal ordering.
 
-    def next_token_weights(self, chart):
+    def next_token_weights(self, cols):
         "An O(N²) time algorithm to the total weight of a each next-token extension."
-
-        N = len(chart)
-        order = self.order
-        CLOSE = self.CLOSE
-
         # XXX: the rescaling coefficient will cancel out when we normalized the next-token weights
         # C = self.rescale(chart, 0, N-1)
 
-        # set output adjoint to 1; (we drop the empty parens for completed items)
-        d_next_col_chart = self.cfg.R.chart()
-        d_next_col_chart[0, self.cfg.S] += self.cfg.R.one  # / C
-
-        tmp_J = pdict()
-        tmp_J_Y = [pdict() for _ in range(N)]
-
-        tmp_J[0] = 0
-
-        tmp_J_Y[0][self.cfg.S] = -order[self.cfg.S]
-
+        is_terminal = self.cfg.is_terminal
         zero = self.cfg.R.zero
 
-        while tmp_J:
-            I = tmp_J.pop()
+        q = {}
+        q[0, self.cfg.S] = self.cfg.R.one
 
-            xxx = tmp_J_Y[I]
-
-            # already_popped = set()
-            while xxx:
-                X = xxx.pop()
-
-                # assert X not in already_popped
-                # already_popped.add(X)
-
-                value = d_next_col_chart[I, X]
-
-                # assert value != zero
-
-                close_IX = CLOSE[I, X]
-
-                for J in sorted(close_IX):  # TODO: more efficient to maintain sorted?
-                    if J >= N:
-                        break
-
-                    chart_J_chart = chart[J].chart
-
-                    yyy = tmp_J_Y[J]
-                    pushed = False
-                    for Y in close_IX[J]:
-                        # if self.cfg.is_terminal(Y): continue
-                        # assert self.cfg.is_nonterminal(Y)
-
-                        # tmp.append((J,Y,I,X))
-                        new_value = chart_J_chart[I, X, (Y,)] * value
-                        if new_value != zero:
-                            d_next_col_chart[J, Y] += new_value
-
-                            yyy[Y] = -order[Y]
-                            pushed = True
-
-                    if pushed:
-                        tmp_J[J] = J
+        col = cols[-1]
+        col_waiting_for = col.waiting_for
+        col_i_chart = col.i_chart
 
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
-        q = self.cfg.R.chart()
-        col = chart[-1]
-        for I, X, Ys in col.very_close_terminal:  # consider all possible tokens here
-            # assert self.cfg.is_nonterminal(Ys[0])
+        p = self.cfg.R.chart()
 
-            # FORWARD PASS:
-            # next_col.chart[I, X, Ys[1:]] += prev_cols[-1].chart[I, X, Ys]
+        for Y in col_waiting_for:
+            if is_terminal(Y):
+                total = zero
+                for I, X, Ys in col_waiting_for[Y]:
+                    if self.unit_Ys[Ys]:
+                        node = (I, X)
+                        value = self._helper(node, cols, q)
+                        total += col_i_chart[I, X, Ys] * value
+                p[Y] = total
 
-            q[Ys[0]] += col.chart[I, X, Ys] * d_next_col_chart[I, X]
+        p = p.trim()
+        return p.normalize() if p else p
 
-        return q.normalize()
+    def _helper(self, top, cols, q):
+        value = q.get(top)
+        if value is not None:
+            return value
+
+        zero = self.cfg.R.zero
+        stack = [Node(top, None, zero)]
+
+        while stack:
+            node = stack[-1]  # 👀
+
+            # place neighbors above the node on the stack
+            (J, Y) = node.node
+
+            t = node.cursor
+
+            if node.edges is None:
+                node.edges = [x for x in cols[J].waiting_for[Y] if self.unit_Ys[x[2]]]
+
+            # cursor is at the end, all neighbors are done
+            elif t == len(node.edges):
+                # clear the node from the stack
+                stack.pop()
+                # promote the incomplete value node.value to a complete value (q)
+                q[node.node] = node.value
+
+            else:
+                (I, X, _) = arc = node.edges[t]
+                neighbor = (I, X)
+                neighbor_value = q.get(neighbor)
+                if neighbor_value is None:
+                    stack.append(Node(neighbor, None, zero))
+                else:
+                    # neighbor value is ready, advance the cursor, add the
+                    # neighbors contribution to the nodes value
+                    node.cursor += 1
+                    node.value += cols[J].i_chart[arc] * neighbor_value
+
+        return q[top]
+
+
+class Node:
+    __slots__ = ('value', 'node', 'edges', 'cursor')
+
+    def __init__(self, node, edges, value):
+        self.node = node
+        self.edges = edges
+        self.value = value
+        self.cursor = 0
