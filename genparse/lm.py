@@ -169,8 +169,7 @@ class LLM(LM):
 
 class AsyncGreedilyTokenizedLLM(LM):
     """
-    This is a simple class which wraps HFPPL CachedCausalLMs.
-    Caching is done by HFPPL.
+    This is a simple class which wraps a token LLM with a tokenizer.
     """
 
     def __init__(self, tokenizer, model, batch_size):
@@ -180,27 +179,6 @@ class AsyncGreedilyTokenizedLLM(LM):
         self._decode = decode_tokenizer_vocab(self.tokenizer)
         self._encode = {x: i for i, x in enumerate(self._decode)}
         super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
-
-    #    @classmethod
-    #    def from_name(cls, name, batch_size):
-    #        from hfppl import CachedCausalLM
-    #        from transformers import AutoTokenizer
-    #
-    #        return cls(
-    #            model=CachedCausalLM.from_pretrained(name, load_in_8bit=True),
-    #            tokenizer=AutoTokenizer.from_pretrained(name, use_fast=True),
-    #            batch_size=batch_size,
-    #        )
-    #
-    #    @classmethod
-    #    def from_hf(cls, tokenizer, hf_model, batch_size):
-    #        from hfppl import CachedCausalLM
-    #
-    #        return cls(
-    #            model=CachedCausalLM(hf_model, tokenizer, batch_size),
-    #            tokenizer=tokenizer,
-    #            batch_size=batch_size,
-    #        )
 
     def __call__(self, context):
         return self.model(self.tokenizer.encode(context))

@@ -1,16 +1,107 @@
 import numpy as np
 import pandas as pd
+import asyncio
+import warnings
 from arsenal import colors
+from arsenal.maths import sample_dict
 
-from genparse.parse.earley import EarleyLM
+from genparse import EarleyLM, EOS
 from genparse.semiring import Float
-from genparse.steer import BruteForceGlobalProductOfExperts, run
+from genparse.inference import smc_standard, smc_steer, importance_sampling
 
 # NOTE: if the MAX_LENGTH is not long enough we will see truncation bias.  An
 # alternative approach is to truncate the actual distributions.  (That is
 # efficient for CFG, but I am not sure it is efficient for LLMs.)
 MAX_LENGTH = 10
 N_PARTICLES = 5_000
+
+
+class BruteForceGlobalProductOfExperts:
+    def __init__(self, lm1, lm2, MAX_LENGTH):
+        # Create a reference distribution for the global product of experts by
+        # materializing the distrbution over strings up to a maximum length
+        self.lm1 = lm1
+        self.lm2 = lm2
+        self.p1 = lm1.cfg.cnf.materialize(MAX_LENGTH).normalize()
+        self.p2 = lm2.cfg.cnf.materialize(MAX_LENGTH).normalize()
+        self.target = (self.p1 * self.p2).normalize()
+
+
+# TODO: We could create a class for this specific proposal distribution, which
+# assumes that the lm1 and lm2 (which we'd normally call llm and guide) are
+# aligned in their predictions, i.e., they have the same alphabets.
+def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
+    # TODO: I'd like to have a target--proposal pair passed in and for the SMC
+    # stuff to combine it in the right way.  If we pass an unnormalized target
+    # (i.e., an energy), then we get a consistent semantics (i.e., we are just
+    # off by the normalization constant everywhere).
+
+    # This interface is used in HFPPL / LLamPPL
+    class Particle:
+        def __init__(self, ys=None):
+            self.ys = ys
+            self.weight = 0.0
+
+            self.Q = 0.0
+
+        def start(self):
+            self.ys = []
+
+        def done_stepping(self):
+            return EOS in self.ys
+
+        def untwist(self):  # unused
+            pass
+
+        async def step(self):
+            ys = tuple(self.ys)
+
+            p1 = lm1.p_next(ys)
+            p2 = lm2.p_next(ys)
+
+            # TODO: p_next should already be normalized!  Skipping the
+            # normalization below would allow energy-based models.
+            p1 = p1.normalize()
+            p2 = p2.normalize()
+
+            # assert np.allclose(p1.sum(), 1), p1.sum()
+            # assert np.allclose(p2.sum(), 1), p2.sum()
+
+            q_ = p1 * p2
+
+            Z = q_.sum()
+
+            q = q_.normalize()
+
+            if len(ys) > MAX_LENGTH:
+                warnings.warn('force </s>')
+                y = EOS
+
+            else:
+                y = sample_dict(q)
+
+            # self.weight += np.log(p1[y] * p2[y] / (q[y] / Z))
+            # self.weight += np.log(p1[y]) + np.log(p2[y]) - np.log(q[y]) + np.log(Z)
+            # self.weight += np.log(Z)
+
+            self.weight += np.log(Z)
+            self.Q += np.log(q[y]) if q[y] > 0 else -np.inf
+
+            # self.weight += np.log(p1(token | history) / p2(prev_token | prev_history))
+
+            self.ys.append(y)
+
+        def __repr__(self):
+            return repr(self.ys)
+
+    if METHOD == 'is':
+        return asyncio.run(importance_sampling(Particle(), n_particles=n_particles))
+    elif METHOD == 'smc-steer':
+        return asyncio.run(smc_steer(Particle(), n_particles=n_particles, n_beam=1))
+    elif METHOD == 'smc-standard':
+        return asyncio.run(smc_standard(Particle(), n_particles=n_particles))
+    else:
+        raise AssertionError(METHOD)
 
 
 def run_test(lm1, lm2):

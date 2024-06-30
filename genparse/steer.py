@@ -21,95 +21,6 @@ from genparse.semiring import Float
 from genparse.util import set_seed
 
 
-class BruteForceGlobalProductOfExperts:
-    def __init__(self, lm1, lm2, MAX_LENGTH):
-        # Create a reference distribution for the global product of experts by
-        # materializing the distrbution over strings up to a maximum length
-        self.lm1 = lm1
-        self.lm2 = lm2
-        self.p1 = lm1.cfg.cnf.materialize(MAX_LENGTH).normalize()
-        self.p2 = lm2.cfg.cnf.materialize(MAX_LENGTH).normalize()
-        self.target = (self.p1 * self.p2).normalize()
-
-
-# _______________________________________________________________________________
-# Approximate inference
-
-
-def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
-    # TODO: I'd like to have a target--proposal pair passed in and for the SMC
-    # stuff to combine it in the right way.  If we pass an unnormalized target
-    # (i.e., an energy), then we get a consistent semantics (i.e., we are just
-    # off by the normalization constant everywhere).
-
-    # This interface is used in HFPPL / LLamPPL
-    class Particle:
-        def __init__(self, ys=None):
-            self.ys = ys
-            self.weight = 0.0
-
-            self.Q = 0.0
-
-        def start(self):
-            self.ys = []
-
-        def done_stepping(self):
-            return EOS in self.ys
-
-        def untwist(self):  # unused
-            pass
-
-        async def step(self):
-            ys = tuple(self.ys)
-
-            p1 = lm1.p_next(ys)
-            p2 = lm2.p_next(ys)
-
-            # TODO: p_next should already be normalized!  Skipping the
-            # normalization below would allow energy-based models.
-            p1 = p1.normalize()
-            p2 = p2.normalize()
-
-            # assert np.allclose(p1.sum(), 1), p1.sum()
-            # assert np.allclose(p2.sum(), 1), p2.sum()
-
-            q_ = p1 * p2
-
-            Z = q_.sum()
-
-            q = q_.normalize()
-
-            if len(ys) > MAX_LENGTH:
-                warnings.warn('force </s>')
-                y = EOS
-
-            else:
-                y = sample_dict(q)
-
-            # self.weight += np.log(p1[y] * p2[y] / (q[y] / Z))
-            # self.weight += np.log(p1[y]) + np.log(p2[y]) - np.log(q[y]) + np.log(Z)
-            # self.weight += np.log(Z)
-
-            self.weight += np.log(Z)
-            self.Q += np.log(q[y]) if q[y] > 0 else -np.inf
-
-            # self.weight += np.log(p1(token | history) / p2(prev_token | prev_history))
-
-            self.ys.append(y)
-
-        def __repr__(self):
-            return repr(self.ys)
-
-    if METHOD == 'is':
-        return asyncio.run(importance_sampling(Particle(), n_particles=n_particles))
-    elif METHOD == 'smc-steer':
-        return asyncio.run(smc_steer(Particle(), n_particles=n_particles, n_beam=1))
-    elif METHOD == 'smc-standard':
-        return asyncio.run(smc_standard(Particle(), n_particles=n_particles))
-    else:
-        raise AssertionError(METHOD)
-
-
 # ____________________________________________________________________________________
 # Approximate inference with HFPPL
 # This code is still experimental and actively being developed
@@ -164,9 +75,6 @@ class HFPPLSampler:
         Args:
             llm (AsyncGreedilyTokenizedLLM)
             guide (LM)
-        Returns:
-            particle_approximation (ParticleApproximation)
-            record (dict | NoneType): information about the run
         """
         self.llm = llm
         self.guide = guide
@@ -183,6 +91,10 @@ class HFPPLSampler:
         return_record=False,
         seed=None,
     ):
+        """
+        Returns:
+            particle_approximation (ParticleApproximation)
+        """
         if seed is not None:
             set_seed(seed)
 
