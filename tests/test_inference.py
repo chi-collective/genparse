@@ -31,11 +31,6 @@ class BruteForceGlobalProductOfExperts:
 # assumes that the lm1 and lm2 (which we'd normally call llm and guide) are
 # aligned in their predictions, i.e., they have the same alphabets.
 def run(lm1, lm2, *, MAX_LENGTH, n_particles, METHOD):
-    # TODO: I'd like to have a target--proposal pair passed in and for the SMC
-    # stuff to combine it in the right way.  If we pass an unnormalized target
-    # (i.e., an energy), then we get a consistent semantics (i.e., we are just
-    # off by the normalization constant everywhere).
-
     # This interface is used in HFPPL / LLamPPL
     class Particle:
         def __init__(self, ys=None):
@@ -205,22 +200,18 @@ def test_finite_finite():
     run_test(
         EarleyLM.from_string(
             """
-
-        1: S -> a a a
-        1: S -> b b b
-        1: S -> b b b b b b b b b
-        1: S ->
-
-        """
+            1: S -> a a a
+            1: S -> b b b
+            1: S -> b b b b b b b b b
+            1: S ->
+            """
         ),
         EarleyLM.from_string(
             """
-
-        2: S -> a a a
-        1: S -> b b b b b
-        1: S -> b b b b b b b b b
-
-        """
+            2: S -> a a a
+            1: S -> b b b b b
+            1: S -> b b b b b b b b b
+            """
         ),
     )
 
@@ -229,21 +220,17 @@ def test_palindrome_universal():
     run_test(
         EarleyLM.from_string(
             """
-
-        0.45: S -> a S a
-        0.45: S -> b S b
-        0.1: S ->
-
-        """
+            0.45: S -> a S a
+            0.45: S -> b S b
+            0.1: S ->
+            """
         ),
         EarleyLM.from_string(
             """
-
-        0.8: S -> a S
-        0.1: S -> b S
-        0.1: S ->
-
-        """
+            0.8: S -> a S
+            0.1: S -> b S
+            0.1: S ->
+            """
         ),
     )
 
@@ -252,23 +239,19 @@ def test_palindrome_finite():
     run_test(
         EarleyLM.from_string(
             """
-
-        0.45: S -> a S a
-        0.45: S -> b S b
-        0.1: S ->
-
-        """
+            0.45: S -> a S a
+            0.45: S -> b S b
+            0.1: S ->
+            """
         ),
         EarleyLM.from_string(
             """
-
-        1: S -> a a a a a a a a
-        1: S -> a a a a a a
-        1: S -> a a a a
-        1: S -> a a
-        1: S ->
-
-        """
+            1: S -> a a a a a a a a
+            1: S -> a a a a a a
+            1: S -> a a a a
+            1: S -> a a
+            1: S ->
+            """
         ),
     )
 
