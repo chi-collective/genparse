@@ -393,9 +393,7 @@ def test_p_next_papa():
 
 
 def test_clear_cache():
-    import genparse.examples
-
-    cfg = EarleyLM(genparse.examples.papa)
+    cfg = EarleyLM(examples.papa)
     assert len(cfg.model._chart) == 0
     sample = cfg.sample(prob=False) + (cfg.eos,)
     p = cfg(sample)

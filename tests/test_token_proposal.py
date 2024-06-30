@@ -2,7 +2,7 @@ import numpy as np
 from arsenal import timeit
 
 from genparse.util import set_seed
-from genparse.cfglm import add_EOS, locally_normalize, BoolCFGLM
+from genparse.cfglm import locally_normalize, BoolCFGLM
 from genparse.parse.earley import EarleyLM
 from genparse.lm import MockLLM
 from genparse.proposal import TokenProposal
