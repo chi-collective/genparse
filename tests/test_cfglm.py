@@ -120,6 +120,17 @@ def test_lm():
     assert Float.metric(cfg(sample), LM.__call__(cfg, sample)) <= 1e-8
 
 
+def test_clear_cache():
+    cfg = CFGLM(genparse.examples.papa)
+    assert len(cfg.model._chart) == 0
+    sample = cfg.sample(prob=False) + (cfg.eos,)
+    p = cfg(sample)
+    assert len(cfg.model._chart) == 1 + len(sample), [sample, cfg.model._chart]
+    print(p, sample)
+    cfg.clear_cache()
+    assert len(cfg.model._chart) == 0
+
+
 if __name__ == '__main__':
     from arsenal import testing_framework
 

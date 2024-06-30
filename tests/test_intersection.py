@@ -17,7 +17,7 @@ def assert_equal(have, want, tol=1e-5):
 # reference implementation of the intersection algorithm
 def intersect_slow(self, fst):
     # coerce something sequence like into a diagonal FST
-    if isinstance(fst, (str, list, tuple)):
+    if isinstance(fst, (str, tuple)):
         fst = FST.from_string(fst, self.R)
 
     # coerce something FSA-like into an FST, might throw an error
@@ -31,7 +31,7 @@ def compose_naive_epsilon(self, fst):
     "Reference implementation of the grammar-transducer composition."
 
     # coerce something sequence like into a diagonal FST
-    if isinstance(fst, (str, list, tuple)):
+    if isinstance(fst, (str, tuple)):
         fst = FST.from_string(fst, self.R)
 
     # coerce something FSA-like into an FST, might throw an error

@@ -893,11 +893,11 @@ class CFG:
         "Return a CFG denoting the pointwise product or composition of `self` and `fs`."
 
         # coerce something sequence like into a diagonal FST
-        if isinstance(fst, (str, list, tuple)):
+        if isinstance(fst, (str, tuple)):
             fst = FST.from_string(fst, self.R)
         # coerce something FSA-like into an FST, might throw an error
         if not isinstance(fst, FST):
-            fst = FST.diag(fst)
+            fst = fst.to_fst()
 
         # Initialize the new CFG:
         # - its start symbol is chosen arbitrarily to be `self.S`

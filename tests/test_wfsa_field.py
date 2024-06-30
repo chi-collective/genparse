@@ -17,6 +17,12 @@ def test_misc():
     # dry run
     M.graphviz()
 
+    # TODO: how do we check that the warning as issued here?
+    import pytest
+
+    with pytest.warns(UserWarning, match='empty visualization'):
+        zero.graphviz()
+
 
 def test_min():
     one = WFSA.one

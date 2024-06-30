@@ -68,6 +68,8 @@ def test_misc():
 
     cfg = CFG.from_string(
         """
+        1: S -> X
+        1: S -> Y
         2: X -> a
         3: Y -> b
         """,
@@ -78,6 +80,9 @@ def test_misc():
     # call it twice to hit the trim cache
     cfg.trim().trim()  # serial
     cfg.trim()  # parallel
+
+    assert (cfg @ 'a').treesum() == 2
+    assert (cfg @ ('a',)).treesum() == 2
 
 
 def test_agenda_misc():
