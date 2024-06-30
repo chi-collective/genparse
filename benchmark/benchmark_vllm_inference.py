@@ -142,7 +142,7 @@ def main():
             print(colors.cyan % colors.line(100))
             print(colors.cyan % sql_prompt)
 
-            particles, record = sampler.run_inference(
+            particles = sampler.run_inference(
                 prompt=prompt,
                 proposal=proposal,
                 method=args.inference,
@@ -150,7 +150,6 @@ def main():
                 max_tokens=args.max_tokens,
                 n_beam=args.n_beam,
                 verbosity=args.verbosity,
-                return_record=False,
             )
 
             # if args.particles > 1 and record is not None:

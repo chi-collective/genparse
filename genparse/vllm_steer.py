@@ -19,8 +19,7 @@ from genparse.vllm_inference import (
 )
 from genparse.util import set_seed
 from genparse.steer import ParticleApproximation
-
-from typing import List
+from genparse.tokenization import decode_tokenizer_vocab
 
 
 class VLLMWrapper:
@@ -35,8 +34,6 @@ class VLLMWrapper:
         verbosity=0,
         timer=None,
     ):
-        from genparse.tokenization import decode_tokenizer_vocab
-
         self.llm = llm
         self.n_particles = n_particles
 
@@ -246,7 +243,7 @@ class VLLMWrapper:
             weight_updates,
             parent_ids,
         ):
-            seq_outputs: List[SequenceOutput] = []
+            seq_outputs = []
 
             for parent_id, next_token_id, logprobs in zip(
                 group_parent_ids, next_token_ids, weight_update
@@ -287,8 +284,6 @@ class VLLMWrapper:
         # Log stats.
         self.llm._model.llm_engine.do_log_stats(scheduler_outputs, processed_output)
 
-        return
-
     async def update(self):
         # prepare logprobs
         with self.timer['llm'](
@@ -322,15 +317,11 @@ class VLLMWrapper:
             scheduler_outputs, seq_group_metadata_list, processed_output
         )
 
-        return
-
     async def step(self):
         scheduler_outputs, seq_group_metadata_list, results = await self.update()
 
         repeats = defaultdict(lambda: 1)
         self.postprocess(scheduler_outputs, seq_group_metadata_list, results, repeats)
-
-        return
 
 
 class VLLMSampler:
@@ -402,4 +393,4 @@ class VLLMSampler:
         else:
             raise ValueError(f'Unknown inference method: {method}.')
 
-        return ParticleApproximation(particles), record
+        return ParticleApproximation(particles, record=record)
