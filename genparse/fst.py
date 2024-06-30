@@ -148,7 +148,7 @@ class FST(WFSA):
 
     def _compose(self, other, coarsen=True):
         if coarsen and FST.PRUNING is not None:
-            keep = FST.PRUNING(self, other)
+            keep = FST.PRUNING(self, other)  # pylint: disable=E1102
             result = self._pruned_compose(other, keep, keep.keep_arc)
 
         else:

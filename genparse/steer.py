@@ -12,14 +12,13 @@ from hfppl import Model
 
 from genparse import EOS
 from genparse.inference import (
-    TraceSWOR,
     importance_sampling,
     smc_standard,
     smc_standard_record,
     smc_steer,
 )
 from genparse.semiring import Float
-from genparse.util import format_table, set_seed
+from genparse.util import set_seed
 
 
 class BruteForceGlobalProductOfExperts:
@@ -31,23 +30,6 @@ class BruteForceGlobalProductOfExperts:
         self.p1 = lm1.cfg.cnf.materialize(MAX_LENGTH).normalize()
         self.p2 = lm2.cfg.cnf.materialize(MAX_LENGTH).normalize()
         self.target = (self.p1 * self.p2).normalize()
-
-
-# TODO: support early termination options
-class generation_tree:
-    def __init__(self, lm, **opts):
-        tracer = TraceSWOR()
-        D = Float.chart()
-        while tracer.root.mass > 0:
-            with tracer:
-                s, p = lm.sample(draw=tracer, **opts)
-                D[s] += p
-        D = Float.chart((k, D[k]) for k in sorted(D))
-        self.D = D
-        self.tracer = tracer
-
-    def _repr_html_(self):
-        return format_table([[self.D, self.tracer]])
 
 
 # _______________________________________________________________________________

@@ -1,7 +1,7 @@
 import asyncio
 from arsenal.maths import random_dist, assert_equal
 
-from genparse.inference import TraceSWOR
+from genparse.trace import TraceSWOR
 from genparse import Float
 from genparse.lm import MockLLM, LM
 from genparse.proposal import TokenProposal, CharacterProposal

@@ -93,8 +93,8 @@ class LLM:
     def clear_cache(self):
         self._cache.clear()
 
-    async def next_token_logprobs(self, xs):
-        return self.p_next(xs).log()
+    async def next_token_logprobs(self, context):
+        return self.p_next(context).log()
 
     def get_state(self, prefix):
         assert isinstance(prefix, tuple)
@@ -171,14 +171,14 @@ class GreedilyTokenizedLLM(LM):
         self._encode = {x: i for i, x in enumerate(self._decode)}
         super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
 
-    def __call__(self, xs):
-        return self.model(self.tokenizer.encode(xs))
+    def __call__(self, context):
+        return self.model(self.tokenizer.encode(context))
 
-    def p_next(self, xs, top=None):
+    def p_next(self, context, top=None):
         # TODO: support token healing and/or constrained generation to get a
         # valid token sequence; see `p_next_healing`.
-        assert isinstance(xs, str)
-        tokens = self.tokenizer.encode(xs)
+        assert isinstance(context, str)
+        tokens = self.tokenizer.encode(context)
         _p = self.model.p_next(tokens).cpu().numpy()
         assert top is None
         return LazyProb(_p, self._encode, self._decode)
@@ -210,15 +210,15 @@ class GreedilyTokenizedLLM(LM):
             ys = join(ys, y)
 
 
-#    def p_next_healing(self, xs, top=10):
+#    def p_next_healing(self, context, top=10):
 #        # TODO: support token healing and/or hindsight sampling to get a valid token sequence
-#        assert isinstance(xs, str)
-#        tokens = self.tokenizer.encode(xs)
+#        assert isinstance(context, str)
+#        tokens = self.tokenizer.encode(context)
 #        # token healing will take all but the last token and then resample the last one
 #        # since it might be a partial token.
 #        print([(t, self.tokenizer.decode([t])) for t in tokens])
 #        complete = self.tokenizer.decode(tokens[:-1])
-#        token_prefix = xs[len(complete):]
+#        token_prefix = context[len(complete):]
 #        tokens = tokens[:-1]
 #        _p = self.model.p_next(tokens).numpy()
 #        pp = Float.chart()
@@ -264,13 +264,13 @@ class AsyncGreedilyTokenizedLLM(LM):
             batch_size=batch_size,
         )
 
-    def __call__(self, xs):
-        return self.model(self.tokenizer.encode(xs))
+    def __call__(self, context):
+        return self.model(self.tokenizer.encode(context))
 
-    async def next_token_logprobs(self, xs, top=None):
-        return self.p_next(xs, top=top).map_values(np.log)
+    async def next_token_logprobs(self, context, top=None):
+        return self.p_next(context, top=top).map_values(np.log)
 
-    async def p_next(self, xs='', top=None, _logp=None, **kwargs):
+    async def p_next(self, context='', top=None, _logp=None, **kwargs):
         # Pass the kwargs to the model.
         # For vllm, we need to provide the log probabilities, and
         # _logp is provided by the vllm centralized step function
@@ -279,8 +279,8 @@ class AsyncGreedilyTokenizedLLM(LM):
                 _logp is not None
             ), 'Please provide the log probabilities when using VLLM.'
         if _logp is None:
-            assert isinstance(xs, str)
-            tokens = self.tokenizer.encode(xs)
+            assert isinstance(context, str)
+            tokens = self.tokenizer.encode(context)
             _logp = await self._model.next_token_logprobs(tokens)
         _logp = _logp.cpu().numpy() if hasattr(_logp, 'cpu') else _logp
         _p = np.exp(_logp)

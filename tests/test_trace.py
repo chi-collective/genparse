@@ -1,4 +1,4 @@
-from genparse.inference import TraceSWOR
+from genparse.trace import TraceSWOR
 
 
 def test_basics():

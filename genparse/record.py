@@ -59,8 +59,8 @@ class SMCRecord(dict):
         )
         recs['particle'] = recs.groupby(recs.index // self.n_particles).cumcount()
         recs['context_string'] = recs['context'].apply(lambda x: ''.join(x[:-1]))
-        recs['exp_average weight'] = recs['average weight'].apply(lambda x: np.exp(x))
-        recs['exp_weight'] = recs['weight'].apply(lambda x: np.exp(x))
+        recs['exp_average weight'] = recs['average weight'].apply(np.exp)
+        recs['exp_weight'] = recs['weight'].apply(np.exp)
         recs['prop_exp_weight'] = recs['exp_weight'] / recs['exp_average weight']
         return recs
 
@@ -186,11 +186,13 @@ class SMCRecord(dict):
 
         return fig
 
-    def plotlyx(self, xrange=None, opts=dict(), layout_opts=dict()):
+    def plotlyx(self, xrange=None, layout_opts=None):
         """
         Plot the particles' trajectory.
         Requires plotly.
         """
+        if layout_opts is None:
+            layout_opts = {}
 
         import plotly.express as px
         import plotly.graph_objects as go
