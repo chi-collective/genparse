@@ -40,7 +40,7 @@ class Sampler:
     def next_node(self, node, a):
         """ Given a node and a symbol, returns the next node.
         If the next node does not exists, it creates the node and assigns mass to it.
-        This method should be used together with the sampling distribution of GAD"""
+        This method should be used together with the GAD sampler"""
         if node.children and a in node.children.keys():
             return node.children[a]
         else:
