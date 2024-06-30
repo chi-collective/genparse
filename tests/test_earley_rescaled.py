@@ -1,16 +1,15 @@
 import numpy as np
 from arsenal import colors
 
-from genparse import CFG, EOS, Float, Log as _Log
-from genparse import examples
+from genparse import CFG, EOS, Float, examples, add_EOS
 from genparse.parse.cky import CKYLM, IncrementalCKY
 from genparse.parse.earley_rescaled import Earley, EarleyLM
 
 
-class Log(_Log):
-    @classmethod
-    def from_string(cls, x):
-        return cls(np.log(np.float128(float(x))))
+# class Log(_Log):
+#    @classmethod
+#    def from_string(cls, x):
+#        return cls(np.log(np.float128(float(x))))
 
 
 def test_basics():
@@ -334,8 +333,9 @@ def test_p_next_new_abcdx():
         Float,
     )
 
-    ckylm = CKYLM(cfg)
-    earley = EarleyLM(cfg)
+    # Note: add_EOS used here for code coverage
+    ckylm = CKYLM(add_EOS(cfg))
+    earley = EarleyLM(add_EOS(cfg))
 
     for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
         print()

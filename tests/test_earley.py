@@ -1,6 +1,6 @@
 from arsenal import colors
 
-from genparse import examples
+from genparse import examples, add_EOS
 from genparse.cfg import CFG
 from genparse.parse.earley import Earley, EarleyLM
 from genparse.parse.cky import CKYLM, IncrementalCKY
@@ -319,8 +319,9 @@ def test_p_next_new_abcdx():
         Float,
     )
 
-    ckylm = CKYLM(cfg)
-    earley = EarleyLM(cfg)
+    # Note: add_EOS used here for code coverage
+    ckylm = CKYLM(add_EOS(cfg))
+    earley = EarleyLM(add_EOS(cfg))
 
     for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
         print()
