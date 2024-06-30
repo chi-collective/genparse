@@ -6,7 +6,6 @@ from arsenal.maths import sample_dict
 from genparse.proposal.trie import TokenCharacterTrie
 from genparse.semiring import Float
 
-from inspect import iscoroutinefunction
 
 # TODO: It's tempting to require proposal distributions to implement the `LM`
 # interface, but it might be difficult to correctly implement `__call__` and
@@ -41,7 +40,7 @@ class TokenProposal(TokenCharacterTrie):
 
         super().__init__(words, old_eos=llm.eos, new_eos=guide.eos)
 
-    def _p_next(self, context, K=None, execute_model_req=None, **kwargs):
+    def _p_next(self, context, K=None, execute_model_req=None, **kwargs):  # pylint: disable=unused-argument
         p_llm = self.llm.p_next(
             self._prompt + context, execute_model_req=execute_model_req
         )
@@ -51,11 +50,10 @@ class TokenProposal(TokenCharacterTrie):
         self,
         prompt,
         context,
-        verbosity=0,
         draw=sample_dict,
         p_llm=None,
         **kwargs,
-    ):
+    ):  # pylint: disable=unused-argument
         r"""
         Proposes a token and incremental weight update.
 
@@ -74,7 +72,6 @@ class TokenProposal(TokenCharacterTrie):
         Args:
             prompt : The LLM prompt.
             context : The previous generated tokens.
-            verbosity : > 1 prints sampling process.
             p_llm: Provide the model with pre-computed p_llm. Since for VLLM, p_llm is computed
                 for all particles altogether. We directly pass the corresponding p_llm to
                 the proposal of each particle.
@@ -85,10 +82,7 @@ class TokenProposal(TokenCharacterTrie):
         """
         if p_llm is None:
             with self.timer['llm'](t=len(context)):
-                if iscoroutinefunction(self.llm.p_next):
-                    p_llm = await self.llm.p_next(prompt + context)
-                else:
-                    p_llm = self.llm.p_next(prompt + context)
+                p_llm = await self.llm.p_next_async(prompt + context)
 
         # enumerate top K - 1 tokens
         Ws = Float.chart(take(self.K - 1, self.traverse_trie(context, p_llm)))

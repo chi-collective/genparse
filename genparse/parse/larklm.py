@@ -72,7 +72,7 @@ class LarkGuide(LM):
         return pattern
 
 
-def main():
+def test_basics():
     json_grammar = r"""
     ?value: dict
         | list
@@ -96,7 +96,7 @@ def main():
 
     """
 
-    from genparse.lm import make_mock_llm
+    from genparse.util import make_mock_llm
 
     llm = make_mock_llm()
 
@@ -122,4 +122,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    from arsenal import testing_framework
+
+    testing_framework(globals())

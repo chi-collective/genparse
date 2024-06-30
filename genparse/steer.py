@@ -251,3 +251,6 @@ class ParticleApproximation:
 
     def _repr_html_(self):
         return self.posterior._repr_html_()
+
+    def risk(self, kernel, candidate):
+        return sum(p * kernel(candidate, y) for y, p in self.posterior.items())

@@ -1,15 +1,14 @@
 import html
-from collections import Counter
-from functools import cached_property
-
-from IPython.display import HTML, display
-
-from genparse.tokenization import decode_tokenizer_vocab
-
 import numpy as np
 import random
 import torch
 import transformers
+import hfppl
+from collections import Counter
+from functools import cached_property, lru_cache
+from IPython.display import HTML, display
+
+from genparse.tokenization import decode_tokenizer_vocab
 
 
 def set_seed(seed):
@@ -27,15 +26,26 @@ def lark_guide(grammar, decay=1, ignore=''):
     return BoolMaskCFGLM(LarkStuff(grammar).char_cfg(decay, ignore=ignore))
 
 
+@lru_cache(None)
+def make_mock_llm(**kwargs):
+    from genparse.lm import MockLLM
+
+    H = hf_tokenizer(**kwargs)
+    return MockLLM(V=H.decode, eos=H.eos)
+
+
 def load_model_by_name(model_name, batch_size=None):
-    from hfppl import CachedCausalLM
     from genparse.lm import AsyncGreedilyTokenizedLLM, LLM
 
     if model_name == 'gpt2':
         MODEL_ID = 'gpt2'
+        tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_ID)
+        model = transformers.AutoModelForCausalLM.from_pretrained(MODEL_ID)
         return AsyncGreedilyTokenizedLLM(
-            model=LLM(transformers.AutoModelForCausalLM.from_pretrained(MODEL_ID)),
-            tokenizer=transformers.AutoTokenizer.from_pretrained(MODEL_ID),
+            model=LLM(
+                model, V=set(range(tokenizer.vocab_size)), eos=tokenizer.eos_token_id
+            ),
+            tokenizer=tokenizer,
             batch_size=batch_size,
         )
 
@@ -43,7 +53,7 @@ def load_model_by_name(model_name, batch_size=None):
         assert torch.cuda.is_available()
         MODEL_ID = 'codellama/CodeLlama-7b-Instruct-hf'
         return AsyncGreedilyTokenizedLLM(
-            model=CachedCausalLM.from_pretrained(MODEL_ID, load_in_8bit=False),
+            model=hfppl.CachedCausalLM.from_pretrained(MODEL_ID, load_in_8bit=False),
             tokenizer=transformers.AutoTokenizer.from_pretrained(
                 MODEL_ID,
                 use_fast=True,

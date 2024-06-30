@@ -2,11 +2,10 @@
 Language models go here
 """
 
+import asyncio
 import numpy as np
 import torch
 from arsenal.maths import sample_dict
-from functools import lru_cache
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from genparse.semiring import Float
 from genparse.tokenization import decode_tokenizer_vocab
@@ -44,7 +43,20 @@ class LM:
         "Compute the (conditional) distribution over the next token given the `prefix`."
         raise NotImplementedError()
 
-    def sample(self, ys=(), draw=sample_dict, prob=True, verbose=0, max_tokens=np.inf):
+    async def p_next_async(self, context):
+        "Compute the (conditional) distribution over the next token given the `prefix`."
+        return self.p_next(context)
+
+    def sample(
+        self,
+        ys=(),
+        draw=sample_dict,
+        prob=True,
+        verbose=0,
+        max_tokens=np.inf,
+        join=lambda ys, y: ys + (y,),
+    ):
+        assert isinstance(ys, tuple), ys
         P = 1.0
         t = 0
         while True:
@@ -59,17 +71,16 @@ class LM:
                     print(y, end='')
             if y == self.eos:
                 return (ys, P) if prob else ys
-            ys = ys + (y,)
+            ys = join(ys, y)
 
 
-class LLM:
+class LLM(LM):
     """
     This is a simple class that wraps HuggingFace transformers with support for automatic caching.
     """
 
-    def __init__(self, model):
-        if torch.cuda.is_available():
-            print('GPU is available')
+    def __init__(self, model, V, eos):
+        super().__init__(V=V, eos=eos)
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model.to(self.device)
 
@@ -77,9 +88,7 @@ class LLM:
         self.model.eval()  # Set the model in "evaluation mode"
         self._cache = {}
 
-        # TODO: add the vocabulary and EOS symbols!
-        # super().__init__(set(range()), eos=eos)
-
+    # TODO: cover me!
     def __call__(self, input_ids):
         if isinstance(input_ids, list):
             input_ids = torch.LongTensor([input_ids])
@@ -121,11 +130,10 @@ class LLM:
             self._cache[prefix] = value
             return value
 
-    # TODO: handle padding and EOS more carefully.
-    def p_next(self, input_ids):
-        if isinstance(input_ids, (tuple, list)):
-            input_ids = torch.LongTensor([input_ids])
-        prefix = input_ids.squeeze().tolist()
+    def p_next(self, context):
+        if isinstance(context, (tuple, list)):
+            context = torch.LongTensor([context])
+        prefix = context.squeeze().tolist()
         prefix = (prefix,) if isinstance(prefix, int) else tuple(prefix)
         with torch.no_grad():
             outputs = self.get_state(prefix)
@@ -140,74 +148,85 @@ class LLM:
 #    This is a simple class that wraps HuggingFace transformers.
 #    """
 #
-#    def __init__(self, model):
+#    def __init__(self, model, V, eos):
+#        super().__init__(V=V, eos=eos)
 #        self.model = model
 #        self.model.eval()  # Set the model in "evaluation mode"
 #
-#        # TODO: Add vocabulary and EOS
-#
-#    #        super().__init__(set(range()), eos=eos)
-#
-#    def __call__(self, input_ids):
+#    def __call__(self, context):
 #        raise NotImplementedError()
 #
-#    def p_next(self, input_ids):
-#        if isinstance(input_ids, (tuple, list)):
-#            input_ids = torch.LongTensor([input_ids])
+#    def p_next(self, context):
+#        if isinstance(context, (tuple, list)):
+#            context = torch.LongTensor([context])
 #        with torch.no_grad():
-#            outputs = self.model(input_ids=input_ids, labels=input_ids)
+#            outputs = self.model(input_ids=context, labels=context)
 #            lprobs = torch.nn.functional.softmax(outputs.logits, dim=-1)
 #        return lprobs[
 #            0, -1, :
 #        ]  # return the conditional distribution of just the last token
 
 
-class GreedilyTokenizedLLM(LM):
-    def __init__(self, name):
-        self.tokenizer = AutoTokenizer.from_pretrained(name)
-        self._model = AutoModelForCausalLM.from_pretrained(name)
-        self.model = LLM(self._model)
+class AsyncGreedilyTokenizedLLM(LM):
+    """
+    This is a simple class which wraps HFPPL CachedCausalLMs.
+    Caching is done by HFPPL.
+    """
+
+    def __init__(self, tokenizer, model, batch_size):
+        self.tokenizer = tokenizer
+        self._model = model
+        self._model.batch_size = batch_size
         self._decode = decode_tokenizer_vocab(self.tokenizer)
         self._encode = {x: i for i, x in enumerate(self._decode)}
         super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
 
+    #    @classmethod
+    #    def from_name(cls, name, batch_size):
+    #        from hfppl import CachedCausalLM
+    #        from transformers import AutoTokenizer
+    #
+    #        return cls(
+    #            model=CachedCausalLM.from_pretrained(name, load_in_8bit=True),
+    #            tokenizer=AutoTokenizer.from_pretrained(name, use_fast=True),
+    #            batch_size=batch_size,
+    #        )
+    #
+    #    @classmethod
+    #    def from_hf(cls, tokenizer, hf_model, batch_size):
+    #        from hfppl import CachedCausalLM
+    #
+    #        return cls(
+    #            model=CachedCausalLM(hf_model, tokenizer, batch_size),
+    #            tokenizer=tokenizer,
+    #            batch_size=batch_size,
+    #        )
+
     def __call__(self, context):
         return self.model(self.tokenizer.encode(context))
 
-    def p_next(self, context, top=None):
-        # TODO: support token healing and/or constrained generation to get a
-        # valid token sequence; see `p_next_healing`.
-        assert isinstance(context, str)
-        tokens = self.tokenizer.encode(context)
-        _p = self.model.p_next(tokens).cpu().numpy()
-        assert top is None
-        return LazyProb(_p, self._encode, self._decode)
+    async def next_token_logprobs(self, context):
+        p = await self.p_next_async(context)
+        return p.map_values(np.log)
 
-    # TODO: why isn't this inherited from the LM base class?
-    def sample(
-        self,
-        ys='',
-        draw=sample_dict,
-        prob=False,
-        verbose=0,
-        max_tokens=np.inf,
-        join=str.__add__,
-    ):
-        P = 1.0
-        t = 0
-        while True:
-            p = self.p_next(ys)
-            y = draw(p) if t <= max_tokens else self.eos
-            P *= p[y]
-            t += 1
-            if verbose:
-                if y == self.eos:
-                    print()
-                else:
-                    print(y, end='')
-            if y == self.eos:
-                return (ys, P) if prob else ys
-            ys = join(ys, y)
+    def p_next(self, *args, **kwargs):
+        return asyncio.run(self.p_next_async(*args, **kwargs))
+
+    async def p_next_async(self, context='', _logp=None, **kwargs):
+        # Pass the kwargs to the model.
+        # For vllm, we need to provide the log probabilities, and
+        # _logp is provided by the vllm centralized step function
+        if isinstance(self._model, vllmpplLLM):
+            assert (
+                _logp is not None
+            ), 'Please provide the log probabilities when using VLLM.'
+        if _logp is None:
+            assert isinstance(context, str)
+            tokens = self.tokenizer.encode(context)
+            _logp = await self._model.next_token_logprobs(tokens)
+        _logp = _logp.cpu().numpy() if hasattr(_logp, 'cpu') else _logp
+        _p = np.exp(_logp)
+        return LazyProb(_p, self._encode, self._decode)
 
 
 #    def p_next_healing(self, context, top=10):
@@ -230,65 +249,6 @@ class GreedilyTokenizedLLM(LM):
 #        return pp
 
 
-class AsyncGreedilyTokenizedLLM(LM):
-    """
-    This is a simple class which wraps HFPPL CachedCausalLMs.
-    Caching is done by HFPPL.
-    """
-
-    def __init__(self, tokenizer, model, batch_size):
-        self.tokenizer = tokenizer
-        self._model = model
-        self._model.batch_size = batch_size
-        self._decode = decode_tokenizer_vocab(self.tokenizer)
-        self._encode = {x: i for i, x in enumerate(self._decode)}
-        super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
-
-    @classmethod
-    def from_name(cls, name, batch_size):
-        from hfppl import CachedCausalLM
-
-        return cls(
-            model=CachedCausalLM.from_pretrained(name, load_in_8bit=True),
-            tokenizer=AutoTokenizer.from_pretrained(name, use_fast=True),
-            batch_size=batch_size,
-        )
-
-    @classmethod
-    def from_hf(cls, tokenizer, hf_model, batch_size):
-        from hfppl import CachedCausalLM
-
-        return cls(
-            model=CachedCausalLM(hf_model, tokenizer, batch_size),
-            tokenizer=tokenizer,
-            batch_size=batch_size,
-        )
-
-    def __call__(self, context):
-        return self.model(self.tokenizer.encode(context))
-
-    async def next_token_logprobs(self, context, top=None):
-        return self.p_next(context, top=top).map_values(np.log)
-
-    async def p_next(self, context='', top=None, _logp=None, **kwargs):
-        # Pass the kwargs to the model.
-        # For vllm, we need to provide the log probabilities, and
-        # _logp is provided by the vllm centralized step function
-        if isinstance(self._model, vllmpplLLM):
-            assert (
-                _logp is not None
-            ), 'Please provide the log probabilities when using VLLM.'
-        if _logp is None:
-            assert isinstance(context, str)
-            tokens = self.tokenizer.encode(context)
-            _logp = await self._model.next_token_logprobs(tokens)
-        _logp = _logp.cpu().numpy() if hasattr(_logp, 'cpu') else _logp
-        _p = np.exp(_logp)
-
-        assert top is None
-        return LazyProb(_p, self._encode, self._decode)
-
-
 class LazyProb:
     """
     This class is used to efficiently associate string with the indices of LLM's
@@ -299,6 +259,13 @@ class LazyProb:
         self._p = _p
         self._encode = encode
         self._decode = decode
+
+    def normalize(self):
+        return LazyProb(
+            _p=self._p / self._p.sum(),
+            encode=self._encode,
+            decode=self._decode,
+        )
 
     def keys(self):
         return self._decode
@@ -329,14 +296,6 @@ class LazyProb:
         return repr(self.materialize())
 
 
-@lru_cache(None)
-def make_mock_llm(**kwargs):
-    from genparse.util import hf_tokenizer
-
-    H = hf_tokenizer(**kwargs)
-    return MockLLM(V=H.decode, eos=H.eos)
-
-
 class MockLLM(LM):
     """
     Uniform distribution over next token; used for testing.
@@ -350,12 +309,8 @@ class MockLLM(LM):
         self._encode = {x: i for i, x in enumerate(self._decode)}
         super().__init__(eos=eos, V=V)
 
-    def p_next(self, _, **kwargs):
+    def p_next(self, _, **kwargs):  # pylint: disable=unused-argument
         return LazyProb(self._p, self._encode, self._decode)
-
-    # def __call__(self, x):
-    #    assert x[-1] == self.eos
-    #    return (1 / len(self.V)) ** len(x)
 
     def clear_cache(self):
         pass

@@ -97,6 +97,7 @@ class BoolMaskCFGLM(LM):
 EarleyBoolMaskCFGLM = BoolMaskCFGLM
 
 
+# TODO: rename CFGLM -> CKYLM
 class CFGLM(LM):
     """
     Probabilistic Context-Free Grammar Language Model.
@@ -118,8 +119,8 @@ class CFGLM(LM):
         assert x[-1] == EOS
         return self.model(x)
 
-    def p_next(self, prefix):
-        return self.model.p_next(prefix)
+    def p_next(self, context):
+        return self.model.p_next(context)
 
     @classmethod
     def from_string(cls, x, semiring=Float, **kwargs):

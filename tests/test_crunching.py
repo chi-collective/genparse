@@ -1,13 +1,13 @@
 from arsenal import colors
 from arsenal.iterextras import take
 from genparse import lark_guide, Float
-from genparse.lm import GreedilyTokenizedLLM
+from genparse.util import load_model_by_name
 from genparse.proposal.crunch import Crunching
 from time import time
 
 
 def test_basic():
-    llm = GreedilyTokenizedLLM('gpt2')
+    llm = load_model_by_name('gpt2')
     guide = lark_guide("""
 
     start: "Sequential Monte Carlo is " ( "good" | "bad" )

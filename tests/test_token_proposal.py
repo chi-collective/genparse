@@ -4,9 +4,9 @@ from arsenal import timeit
 from genparse.util import set_seed
 from genparse.cfglm import add_EOS, locally_normalize, BoolMaskCFGLM
 from genparse.parse.earley import EarleyLM
-from genparse.lm import make_mock_llm, MockLLM
+from genparse.lm import MockLLM
 from genparse.proposal import TokenProposal
-from genparse.util import LarkStuff
+from genparse.util import LarkStuff, make_mock_llm
 from genparse.proposal.util import (
     mock_token_proposal,
     assert_proper_weighting,
@@ -27,33 +27,31 @@ def test_basic_aligned_model_iql_small():
     llm = make_mock_llm()
 
     # the base character-level CFG language model
-    cfg = add_EOS(
+    guide = EarleyLM(
         locally_normalize(
             LarkStuff(
                 r"""
-    start: "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
-    EOS: "</s>"
-    select_expr: STAR | select_list
-    bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
-    bool_expr: var "=" value | var ">" value | var "<" value
-    from_expr: "data"
-    orderby_expr: var_list WS "ASC" | var_list WS "DESC"
-    select_list: select_var ("," WS select_var)*
-    var_list: var ("," WS var)*
-    select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
-    var: "age" | "gender" | "year" | "state_color" | "zipcode" | "vote" | "race_ethnicity"
-    value: NUMBER | "red" | "blue" | "white" | "black" | "latino" | "republican" | "democrat" | "male" | "female"
-    STAR: "*"
-    NUMBER: /\d+/
-    //WS: /[ \t\f\r\n]/
-    WS: " "
-    """
+                start: "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
+                EOS: "</s>"
+                select_expr: STAR | select_list
+                bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
+                bool_expr: var "=" value | var ">" value | var "<" value
+                from_expr: "data"
+                orderby_expr: var_list WS "ASC" | var_list WS "DESC"
+                select_list: select_var ("," WS select_var)*
+                var_list: var ("," WS var)*
+                select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
+                var: "age" | "gender" | "year" | "state_color" | "zipcode" | "vote" | "race_ethnicity"
+                value: NUMBER | "red" | "blue" | "white" | "black" | "latino" | "republican" | "democrat" | "male" | "female"
+                STAR: "*"
+                NUMBER: /\d+/
+                //WS: /[ \t\f\r\n]/
+                WS: " "
+                """
             ).char_cfg(0.9),
             tol=1e-100,
         ).trim()
     )
-
-    guide = EarleyLM(cfg)
 
     proposal = TokenProposal(guide=guide, llm=llm)
 

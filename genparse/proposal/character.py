@@ -5,8 +5,6 @@ from arsenal.maths import sample_dict
 from genparse.proposal.trie_numba import TokenCharacterTrie
 from genparse.semiring import Float
 
-from inspect import iscoroutinefunction
-
 
 class CharacterProposal(TokenCharacterTrie):
     """
@@ -115,10 +113,7 @@ class CharacterProposal(TokenCharacterTrie):
         """
         if p_llm is None:
             with self.timer['llm'](t=len(context)):
-                if iscoroutinefunction(self.llm.p_next):
-                    p_llm = await self.llm.p_next(prompt + context)
-                else:
-                    p_llm = self.llm.p_next(prompt + context)
+                p_llm = await self.llm.p_next_async(prompt + context)
 
         self._update_trie(p_llm)
 

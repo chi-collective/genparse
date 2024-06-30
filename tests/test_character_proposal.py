@@ -1,10 +1,9 @@
 from arsenal import colors, timeit
 
 from genparse.cfglm import CFGLM, BoolMaskCFGLM, locally_normalize
-from genparse.lm import GreedilyTokenizedLLM
 from genparse.proposal import CharacterProposal
 from genparse.semiring import Float
-from genparse.util import LarkStuff, set_seed
+from genparse.util import LarkStuff, set_seed, load_model_by_name
 
 from genparse.proposal.util import (
     mock_character_proposal,
@@ -26,9 +25,7 @@ def test_timothy():
     )
 
     prompt = 'Hello my name is'
-    llm = GreedilyTokenizedLLM('gpt2')
-
-    llm.sample('My name is', verbose=1, max_tokens=10)
+    llm = load_model_by_name('gpt2')
 
     proposal = CharacterProposal(llm=llm, guide=pcfg)
     W = Float.chart()
@@ -91,7 +88,7 @@ def todo_chomsky():
     #    pp = pcfg.p_next(x)
 
     prompt = ' '
-    llm = GreedilyTokenizedLLM('gpt2')
+    llm = load_model_by_name('gpt2')
 
     W = Float.chart()
 
