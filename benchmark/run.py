@@ -1,18 +1,14 @@
-import random
-
-import numpy as np
 from example_grammars import arith, iql_small
 
 from genparse import locally_normalize
 from genparse.experimental.earley import EarleyLM
 from genparse.lm import make_mock_llm
 from genparse.proposal import CharacterProposal, TokenProposal
-from genparse.util import LarkStuff
+from genparse.util import LarkStuff, set_seed
 
 
 def test_token_arith():
-    np.random.seed(0)
-    random.seed(0)
+    set_seed(0)
 
     cfg = locally_normalize(LarkStuff(arith, cnf=False).char_cfg(0.9), tol=1e-100).trim()
 
@@ -29,8 +25,7 @@ def test_token_arith():
 
 
 def test_character_arith():
-    np.random.seed(0)
-    random.seed(0)
+    set_seed(0)
 
     cfg = locally_normalize(LarkStuff(arith, cnf=False).char_cfg(0.99), tol=1e-100).trim()
 
@@ -47,8 +42,7 @@ def test_character_arith():
 
 
 def test_token_iql_small():
-    np.random.seed(0)
-    random.seed(0)
+    set_seed(0)
 
     cfg = locally_normalize(
         LarkStuff(iql_small, cnf=False).char_cfg(0.99), tol=1e-100
@@ -67,8 +61,7 @@ def test_token_iql_small():
 
 
 def test_character_iql_small():
-    np.random.seed(0)
-    random.seed(0)
+    set_seed(0)
 
     llm = make_mock_llm()
 
