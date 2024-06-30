@@ -32,18 +32,11 @@ class CharacterProposal(TokenCharacterTrie):
 
     """
 
-    __slots__ = (
-        'root',
-        'children',
-        'mass',
-        'word2leaf',
-        'jump',
-        'ordering',
+    # pylint: disable=redefined-slots-in-subclass
+    __slots__ = TokenCharacterTrie.__slots__ + (
         'llm',
         'guide',
         'timer',
-        'old_eos',
-        'new_eos',
     )
 
     def __init__(self, *, llm, guide):

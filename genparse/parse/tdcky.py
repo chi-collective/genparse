@@ -56,9 +56,9 @@ class ExactTensorDecomp:
         (b, _) = self.chart(xs)
         return b[len(xs)][0][self.S]
 
-    #    def p_next(self, prefix):
-    #        (_, by) = self.chart(prefix)
-    #        return self.next_token_weights(by, prefix)
+    # def p_next(self, prefix):
+    #    (_, by) = self.chart(prefix)
+    #    return self.next_token_weights(by, prefix)
 
     def chart(self, prefix):
         c = self._chart.get(prefix)
@@ -246,7 +246,7 @@ def test_cky():
 
 
 def test_new_papa():
-    from genparse.cfglm import add_EOS, CKYLM
+    from genparse.parse.cky import CKYLM, add_EOS
 
     cfg = add_EOS(genparse.examples.papa)
 

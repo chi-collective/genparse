@@ -5,14 +5,14 @@ from genparse.trace import TraceSWOR
 from genparse import Float
 from genparse.lm import MockLLM, LM
 from genparse.proposal import TokenProposal, CharacterProposal
-from genparse.cfglm import BoolMaskCFGLM
+from genparse.cfglm import BoolCFGLM
 from genparse.util import LarkStuff
 
 
 # TODO: `ignore` should be an explicit argument!  Replace make_guide with `genparse.util.lark_guide`.
 def _make_guide(guide_spec):
     if isinstance(guide_spec, str):
-        return BoolMaskCFGLM(LarkStuff(guide_spec).char_cfg(ignore='[ ]?'))
+        return BoolCFGLM(LarkStuff(guide_spec).char_cfg(ignore='[ ]?'))
     elif isinstance(guide_spec, LM):
         return guide_spec
     else:

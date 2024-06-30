@@ -1,5 +1,41 @@
 from collections import defaultdict
 
+from genparse.lm import LM
+from genparse.cfglm import EOS, add_EOS, locally_normalize, CFG
+from genparse import Float
+
+
+class CKYLM(LM):
+    """
+    Probabilistic Context-Free Grammar Language Model.
+
+    Uses CKY and the prefix grammar transformation for efficient inference.
+    """
+
+    def __init__(self, cfg, **kwargs):
+        if EOS not in cfg.V:
+            cfg = add_EOS(cfg)
+
+        self.cfg = cfg
+        self.pfg = self.cfg.cnf.prefix_grammar.cnf
+        self.model = IncrementalCKY(self.pfg, **kwargs)
+
+        super().__init__(V=cfg.V, eos=EOS)
+
+    def __call__(self, x):
+        assert x[-1] == EOS
+        return self.model(x)
+
+    def p_next(self, context):
+        return self.model.p_next(context)
+
+    @classmethod
+    def from_string(cls, x, semiring=Float, **kwargs):
+        return cls(locally_normalize(CFG.from_string(x, semiring), **kwargs))
+
+    def clear_cache(self):
+        self.model.clear_cache()
+
 
 class IncrementalCKY:
     def __init__(self, cfg):

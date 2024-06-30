@@ -1,6 +1,6 @@
 import numba
 import numpy as np
-from numba.typed import List
+from numba.typed import List  # pylint: disable=no-name-in-module
 
 
 class TokenCharacterTrie:

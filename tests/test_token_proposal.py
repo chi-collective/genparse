@@ -2,7 +2,7 @@ import numpy as np
 from arsenal import timeit
 
 from genparse.util import set_seed
-from genparse.cfglm import add_EOS, locally_normalize, BoolMaskCFGLM
+from genparse.cfglm import add_EOS, locally_normalize, BoolCFGLM
 from genparse.parse.earley import EarleyLM
 from genparse.lm import MockLLM
 from genparse.proposal import TokenProposal
@@ -285,7 +285,7 @@ def test_proper_weighting():
 
 # TODO: fix this error!
 def todo_github_issue_15_wildcard_divide_by_zero():
-    guide = BoolMaskCFGLM.from_string(
+    guide = BoolCFGLM.from_string(
         """
 
         1: S -> a

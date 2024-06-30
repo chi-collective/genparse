@@ -1,10 +1,9 @@
 import numpy as np
 from arsenal import colors
 
-from genparse import CFG, Float, Log as _Log
+from genparse import CFG, EOS, Float, Log as _Log
 from genparse import examples
-from genparse.cfglm import CKYLM, EOS
-from genparse.parse.cky import IncrementalCKY
+from genparse.parse.cky import CKYLM, IncrementalCKY
 from genparse.parse.earley_rescaled import Earley, EarleyLM
 
 

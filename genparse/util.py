@@ -21,9 +21,9 @@ def set_seed(seed):
 
 
 def lark_guide(grammar, decay=1, ignore=''):
-    from genparse.cfglm import BoolMaskCFGLM
+    from genparse.cfglm import BoolCFGLM
 
-    return BoolMaskCFGLM(LarkStuff(grammar).char_cfg(decay, ignore=ignore))
+    return BoolCFGLM(LarkStuff(grammar).char_cfg(decay, ignore=ignore))
 
 
 @lru_cache(None)

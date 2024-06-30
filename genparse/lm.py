@@ -212,7 +212,7 @@ class AsyncGreedilyTokenizedLLM(LM):
     def p_next(self, *args, **kwargs):
         return asyncio.run(self.p_next_async(*args, **kwargs))
 
-    async def p_next_async(self, context='', _logp=None, **kwargs):
+    async def p_next_async(self, context='', _logp=None, **kwargs):  # pylint: disable=unused-argument
         # Pass the kwargs to the model.
         # For vllm, we need to provide the log probabilities, and
         # _logp is provided by the vllm centralized step function
@@ -284,7 +284,7 @@ class LazyProb:
         _p = self._p
         _decode = self._decode
 
-        top_p = _p.argsort() if top is None else _p.argsort()[-top:]
+        top_p = _p.argsort() if top is None else _p.argsort()[-int(top) :]
 
         pp = Float.chart()
         for i in reversed(top_p):

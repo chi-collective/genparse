@@ -7,7 +7,6 @@ from arsenal import colors
 from genparse.cfg import CFG, _gen_nt
 from genparse.lm import LM
 from genparse.semiring import Boolean, Float
-from genparse.parse.cky import IncrementalCKY
 
 # EOS = '$EOS'
 # EOS = '🛑'
@@ -37,7 +36,7 @@ def locally_normalize(self, **kwargs):
     return new
 
 
-class BoolMaskCFGLM(LM):
+class BoolCFGLM(LM):
     "LM-like interface for Boolean-masking CFG models; uses Earley's algorithm for inference."
 
     def __init__(self, cfg, alg='earley'):
@@ -50,6 +49,8 @@ class BoolMaskCFGLM(LM):
 
             self.model = Earley(cfg.prefix_grammar)
         elif alg == 'cky':
+            from genparse.parse.cky import CKYLM
+
             self.model = CKYLM(cfg)
         else:
             raise ValueError(f'unrecognized option {alg}')
@@ -69,42 +70,6 @@ class BoolMaskCFGLM(LM):
     @classmethod
     def from_string(cls, x, semiring=Boolean, **kwargs):
         return cls(CFG.from_string(x, semiring), **kwargs)
-
-
-# TODO: move to genparse.parse.cky
-class CKYLM(LM):
-    """
-    Probabilistic Context-Free Grammar Language Model.
-
-    Uses CKY and the prefix grammar transformation for efficient inference.
-    """
-
-    def __init__(self, cfg, **kwargs):
-        if EOS not in cfg.V:
-            cfg = add_EOS(cfg)
-
-        self.cfg = cfg
-        self.pfg = self.cfg.cnf.prefix_grammar.cnf
-        self.model = IncrementalCKY(self.pfg, **kwargs)
-
-        super().__init__(V=cfg.V, eos=EOS)
-
-    def __call__(self, x):
-        assert x[-1] == EOS
-        return self.model(x)
-
-    def p_next(self, context):
-        return self.model.p_next(context)
-
-    @classmethod
-    def from_string(cls, x, semiring=Float, **kwargs):
-        return cls(locally_normalize(CFG.from_string(x, semiring), **kwargs))
-
-    def assert_pcfg(self, verbose=False):
-        assert pcfg_check(self.cfg, verbose=verbose)
-
-    def clear_cache(self):
-        self.model.clear_cache()
 
 
 def add_EOS(cfg):

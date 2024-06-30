@@ -1,7 +1,7 @@
 from arsenal import colors, timeit
 
 from genparse.parse.earley import EarleyLM
-from genparse.cfglm import BoolMaskCFGLM, locally_normalize
+from genparse.cfglm import BoolCFGLM, locally_normalize
 from genparse.proposal import CharacterProposal
 from genparse.semiring import Float
 from genparse.util import LarkStuff, set_seed, load_model_by_name
@@ -74,7 +74,7 @@ def todo_chomsky():
     # XXX: we are using the boolean CFG instead of the PCFG; the PCFG is running
     # into numerical underflow.  We need to use the log-semiring or a rescaling
     # trick in the Earley parser.
-    pcfg = BoolMaskCFGLM(pcfg.cfg)
+    pcfg = BoolCFGLM(pcfg.cfg)
 
     # print(''.join(pcfg.sample()))
 
