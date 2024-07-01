@@ -20,29 +20,29 @@ class Sampler:
     def __init__(self, lm1, lm2):
         self.lm1 = lm1  # This is supposed to be the LLM
         self.lm2 = lm2  # This is supposed to be the CFG
-        self.S = set() 
+        self.S = set()
         self.root = Node(1.0, None, None)
         assert lm1.V == lm2.V
         self.V = lm1.V
 
     def sample(self):
-        """ Samples a string and at the same time adds the string to the sample trie"""
+        """Samples a string and at the same time adds the string to the sample trie"""
         curr = self.root
-        a = ""
+        a = ''
         while a != EOS:
             for sym in self.V:
-                next = self.next_node(curr, sym) #ensure that every child is initialized
+                self.next_node(curr, sym)  # ensure that every child is initialized
             cs = list(curr.children)
             Z = sum([self.lm1.p_next(curr.prefix)[b] for b in cs])
-            ms = [curr.children[b].mass*self.lm1.p_next(curr.prefix)[b]/Z for b in cs]
+            ms = [curr.children[b].mass * self.lm1.p_next(curr.prefix)[b] / Z for b in cs]
             a = cs[sample(ms)]
             curr = curr.children[a]
         # self.update_backward(curr) # backward update of the efg values.
         curr.update_backward(self.lm1)
         return curr.prefix
-        
+
     def next_node(self, node, a):
-        """ Given a node and a symbol, returns the next node.
+        """Given a node and a symbol, returns the next node.
         If the next node does not exist, it creates the node and assign mass to it.
         This method should be used together with the GAD sampler"""
         if node.children and a in node.children.keys():
@@ -51,7 +51,7 @@ class Sampler:
             next = Node(self.lm2.p_next(node.prefix)[a], node, prefix=node.prefix + a)
             node.children[a] = next
             return next
-        
+
     # def update_backward(self, leaf):
     #     """ This method updates backwards the mass of the node -- leaf to root ---,
     #     following the approximate EFG scheme of Park et al.(2024)
@@ -61,15 +61,14 @@ class Sampler:
     #     while True:
     #         if curr == self.root:
     #             return
-            
+
     #         print(f" curr:{curr.prefix,curr.mass}, parent {parent.prefix,parent.mass}")
     #         Z = sum([self.lm1.p_next(parent.prefix)[a] for a in list(parent.children)])
     #         parent.mass = sum([self.lm1.p_next(parent.prefix)[a]/Z*node.mass \
     #                            for a, node in parent.children.items()]) # WE have to normalize since we need the next-token weight
     #         curr = parent
     #         parent = curr.parent
-            
-        
+
     # def __call__(self, p, context=None):
     #     "Sample an action while updating the trace cursor and tree data structure."
 
@@ -93,6 +92,7 @@ class Sampler:
     # a = cur.sample()
     # self.cur = cur.children[a]  # advance the cursor
     # return a
+
 
 class Node:
     __slots__ = ('mass', 'parent', 'children', 'prefix', '_mass')
@@ -143,18 +143,21 @@ class Node:
                 break
             path.append(a)
         return (P, path, curr)
-    
+
     def update_backward(self, lm1):
-        """ This method updates backwards the mass of the node -- leaf to root ---,
-            following the approximate EFG scheme of Park et al.(2024)
-        """  
+        """This method updates backwards the mass of the node -- leaf to root ---,
+        following the approximate EFG scheme of Park et al.(2024)
+        """
         # print(f" curr:{curr.prefix,curr.mass}, parent {parent.prefix,parent.mass}")
         Z = sum([lm1.p_next(self.prefix)[a] for a in list(self.children)])
-        self.mass = sum([lm1.p_next(self.prefix)[a]/Z*node.mass \
-                            for a, node in self.children.items()]) # WE have to normalize since we need the next-token weight
+        self.mass = sum(
+            [
+                lm1.p_next(self.prefix)[a] / Z * node.mass
+                for a, node in self.children.items()
+            ]
+        )  # WE have to normalize since we need the next-token weight
         if self.parent is not None:
             self.parent.update_backward(lm1)
-        
 
     # def update(self):
     #     "Restore the invariant that self.mass = sum children mass."
@@ -197,7 +200,12 @@ class Node:
                 q.append(y)
         for x in xs:
             if x.children is not None:
-                g.node(str(f(x)), label=str(fmt_node(x))+ "/" +x.prefix, shape='box')
+                g.node(str(f(x)), label=str(fmt_node(x)) + '/' + x.prefix, shape='box')
             else:
-                g.node(str(f(x)), label=str(fmt_node(x))+ "/" +x.prefix, shape='box', fillcolor='gray')
+                g.node(
+                    str(f(x)),
+                    label=str(fmt_node(x)) + '/' + x.prefix,
+                    shape='box',
+                    fillcolor='gray',
+                )
         return g
