@@ -496,6 +496,9 @@ class WFSA:
 
         # add other production rules
         for i, a, j, w in self.arcs():
-            cfg.add(w, i, a, j)
+            if a == EPSILON:
+                cfg.add(w, i, j)
+            else:
+                cfg.add(w, i, a, j)
 
         return cfg

@@ -181,7 +181,7 @@ class AsyncGreedilyTokenizedLLM(LM):
         super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
 
     def __call__(self, context):
-        return self.model(self.tokenizer.encode(context))
+        return self._model(self.tokenizer.encode(context))
 
     async def next_token_logprobs(self, context):
         p = await self.p_next_async(context)

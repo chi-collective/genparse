@@ -2,27 +2,13 @@
 Code For Grammar Aligned Decoding (Park et al., 2024)
 """
 
-import asyncio
-import copy
 import html
-
 import numpy as np
 from arsenal import Integerizer, colors
-from arsenal.maths import logsumexp, sample, softmax
+from arsenal.maths import sample
+
 from graphviz import Digraph
-
-from genparse.record import SMCRecord
-from genparse.semiring import Float
-from genparse.cfglm import EOS
-# from genparse import CFGLM as cfglm
-
-# EOS = '$EOS'
-# EOS = '🛑'
-# EOS = '▪'
-
-# EOT = '#'
-
-ERROR = '💥'
+from genparse import Float, EOS
 
 
 class Sampler:
@@ -32,8 +18,9 @@ class Sampler:
     """
 
     def __init__(self, lm1, lm2):
-        self.lm1 = lm1 # This is supposed to be the LLM
-        self.lm2 = lm2 # This is supposed to be the CFG
+        self.lm1 = lm1  # This is supposed to be the LLM
+        self.lm2 = lm2  # This is supposed to be the CFG
+        self.S = set() 
         self.root = Node(1.0, None, None)
         assert lm1.V == lm2.V
         self.V = lm1.V
@@ -61,7 +48,7 @@ class Sampler:
         if node.children and a in node.children.keys():
             return node.children[a]
         else:
-            next = Node(self.lm2.p_next(node.prefix)[a], node, prefix = node.prefix + a)
+            next = Node(self.lm2.p_next(node.prefix)[a], node, prefix=node.prefix + a)
             node.children[a] = next
             return next
         
@@ -103,24 +90,25 @@ class Sampler:
     #         print(colors.light.red % 'calling context:', context)
     #         raise ValueError((p, cur))
 
-    #     a = cur.sample()
-    #     self.cur = cur.children[a]  # advance the cursor
-    #     return a
+    # a = cur.sample()
+    # self.cur = cur.children[a]  # advance the cursor
+    # return a
 
 class Node:
     __slots__ = ('mass', 'parent', 'children', 'prefix', '_mass')
 
-    def __init__(self, mass, parent, children=None, prefix=None): #Clemente: Now children is initialized to empty set
+    def __init__(
+        self, mass, parent, children=None, prefix=None
+    ):  # Clemente: Now children is initialized to empty set
         self.mass = mass
         self.parent = parent
         self.children = {} if children is None else children
-        self.prefix = "" if prefix is None else prefix
+        self.prefix = '' if prefix is None else prefix
         self._mass = mass  # bookkeeping: remember the original mass
-
 
     @classmethod
     def build_trie_cfg(cls, S, cfglm):
-        Root = cls(1,None, prefix="")
+        Root = cls(1, None, prefix='')
         for stryng in S:
             curr = Root
             for i in range(len(stryng)):
@@ -128,11 +116,11 @@ class Node:
                 if curr.children and a in curr.children.keys():
                     curr = curr.children[a]
                 else:
-                    next = cls(cfglm.p_next(stryng[0:i])[a], curr, prefix = curr.prefix + a)
+                    next = cls(cfglm.p_next(stryng[0:i])[a], curr, prefix=curr.prefix + a)
                     curr.children[a] = next
                     curr = next
         return Root
-        
+
     def sample(self):
         cs = list(self.children)
         ms = [c.mass for c in self.children.values()]
@@ -208,13 +196,8 @@ class Node:
                 g.edge(str(f(x)), str(f(y)), label=f'{fmt_edge(x,a,y)}')
                 q.append(y)
         for x in xs:
-            g.node(str(f(x)), label=str(fmt_node(x))+"/"+x.prefix, shape='box')
+            if x.children is not None:
+                g.node(str(f(x)), label=str(fmt_node(x))+ "/" +x.prefix, shape='box')
+            else:
+                g.node(str(f(x)), label=str(fmt_node(x))+ "/" +x.prefix, shape='box', fillcolor='gray')
         return g
-
-
-
-
-
-    
-
-

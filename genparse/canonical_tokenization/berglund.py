@@ -1,6 +1,7 @@
 import dataclasses
 import itertools
 from collections.abc import Iterable, Sequence
+from arsenal import iterview
 
 State = int
 Symbol = int
@@ -22,7 +23,7 @@ class TokenDFA:
         base_alphabet: Iterable[Symbol], dictionary: Iterable[MergeRule]
     ) -> 'TokenDFA':
         dfa = TokenDFA.from_base_alphabet(base_alphabet)
-        for rule in dictionary:
+        for rule in iterview(dictionary):
             dfa.merge_rule(rule)
             # TODO Add trimming? Find all states not reachable from start state.
             # This can probably be done during construction without needing to rescan
