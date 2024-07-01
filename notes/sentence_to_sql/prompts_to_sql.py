@@ -277,11 +277,17 @@ def save_jsonl(outputs: list[dict[str, Any]], path: Path) -> None:
 
 
 def run_inference(
-    model_name: str, prompts: list[str], *, batch_size: int, n_particles: int
+    model_name: str,
+    prompts: list[str],
+    *,
+    batch_size: int,
+    max_new_tokens: int,
+    n_particles: int,
 ) -> list[dict[str, float]]:
+    tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
     llm = AsyncGreedilyTokenizedLLM(
         model=vllmpplLLM(model_name),
-        tokenizer=transformers.AutoTokenizer.from_pretrained(model_name),
+        tokenizer=tokenizer,
         batch_size=batch_size,
     )
     guide = BoolCFGLM(LarkStuff(_SQL_GRAMMAR).char_cfg(0.99, ignore='[ ]?'))
@@ -292,6 +298,7 @@ def run_inference(
             prompt=prompt,
             proposal=proposal,
             method='smc-standard',
+            max_tokens=max_new_tokens + len(tokenizer.tokenize(prompt)),
             n_particles=n_particles,
             verbosity=0,
         ).posterior
@@ -313,6 +320,12 @@ def main():
     )
     parser.add_argument(
         '--batch-size', type=int, default=10, help='The batch size to use for sampling.'
+    )
+    parser.add_argument(
+        '--max-new-tokens',
+        type=int,
+        default=128,
+        help='The maximum number of tokens to generate',
     )
     parser.add_argument(
         '--n-particles',
