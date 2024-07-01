@@ -298,7 +298,7 @@ def run_inference(
             prompt=prompt,
             proposal=proposal,
             method='smc-standard',
-            max_tokens=max_new_tokens + len(tokenizer.tokenize(prompt)),
+            max_tokens=max_new_tokens,
             n_particles=n_particles,
             verbosity=0,
         ).posterior
