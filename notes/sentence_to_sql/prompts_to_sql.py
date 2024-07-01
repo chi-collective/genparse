@@ -10,7 +10,7 @@ from typing import Any
 
 import transformers
 
-from genparse.cfglm import BoolMaskCFGLM
+from genparse.cfglm import BoolCFGLM
 from genparse.lm import AsyncGreedilyTokenizedLLM
 from genparse.proposal import CharacterProposal
 from genparse.vllm_compatibility import vllmpplLLM
@@ -284,7 +284,7 @@ def run_inference(
         tokenizer=transformers.AutoTokenizer.from_pretrained(model_name),
         batch_size=batch_size,
     )
-    guide = BoolMaskCFGLM(LarkStuff(_SQL_GRAMMAR).char_cfg(0.99, ignore='[ ]?'))
+    guide = BoolCFGLM(LarkStuff(_SQL_GRAMMAR).char_cfg(0.99, ignore='[ ]?'))
     proposal = CharacterProposal(llm=llm, guide=guide)
     sampler = VLLMSampler(llm=llm, guide=guide)
     result = [
