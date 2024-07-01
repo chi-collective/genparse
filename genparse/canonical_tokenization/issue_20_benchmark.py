@@ -10,7 +10,8 @@ import transformers
 from arsenal import timers
 from genparse.canonical_tokenization import berglund
 from genparse.canonical_tokenization import berglund2
-from genparse.canonical_tokenization import berglund3
+
+# from genparse.canonical_tokenization import berglund3
 from genparse.canonical_tokenization.util import are_isomorphic
 
 
