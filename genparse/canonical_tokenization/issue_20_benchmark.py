@@ -7,9 +7,10 @@ import torch
 import transformers
 
 # from arsenal.profiling import profiler
-
+from arsenal import timers
 from genparse.canonical_tokenization import berglund
 from genparse.canonical_tokenization import berglund2
+from genparse.canonical_tokenization import berglund3
 from genparse.canonical_tokenization.util import are_isomorphic
 
 
@@ -98,37 +99,37 @@ def construct_canonicalizer_from_tokenizer(
     del merge_rules
 
     # Run Berglund's algorithm to construct the token DFA.
-    import warnings
-
-    warnings.warn('timv hacked this')
-
-    from arsenal import timers
 
     T = timers()
 
+    print('number of merge_rules:', len(merge_rules_as_int))
     # run on a subset of the data that
-    merge_rules_as_int = merge_rules_as_int[:10_000]
+    merge_rules_as_int = merge_rules_as_int[:1_000]
 
-    with T['brain']:
-        dfa1 = berglund.TokenDFA.from_dictionary(base_alphabet_as_int, merge_rules_as_int)
+    try:
+        with T['brain']:
+            dfa1 = berglund.TokenDFA.from_dictionary(
+                base_alphabet_as_int, merge_rules_as_int
+            )
+    except KeyboardInterrupt:
+        dfa1 = None
 
-    with T['timv']:
+    with T['v2']:
         dfa2 = berglund2.TokenDFA.from_dictionary(
             base_alphabet_as_int, merge_rules_as_int
         )
 
+    #    with T['v3']:
+    #        dfa3 = berglund3.TokenDFA.from_dictionary(
+    #            base_alphabet_as_int, merge_rules_as_int
+    #        )
+
     T.compare()
-    assert are_isomorphic(dfa1, dfa2, base_alphabet_as_int)
+    if dfa1 is not None:
+        assert are_isomorphic(dfa1, dfa2, base_alphabet_as_int)
 
 
-#    return
-#    transition_tensor = torch.tensor(list(dfa.get_transitions()))
-#    return dict(
-#        num_states=dfa.num_states,
-#        vocabulary_size=vocabulary_size,
-#        eos_token_id=eos_token_id,
-#        transitions=transition_tensor,
-#    )
+#    assert are_isomorphic(dfa2, dfa3, base_alphabet_as_int)
 
 
 def generate_byte_tokens():
@@ -152,19 +153,11 @@ def main():
         type=pathlib.Path,
         help='Path to a .json file defining a Hugging Face tokenizer.',
     )
-    parser.add_argument(
-        '--output',
-        type=pathlib.Path,
-        required=True,
-        help='Path to an output .pt file where the canonicalizer will be ' 'written.',
-    )
+
     args = parser.parse_args()
 
     # canonicalizer =
     construct_canonicalizer_from_tokenizer(get_tokenizer_data_from_args(args, parser))
-
-
-#    torch.save(canonicalizer, args.output)
 
 
 if __name__ == '__main__':

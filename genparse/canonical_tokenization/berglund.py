@@ -1,5 +1,6 @@
 import dataclasses
 import itertools
+import sys
 from collections.abc import Iterable, Sequence
 from arsenal import iterview
 
@@ -23,11 +24,19 @@ class TokenDFA:
         base_alphabet: Iterable[Symbol], dictionary: Iterable[MergeRule]
     ) -> 'TokenDFA':
         dfa = TokenDFA.from_base_alphabet(base_alphabet)
-        for rule in iterview(dictionary):
+        for i, rule in enumerate(iterview(dictionary), start=1):
             dfa.merge_rule(rule)
             # TODO Add trimming? Find all states not reachable from start state.
             # This can probably be done during construction without needing to rescan
             # the automaton from scratch every time.
+            if i % 5000 == 0:
+                print(dfa.num_states, 'states')
+                print(sum(len(dfa.transitions[i]) for i in dfa.transitions), 'arcs')
+
+        print('finalize:')
+        print(dfa.num_states, 'states')
+        print(sum(len(dfa.transitions[i]) for i in dfa.transitions), 'arcs')
+
         return dfa
 
     @staticmethod

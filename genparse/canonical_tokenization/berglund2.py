@@ -1,13 +1,6 @@
-import dataclasses
-import itertools
-from collections.abc import Iterable, Sequence
-from arsenal import iterview
-
-State = int
-Symbol = int
-# A merge rule consists of (u, v, uv), where uv is the index of the symbol for
-# the concatenation of u and v.
-MergeRule = tuple[Symbol, Symbol, Symbol]
+import numpy as np
+import sys
+from arsenal import iterview, Integerizer
 
 
 class TokenDFA:
@@ -23,22 +16,30 @@ class TokenDFA:
         return self.transitions[i].get(a)
 
     @staticmethod
-    def from_dictionary(
-        base_alphabet: Iterable[Symbol], dictionary: Iterable[MergeRule]
-    ) -> 'TokenDFA':
+    def from_dictionary(base_alphabet, dictionary):
         dfa = TokenDFA.from_base_alphabet(base_alphabet)
-        for rule in iterview(dictionary):
+        for i, rule in enumerate(iterview(dictionary), start=1):
             dfa.merge_rule(rule)
             # TODO Add trimming? Find all states not reachable from start state.
             # This can probably be done during construction without needing to rescan
             # the automaton from scratch every time.
+            if i % 5000 == 0:
+                dfa.trim()
+                print(dfa.num_states, 'states')
+                print(sum(len(t) for t in dfa.transitions), 'arcs')
+
+        print('finalize:')
+        dfa.trim()
+        print(dfa.num_states, 'states')
+        print(sum(len(t) for t in dfa.transitions), 'arcs')
+
         return dfa
 
     @classmethod
-    def from_base_alphabet(cls, base_alphabet: Iterable[Symbol]) -> 'TokenDFA':
+    def from_base_alphabet(cls, base_alphabet):
         return cls(base_alphabet)
 
-    def new_states(self, n: int) -> range:
+    def new_states(self, n):
         lo = self.num_states
         self.num_states += n
         new_states = range(lo, self.num_states)
@@ -46,13 +47,41 @@ class TokenDFA:
             self.transitions.append({})
         return new_states
 
-    #    def get_transitions(self) -> Iterable[tuple[State, Symbol, State]]:
-    #        for state_from, transitions_from_state in self.transitions.items():
-    #            for symbol, state_to in transitions_from_state.items():
-    #                yield state_from, symbol, state_to
+    def reachable(self):
+        agenda = [0]
+        chart = {0}
+        transitions = self.transitions
+        while agenda:
+            i = agenda.pop()
+            for j in transitions[i].values():
+                if j not in chart:
+                    chart.add(j)
+                    agenda.append(j)
+        return chart
 
-    def merge_rule(self, rule: MergeRule) -> None:
+    def trim(self):
+        R = self.reachable()
+        # renumber the states
+        print(
+            'reachable', len(R) / self.num_states, '=', len(R), 'out of', self.num_states
+        )
+
+        f = Integerizer()
+        assert f(0) == 0  # ensure that 0 -> 0
+        new = [{} for _ in R]
+        old = self.transitions
+        for i in sorted(R):
+            for a, j in old[i].items():
+                if j in R:
+                    new[f(i)][a] = f(j)
+        self.transitions = new
+        self.num_states = len(R)
+
+    def merge_rule(self, rule):
         # This implements Algorithm 2 of https://arxiv.org/pdf/2405.07671
+
+        # A merge rule consists of (u, v, uv), where uv is the index of the
+        # symbol for the concatenation of u and v.
         u, v, uv = rule
         transitions = self.transitions
         J = set()

@@ -1,10 +1,11 @@
 from functools import lru_cache
 from collections import defaultdict
+from arsenal import colors
 
 
 def are_isomorphic(dfa1, dfa2, vocab_as_int):
-    if dfa1.num_states != dfa2.num_states:
-        return False
+    #    if dfa1.num_states != dfa2.num_states:
+    #        return False
     agenda = [0]
     state_mapping = {0: 0}
     while agenda:
@@ -14,18 +15,54 @@ def are_isomorphic(dfa1, dfa2, vocab_as_int):
             r2 = dfa2.get_state_to(state_mapping[q1], a)
             if r1 is None:
                 if r2 is not None:
+                    print(
+                        colors.light.red % 'problem:',
+                        (q1, state_mapping[q1]),
+                        a,
+                        (r1, r2),
+                    )
                     return False
             else:
                 if r2 is None:
+                    print(
+                        colors.light.red % 'problem:',
+                        (q1, state_mapping[q1]),
+                        a,
+                        (r1, r2),
+                    )
                     return False
                 else:
                     if r1 in state_mapping:
                         if r2 != state_mapping[r1]:
+                            print(
+                                colors.light.red % 'problem:',
+                                (q1, state_mapping[q1]),
+                                a,
+                                'have',
+                                (r1, r2),
+                                'want',
+                                (r1, state_mapping[r1]),
+                            )
                             return False
                     else:
                         state_mapping[r1] = r2
                         agenda.append(r1)
     return True
+
+
+def reachable(self):
+    agenda = [0]
+    chart = {0}
+    while agenda:
+        q1 = agenda.pop()
+        for a in range(self.alphabet_size):
+            r1 = self.transitions[q1, a]
+            if r1 == -1:
+                continue
+            if r1 not in chart:
+                chart.add(r1)
+                agenda.append(r1)
+    return chart
 
 
 # TODO: unused; untested
