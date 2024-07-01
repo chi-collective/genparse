@@ -270,12 +270,10 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
     record = (
         SMCRecord(
             {
-                'step': [0],
-                'context': [[p.context.copy() for p in particles]],
-                'weight': [[p.weight for p in particles]],
-                'resample?': [False],
-                'resampled as': [[i for i, _ in enumerate(particles)]],
-                'average weight': [0.0],
+                'n_particles': n_particles,
+                'ess_threshold': ess_threshold,
+                'algorithm': 'smc_standard_record',
+                'history': [],
             }
         )
         if return_record
@@ -287,7 +285,7 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
 
     while model.llm._model.llm_engine.has_unfinished_requests():
         if return_record:
-            record['step'].append(step_num)
+            step = {'step': step_num}
 
         # Step each particle
 
@@ -308,9 +306,10 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
             print(f'│ Step {step_num:3d} average weight: {avg_weight:.4f}')
 
         if return_record:
-            record['context'].append([p.context.copy() for p in particles])
-            record['weight'].append(weights)
-            record['average weight'].append(avg_weight)
+            step['particles'] = [
+                {'context': p.context.copy(), 'weight': p.weight} for p in particles
+            ]
+            step['average_weight'] = avg_weight
 
         # Resample if necessary
         if -logsumexp(weights_normalized * 2) < np.log(ess_threshold) + np.log(
@@ -325,14 +324,12 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
                     np.random.choice(range(len(particles)), p=probs)
                     for _ in range(n_particles)
                 ]
-                resampled_indices.sort()
+                resampled_indices.sort()  # remove this. sorting should be done in post if necessary
                 model.particles[request_id] = [
                     copy.deepcopy(particles[i]) for i in resampled_indices
                 ]
                 particles = model.particles[request_id]
-
-                record['resample?'] += [True]
-                record['resampled as'].append(resampled_indices)
+                step['resample_indices'] = resampled_indices
             else:
                 model.particles[request_id] = [
                     copy.deepcopy(
@@ -350,15 +347,13 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
                     f'└╼  Resampling! {resampled_indices}. Weights all set to = {avg_weight:.4f}.'
                 )
         else:
-            if return_record:
-                record['resample?'].append(False)
-                record['resampled as'].append([i for i, _ in enumerate(particles)])
-
             if verbosity > 0:
                 print('└╼')
 
         if return_record or verbosity > 0:
             step_num += 1
+            if return_record:
+                record['history'].append(step)
 
     return particles, record
 
