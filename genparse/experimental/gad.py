@@ -1,6 +1,7 @@
 """
 Code For Grammar Aligned Decoding (Park et al., 2024)
 """
+
 import html
 import numpy as np
 from arsenal import Integerizer, colors
@@ -17,25 +18,25 @@ class Sampler:
     """
 
     def __init__(self, lm1, lm2):
-        self.lm1 = lm1 # This is supposed to be the LLM
-        self.lm2 = lm2 # This is supposed to be the CFG
-        self.S = set() 
+        self.lm1 = lm1  # This is supposed to be the LLM
+        self.lm2 = lm2  # This is supposed to be the CFG
+        self.S = set()
         self.root = Node(1.0, None, None)
         self.cur = None
 
     def next_node(self, node, a):
-        """ Given a node and a symbol, returns the next node.
+        """Given a node and a symbol, returns the next node.
         If the next node does not exists, it creates the node and assigns mass to it.
         This method should be used together with the GAD sampler"""
         if node.children and a in node.children.keys():
             return node.children[a]
         else:
-            next = Node(self.lm2.p_next(node.prefix)[a], node, prefix = node.prefix + a)
+            next = Node(self.lm2.p_next(node.prefix)[a], node, prefix=node.prefix + a)
             node.children[a] = next
             return next
-        
+
     def update_backward(self, leaf):
-        """ This method updates backwards the mass of the node -- leaf to root ---,
+        """This method updates backwards the mass of the node -- leaf to root ---,
         following the approximate EFG scheme of Park et al.(2024)
         """
         curr = leaf
@@ -44,11 +45,15 @@ class Sampler:
             if curr == self.root:
                 return
             Z = sum([self.lm1.p_next(parent.prefix)[a] for a in parent.children.keys()])
-            parent.mass = sum([self.lm1.p_next(parent.prefix)[a]/Z*node.mass \
-                               for a, node in parent.children.items()])
+            parent.mass = sum(
+                [
+                    self.lm1.p_next(parent.prefix)[a] / Z * node.mass
+                    for a, node in parent.children.items()
+                ]
+            )
             curr = parent
             parent = curr.parent
-        
+
     def __call__(self, p, context=None):
         "Sample an action while updating the trace cursor and tree data structure."
 
@@ -73,20 +78,22 @@ class Sampler:
         self.cur = cur.children[a]  # advance the cursor
         return a
 
+
 class Node:
     __slots__ = ('mass', 'parent', 'children', 'prefix', '_mass')
 
-    def __init__(self, mass, parent, children=None, prefix=None): #Clemente: Now children is initialized to empty set
+    def __init__(
+        self, mass, parent, children=None, prefix=None
+    ):  # Clemente: Now children is initialized to empty set
         self.mass = mass
         self.parent = parent
         self.children = {} if children is None else children
-        self.prefix = "" if prefix is None else prefix
+        self.prefix = '' if prefix is None else prefix
         self._mass = mass  # bookkeeping: remember the original mass
-
 
     @classmethod
     def build_trie_cfg(cls, S, cfglm):
-        Root = cls(1,None, prefix="")
+        Root = cls(1, None, prefix='')
         for stryng in S:
             curr = Root
             for i in range(len(stryng)):
@@ -94,11 +101,11 @@ class Node:
                 if curr.children and a in curr.children.keys():
                     curr = curr.children[a]
                 else:
-                    next = cls(cfglm.p_next(stryng[0:i])[a], curr, prefix = curr.prefix + a)
+                    next = cls(cfglm.p_next(stryng[0:i])[a], curr, prefix=curr.prefix + a)
                     curr.children[a] = next
                     curr = next
         return Root
-        
+
     def sample(self):
         cs = list(self.children)
         ms = [c.mass for c in self.children.values()]
@@ -163,15 +170,12 @@ class Node:
                 q.append(y)
         for x in xs:
             if x.children is not None:
-                g.node(str(f(x)), label=str(fmt_node(x))+"/"+x.prefix, shape='box')
+                g.node(str(f(x)), label=str(fmt_node(x)) + '/' + x.prefix, shape='box')
             else:
-                g.node(str(f(x)), label=str(fmt_node(x))+"/"+x.prefix, shape='box', fillcolor='gray')
+                g.node(
+                    str(f(x)),
+                    label=str(fmt_node(x)) + '/' + x.prefix,
+                    shape='box',
+                    fillcolor='gray',
+                )
         return g
-
-
-
-
-
-    
-
-
