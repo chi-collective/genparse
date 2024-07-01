@@ -1,30 +1,5 @@
 from genparse.canonical_tokenization.berglund import TokenDFA
-
-
-def are_isomorphic(dfa1, dfa2, vocab_as_int):
-    if dfa1.num_states != dfa2.num_states:
-        return False
-    agenda = [0]
-    state_mapping = {0: 0}
-    while agenda:
-        q1 = agenda.pop()
-        for a in vocab_as_int:
-            r1 = dfa1.get_state_to(q1, a)
-            r2 = dfa2.get_state_to(state_mapping[q1], a)
-            if r1 is None:
-                if r2 is not None:
-                    return False
-            else:
-                if r2 is None:
-                    return False
-                else:
-                    if r1 in state_mapping:
-                        if r2 != state_mapping[r1]:
-                            return False
-                    else:
-                        state_mapping[r1] = r2
-                        agenda.append(r1)
-    return True
+from genparse.canonical_tokenization.util import are_isomorphic
 
 
 def test_example_2():
