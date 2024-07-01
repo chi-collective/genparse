@@ -294,7 +294,7 @@ def run_inference(
             method='smc-standard',
             n_particles=n_particles,
             verbosity=0,
-        )[0].posterior
+        ).posterior
         for prompt in prompts
     ]
     return result
