@@ -1,27 +1,13 @@
 """
 Code For Grammar Aligned Decoding (Park et al., 2024)
 """
-
-import asyncio
-import copy
 import html
-
 import numpy as np
 from arsenal import Integerizer, colors
-from arsenal.maths import logsumexp, sample, softmax
+from arsenal.maths import sample
+
 from graphviz import Digraph
-
-from genparse.record import SMCRecord
-from genparse.semiring import Float
-from genparse import CFGLM as cfglm
-
-# EOS = '$EOS'
-# EOS = '🛑'
-EOS = '▪'
-
-# EOT = '#'
-
-ERROR = '💥'
+from genparse import Float, EOS
 
 
 class Sampler:
