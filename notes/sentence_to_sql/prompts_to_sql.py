@@ -351,6 +351,7 @@ def main():
     save_inferences_to: Path = args.save_inferences_to
     model: str = args.model
     batch_size: int = args.batch_size
+    max_new_tokens: int = args.max_new_tokens
     n_particles: int = args.n_particles
 
     prompt_dicts = load_jsonl(prompts_path)
@@ -358,6 +359,7 @@ def main():
         model,
         [prompt_dict['prompt'] for prompt_dict in prompt_dicts],
         batch_size=batch_size,
+        max_new_tokens=max_new_tokens,
         n_particles=n_particles,
     )
     outputs = [
