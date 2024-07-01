@@ -104,7 +104,7 @@ def construct_canonicalizer_from_tokenizer(
 
     print('number of merge_rules:', len(merge_rules_as_int))
     # run on a subset of the data that
-    merge_rules_as_int = merge_rules_as_int[:1_000]
+    merge_rules_as_int = merge_rules_as_int[:]
 
     try:
         with T['brain']:

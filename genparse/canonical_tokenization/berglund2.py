@@ -68,12 +68,13 @@ class TokenDFA:
 
         f = Integerizer()
         assert f(0) == 0  # ensure that 0 -> 0
-        new = [{} for _ in R]
+        new = [None for _ in R]
         old = self.transitions
-        for i in sorted(R):
-            for a, j in old[i].items():
-                if j in R:
-                    new[f(i)][a] = f(j)
+        for i in range(self.num_states):
+            if i in R:
+                new[f(i)] = {a: f(j) for a, j in old[i].items() if j in R}
+            # null-out the old version to avoid have periods with duplicate memory usage
+            old[i] = None
         self.transitions = new
         self.num_states = len(R)
 
