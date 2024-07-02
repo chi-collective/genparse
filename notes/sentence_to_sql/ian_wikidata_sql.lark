@@ -12,7 +12,7 @@ bool_condition_people: bool_expr_people | "(" bool_condition_people WS "AND" WS 
 bool_expr_people: people_column WS* "=" WS* people_value | var WS* "<" WS* value
 
 orderby_expr_people: var_list_people WS "ASC" | var_list_people WS "DESC"
-var_list: people_column ("," WS people_column)*
+var_list_people: people_column ("," WS people_column)*
 
 people_column: _common_name | _given_name | _family_name | _name_in_native_language | _languages_spoken_written_or_signed | _date_of_birth | _place_of_birth | _spouse | _mother | _father | _country_of_citizenship | _occupation | _religion_or_worldview | _sex_or_gender
 _common_name: "itemLabel.value"
