@@ -153,6 +153,8 @@ def test_normalizing_constant_unbiased():
             STAR: "*"
             NUMBER: /\d+/
             WS: /[ ]/
+            SPACE: " "
+            %ignore SPACE
      """
 
     proposal = mock_character_proposal(V=V, guide_spec=grammar, uniform=True)
