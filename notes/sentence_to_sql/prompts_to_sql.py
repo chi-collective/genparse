@@ -57,7 +57,9 @@ def run_inference(
     sampler = VLLMSampler(llm=llm, guide=guide)
     reformatted_prompts = (
         [
-            tokenizer.apply_chat_template([{'role': 'user', 'content': prompt}])
+            tokenizer.apply_chat_template(
+                [{'role': 'user', 'content': prompt}], tokenize=False
+            )
             for prompt in prompts
         ]
         if tokenizer.chat_template
