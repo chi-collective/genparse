@@ -40,6 +40,22 @@ class TokenDFA:
             transitions=[transitions_from_init], in_degree=[len(transitions_from_init)]
         )
 
+    @staticmethod
+    def from_transitions(
+        num_states: int, transitions: Iterable[tuple[State, Symbol, State]]
+    ) -> 'TokenDFA':
+        """Precondition: no transitions with the same source state and symbol."""
+        dfa = TokenDFA.from_states(num_states)
+        for q, a, r in transitions:
+            dfa.add_transition(q, a, r)
+        return dfa
+
+    @staticmethod
+    def from_states(num_states: int) -> 'TokenDFA':
+        return TokenDFA(
+            transitions=[{} for _ in range(num_states)], in_degree=[0] * num_states
+        )
+
     def states(self) -> range:
         return range(len(self.transitions))
 
