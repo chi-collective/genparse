@@ -13,14 +13,22 @@ from genparse.vllm_compatibility import vllmpplLLM
 
 
 class LM:
-    """We say that p: V* → [0,1] is a language model if p is a probability
-    distribution over strings from some alphabet V of tokens.
+    r"""We say that $p\colon V^* \to [0,1]$ is a language model if $p$ is a probability
+    distribution over strings from some alphabet $V$ of tokens.
 
-    Every language model admits a left-to-right factorization `p_next`
+    Every language model admits a left-to-right factorization:
 
-    p(x_1 x_2 ⋯ x_T) = p_next(x_1) p_next(x_2 | x_1) ⋯ p_next(x_T | x_1 ⋯ x_{T-1}) p_next(EOS | x_1 ⋯ x_T)
+    $$
+    p(x_1 x_2 \cdots x_T) = p(x_1 \mid \varepsilon) p(x_2 \mid x_1) \cdots p(x_T \mid x_1 \cdots x_{T-1}) p(\mathrm{EOS} \mid x_1 \cdots x_T)
+    $$
 
-    We call `p_next` the (conditional) distribution over the next token.
+    Arguments:
+
+      - `V`: a vocabulary of symbols
+
+      - `eos`: a distinguished symbold $\not\in$ `V`
+
+      - `p_next(xs)`: $p(\cdot \mid x_1 \cdots x_T)$ is provided by subclasses.
 
     """
 
