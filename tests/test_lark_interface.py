@@ -1,7 +1,7 @@
 import numpy as np
 
 from genparse.parse.earley import EarleyLM, Earley
-from genparse.cfglm import locally_normalize
+from genparse.cfglm import locally_normalize, BoolCFGLM
 from genparse.util import LarkStuff, expand_case_insensitive
 
 grammar1 = r"""
@@ -271,6 +271,24 @@ def test_case_insensitive_expansion():
     sql_example_input = '(?:(?:(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))(?:(?:[ \t\x0c\r\n])+(?i:OUTER))?|(?i:INNER)|(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))|(?i:(?:(?i:OUTER))?))(?:[ \t\x0c\r\n])+)?(?i:JOIN)[ ]?'
     sql_example_output = '(?:(?:(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])(?:(?:[ \t\x0c\r\n])+[oO][uU][tT][eE][rR])?|[iI][nN][nN][eE][rR]|(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])|(?:[oO][uU][tT][eE][rR])?)(?:[ \t\x0c\r\n])+)?[jJ][oO][iI][nN][ ]?'
     assert expand_case_insensitive(sql_example_input) == sql_example_output
+
+
+def test_lark_ignore():
+    grammar = r"""
+    start: "SELECT" NAME "FROM" NAME EOS
+    NAME: /[A-Za-z][A-Za-z]?[A-Za-z]?[A-Za-z]?[A-Za-z]?/
+    EOS: "</s>"
+    WS: /[ ]/
+    %ignore WS
+    """
+
+    guide = BoolCFGLM(LarkStuff(grammar).char_cfg(0.99))
+
+    assert guide.p_next('').keys() == {'S', ' '}
+    assert guide.p_next(' ').keys() == {'S'}
+    assert guide.p_next(' S').keys() == {'E'}
+    assert ' ' in guide.p_next(' SELECT').keys()
+    assert ' ' not in guide.p_next(' SELECT ').keys()
 
 
 if __name__ == '__main__':

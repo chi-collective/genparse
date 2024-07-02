@@ -383,7 +383,8 @@ class LarkStuff:
             self.rules = rules
 
         self.terminals = terminals
-        self.ignores = ignores
+        self.ignore_terms = ignores
+        self.ignore_regex = f'(?:{"|".join([t.pattern.to_regexp() for t in self.terminals if t.name in ignores])})?'
 
     def transducer(self, decay=0.99, **kwargs):
         """
@@ -442,6 +443,13 @@ class LarkStuff:
     def char_cfg(self, decay=1, ignore=''):
         from genparse import CFG, Float
 
+        if ignore:
+            import warnings
+
+            warnings.warn(
+                '`ignore` argument has been deprecated and is no longer functional; specify ignore as part of lark grammar instead.'
+            )
+
         cfg = self.convert()
 
         foo = CFG(Float, S=cfg.S, V=set())
@@ -449,9 +457,9 @@ class LarkStuff:
             foo.add(r.w, r.head, *r.body)
 
         for token_class in self.terminals:
-            regex = token_class.pattern.to_regexp()
-            if ignore:
-                regex += ignore
+            if token_class.name in self.ignore_terms:
+                continue
+            regex = self.ignore_regex + token_class.pattern.to_regexp()
 
             fsa = greenery_to_wfsa(
                 regex, decay=decay, name=lambda x, t=token_class.name: (t, x)
