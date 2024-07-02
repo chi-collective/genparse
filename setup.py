@@ -22,6 +22,7 @@ requirements = [
 
 test_requirements = [
     'coverage',
+    'memory-profiler',
     'pdoc',
     'pre-commit',
     'pytest',

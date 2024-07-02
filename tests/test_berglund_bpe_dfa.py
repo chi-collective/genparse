@@ -18,10 +18,9 @@ def test_example_2():
     ]
 
     def construct_dfa(num_states, transitions):
-        M = TokenDFA(num_states=num_states, transitions={})
-        for q, a, r in transitions:
-            M.set_transition(q, str_to_int[a], r)
-        return M
+        return TokenDFA.from_transitions(
+            num_states, ((q, str_to_int[a], r) for q, a, r in transitions)
+        )
 
     M = TokenDFA.from_base_alphabet(alphabet_as_int)
     N = construct_dfa(num_states=1, transitions=[(0, 'a', 0), (0, 'b', 0)])

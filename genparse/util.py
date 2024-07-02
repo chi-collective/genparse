@@ -367,6 +367,14 @@ class LarkStuff:
         builder = lark.load_grammar.GrammarBuilder()
         builder.load_grammar(grammar)
         lark_grammar = builder.build()
+
+        if not any(
+            rule.value == 'start'
+            for rule in lark_grammar.rule_defs[0]
+            if isinstance(rule, lark.lexer.Token)
+        ):
+            raise ValueError('Grammar must define a `start` rule')
+
         terminals, rules, ignores = lark_grammar.compile(['start'], set())
 
         if cnf:
