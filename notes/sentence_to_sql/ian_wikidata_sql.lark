@@ -1,17 +1,41 @@
-start: "SELECT * FROM " location ";"
+// Based on https://github.com/probcomp/genparse/blob/main/benchmark/grammars/tiny_sql.lark
+start: "SELECT" WS select_expr_people "FROM" WS from_expr_people [WS "WHERE" WS bool_condition_people] [WS "GROUP BY" WS var_list_people] [WS "ORDER BY" WS orderby_expr_people] WS EOS
+EOS: "</s>"
 
-location: people_location
-people_location: "People WHERE " people_clause ( " AND " people_clause ) *
-orgs_location: "Organizations WHERE " orgs_clause ( " AND " orgs_clause ) *
+select_expr_people: STAR | select_list
+select_list_people: select_var_people ("," WS select_var_people)*
+select_var_people: people_column
 
-people_clause: people_column " = " value
-people_column: "given_name" | "surname" | "full_name" | "born" | "died"
-orgs_clause: orgs_column " = " value
-orgs_column: ORG_NAME
-ORG_NAME: "organization_name"
+from_expr_people: "People"
 
-value: STRING
+bool_condition_people: bool_expr_people | "(" bool_condition_people WS "AND" WS bool_condition_people ")" | "(" bool_condition_people WS "OR" WS bool_condition_people ")"
+bool_expr_people: people_column WS* "=" WS* people_value | var WS* "<" WS* value
+
+orderby_expr_people: var_list_people WS "ASC" | var_list_people WS "DESC"
+var_list: people_column ("," WS people_column)*
+
+people_column: _common_name | _given_name | _family_name | _name_in_native_language | _languages_spoken_written_or_signed | _date_of_birth | _place_of_birth | _spouse | _mother | _father | _country_of_citizenship | _occupation | _religion_or_worldview | _sex_or_gender
+_common_name: "itemLabel.value"
+_given_name: "given_nameLabel.value"
+_family_name: "family_nameLabel.value"
+_name_in_native_language: "name_in_native_languageLabel.value"
+_languages_spoken_written_or_signed: "languages_spoken__written_or_signedLabel.value"
+_date_of_birth: "date_of_birthLabel.value"
+_place_of_birth: "place_of_birthLabel.value"
+_spouse: "spouseLabel.value"
+_mother: "motherLabel.value"
+_father: "fatherLabel.value"
+_country_of_citizenship: "country_of_citizenshipLabel.value"
+_occupation: "occupationLabel.value"
+_religion_or_worldview: "religion_or_worldviewLabel.value"
+_sex_or_gender: "sex_or_genderLabel.value"
+
+
+STAR: "*"
+value: STRING | NUMBER
 STRING: "\\"" CHAR * "\\""
 CHAR: /(\\")|[^"]/
+NUMBER: /\d+/
 
+%import common.WS
 %import common.ESCAPED_STRING
