@@ -51,6 +51,9 @@ class LM:
         "Compute the (conditional) distribution over the next token given the `prefix`."
         raise NotImplementedError()
 
+    def clear_cache(self):  # pragma: no cover
+        pass
+
     async def p_next_async(self, context):
         "Compute the (conditional) distribution over the next token given the `prefix`."
         return self.p_next(context)
@@ -191,6 +194,9 @@ class AsyncGreedilyTokenizedLLM(LM):
     def __call__(self, context):
         return self._model(self.tokenizer.encode(context))
 
+    def clear_cache(self):
+        return self._model.clear_cache()
+
     async def next_token_logprobs(self, context):
         p = await self.p_next_async(context)
         return p.map_values(np.log)
@@ -297,9 +303,6 @@ class MockLLM(LM):
 
     def p_next(self, _, **kwargs):  # pylint: disable=unused-argument
         return LazyProb(self._p, self._encode, self._decode)
-
-    def clear_cache(self):
-        pass
 
     async def next_token_logprobs(self, _):
         return self._logp
