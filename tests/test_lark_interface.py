@@ -1,8 +1,9 @@
 import numpy as np
 
 from genparse.parse.earley import EarleyLM, Earley
-from genparse.cfglm import locally_normalize, BoolCFGLM
+from genparse.cfglm import BoolCFGLM, locally_normalize
 from genparse.util import LarkStuff, expand_case_insensitive
+
 
 grammar1 = r"""
 start: WS? "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
@@ -271,6 +272,57 @@ def test_case_insensitive_expansion():
     sql_example_input = '(?:(?:(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))(?:(?:[ \t\x0c\r\n])+(?i:OUTER))?|(?i:INNER)|(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))|(?i:(?:(?i:OUTER))?))(?:[ \t\x0c\r\n])+)?(?i:JOIN)[ ]?'
     sql_example_output = '(?:(?:(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])(?:(?:[ \t\x0c\r\n])+[oO][uU][tT][eE][rR])?|[iI][nN][nN][eE][rR]|(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])|(?:[oO][uU][tT][eE][rR])?)(?:[ \t\x0c\r\n])+)?[jJ][oO][iI][nN][ ]?'
     assert expand_case_insensitive(sql_example_input) == sql_example_output
+
+
+def test_github_issue_26_():
+    # [2024-07-02 Tue] The original lark -> genparse.CFG translation of this
+    # grammar had a nonterminal--terminal naming conflict.
+    grammar = """
+    start: x and x
+    x: "b" | "a"
+    and: " AND "
+    """
+
+    L = LarkStuff(grammar)
+
+    cfg = L.char_cfg(ignore=r'')
+
+    assert cfg.V == {'A', 'N', 'D', 'a', 'b', ' '}
+
+    cfg.language(100).assert_equal(
+        {
+            ('b', ' ', 'A', 'N', 'D', ' ', 'b'): 0.25,
+            ('b', ' ', 'A', 'N', 'D', ' ', 'a'): 0.25,
+            ('a', ' ', 'A', 'N', 'D', ' ', 'b'): 0.25,
+            ('a', ' ', 'A', 'N', 'D', ' ', 'a'): 0.25,
+        }
+    )
+
+    # The original failing example is below:
+
+    grammar = """
+    start: sent
+    sent: "exists " var " . " sent
+    | "forall " var " . " sent
+    | "( " sent " )"
+    | sent " AND " sent
+    | sent " OR " sent
+    | expr "(" var ")"
+    | expr "(" var ", " var ")"
+    | expr "(" var ", " const ")"
+    var: "x" | "y" | "z" | "a" | "e" | "i"
+    expr: "boy" | "girl"
+    const: "Bill" | "Mary"
+    """
+
+    guide = BoolCFGLM(LarkStuff(grammar).char_cfg(ignore='[ ]?'))
+
+    guide.p_next('exists x . boy(x)').assert_equal({'▪': 1, ' ': 1})
+
+    # The bug originally allowed 'a'
+    guide.p_next('exists x . boy(x) ').assert_equal({'▪': 1, ' ': 1, 'A': 1, 'O': 1})
+
+    guide.p_next('exists x . boy(x) a').assert_equal({})
 
 
 def test_lark_ignore():

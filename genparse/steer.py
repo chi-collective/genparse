@@ -134,6 +134,9 @@ class HFPPLSampler:
         else:
             raise ValueError(f'Unknown inference method: {method}.')
 
+        self.llm.clear_cache()
+        self.guide.clear_cache()
+
         return ParticleApproximation(particles, record=record)
 
 

@@ -4,6 +4,7 @@ import random
 import torch
 import transformers
 import hfppl
+from arsenal import Integerizer
 from collections import Counter
 from functools import cached_property, lru_cache
 from IPython.display import HTML, display
@@ -349,7 +350,13 @@ def show_grammar(cfg_t, chart=None, showzero=False):
 
 class LarkStuff:
     """
-    Utility class for leveraging the lark parsing library.
+    Utility class for leveraging the lark as a front-end syntax for specifying
+    grammars.
+
+    Warning: There may be infelicity in the tokenization semantics as there is
+    no longer a prioritized or maximum-munch semantics to the tokenizer when we
+    encode it into the grammar.
+
     """
 
     def __init__(self, grammar, cnf=False):
@@ -387,11 +394,6 @@ class LarkStuff:
         self.ignore_regex = f'(?:{"|".join([t.pattern.to_regexp() for t in self.terminals if t.name in ignores])})?'
 
     def transducer(self, decay=0.99, **kwargs):
-        """
-        XXX: Warning: There may be infelicity in the tokenization semantics as there is
-        no longer a prioritized or maximum munch semantics to tokenizer.  It is
-        probabilistic and the weights are set pretty arbitrarily.
-        """
         from genparse import EPSILON, FST, Float
 
         m = FST(Float)
@@ -452,9 +454,14 @@ class LarkStuff:
 
         cfg = self.convert()
 
-        foo = CFG(Float, S=cfg.S, V=set())
+        # rename all of the internals to avoid naming conflicts.
+        f = Integerizer()
+
+        # TODO: missing `ignore` at the front of the sentence.
+
+        foo = CFG(Float, S=f(cfg.S), V=set())
         for r in cfg:
-            foo.add(r.w, r.head, *r.body)
+            foo.add(r.w, f(r.head), *(f(y) for y in r.body))
 
         for token_class in self.terminals:
             if token_class.name in self.ignore_terms:
@@ -462,14 +469,16 @@ class LarkStuff:
             regex = self.ignore_regex + token_class.pattern.to_regexp()
 
             fsa = greenery_to_wfsa(
-                regex, decay=decay, name=lambda x, t=token_class.name: (t, x)
+                regex, decay=decay, name=lambda x, t=token_class.name: f((t, x))
             )
             # display(fsa)
-            G = fsa.to_cfg(S=token_class.name)
+            G = fsa.to_cfg(S=f(token_class.name))
 
             foo.V |= G.V
             for r in G:
                 foo.add(r.w, r.head, *r.body)
+
+        assert len(foo.N & foo.V) == 0
 
         return foo
 
