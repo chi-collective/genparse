@@ -34,7 +34,7 @@ _sex_or_gender: "sex_or_genderLabel.value"
 STAR: "*"
 people_value: STRING | NUMBER
 STRING: "\"" CHAR * "\""
-CHAR: /(\\")|[^"]/
+CHAR: "\\" | /[^"]/
 NUMBER: /\d+/
 
 %import common.WS
