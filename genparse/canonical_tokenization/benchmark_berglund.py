@@ -18,7 +18,7 @@ def read_json_file(path):
 def main():
     model = 'codellama/CodeLlama-7b-Instruct-hf'
     merge_rule_limit = 1000
-    num_repetitions = 10
+    num_repetitions = 20
     base_alphabet, dictionary = construct_dictionary_from_tokenizer(
         read_json_file(get_json_path_from_hf_name(model))
     )

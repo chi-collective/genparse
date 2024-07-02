@@ -70,6 +70,10 @@ class TokenDFA:
                 if s3 is not None:
                     self.set_transition(s1, uv, s3)
                     S2[s2] = True
+        # If S2 is empty, the rest of this algorithm is a no-op. Stop early to
+        # save time.
+        if not S2:
+            return
         fresh = self.new_states(len(S2))
         excluded = [v]
         if u == v:
