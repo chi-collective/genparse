@@ -59,14 +59,13 @@ def main():
     for inference_dict in inference_dicts:
         query_results = {}
         for query in inference_dict['genparse_inference']:
+            error = False
             try:
-                query_result = {
-                    'response': cursor.execute(query).fetchall(),
-                    'error': False,
-                }
+                query_result = cursor.execute(query).fetchall()
             except sqlite3.OperationalError as e:
                 query_result = str(e)
-            query_results[query] = {'response': query_result, 'error': True}
+                error = True
+            query_results[query] = {'response': query_result, 'error': error}
         outputs.append({**inference_dict, 'inferred_query_results': query_results})
     cursor.close()
     save_jsonl(outputs, save_query_results_to)
