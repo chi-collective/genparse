@@ -283,8 +283,7 @@ def test_proper_weighting():
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
 
-# TODO: fix this error!
-def todo_github_issue_15_wildcard_divide_by_zero():
+def test_no_valid_tokens():
     guide = BoolCFGLM.from_string(
         """
 
@@ -302,6 +301,28 @@ def todo_github_issue_15_wildcard_divide_by_zero():
     proposal = TokenProposal(llm=llm, guide=guide, K=1)
 
     context = 'aa'
+
+    assert_proper_weighting('', context, proposal, tol=1e-8)
+
+
+def test_no_valid_wildcard_tokens():
+    guide = BoolCFGLM.from_string(
+        """
+
+        1: S -> a
+        1: S -> a a
+        1: S -> a a a
+
+        """
+    )
+
+    V = ['a', 'aa', 'aaa', '▪']
+
+    llm = MockLLM(V=V, eos='▪', _p=np.array([0, 1, 0, 0]))
+
+    proposal = TokenProposal(llm=llm, guide=guide, K=2)
+
+    context = 'a'
 
     assert_proper_weighting('', context, proposal, tol=1e-8)
 
