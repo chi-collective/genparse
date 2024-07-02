@@ -9,7 +9,7 @@ select_var_people: people_column
 from_expr_people: "People"
 
 bool_condition_people: bool_expr_people | "(" bool_condition_people WS "AND" WS bool_condition_people ")" | "(" bool_condition_people WS "OR" WS bool_condition_people ")"
-bool_expr_people: people_column WS* "=" WS* people_value | people_column WS* "<" WS* value
+bool_expr_people: people_column WS* "=" WS* people_value | people_column WS* "<" WS* people_value
 
 orderby_expr_people: var_list_people WS "ASC" | var_list_people WS "DESC"
 var_list_people: people_column ("," WS people_column)*
@@ -32,7 +32,7 @@ _sex_or_gender: "sex_or_genderLabel.value"
 
 
 STAR: "*"
-value: STRING | NUMBER
+people_value: STRING | NUMBER
 STRING: "\"" CHAR * "\""
 CHAR: /(\\")|[^"]/
 NUMBER: /\d+/
