@@ -89,8 +89,8 @@ def construct_dictionary_from_tokenizer(
 
 
 def construct_canonicalizer_from_tokenizer(
-    tokenizer_data: dict[str, Any],
-) -> dict[str, Any]:
+    tokenizer_data: dict[str, Any], output_path: pathlib.Path
+) -> None:
     """Note that tokenizer_data may be modified in-place."""
     # TODO Validate tokenizer attributes (the model is BPE, etc.)
     model_data = tokenizer_data['model']
@@ -107,12 +107,24 @@ def construct_canonicalizer_from_tokenizer(
 
     # Run Berglund's algorithm to construct the token DFA.
     dfa = TokenDFA.from_dictionary(base_alphabet, dictionary)
-    transition_tensor = torch.tensor(list(dfa.get_transitions()))
-    return dict(
-        vocabulary_size=vocabulary_size,
-        eos_token_id=eos_token_id,
-        transitions=transition_tensor,
-    )
+
+    output_path.mkdir(exist_ok=True)
+    save_transitions(dfa.get_transitions(), output_path)
+    with (output_path / 'metadata.json').open('w') as fout:
+        json.dump(
+            dict(
+                vocabulary_size=vocabulary_size,
+                eos_token_id=eos_token_id,
+                num_states=dfa.num_states(),
+            ),
+            fout,
+        )
+
+
+def save_transitions(transitions, output_path):
+    with (output_path / 'transitions.csv').open('w') as fout:
+        for state_from, symbol, state_to in transitions:
+            fout.write(f'{state_from},{symbol},{state_to}\n')
 
 
 def generate_byte_tokens():
@@ -144,10 +156,9 @@ def main():
     )
     args = parser.parse_args()
 
-    canonicalizer = construct_canonicalizer_from_tokenizer(
-        get_tokenizer_data_from_args(args, parser)
+    construct_canonicalizer_from_tokenizer(
+        get_tokenizer_data_from_args(args, parser), args.output
     )
-    torch.save(canonicalizer, args.output)
 
 
 if __name__ == '__main__':

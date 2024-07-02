@@ -43,6 +43,9 @@ class TokenDFA:
     def states(self) -> range:
         return range(len(self.transitions))
 
+    def num_states(self) -> int:
+        return len(self.transitions)
+
     def new_states(self, n: int) -> range:
         prev_len = len(self.transitions)
         for _ in range(n):
@@ -59,9 +62,15 @@ class TokenDFA:
         return self.transitions[state_from].items()
 
     def get_transitions(self) -> Iterable[tuple[State, Symbol, State]]:
+        # First, renumber the states so that their int values are contiguous.
+        new_state_ints = {}
+        for state, transitions_from_state in enumerate(self.transitions):
+            if transitions_from_state is not _NO_TRANSITIONS:
+                new_state_ints[state] = len(new_state_ints)
+        # Now, generate the transitions with the renumbered states.
         for state_from, transitions_from_state in enumerate(self.transitions):
             for symbol, state_to in transitions_from_state.items():
-                yield state_from, symbol, state_to
+                yield new_state_ints[state_from], symbol, new_state_ints[state_to]
 
     def add_transition(self, state_from: State, symbol: Symbol, state_to: State) -> None:
         """Precondition: state_from does not already have a transition on symbol."""
