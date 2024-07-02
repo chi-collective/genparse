@@ -62,7 +62,7 @@ def main():
             error = False
             try:
                 query_result = cursor.execute(query).fetchall()
-            except sqlite3.OperationalError as e:
+            except (sqlite3.OperationalError, sqlite3.ProgrammingError) as e:
                 query_result = str(e)
                 error = True
             query_results[query] = {'response': query_result, 'error': error}
