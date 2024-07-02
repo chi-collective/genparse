@@ -101,12 +101,11 @@ class CFG:
     """
     Weighted Context-free Grammar
 
-    R: semiring
-    S: start symbol
-    V: terminal vocabulary
-
-    N: nonterminal set
-    rules: set of weighted rules (`list[Rule]`).
+    - `R`: semiring
+    - `S`: start symbol
+    - `V`: terminal vocabulary
+    - `N`: nonterminal set
+    - `rules`: list of `Rule`
 
     """
 
@@ -409,6 +408,13 @@ class CFG:
 
         return new
 
+    def has_unary_cycle(self):
+        "Check of the grammar has unary cycles."
+        f = self._unary_graph().buckets
+        return any(
+            True for r in self if len(r.body) == 1 and f.get(r.head) == f.get(r.body[0])
+        )
+
     def unarycycleremove(self, trim=True):
         "Return an equivalent grammar with no unary cycles."
 
@@ -606,6 +612,7 @@ class CFG:
 
     @cached_property
     def cnf(self):
+        "Transform this grammar into Chomsky Normal Form (CNF)."
         new = (
             self.separate_terminals()
             .nullaryremove(binarize=True)
@@ -613,7 +620,6 @@ class CFG:
             .unaryremove()
             .trim()
         )
-        'Convert the grammar into Chomsky Normal Form (CNF).'
         assert new.in_cnf(), '\n'.join(
             str(r) for r in new._find_invalid_cnf_rule()
         )  # pragma: no cover
@@ -662,13 +668,6 @@ class CFG:
     #    def has_nullary(self):
     #        return any((len(p.body) == 0) for p in self if p.head != self.S)
 
-    def has_unary_cycle(self):
-        "Check of the grammar has unary cycles."
-        f = self._unary_graph().buckets
-        return any(
-            True for r in self if len(r.body) == 1 and f.get(r.head) == f.get(r.body[0])
-        )
-
     def unfold(self, i, k):
         "Apply the unfolding transformation to rule `i` and subgoal `k`."
         assert isinstance(i, int) and isinstance(k, int)
@@ -686,7 +685,7 @@ class CFG:
         return new
 
     def dependency_graph(self):
-        "Head to body dependency graph of the rules of the grammar."
+        "Head-to-body dependency graph of the rules of the grammar."
         deps = WeightedGraph(Boolean)
         for r in self:
             for y in r.body:

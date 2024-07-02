@@ -11,6 +11,11 @@ from graphviz import Digraph
 
 
 class WeightedGraph:
+    """
+    Weight graph equipped with efficient methods for solving algebraic path
+    problems.
+    """
+
     def __init__(self, WeightType):
         self.WeightType = WeightType
         self.N = set()
@@ -124,6 +129,7 @@ class WeightedGraph:
 
     @cached_property
     def blocks(self):
+        "List of blocks."
         return list(self._blocks(self.N))
 
     def _blocks(self, roots=None):
@@ -131,7 +137,7 @@ class WeightedGraph:
 
     @cached_property
     def buckets(self):
-        "Return the directed acyclic graph of strongly connected components."
+        "Map from node to block id."
         return {x: i for i, block in enumerate(self.blocks) for x in block}
 
     @cached_property
@@ -142,6 +148,7 @@ class WeightedGraph:
         return self.graphviz()._repr_image_svg_xml()
 
     def graphviz(self, label_format=str, escape=lambda x: html.escape(str(x))):
+        "Convert to `graphviz.Digraph` instance for visualization."
         name = Integerizer()
 
         g = Digraph(
@@ -176,11 +183,11 @@ class WeightedGraph:
 
 
 def scc_decomposition(successors, roots):
-    """
-    Finding strongly connected components of a graph.
-    Implemention is based on Tarjan's (1972) algorithm; runs in O(E + V) time, uses O(V) space.
+    r"""
+    Find the strongly connected components of a graph.
+    Implemention is based on Tarjan's (1972) algorithm; runs in $\mathcal{O}(E + V)$ time, uses $\mathcal{O}(V)$ space.
 
-    Tarjan, R. E. (1972), "Depth-first search and linear graph algorithms"
+    Tarjan, R. E. (1972), [Depth-first search and linear graph algorithms](https://epubs.siam.org/doi/10.1137/0201010)
     SIAM Journal on Computing, 1 (2): 146–160, doi:10.1137/0201010
 
     """

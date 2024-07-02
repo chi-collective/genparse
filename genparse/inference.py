@@ -11,28 +11,17 @@ from arsenal.maths import logsumexp, softmax
 from genparse.record import SMCRecord
 
 
-# _______________________________________________________________________________
-#
-# The importance sampling method below is an async equivalent of the following
-#
-# for p in iterview(particles):
-#     p.start()
-#     while not p.done_stepping():
-#         p.step()
-#
-# There are a few things that we can say about importance sampling
-#
-# It returns a collection of particles of size `n_particles`.  Each particle in
-# this collection has a weight.  That weight must be carefully calculated.
-#
-#   (i) E[\sum_{y \in P} w(y)] = Z
-#
-#   (ii) for all y \in universe: E[w(y)] / Z = p(y)
-#
-#   (iii) for all y \in universe: \lim_{N -> \infty} E[w(y) / \sum_{y \in P} w(y)] = p(y)
-#
 async def importance_sampling(model, n_particles):
-    "Importance sampling estimator"
+    "Importance sampling estimator."
+
+    # Implmentation note: The importance sampling method below is an async
+    # equivalent of the following:
+    #
+    # for p in iterview(particles):
+    #     p.start()
+    #     while not p.done_stepping():
+    #         p.step()
+
     # Create n_particles copies of the model
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
     for particle in particles:
@@ -52,12 +41,12 @@ async def smc_steer(model, n_particles, n_beam):
     as described in [Lew et al. 2023](https://arxiv.org/abs/2306.03081).
 
     Args:
-        model (hfppl.modeling.Model): The model to perform inference on.
-        n_particles (int): Number of particles to maintain.
-        n_beam (int): Number of continuations to consider for each particle.
+      - `model` (`hfppl.modeling.Model`): The model to perform inference on.
+      - `n_particles` (`int`): Number of particles to maintain.
+      - `n_beam` (`int`): Number of continuations to consider for each particle.
 
     Returns:
-        particles (list[hfppl.modeling.Model]): The completed particles after inference.
+      - `particles` (`list[hfppl.modeling.Model]`): The completed particles after inference.
     """
     verbosity = model.verbosity if hasattr(model, 'verbosity') else 0
 
@@ -153,6 +142,7 @@ async def smc_steer(model, n_particles, n_beam):
 
 
 def find_c(weights, N):
+    "Helper method for `smc_steer`"
     # Sort the weights
     sorted_weights = np.sort(weights)
     # Find the smallest chi
@@ -170,6 +160,7 @@ def find_c(weights, N):
 
 
 def resample_optimal(weights, N):
+    "Helper method for `smc_steer`"
     c = find_c(weights, N)
     # Weights for which c * w >= 1 are deterministically resampled
     deterministic = np.where(c * weights >= 1)[0]
@@ -198,21 +189,19 @@ def resample_optimal(weights, N):
     return deterministic, stoch_resampled, c
 
 
-# _______________________________________________________________________________
-#
-
-
 async def smc_standard(model, n_particles, ess_threshold=0.5):
     """
     Standard sequential Monte Carlo algorithm with multinomial resampling.
 
     Args:
-        model (hfppl.modeling.Model): The model to perform inference on.
-        n_particles (int): Number of particles to execute concurrently.
-        ess_threshold (float): Effective sample size below which resampling is triggered, given as a fraction of `n_particles`.
+      - `model` (`hfppl.modeling.Model`): The model to perform inference on.
+      - `n_particles` (`int`): Number of particles to execute concurrently.
+      - `ess_threshold` (`float`): Effective sample size below which resampling
+         is triggered, given as a fraction of `n_particles`.
 
     Returns:
-        particles (list[hfppl.modeling.Model]): The completed particles after inference.
+      - `particles` (`list[hfppl.modeling.Model]`): The completed particles
+         after inference.
     """
     verbosity = model.verbosity if hasattr(model, 'verbosity') else 0
 
@@ -267,23 +256,23 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
     return particles
 
 
-# _______________________________________________________________________________
-#  Modified version of the above, to keep a record of information about the run.
-#  Should be identical in behavior, but uses a different format to store the record.
-
-
 async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_record=True):
-    """
-    Standard sequential Monte Carlo algorithm with multinomial resampling.
+    """Standard sequential Monte Carlo algorithm with multinomial resampling.
+
+    Modified version `smc_standard` that keeps a record of information about the
+    run.  Should be identical in behavior, but uses a different format to store
+    the record.
 
     Args:
-        model (hfppl.modeling.Model): The model to perform inference on.
-        n_particles (int): Number of particles to execute concurrently.
-        ess_threshold (float): Effective sample size below which resampling is triggered, given as a fraction of `n_particles`.
+      - `model` (`hfppl.modeling.Model`): The model to perform inference on.
+      - `n_particles` (`int`): Number of particles to execute concurrently.
+      - `ess_threshold` (`float`): Effective sample size below which resampling
+         triggered, given as a fraction of `n_particles`.
 
     Returns:
-        particles (list[hfppl.modeling.Model]): The completed particles after inference.
-        record (SMCRecord): Information about inference run history.
+      - `particles` (`list[hfppl.modeling.Model]`): The completed particles after inference.
+      - `record` (`SMCRecord`): Information about inference run history.
+
     """
     verbosity = model.verbosity if hasattr(model, 'verbosity') else 0
 
