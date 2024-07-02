@@ -14,6 +14,7 @@ from genparse.wfsa import EPSILON
 
 
 def _gen_nt(prefix=''):
+    "Return a novel symbol name."
     _gen_nt.i += 1
     return f'{prefix}@{_gen_nt.i}'
 
@@ -79,18 +80,20 @@ class Derivation:
         return W
 
     def Yield(self):
+        "Return a tuple containing this derivation's yield."
         if isinstance(self, Derivation):
             return tuple(w for y in self.ys for w in Derivation.Yield(y))
         else:
             return (self,)
 
     def to_nltk(self):
+        "Convert this derivation inot an `nltk.Tree`."
         if not isinstance(self, Derivation):
             return self
         return nltk.Tree(str(self.x), [Derivation.to_nltk(y) for y in self.ys])
 
     def _repr_html_(self):
-        #        return f'<div style="text-align: center;"><span style="color: magenta;">{self.weight()}</span></br>{self.to_nltk()._repr_svg_()}</div>'
+        # return f'<div style="text-align: center;"><span style="color: magenta;">{self.weight()}</span></br>{self.to_nltk()._repr_svg_()}</div>'
         return self.to_nltk()._repr_svg_()
 
 
@@ -150,6 +153,7 @@ class CFG:
         return cfg
 
     def __getitem__(self, root):
+        "Return a grammar that denotes the sublanguage of the nonterminal `root`."
         new = self.spawn(S=root)
         for r in self:
             new.add(r.w, r.head, *r.body)
@@ -194,6 +198,7 @@ class CFG:
 
     @cached_property
     def rhs(self):
+        "Map from nonterminal to rules with it as their right-hand side."
         rhs = defaultdict(list)
         for r in self:
             rhs[r.head].append(r)
@@ -217,6 +222,7 @@ class CFG:
         return len(self.rules)
 
     def spawn(self, *, R=None, S=None, V=None):
+        "Create an empty grammar with the same `R`, `S`, and `V`."
         return self.__class__(
             R=self.R if R is None else R,
             S=self.S if S is None else S,
@@ -224,6 +230,7 @@ class CFG:
         )
 
     def add(self, w, head, *body):
+        "Add a rule of the form `w: head -> body1, body2, ... body_k`."
         if w == self.R.zero:
             return  # skip rules with weight zero
         self.N.add(head)
@@ -252,6 +259,9 @@ class CFG:
         return new
 
     def assert_equal(self, other, verbose=False, throw=True):
+        """
+        Assertion for the equality of `self` and `other` modulo rule reordering.
+        """
         assert verbose or throw
         if isinstance(other, str):
             other = self.__class__.from_string(other, self.R)
@@ -275,6 +285,7 @@ class CFG:
         ), f'\n\nhave=\n{str(self)}\nwant=\n{str(other)}'
 
     def treesum(self, **kwargs):
+        "Total weight of the start symbol."
         return self.agenda(**kwargs)[self.S]
 
     def trim(self, bottomup_only=False):
@@ -325,6 +336,7 @@ class CFG:
         return val
 
     def cotrim(self):
+        "Trim the grammar so that all nonterminals are generating."
         return self.trim(bottomup_only=True)
 
     def _trim(self, symbols):
@@ -341,13 +353,10 @@ class CFG:
         "Enumerate derivations of symbol X with height <= H"
         if X is None:
             X = self.S
-
         if self.is_terminal(X):
             yield X
-
         elif H <= 0:
             return
-
         else:
             for r in self.rhs[X]:
                 for ys in self._derivations_list(r.body, H - 1):
@@ -465,6 +474,7 @@ class CFG:
         return ecfg.agenda()
 
     def null_weight_start(self):
+        "Compute the null weight of the start symbol"
         return self.null_weight()[self.S]
 
     def _push_null_weights(self, null_weight, rename=NotNull):
@@ -480,7 +490,6 @@ class CFG:
 
         Bonus (Hygiene property): Any nonterminal that survives the this
         transformation is guaranteed to generate the same weighted language.
-
         """
 
         # Warning: this method might have issues when `separate_start` hasn't
@@ -562,6 +571,7 @@ class CFG:
         return new
 
     def binarize(self):
+        "Return an equivalent grammar with arity ≤ 2."
         new = self.spawn()
 
         stack = list(self)
@@ -603,6 +613,7 @@ class CFG:
             .unaryremove()
             .trim()
         )
+        'Convert the grammar into Chomsky Normal Form (CNF).'
         assert new.in_cnf(), '\n'.join(
             str(r) for r in new._find_invalid_cnf_rule()
         )  # pragma: no cover
@@ -652,12 +663,14 @@ class CFG:
     #        return any((len(p.body) == 0) for p in self if p.head != self.S)
 
     def has_unary_cycle(self):
+        "Check of the grammar has unary cycles."
         f = self._unary_graph().buckets
         return any(
             True for r in self if len(r.body) == 1 and f.get(r.head) == f.get(r.body[0])
         )
 
     def unfold(self, i, k):
+        "Apply the unfolding transformation to rule `i` and subgoal `k`."
         assert isinstance(i, int) and isinstance(k, int)
         s = self.rules[i]
         assert self.is_nonterminal(s.body[k])
@@ -673,6 +686,7 @@ class CFG:
         return new
 
     def dependency_graph(self):
+        "Head to body dependency graph of the rules of the grammar."
         deps = WeightedGraph(Boolean)
         for r in self:
             for y in r.body:
@@ -682,9 +696,9 @@ class CFG:
         return deps
 
     # TODO: the default treesum algorithm should probably be SCC-decomposed newton's method
+    # def agenda(self, tol=1e-12, maxiter=float('inf')):
     def agenda(self, tol=1e-12, maxiter=100_000):
-        #    def agenda(self, tol=1e-12, maxiter=float('inf')):
-        "Agenda-based semi-naive evaluation"
+        "Agenda-based semi-naive evaluation for treesums."
         old = self.R.chart()
 
         # precompute the mapping from updates to where they need to go
@@ -748,6 +762,8 @@ class CFG:
         return old
 
     def naive_bottom_up(self, *, tol=1e-12, timeout=100_000):
+        "Naive bottom-up evaluation for treesums; better to use `agenda`."
+
         def _approx_equal(U, V):
             return all((self.R.metric(U[X], V[X]) <= tol) for X in self.N)
 
@@ -777,20 +793,13 @@ class CFG:
         return U
 
     def prefix_weight(self, xs):
+        "Total weight of all derivations that have `xs` as a prefix."
         return self.prefix_grammar(xs)
 
     @cached_property
     def prefix_grammar(self):
+        "Grammar that generates prefixing of this grammar's language."
         return self @ prefix_transducer(self.R, self.V)
-        # return PrefixGrammar(self)
-
-    #    def gensym(self, x):
-    #        assert x not in self.V
-    #        if x not in self.N: return x
-    #        i = 1
-    #        while f'{x}@{i}' in self.N:
-    #            i += 1
-    #        return f'{x}@{i}'
 
     def derivatives(self, s):
         "Return the sequence of derivatives for each prefix of `s`."
@@ -956,8 +965,8 @@ class CFG:
                 new.add(w, (i, a, j), b)
         return new
 
-    # TODO: experimental; untested
     def truncate_length(self, max_length):
+        "Transform this grammar so that it only generates strings with length ≤ `max_length`."
         from genparse import WFSA
 
         m = WFSA(self.R)
@@ -969,8 +978,8 @@ class CFG:
             m.add_F(t + 1, self.R.one)
         return self @ m
 
-    # TODO: experimental; untested
     def materialize(self, max_length):
+        "Return a `Chart` with this grammar's weighted language for strings ≤ `max_length`."
         return self.cnf.language(max_length).filter(lambda x: len(x) <= max_length)
 
 
