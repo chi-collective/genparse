@@ -3,14 +3,33 @@ import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 const stroke_width = 2;
 const arrow_width = stroke_width * 2;
 const char_width = 8;
-
 const url_params = new URLSearchParams(window.location.search);
+const frame_background = d3.select("#frame-background");
+const frame_foreground = d3.select("#frame-foreground");
+const zoom_control = d3.zoom().on("zoom", (e) => frame_foreground.attr("transform", e.transform));
+const yspace_slider = document.getElementById('yspace_slider');
+const yspace_value = document.getElementById('yspace_value');
+const untangle_button = document.getElementById("untangle_button");
+const toggle_collapsed_button = document.getElementById("toggle_collapsed_button");
+
+let collapsed = false;
+let current_data = null;
+let leftInfoChoiceCollapsed = null;
+let leftInfoChoiceExpanded = null;
+let particle_yspace = 15;
+
 if (url_params.has("path")) {
   document.getElementById("load-path").value = url_params.get("path");
 }
 loadByPath();
 
+frame_background.call(zoom_control);
 document.getElementById("fileInput").addEventListener("change", () => loadFile(fileInput.files[0]));
+window.loadByPath = loadByPath;
+yspace_slider.addEventListener('input', updateYSpace);
+untangle_button.addEventListener("click", setUntangle);
+toggle_collapsed_button.addEventListener("click", setToggleCollapsed);
+document.getElementById('left-info-select').addEventListener('change', updateLeftInfo);
 
 function loadFile(selectedFile) {
   const reader = new FileReader();
@@ -24,28 +43,46 @@ function loadFile(selectedFile) {
   reader.readAsText(selectedFile);
 }
 
-function logaddexp(x, y) {
-  if (x === -Infinity) return y;
-  if (y === -Infinity) return x;
-  return Math.max(x, y) + Math.log1p(Math.exp(-Math.abs(x - y)));
-}
-
-let collapsed = false;
-let current_data = null;
-const toggle_button = document.getElementById("toggle_view");
-
 function updateToggleButtonText() {
-  toggle_button.textContent = collapsed ? "Expand" : "Collapse";
+  toggle_collapsed_button.textContent = collapsed ? "Expand" : "Collapse";
 }
 
-let leftInfoChoice = 'weight'; // Default value
-
-// Add this function to update the global left_info setting
 function updateLeftInfo() {
   const leftInfoSelect = document.getElementById('left-info-select');
-  leftInfoChoice = leftInfoSelect.value;
+  if (collapsed) {
+    leftInfoChoiceCollapsed = leftInfoSelect.value;
+  } else {
+    leftInfoChoiceExpanded = leftInfoSelect.value;
+  }
   if (current_data) {
-    showData(current_data, { collapsed, left_info: leftInfoChoice });
+    showData(current_data, { collapsed, left_info: collapsed ? leftInfoChoiceCollapsed : leftInfoChoiceExpanded });
+  }
+}
+
+function populateLeftInfoSelect({collapsed}) {
+  const leftInfoSelect = document.getElementById('left-info-select');
+  leftInfoSelect.innerHTML = ''; // Clear existing options
+
+  if (current_data && current_data.history && current_data.history.length > 0) {
+    // Add "None" option
+    const noneOption = document.createElement('option');
+    noneOption.value = "";
+    noneOption.textContent = "None";
+    leftInfoSelect.appendChild(noneOption);
+
+    const options = collapsed 
+      ? Object.keys(current_data.history[0]).filter(key => key !== 'particles')
+      : Object.keys(current_data.history[0].particles[0]);
+
+    options.forEach(option => {
+      const optionElement = document.createElement('option');
+      optionElement.value = option;
+      optionElement.textContent = option.charAt(0).toUpperCase() + option.slice(1).replace('_', ' ');
+      leftInfoSelect.appendChild(optionElement);
+    });
+
+    // Set the default or previously selected value
+    leftInfoSelect.value = collapsed ? leftInfoChoiceCollapsed : leftInfoChoiceExpanded;
   }
 }
 
@@ -54,30 +91,18 @@ function loadByPath(path) {
   d3.json(`./${path}`, { cache: "no-store" })
     .then((data) => {
       current_data = data;
-      showData(data, { collapsed, left_info: leftInfoChoice });
+      showData(data, { collapsed, left_info: collapsed ? leftInfoChoiceCollapsed : leftInfoChoiceExpanded });
       updateToggleButtonText();
       resetUntangleButton(); // Reset untangle button state
-      populateLeftInfoSelect(); // Add this line to make left info select
+      populateLeftInfoSelect({collapsed});
     })
     .catch((error) => console.log(error));
 }
-
-window.loadByPath = loadByPath; // Add this line to attach the function to the global scope
 
 function resetUntangleButton() {
   untangle_button.disabled = false;
   untangle_button.textContent = "Untangle";
 }
-
-const frame_background = d3.select("#frame-background");
-const frame_foreground = d3.select("#frame-foreground");
-
-const zoom_control = d3.zoom().on("zoom", (e) => frame_foreground.attr("transform", e.transform));
-frame_background.call(zoom_control);
-
-let particle_yspace = 15;
-const yspace_slider = document.getElementById('yspace_slider');
-const yspace_value = document.getElementById('yspace_value');
 
 function updateYSpace() {
   particle_yspace = parseInt(yspace_slider.value);
@@ -87,10 +112,6 @@ function updateYSpace() {
   }
 }
 
-yspace_slider.addEventListener('input', updateYSpace);
-
-const untangle_button = document.getElementById("untangle_button");
-
 function setUntangle() {
   untangle_button.disabled = true;
   untangle_button.textContent = "Untangled";
@@ -99,13 +120,28 @@ function setUntangle() {
   }
 }
 
-untangle_button.addEventListener("click", setUntangle);
+function setToggleCollapsed() {
+  collapsed = !collapsed;
+  updateToggleButtonText();
+  if (current_data) {
+    // Reset the translation while keeping the zoom level
+    const currentTransform = d3.zoomTransform(frame_background.node());
+    const newTransform = d3.zoomIdentity.translate(0, 0).scale(currentTransform.k);
+    frame_background.call(zoom_control.transform, newTransform);
+    
+    showData(current_data, { collapsed, left_info: collapsed ? leftInfoChoiceCollapsed : leftInfoChoiceExpanded });
+    populateLeftInfoSelect({collapsed});
+    
+    const leftInfoSelect = document.getElementById('left-info-select');
+    leftInfoSelect.value = collapsed ? leftInfoChoiceCollapsed : leftInfoChoiceExpanded;
+  }
+}
 
 function showData(data, options = {}) {
   const {
     collapsed = false,
     untangle = false,
-    left_info = leftInfoChoice
+    left_info = collapsed ? leftInfoChoiceCollapsed : leftInfoChoiceExpanded
   } = options;
 
   const svg_margin = 20;
@@ -118,7 +154,7 @@ function showData(data, options = {}) {
   // modify the history data in place however we need
   history.forEach((step, t) => {
 
-    // Untangling logic
+    // Untangling logic (so resampled indices don't need to be sorted in the json input)
     if (untangle && t > 0 && history[t - 1].resample_indices) {
         const prevStep = history[t - 1];
         const perm = createPermutation(prevStep.resample_indices);
@@ -131,26 +167,17 @@ function showData(data, options = {}) {
         if (step.resample_indices) {
             step.resample_indices = perm.reIndex(step.resample_indices);
         }
-        
-        // //Propagate reordering to all future steps (unnecessary, since only depends on prev step.)
-        // for (let futureT = t + 1; futureT < history.length; futureT++) {
-        //     const futureStep = history[futureT];
-        //     futureStep.particles = perm.permute(futureStep.particles);
-        //     if (futureStep.resample_indices) {
-        //         futureStep.resample_indices = perm.reIndex(futureStep.resample_indices);
-        //     }
-        // }
     }
-
 
     const particles = step.particles;
     step.weight_total = particles.reduce((acc, p) => logaddexp(acc, p.weight), -Infinity);
+    step.is_resampled = step.resample_indices ? true : false;
     particles.forEach((particle, i) => {
       particle.relative_weight = Math.exp(particle.weight - step.weight_total);
       particle.prefix = particle.context.slice(0, -1).join("");
       particle.token = particle.context.slice(-1).join("");
       if (t > 0) {
-        particle.parent = history[t - 1].resample_indices ? history[t - 1].resample_indices[i] : i;
+        particle.parent = history[t - 1].is_resampled ? history[t - 1].resample_indices[i] : i;
       }
     });
 
@@ -159,7 +186,7 @@ function showData(data, options = {}) {
   const longest_token_length = Math.max(2, ...history.flatMap(step => step.particles.map(particle => particle.token.length)));
   const particle_xspace = collapsed ? char_width * longest_token_length : particle_yspace;
   const left_space = 100;
-  const x_offset = (left_info && !collapsed ? left_space : 0) + particle_xspace;
+  const x_offset = (left_info ? left_space : 0) + particle_xspace;
   const y_offset = particle_yspace;
 
   const svg = d3.select("#svg svg");
@@ -215,6 +242,28 @@ function showData(data, options = {}) {
           .attr("dominant-baseline", "central")
           .attr("class", "token")
           .text(particle.token);
+
+        if (left_info) {
+          let leftInfo = step[left_info] || "";
+          if (typeof leftInfo === 'number' && !Number.isInteger(leftInfo)) {
+            leftInfo = leftInfo.toExponential(4);
+          }
+          // display left info to the left of step_group
+          step_group.append("text")
+            .attr("x", 10)
+            .attr("y", particle_yspace)
+            // .attr("text-anchor", "end")
+            .attr("dominant-baseline", "central")
+            .append("tspan")
+            .attr("class", "left-info")
+            .text(leftInfo);
+          step_group.append("line")
+          .attr("x1", 1)
+          .attr("x2", 100)
+          .attr("y", particle_yspace)
+          .attr("class", "particle-line")
+          .lower();
+        }
       } else {
         // Add text with prefix and token
         const particle_text = particle_g.append("text")
@@ -257,26 +306,35 @@ function showData(data, options = {}) {
       }
 
       particle_g.on("mouseover", (event) => {
-        tooltip.transition().duration(200).style("opacity", 0.9);
-        const displayed_keys = ['token', 'prefix', 'weight', 'relative_weight', 'parent'];
-        const additionalInfo = Object.entries(particle)
-        .filter(([key]) => !displayed_keys.includes(key))
-          .map(([key, value]) => `<strong>${key}</strong>: ${value}<br/>`)
-          .join('')
+        tooltip.transition().duration(100).style("opacity", 0.9);
+        const displayed_keys = ['token', 'prefix', 'weight', 'relative_weight', 'parent', 'context'];
+        
+        function formatValue(key, value, spanClassName = 'array-element') {
+          if (Array.isArray(value)) {
+            return value.map(item => `<span class="${spanClassName}">${item}</span>`).join('');
+          }
+          if (key === 'weight') return value.toExponential(2);
+          if (key === 'relative_weight') return value.toFixed(4);
+          return value;
+        }
+
+        const formatKeyValue = (key, value) => {
+          const formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ');
+          return `<div class="key-value-pair">
+            <span class="key">${formattedKey}</span>
+            <span class="value">${formatValue(key, value)}</span>
+          </div>`;
+        };
+
         tooltip
           .html(
             `
-          <u>Step ${t}, particle ${i}:</u><br/>
-          ${displayed_keys.map(key => {
-              const val = particle[key];
-              const formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ');
-              return `<strong>${formattedKey}</strong>: ${
-                key === 'weight' ? val.toExponential(2) :
-                key === 'relative_weight' ? val.toFixed(4) :
-                val
-              }<br/>`;
-            }).join('')}
-          ${additionalInfo}
+          <div class="title">Step ${t}, particle ${i}</div>
+          ${displayed_keys.map(key => formatKeyValue(key, particle[key])).join('')}
+          ${Object.entries(particle)
+            .filter(([key]) => !displayed_keys.includes(key))
+            .map(([key, value]) => formatKeyValue(key, value))
+            .join('')}
         `
           )
           .style("left", event.pageX + 10 + "px")
@@ -354,33 +412,9 @@ function createPermutation(arr) {
   return { fromIndex, toIndex, permute, reIndex };
 }
 
-toggle_button.addEventListener("click", () => {
-  collapsed = !collapsed;
-  updateToggleButtonText();
-  if (current_data) {
-    showData(current_data, { collapsed });;
-  }
-});
-
-// Add this at the end of the file
-// Populate the left-info select element with available options
-function populateLeftInfoSelect() {
-  const leftInfoSelect = document.getElementById('left-info-select');
-  if (current_data && current_data.history && current_data.history[0] && current_data.history[0].particles[0]) {
-    const particleKeys = Object.keys(current_data.history[0].particles[0]);
-    leftInfoSelect.innerHTML = '';
-    particleKeys.forEach(key => {
-      const option = document.createElement('option');
-      option.value = key;
-      option.textContent = key;
-      leftInfoSelect.appendChild(option);
-    });
-    leftInfoSelect.value = leftInfoChoice;
-  }
+function logaddexp(x, y) {
+  if (x === -Infinity) return y;
+  if (y === -Infinity) return x;
+  return Math.max(x, y) + Math.log1p(Math.exp(-Math.abs(x - y)));
 }
 
-// Call this function when data is loaded
-window.addEventListener('load', () => {
-  const leftInfoSelect = document.getElementById('left-info-select');
-  leftInfoSelect.addEventListener('change', updateLeftInfo);
-});

@@ -25,6 +25,52 @@ text {
   padding: 10px;
   border-radius: 5px;
   pointer-events: none;
+  max-width: 600px;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.tooltip .title {
+  font-weight: bold;
+  text-decoration: underline;
+  margin-bottom: 5px;
+}
+
+.tooltip .key-value-pair {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.tooltip .key {
+  font-weight: bold;
+  white-space: pre;
+  text-align: right;
+  min-width: 100px;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.tooltip .value {
+  white-space: pre-wrap;
+  flex: 1;
+  text-align: left;
+  max-width: 480px; /* 600px - 100px (key width) - 10px (margin) - 10px (buffer) */
+}
+
+.tooltip .value .array-element {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 0px 3px;
+  margin: 1px;
+  background-color: #f8f8f8;
+  white-space: pre-wrap;
 }
 
 #svg svg {
@@ -50,6 +96,12 @@ text {
 
 .step {
   transition: transform 0.3s ease;
+}
+
+.step text .left-info {
+  font-size: 12px;
+  font-family: Arial, sans-serif;
+  fill: #555;
 }
 
 .particle circle {
