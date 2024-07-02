@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from arsenal import colors
 
 from genparse.wfsa.field_wfsa import WFSA
@@ -17,11 +18,10 @@ def test_misc():
     # dry run
     M.graphviz()
 
-    # TODO: how do we check that the warning as issued here?
-    import pytest
-
     with pytest.warns(UserWarning, match='empty visualization'):
         zero.graphviz()
+
+    M._repr_svg_()
 
 
 def test_min():
