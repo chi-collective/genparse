@@ -55,6 +55,14 @@ def run_inference(
     guide = BoolCFGLM(LarkStuff(_SQL_GRAMMAR).char_cfg(0.99, ignore='[ ]?'))
     proposal = CharacterProposal(llm=llm, guide=guide)
     sampler = VLLMSampler(llm=llm, guide=guide)
+    reformatted_prompts = (
+        [
+            tokenizer.apply_chat_template([{'role': 'user', 'content': prompt}])
+            for prompt in prompts
+        ]
+        if tokenizer.chat_template
+        else prompts
+    )
     result = [
         sampler.run_inference(
             prompt=prompt,
@@ -64,7 +72,7 @@ def run_inference(
             n_particles=n_particles,
             verbosity=0,
         ).posterior
-        for prompt in prompts
+        for prompt in reformatted_prompts
     ]
     return result
 
