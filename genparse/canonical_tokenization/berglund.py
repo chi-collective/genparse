@@ -28,9 +28,6 @@ class TokenDFA:
         dfa = TokenDFA.from_base_alphabet(base_alphabet)
         for rule in dictionary:
             dfa.merge_rule(rule)
-            # TODO Add trimming? Find all states not reachable from start state.
-            # This can probably be done during construction without needing to rescan
-            # the automaton from scratch every time.
         return dfa
 
     @staticmethod
