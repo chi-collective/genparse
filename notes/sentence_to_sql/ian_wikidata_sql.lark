@@ -2,7 +2,7 @@
 start: "SELECT" WS select_expr_people "FROM" WS from_expr_people [WS "WHERE" WS bool_condition_people] [WS "GROUP BY" WS var_list_people] [WS "ORDER BY" WS orderby_expr_people] WS EOS
 EOS: "</s>"
 
-select_expr_people: STAR | select_list
+select_expr_people: STAR | select_list_people
 select_list_people: select_var_people ("," WS select_var_people)*
 select_var_people: people_column
 
