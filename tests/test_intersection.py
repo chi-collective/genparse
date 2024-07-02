@@ -15,16 +15,29 @@ def assert_equal(have, want, tol=1e-5):
 
 
 # reference implementation of the intersection algorithm
-def intersect_slow(self, fsa):
-    fst = FST.diag(fsa)
+def intersect_slow(self, fst):
+    # coerce something sequence like into a diagonal FST
+    if isinstance(fst, (str, tuple)):
+        fst = FST.from_string(fst, self.R)
+
+    # coerce something FSA-like into an FST, might throw an error
+    if not isinstance(fst, FST):
+        fst = FST.diag(fst)
+
     return compose_naive_epsilon(self, fst)
 
 
 def compose_naive_epsilon(self, fst):
     "Reference implementation of the grammar-transducer composition."
 
-    if isinstance(fst, (str, list, tuple)):
+    # coerce something sequence like into a diagonal FST
+    if isinstance(fst, (str, tuple)):
         fst = FST.from_string(fst, self.R)
+
+    # coerce something FSA-like into an FST, might throw an error
+    if not isinstance(fst, FST):
+        fst = FST.diag(fst)
+
     new_start = self.S
     new = self.spawn(S=new_start)
 
@@ -103,10 +116,10 @@ def check_fst(cfg, fst):
 def test_palindrome1():
     cfg = CFG.from_string(
         """
-    0.3: S -> a S a
-    0.4: S -> b S b
-    0.3: S ->
-    """,
+        0.3: S -> a S a
+        0.4: S -> b S b
+        0.3: S ->
+        """,
         Float,
     )
 
@@ -118,10 +131,10 @@ def test_palindrome1():
 def test_palindrome2():
     cfg = CFG.from_string(
         """
-    0.3: S -> a S a
-    0.4: S -> b S b
-    0.3: S ->
-    """,
+        0.3: S -> a S a
+        0.4: S -> b S b
+        0.3: S ->
+        """,
         Real,
     )
 
@@ -139,10 +152,10 @@ def test_palindrome2():
 def test_palindrome3():
     cfg = CFG.from_string(
         """
-    0.3: S -> a S a
-    0.4: S -> b S b
-    0.3: S ->
-    """,
+        0.3: S -> a S a
+        0.4: S -> b S b
+        0.3: S ->
+        """,
         Real,
     )
 
@@ -164,25 +177,25 @@ def test_palindrome3():
 def test_catalan1():
     cfg = CFG.from_string(
         """
-    0.4: S -> S S
-    0.3: S -> a
-    0.3: S -> b
-    """,
+        0.4: S -> S S
+        0.3: S -> a
+        0.3: S -> b
+        """,
         Real,
     )
 
-    fsa = WFSA.from_string('aa', cfg.R)
+    #    fsa = WFSA.from_string('aa', cfg.R)
 
-    check(cfg, fsa)
+    check(cfg, 'aa')
 
 
 def test_catalan2():
     cfg = CFG.from_string(
         """
-    0.4: S -> S S
-    0.3: S -> a
-    0.3: S -> b
-    """,
+        0.4: S -> S S
+        0.3: S -> a
+        0.3: S -> b
+        """,
         Real,
     )
 
@@ -235,10 +248,10 @@ def check(cfg, fsa):
 def test_catalan_fst():
     cfg = CFG.from_string(
         """
-    0.4: S -> S S
-    0.3: S -> a
-    0.3: S -> b
-    """,
+        0.4: S -> S S
+        0.3: S -> a
+        0.3: S -> b
+        """,
         Real,
     )
 
@@ -258,10 +271,10 @@ def test_catalan_fst():
 def test_palindrome_fst():
     cfg = CFG.from_string(
         """
-    0.3: S -> a S a
-    0.4: S -> b S b
-    0.3: S ->
-    """,
+        0.3: S -> a S a
+        0.4: S -> b S b
+        0.3: S ->
+        """,
         Real,
     )
 
@@ -284,10 +297,10 @@ def test_palindrome_fst():
 def test_epsilon_fst():
     cfg = CFG.from_string(
         """
-    0.3: S -> a S a
-    0.4: S -> b S b
-    0.3: S ->
-    """,
+        0.3: S -> a S a
+        0.4: S -> b S b
+        0.3: S ->
+        """,
         Real,
     )
 
@@ -320,10 +333,10 @@ def test_epsilon_fst_2():
     # This test case is a bit more complex as it contains epsilon cycles on the FST
     cfg = CFG.from_string(
         """
-    0.3: S -> a S a
-    0.4: S -> b S b
-    0.3: S ->
-    """,
+        0.3: S -> a S a
+        0.4: S -> b S b
+        0.3: S ->
+        """,
         Real,
     )
 
@@ -356,10 +369,8 @@ def test_epsilon_fst_2():
 def test_simple_epsilon():
     g = CFG.from_string(
         """
-
-    1: S -> a
-
-    """,
+        1: S -> a
+        """,
         Float,
     )
 

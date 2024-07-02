@@ -2,8 +2,6 @@
 Fast computation of the posterior distrubtion over the next word in a WCFG language model.
 """
 
-from collections import defaultdict
-
 from arsenal import colors
 
 from genparse.cfg import CFG, _gen_nt
@@ -38,30 +36,7 @@ def locally_normalize(self, **kwargs):
     return new
 
 
-# class BoolMaskCFGLM(LM):
-#    "LM-like interface for Boolean-masking CFG models; uses CKY for inference."
-#
-#    def __init__(self, cfg):
-#        if EOS not in cfg.V:
-#            cfg = add_EOS(cfg)
-#        if cfg.R != Boolean:
-#            cfg = cfg.map_values(lambda x: Boolean(x > 0), Boolean)
-#        self.model = CFGLM(cfg)
-#        super().__init__(eos=self.model.eos, V=self.model.V)
-#
-#    def p_next(self, context):
-#        p = self.model.p_next(context).trim()
-#        return Float.chart({w: 1 for w in p})
-#
-#    def __call__(self, context):
-#        assert context[-1] == EOS
-#        return float(self.model(context) != Boolean.zero)
-#
-#    def clear_cache(self):
-#        self.model.clear_cache()
-
-
-class BoolMaskCFGLM(LM):
+class BoolCFGLM(LM):
     "LM-like interface for Boolean-masking CFG models; uses Earley's algorithm for inference."
 
     def __init__(self, cfg, alg='earley'):
@@ -70,11 +45,13 @@ class BoolMaskCFGLM(LM):
         if cfg.R != Boolean:
             cfg = cfg.map_values(lambda x: Boolean(x > 0), Boolean)
         if alg == 'earley':
-            from genparse.experimental.earley import Earley
+            from genparse.parse.earley import Earley
 
             self.model = Earley(cfg.prefix_grammar)
         elif alg == 'cky':
-            self.model = CFGLM(cfg)
+            from genparse.parse.cky import CKYLM
+
+            self.model = CKYLM(cfg)
         else:
             raise ValueError(f'unrecognized option {alg}')
         super().__init__(eos=EOS, V=cfg.V)
@@ -90,46 +67,9 @@ class BoolMaskCFGLM(LM):
     def clear_cache(self):
         self.model.clear_cache()
 
-
-EarleyBoolMaskCFGLM = BoolMaskCFGLM
-
-
-class CFGLM(LM):
-    """
-    Probabilistic Context-Free Grammar Language Model.
-
-    Uses CKY and the prefix grammar transformation for efficient inference.
-    """
-
-    def __init__(self, cfg, **kwargs):
-        if EOS not in cfg.V:
-            cfg = add_EOS(cfg)
-
-        self.cfg = cfg
-        self.pfg = self.cfg.cnf.prefix_grammar.cnf
-
-        from genparse.experimental.cky import IncrementalCKY
-
-        self.model = IncrementalCKY(self.pfg, **kwargs)
-
-        super().__init__(V=cfg.V, eos=EOS)
-
-    #    def __call__(self, x):
-    #        assert x[-1] == EOS
-    #        return self.model(x)
-
-    def p_next(self, prefix):
-        return self.model.p_next(prefix)
-
     @classmethod
-    def from_string(cls, x, semiring=Float, **kwargs):
-        return cls(locally_normalize(CFG.from_string(x, semiring), **kwargs))
-
-    def assert_pcfg(self, verbose=False):
-        assert pcfg_check(self.cfg, verbose=verbose)
-
-    def clear_cache(self):
-        self.model.clear_cache()
+    def from_string(cls, x, semiring=Boolean, **kwargs):
+        return cls(CFG.from_string(x, semiring), **kwargs)
 
 
 def add_EOS(cfg):
@@ -164,15 +104,15 @@ def pcfg_check(cfg, verbose=True):
         return False
 
 
-def cfg_check_bounded(cfg, ub=1.000001, lb=0):
-    chart = cfg.agenda()
-    if all((lb <= v <= ub) for v in chart.values()):
-        print(colors.mark(True), 'PCFG')
-    else:
-        print(
-            colors.mark(False),
-            'PCFG',
-            chart.__str__(
-                style_value=lambda k, v: v if lb <= v <= ub else (colors.light.red % v)
-            ),
-        )
+# def cfg_check_bounded(cfg, ub=1.000001, lb=0):
+#    chart = cfg.agenda()
+#    if all((lb <= v <= ub) for v in chart.values()):
+#        print(colors.mark(True), 'PCFG')
+#    else:
+#        print(
+#            colors.mark(False),
+#            'PCFG',
+#            chart.__str__(
+#                style_value=lambda k, v: v if lb <= v <= ub else (colors.light.red % v)
+#            ),
+#        )

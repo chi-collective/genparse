@@ -16,10 +16,8 @@ def test_fst_cfg1():
     have = (
         CFG.from_string(
             """
-
-    1: S -> a b c
-
-    """,
+            1: S -> a b c
+            """,
             Float,
         )
         @ fst
@@ -34,10 +32,8 @@ def test_fst_cfg1():
     # apply from the right of the transducer
     have = fst @ CFG.from_string(
         """
-
-    1: S -> A B C
-
-    """,
+        1: S -> A B C
+        """,
         Float,
         is_terminal=lambda X: X in 'ABC',
     )

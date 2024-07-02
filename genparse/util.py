@@ -1,15 +1,14 @@
 import html
-from collections import Counter
-from functools import cached_property
-
-from IPython.display import HTML, display
-
-from genparse.tokenization import decode_tokenizer_vocab
-
 import numpy as np
 import random
 import torch
 import transformers
+import hfppl
+from collections import Counter
+from functools import cached_property, lru_cache
+from IPython.display import HTML, display
+
+from genparse.tokenization import decode_tokenizer_vocab
 
 
 def set_seed(seed):
@@ -22,21 +21,31 @@ def set_seed(seed):
 
 
 def lark_guide(grammar, decay=1, ignore=''):
-    from genparse.cfglm import BoolMaskCFGLM
+    from genparse.cfglm import BoolCFGLM
 
-    return BoolMaskCFGLM(LarkStuff(grammar).char_cfg(decay, ignore=ignore))
+    return BoolCFGLM(LarkStuff(grammar).char_cfg(decay, ignore=ignore))
+
+
+@lru_cache(None)
+def make_mock_llm(**kwargs):
+    from genparse.lm import MockLLM
+
+    H = hf_tokenizer(**kwargs)
+    return MockLLM(V=H.decode, eos=H.eos)
 
 
 def load_model_by_name(model_name, batch_size=None):
-    import transformers
-    from hfppl import CachedCausalLM
     from genparse.lm import AsyncGreedilyTokenizedLLM, LLM
 
     if model_name == 'gpt2':
         MODEL_ID = 'gpt2'
+        tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_ID)
+        model = transformers.AutoModelForCausalLM.from_pretrained(MODEL_ID)
         return AsyncGreedilyTokenizedLLM(
-            model=LLM(transformers.AutoModelForCausalLM.from_pretrained(MODEL_ID)),
-            tokenizer=transformers.AutoTokenizer.from_pretrained(MODEL_ID),
+            model=LLM(
+                model, V=set(range(tokenizer.vocab_size)), eos=tokenizer.eos_token_id
+            ),
+            tokenizer=tokenizer,
             batch_size=batch_size,
         )
 
@@ -44,7 +53,7 @@ def load_model_by_name(model_name, batch_size=None):
         assert torch.cuda.is_available()
         MODEL_ID = 'codellama/CodeLlama-7b-Instruct-hf'
         return AsyncGreedilyTokenizedLLM(
-            model=CachedCausalLM.from_pretrained(MODEL_ID, load_in_8bit=False),
+            model=hfppl.CachedCausalLM.from_pretrained(MODEL_ID, load_in_8bit=False),
             tokenizer=transformers.AutoTokenizer.from_pretrained(
                 MODEL_ID,
                 use_fast=True,
@@ -142,7 +151,7 @@ class InferenceSetupVLLM:
     ):
         from genparse.vllm_compatibility import vllmpplLLM
         from genparse.vllm_steer import VLLMSampler
-
+        from genparse.lm import AsyncGreedilyTokenizedLLM
         from genparse.proposal import CharacterProposal, TokenProposal
 
         if guide_opts is None:
@@ -153,11 +162,7 @@ class InferenceSetupVLLM:
         if seed is not None:
             set_seed(seed)
 
-        import torch
-
         torch.backends.cuda.matmul.allow_tf32 = True
-        import transformers
-        from genparse.lm import AsyncGreedilyTokenizedLLM
 
         if model_name == 'gpt2':
             MODEL_ID = 'gpt2'
@@ -206,8 +211,6 @@ class InferenceSetupVLLM:
 
 class hf_tokenizer:
     def __init__(self, name='gpt2', **kwargs):
-        from transformers import AutoTokenizer
-
         if name == 'codellama':
             name = 'codellama/CodeLlama-7b-Instruct-hf'
             _kwargs = dict(
@@ -220,7 +223,7 @@ class hf_tokenizer:
             )
             _kwargs.update(**kwargs)
 
-        self.tokenizer = AutoTokenizer.from_pretrained(name, **kwargs)
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained(name, **kwargs)
 
         # there are many ways to extract the string representations of each
         # token from the HF tokenizers.
@@ -428,7 +431,7 @@ class LarkStuff:
             cfg.add(1 / lhs_count[r.head], r.head, *r.body)
         return cfg.renumber()
 
-    def char_cfg(self, decay, ignore=''):
+    def char_cfg(self, decay=1, ignore=''):
         from genparse import CFG, Float
 
         cfg = self.convert()

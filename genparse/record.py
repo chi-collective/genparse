@@ -23,9 +23,9 @@ class SMCRecord(dict):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.n_particles = len(
-            self['weight'][0]
-        )  # any more transparent way of getting this would smarter
+        self.n_particles = self['n_particles']
+        self.algorithm = self['algorithm']
+        self.history = self['history']
 
     def __repr__(self):
         return f'SMCRecord({super().__repr__()})'
@@ -33,13 +33,48 @@ class SMCRecord(dict):
     def _repr_html_(self):
         # Just copied from chart.Chart  --- Might not look good.
         return (
-            '<div>SMCRecord:<div><div style="font-family: Monospace;">'
-            + format_table(self.to_df().items(), headings=['key', 'value'])
-            + '</div>'
+            f'<div>SMCRecord: '
+            f'n_particles={self.n_particles}, algorithm={self.algorithm}</div>'
+            f'<div>History:' + self.to_df().to_html() + '</div>'
         )
 
+    def reorganize_history(self):
+        """
+        Reorganize the history data into a list of dictionaries, for processing into a pandas dataframe.
+        """
+        output_data = []
+
+        for step_data in self.history:
+            step = step_data['step']
+            particles = step_data['particles']
+
+            context = [p['context'] for p in particles]
+            weight = [p['weight'] for p in particles]
+
+            # Assuming all particles have the same context length
+            token = [p['context'][-1] if p['context'] else '' for p in particles]
+
+            new_entry = {
+                'step': step,
+                'context': context,
+                'weight': weight,
+                'resampled as': step_data.get(
+                    'resample_indices', list(range(len(particles)))
+                ),
+                'resample?': 'resample_indices' in step_data,
+                'average weight': step_data['average_weight'],
+                'token': token,
+                'change in w': step_data['average_weight']
+                if step == 1
+                else step_data['average_weight'] - output_data[-1]['average weight'],
+            }
+
+            output_data.append(new_entry)
+
+        return output_data
+
     def to_df(self, process=True):
-        df = pd.DataFrame(self)
+        df = pd.DataFrame(self.reorganize_history())
         if not process:
             return df
         df['token'] = df['context'].apply(
@@ -50,7 +85,7 @@ class SMCRecord(dict):
         ].diff()  # incremental diff in avg weight (biased (over)estimator of marginalizing constant)
         return df
 
-    def df_for_plotting(self):
+    def df_for_plotly(self):
         # Process the data for plotting.
         recs = (
             self.to_df(process=True)
@@ -59,8 +94,8 @@ class SMCRecord(dict):
         )
         recs['particle'] = recs.groupby(recs.index // self.n_particles).cumcount()
         recs['context_string'] = recs['context'].apply(lambda x: ''.join(x[:-1]))
-        recs['exp_average weight'] = recs['average weight'].apply(lambda x: np.exp(x))
-        recs['exp_weight'] = recs['weight'].apply(lambda x: np.exp(x))
+        recs['exp_average weight'] = recs['average weight'].apply(np.exp)
+        recs['exp_weight'] = recs['weight'].apply(lambda x: np.exp(x))  # pylint: disable=unnecessary-lambda
         recs['prop_exp_weight'] = recs['exp_weight'] / recs['exp_average weight']
         return recs
 
@@ -69,7 +104,7 @@ class SMCRecord(dict):
         import plotly.graph_objects as go
         from plotly.subplots import make_subplots
 
-        d_ = self.df_for_plotting()
+        d_ = self.df_for_plotly()
         if xrange:
             d_ = d_[(d_['step'] > xrange[0]) & (d_['step'] <= xrange[1])]
 
@@ -186,16 +221,18 @@ class SMCRecord(dict):
 
         return fig
 
-    def plotlyx(self, xrange=None, opts=dict(), layout_opts=dict()):
+    def plotlyx(self, xrange=None, layout_opts=None):
         """
         Plot the particles' trajectory.
         Requires plotly.
         """
+        if layout_opts is None:
+            layout_opts = {}
 
         import plotly.express as px
         import plotly.graph_objects as go
 
-        d_ = self.df_for_plotting()
+        d_ = self.df_for_plotly()
         if xrange:
             d_ = d_[(d_['step'] > xrange[0]) & (d_['step'] <= xrange[1])]
 

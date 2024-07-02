@@ -1,0 +1,93 @@
+#frame-background {
+  fill: rgb(241, 241, 241);
+  stroke: gray;
+}
+
+line.highlight {
+  stroke: blue;
+  stroke-width: 2px;
+  opacity: 0.5;
+}
+
+text {
+  font-size: 16px;
+  font-family: "Iosevka Web", monospace;
+}
+
+.tooltip {
+  font-family: "Iosevka Web", monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0;
+  position: absolute;
+  background-color: white;
+  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 5px;
+  pointer-events: none;
+}
+
+#svg svg {
+  width: calc(100vw - 40px);
+  height: calc(100vh - 140px);
+}
+
+#frame-background {
+  width: 100%;
+  height: 100%;
+}
+
+#yspace_slider {
+  width: 200px;
+  margin: 0 10px;
+}
+
+#yspace_value {
+  display: inline-block;
+  width: 30px;
+  text-align: right;
+}
+
+.step {
+  transition: transform 0.3s ease;
+}
+
+.particle circle {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.particle line {
+  stroke: #777;
+  opacity: 0.6;
+  width: 1;
+  stroke-dasharray: 1,4;
+}
+
+.particle text {
+  font-weight: normal;
+  fill: #777;
+}
+
+.particle text .token {
+  font-weight: bold;
+  fill: black;
+}
+
+.particle text .left-info {
+  font-size: 12px;
+  font-family: Arial, sans-serif;
+  fill: #555;
+}
+
+path.particle-link {
+  fill: none;
+  opacity: 0.3;
+}
+
+/* Styles for collapsed state */
+.collapsed {
+  .particle circle {
+    opacity: 0.1;
+  }
+}

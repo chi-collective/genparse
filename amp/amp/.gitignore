@@ -1,0 +1,11 @@
+*.pyc
+*.swo
+*.swp
+*/.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+src/outputs
+build
+build/*
+*.egg-info
+*.egg-info/*
+*.jsonl

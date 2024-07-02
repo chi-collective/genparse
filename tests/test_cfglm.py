@@ -7,12 +7,13 @@ from arsenal import colors
 import genparse
 import genparse.examples
 from genparse.cfg import CFG
-from genparse.cfglm import CFGLM, add_EOS
-from genparse.semiring import Real
+from genparse.cfglm import add_EOS
+from genparse.parse.cky import CKYLM
+from genparse.semiring import Float
 
 
 def fast_posterior(cfg, prefix):
-    return CFGLM(cfg).p_next(tuple(prefix))
+    return CKYLM(cfg).p_next(tuple(prefix))
 
 
 def next_token_weights_slow(cfg, prefix):
@@ -47,15 +48,13 @@ def test_new_abcdx():
     cfg = add_EOS(
         CFG.from_string(
             """
-
-    1: S -> a b c d
-    1: S -> a b c x
-    1: S -> a b x x
-    1: S -> a x x x
-    1: S -> x x x x
-
-    """,
-            Real,
+            1: S -> a b c d
+            1: S -> a b c x
+            1: S -> a b x x
+            1: S -> a x x x
+            1: S -> x x x x
+            """,
+            Float,
         )
     )
 
@@ -107,9 +106,30 @@ def test_new_papa():
 
 
 def test_sample():
-    cfg = CFGLM(genparse.examples.papa)
+    cfg = CKYLM(genparse.examples.papa)
     sample = cfg.sample(prob=True)
     print(sample)
+
+
+def test_lm():
+    from genparse.lm import LM
+
+    cfg = CKYLM(genparse.examples.papa)
+    sample = cfg.sample(prob=False) + (cfg.eos,)
+    print(sample)
+
+    assert Float.metric(cfg(sample), LM.__call__(cfg, sample)) <= 1e-8
+
+
+def test_clear_cache():
+    cfg = CKYLM(genparse.examples.papa)
+    assert len(cfg.model._chart) == 0
+    sample = cfg.sample(prob=False) + (cfg.eos,)
+    p = cfg(sample)
+    assert len(cfg.model._chart) > 0
+    print(p, sample)
+    cfg.clear_cache()
+    assert len(cfg.model._chart) == 0
 
 
 if __name__ == '__main__':

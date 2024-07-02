@@ -1,10 +1,15 @@
+"""
+Coarse-grained pruning to improve the size of intermediate FST-FST
+composition.
+"""
+
 import numpy as np
 from time import time
 from arsenal import colors, timers
 
 from genparse import Float
 from genparse.fst import EPSILON, FST
-from genparse.util import bpe_wfst
+from genparse.segmentation import bpe_wfst
 
 bpe_medium = [
     (26361, 'zon'),

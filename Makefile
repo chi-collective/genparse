@@ -37,7 +37,7 @@ format : env
 .PHONY : docs
 docs : env html/docs/index.html
 html/docs/index.html : $(SRC_FILES)
-	@pdoc $(NAME) -o $(@D)
+	@pdoc $(NAME) --math -o $(@D)
 
 ## test      : run linting and tests.
 .PHONY : test

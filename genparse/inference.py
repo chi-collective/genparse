@@ -4,39 +4,24 @@ Approximate inference algorithms live here.
 
 import asyncio
 import copy
-import html
 
 import numpy as np
-from arsenal import Integerizer, colors
-from arsenal.maths import logsumexp, sample, softmax
-from graphviz import Digraph
+from arsenal.maths import logsumexp, softmax
 
 from genparse.record import SMCRecord
-from genparse.semiring import Float
 
 
-# _______________________________________________________________________________
-#
-# The importance sampling method below is an async equivalent of the following
-#
-# for p in iterview(particles):
-#     p.start()
-#     while not p.done_stepping():
-#         p.step()
-#
-# There are a few things that we can say about importance sampling
-#
-# It returns a collection of particles of size `n_particles`.  Each particle in
-# this collection has a weight.  That weight must be carefully calculated.
-#
-#   (i) E[\sum_{y \in P} w(y)] = Z
-#
-#   (ii) for all y \in universe: E[w(y)] / Z = p(y)
-#
-#   (iii) for all y \in universe: \lim_{N -> \infty} E[w(y) / \sum_{y \in P} w(y)] = p(y)
-#
 async def importance_sampling(model, n_particles):
-    "Importance sampling estimator"
+    "Importance sampling estimator."
+
+    # Implmentation note: The importance sampling method below is an async
+    # equivalent of the following:
+    #
+    # for p in iterview(particles):
+    #     p.start()
+    #     while not p.done_stepping():
+    #         p.step()
+
     # Create n_particles copies of the model
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
     for particle in particles:
@@ -56,12 +41,12 @@ async def smc_steer(model, n_particles, n_beam):
     as described in [Lew et al. 2023](https://arxiv.org/abs/2306.03081).
 
     Args:
-        model (hfppl.modeling.Model): The model to perform inference on.
-        n_particles (int): Number of particles to maintain.
-        n_beam (int): Number of continuations to consider for each particle.
+      - `model` (`hfppl.modeling.Model`): The model to perform inference on.
+      - `n_particles` (`int`): Number of particles to maintain.
+      - `n_beam` (`int`): Number of continuations to consider for each particle.
 
     Returns:
-        particles (list[hfppl.modeling.Model]): The completed particles after inference.
+      - `particles` (`list[hfppl.modeling.Model]`): The completed particles after inference.
     """
     verbosity = model.verbosity if hasattr(model, 'verbosity') else 0
 
@@ -157,6 +142,7 @@ async def smc_steer(model, n_particles, n_beam):
 
 
 def find_c(weights, N):
+    "Helper method for `smc_steer`"
     # Sort the weights
     sorted_weights = np.sort(weights)
     # Find the smallest chi
@@ -174,6 +160,7 @@ def find_c(weights, N):
 
 
 def resample_optimal(weights, N):
+    "Helper method for `smc_steer`"
     c = find_c(weights, N)
     # Weights for which c * w >= 1 are deterministically resampled
     deterministic = np.where(c * weights >= 1)[0]
@@ -202,21 +189,19 @@ def resample_optimal(weights, N):
     return deterministic, stoch_resampled, c
 
 
-# _______________________________________________________________________________
-#
-
-
 async def smc_standard(model, n_particles, ess_threshold=0.5):
     """
     Standard sequential Monte Carlo algorithm with multinomial resampling.
 
     Args:
-        model (hfppl.modeling.Model): The model to perform inference on.
-        n_particles (int): Number of particles to execute concurrently.
-        ess_threshold (float): Effective sample size below which resampling is triggered, given as a fraction of `n_particles`.
+      - `model` (`hfppl.modeling.Model`): The model to perform inference on.
+      - `n_particles` (`int`): Number of particles to execute concurrently.
+      - `ess_threshold` (`float`): Effective sample size below which resampling
+         is triggered, given as a fraction of `n_particles`.
 
     Returns:
-        particles (list[hfppl.modeling.Model]): The completed particles after inference.
+      - `particles` (`list[hfppl.modeling.Model]`): The completed particles
+         after inference.
     """
     verbosity = model.verbosity if hasattr(model, 'verbosity') else 0
 
@@ -271,23 +256,23 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
     return particles
 
 
-# _______________________________________________________________________________
-#  Modified version of the above, to keep a record of information about the run.
-#  Should be identical
-
-
 async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_record=True):
-    """
-    Standard sequential Monte Carlo algorithm with multinomial resampling.
+    """Standard sequential Monte Carlo algorithm with multinomial resampling.
+
+    Modified version `smc_standard` that keeps a record of information about the
+    run.  Should be identical in behavior, but uses a different format to store
+    the record.
 
     Args:
-        model (hfppl.modeling.Model): The model to perform inference on.
-        n_particles (int): Number of particles to execute concurrently.
-        ess_threshold (float): Effective sample size below which resampling is triggered, given as a fraction of `n_particles`.
+      - `model` (`hfppl.modeling.Model`): The model to perform inference on.
+      - `n_particles` (`int`): Number of particles to execute concurrently.
+      - `ess_threshold` (`float`): Effective sample size below which resampling
+         triggered, given as a fraction of `n_particles`.
 
     Returns:
-        particles (list[hfppl.modeling.Model]): The completed particles after inference.
-        record (SMCRecord): Information about inference run history.
+      - `particles` (`list[hfppl.modeling.Model]`): The completed particles after inference.
+      - `record` (`SMCRecord`): Information about inference run history.
+
     """
     verbosity = model.verbosity if hasattr(model, 'verbosity') else 0
 
@@ -301,12 +286,10 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
     record = (
         SMCRecord(
             {
-                'step': [0],
-                'context': [[p.context.copy() for p in particles]],
-                'weight': [[p.weight for p in particles]],
-                'resample?': [False],
-                'resampled as': [[i for i, _ in enumerate(particles)]],
-                'average weight': [0.0],
+                'n_particles': n_particles,
+                'ess_threshold': ess_threshold,
+                'algorithm': 'smc_standard_record',
+                'history': [],
             }
         )
         if return_record
@@ -318,7 +301,7 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
 
     while any(map(lambda p: not p.done_stepping(), particles)):
         if return_record:
-            record['step'].append(step_num)
+            step = {'step': step_num}
 
         # Step each particle
         for p in particles:
@@ -340,9 +323,10 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
             print(f'│ Step {step_num:3d} average weight: {avg_weight:.4f}')
 
         if return_record:
-            record['context'].append([p.context.copy() for p in particles])
-            record['weight'].append(weights)
-            record['average weight'].append(avg_weight)
+            step['particles'] = [
+                {'context': p.context.copy(), 'weight': p.weight} for p in particles
+            ]
+            step['average_weight'] = avg_weight
 
         # Resample if necessary
         if -logsumexp(weights_normalized * 2) < np.log(ess_threshold) + np.log(
@@ -357,10 +341,9 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
                     np.random.choice(range(len(particles)), p=probs)
                     for _ in range(n_particles)
                 ]
-                resampled_indices.sort()
+                resampled_indices.sort()  # remove this. sorting should be done in post if necessary
                 particles = [copy.deepcopy(particles[i]) for i in resampled_indices]
-                record['resample?'] += [True]
-                record['resampled as'].append(resampled_indices)
+                step['resample_indices'] = resampled_indices
             else:
                 particles = [
                     copy.deepcopy(
@@ -377,147 +360,12 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
                     f'└╼  Resampling! {resampled_indices}. Weights all set to = {avg_weight:.4f}.'
                 )
         else:
-            if return_record:
-                record['resample?'].append(False)
-                record['resampled as'].append([i for i, _ in enumerate(particles)])
-
             if verbosity > 0:
                 print('└╼')
 
         if return_record or verbosity > 0:
             step_num += 1
+            if return_record:
+                record['history'].append(step)
 
     return particles, record
-
-
-# _______________________________________________________________________________
-#
-
-
-class Tracer:
-    """
-    This class lazily materializes the probability tree of a generative process by program tracing.
-    """
-
-    def __init__(self):
-        self.root = Node(1.0, None, None)
-        self.cur = None
-
-    def __call__(self, p, context=None):
-        "Sample an action while updating the trace cursor and tree data structure."
-
-        if not isinstance(p, dict):
-            p = dict(enumerate(p))
-
-        cur = self.cur
-
-        if cur.children is None:  # initialize the newly discovered node
-            cur.children = {a: Node(cur.mass * p[a], parent=cur) for a in p if p[a] > 0}
-            self.cur.context = (
-                context  # store the context, which helps detect trace divergence
-            )
-
-        if context != cur.context:
-            print(colors.light.red % 'ERROR: trace divergence detected:')
-            print(colors.light.red % 'trace context:', self.cur.context)
-            print(colors.light.red % 'calling context:', context)
-            raise ValueError((p, cur))
-
-        a = cur.sample()
-        self.cur = cur.children[a]  # advance the cursor
-        return a
-
-
-class Node:
-    __slots__ = ('mass', 'parent', 'children', 'context', '_mass')
-
-    def __init__(self, mass, parent, children=None, context=None):
-        self.mass = mass
-        self.parent = parent
-        self.children = children
-        self.context = context
-        self._mass = mass  # bookkeeping: remember the original mass
-
-    def sample(self):
-        cs = list(self.children)
-        ms = [c.mass for c in self.children.values()]
-        return cs[sample(ms)]
-
-    def p_next(self):
-        return Float.chart((a, c.mass / self.mass) for a, c in self.children.items())
-
-    # TODO: untested
-    def sample_path(self):
-        curr = self
-        path = []
-        P = 1
-        while True:
-            p = curr.p_next()
-            a = curr.sample()
-            P *= p[a]
-            curr = curr.children[a]
-            if not curr.children:
-                break
-            path.append(a)
-        return (P, path, curr)
-
-    def update(self):
-        "Restore the invariant that self.mass = sum children mass."
-        if self.children is not None:
-            self.mass = sum(y.mass for y in self.children.values())
-        if self.parent is not None:
-            self.parent.update()
-
-    def graphviz(
-        self,
-        fmt_edge=lambda x, a, y: f'{html.escape(str(a))}/{y._mass/x._mass:.2g}',
-        # fmt_node=lambda x: ' ',
-        fmt_node=lambda x: (
-            f'{x.mass}/{x._mass:.2g}' if x.mass > 0 else f'{x._mass:.2g}'
-        ),
-    ):
-        "Create a graphviz instance for this subtree"
-        g = Digraph(
-            graph_attr=dict(rankdir='LR'),
-            node_attr=dict(
-                fontname='Monospace',
-                fontsize='10',
-                height='.05',
-                width='.05',
-                margin='0.055,0.042',
-            ),
-            edge_attr=dict(arrowsize='0.3', fontname='Monospace', fontsize='9'),
-        )
-        f = Integerizer()
-        xs = set()
-        q = [self]
-        while q:
-            x = q.pop()
-            xs.add(x)
-            if x.children is None:
-                continue
-            for a, y in x.children.items():
-                g.edge(str(f(x)), str(f(y)), label=f'{fmt_edge(x,a,y)}')
-                q.append(y)
-        for x in xs:
-            if x.children is not None:
-                g.node(str(f(x)), label=str(fmt_node(x)), shape='box')
-            else:
-                g.node(str(f(x)), label=str(fmt_node(x)), shape='box', fillcolor='gray')
-        return g
-
-
-class TraceSWOR(Tracer):
-    """
-    Sampling without replacement 🤝 Program tracing.
-    """
-
-    def __enter__(self):
-        self.cur = self.root
-
-    def __exit__(self, *args):
-        self.cur.mass = 0  # we will never sample this node again.
-        self.cur.update()  # update invariants
-
-    def _repr_svg_(self):
-        return self.root.graphviz()._repr_image_svg_xml()

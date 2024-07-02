@@ -1,32 +1,32 @@
 from arsenal import colors
 
-from genparse import examples
+from genparse import examples, add_EOS
 from genparse.cfg import CFG
-from genparse.cfglm import CFGLM, add_EOS
-from genparse.experimental.earley import Earley, EarleyLM
+from genparse.parse.earley import Earley, EarleyLM
+from genparse.parse.cky import CKYLM, IncrementalCKY
 from genparse.semiring import Float, MaxTimes
 
 
 def test_cycles():
     cfg = CFG.from_string(
         """
-    0.5: S → A1
-    0.5: S → A2
+        0.5: S → A1
+        0.5: S → A2
 
-    0.5: A1 → B1
-    0.5: B1 → C1
-    0.5: C1 → A1
+        0.5: A1 → B1
+        0.5: B1 → C1
+        0.5: C1 → A1
 
-    0.5: A2 → B2
-    0.5: B2 → C2
-    0.5: C2 → A2
+        0.5: A2 → B2
+        0.5: B2 → C2
+        0.5: C2 → A2
 
-    1.0: C1 → C
-    1.0: C2 → C
+        1.0: C1 → C
+        1.0: C2 → C
 
-    0.5: C → c
+        0.5: C → c
 
-    """,
+        """,
         Float,
     )
 
@@ -107,10 +107,10 @@ def test_catalan():
 def test_common_rhs():
     cfg = CFG.from_string(
         """
-    0.1: S -> S S
-    0.1: S -> S S
-    0.8: S -> a
-    """,
+        0.1: S -> S S
+        0.1: S -> S S
+        0.8: S -> a
+        """,
         Float,
     )
 
@@ -147,7 +147,7 @@ def test_has_unary_cycle():
         0.5: B → C
         0.5: C → A
         0.5: C → c
-    """,
+        """,
         Float,
     )
 
@@ -159,7 +159,7 @@ def test_has_unary_cycle():
         0.5: A → B
         0.5: B → C
         0.5: C → c
-    """,
+        """,
         Float,
     )
 
@@ -173,7 +173,7 @@ def test_parse_unambiguous():
         0.3: B → A B
         0.5: A → a
         0.4: B → b
-    """,
+        """,
         Float,
     )
 
@@ -190,7 +190,7 @@ def test_parse_left_recursive():
         0.3: A → A B
         0.5: A → a
         0.4: B → b
-    """,
+        """,
         Float,
     )
 
@@ -216,7 +216,7 @@ def test_parse_unary():
         0.3: B → A B
         0.2: B → A
         0.5: A → a
-    """,
+        """,
         Float,
     )
 
@@ -232,7 +232,7 @@ def test_parse_unary():
         0.3: A → B
         0.2: B → C
         0.5: C → c
-    """,
+        """,
         Float,
     )
 
@@ -249,7 +249,7 @@ def test_parse_mixed():
         0.1: B → b b
         0.5: A → a
         0.3: D → d
-    """,
+        """,
         Float,
     )
 
@@ -265,7 +265,7 @@ def test_parse_ambiguous_real():
         0.4: A → A + A
         0.1: A → A - A
         0.5: A → a
-    """,
+        """,
         Float,
     )
 
@@ -279,7 +279,7 @@ def test_parse_ambiguous_real():
         0.4: A → A + A
         0.1: A → A - A
         0.5: A → a
-    """,
+        """,
         Float,
         start='A',
     )
@@ -297,7 +297,7 @@ def test_parse_ambiguous_maxtimes():
         0.4: A → A + A
         0.1: A → A - A
         0.5: A → a
-    """,
+        """,
         MaxTimes,
     )
 
@@ -308,28 +308,25 @@ def test_parse_ambiguous_maxtimes():
 
 
 def test_p_next_new_abcdx():
-    cfg = add_EOS(
-        CFG.from_string(
-            """
-
-    1: S -> a b c d
-    1: S -> a b c x
-    1: S -> a b x x
-    1: S -> a x x x
-    1: S -> x x x x
-
-    """,
-            Float,
-        )
+    cfg = CFG.from_string(
+        """
+        1: S -> a b c d
+        1: S -> a b c x
+        1: S -> a b x x
+        1: S -> a x x x
+        1: S -> x x x x
+        """,
+        Float,
     )
 
-    cfglm = CFGLM(cfg)
-    earley = EarleyLM(cfg)
+    # Note: add_EOS used here for code coverage
+    ckylm = CKYLM(add_EOS(cfg))
+    earley = EarleyLM(add_EOS(cfg))
 
     for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
         print()
         print(colors.light.blue % prefix)
-        want = cfglm.p_next(prefix)  # Annoyingly shifted over
+        want = ckylm.p_next(prefix)
         print(want)
         have = earley.p_next(prefix)
         print(have)
@@ -339,15 +336,15 @@ def test_p_next_new_abcdx():
 
 
 def test_p_next_palindrome():
-    cfg = add_EOS(examples.palindrome_ab)
+    cfg = examples.palindrome_ab
 
-    cfglm = CFGLM(cfg)
+    ckylm = CKYLM(cfg)
     earley = EarleyLM(cfg)
 
     for prefix in ['', 'a', 'ab']:
         print()
         print(colors.light.blue % prefix)
-        want = cfglm.p_next(prefix)
+        want = ckylm.p_next(prefix)
         print(want)
         have = earley.p_next(prefix)
         print(have)
@@ -357,9 +354,9 @@ def test_p_next_palindrome():
 
 
 def test_p_next_papa():
-    cfg = add_EOS(examples.papa)
+    cfg = examples.papa
 
-    cfglm = CFGLM(cfg)
+    ckylm = CKYLM(cfg)
     earley = EarleyLM(cfg)
 
     for prefix in [
@@ -372,12 +369,52 @@ def test_p_next_papa():
         prefix = tuple(prefix)
         print()
         print(colors.light.blue % (prefix,))
-        want = cfglm.p_next(prefix)
+        want = ckylm.p_next(prefix)
         print(want)
         have = earley.p_next(prefix)
         print(have)
         print(colors.mark(have.metric(want) <= 1e-5))
         assert have.metric(want) <= 1e-5
+
+
+def test_clear_cache():
+    cfg = EarleyLM(examples.papa)
+    assert len(cfg.model._chart) == 0
+    sample = cfg.sample(prob=False) + (cfg.eos,)
+    p = cfg(sample)
+    assert len(cfg.model._chart) > 0
+    print(p, sample)
+    cfg.clear_cache()
+    assert len(cfg.model._chart) == 0
+
+
+# [2024-06-29 Sat] This test was added to improve code coverage. It does some
+# out of the ordinary stuff (compute p_next without the prefix transformation).
+def test_mystery():
+    cfg = CFG.from_string(
+        """
+        1: S -> a b c d
+        1: S -> a b c x
+        1: S -> a b x x
+        1: S -> a x x x
+        1: S -> x x x x
+        """,
+        Float,
+    )
+
+    cky = IncrementalCKY(cfg.cnf)
+    earley = Earley(cfg)
+
+    for prefix in ['abc', 'abcd', '']:
+        print()
+        print(colors.light.blue % prefix)
+        want = cky.p_next(prefix)
+        print(want)
+        have = earley.p_next(prefix)
+        print(have)
+        err = have.metric(want)
+        print(colors.mark(err <= 1e-5))
+        assert err <= 1e-5, err
 
 
 if __name__ == '__main__':

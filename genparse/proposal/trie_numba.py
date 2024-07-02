@@ -1,6 +1,6 @@
 import numba
 import numpy as np
-from numba.typed import List
+from numba.typed import List  # pylint: disable=no-name-in-module
 
 
 class TokenCharacterTrie:
@@ -125,7 +125,7 @@ def _update_trie_numba(
     jump: List[numba.int32[:]],
     token_id_to_leaf: numba.int32[:, :],
     ordering: numba.int32[:],
-):
+):  # pragma: no cover
     # update leaves
     M = token_id_to_leaf.shape[0]
     for k in range(M):

@@ -1,8 +1,6 @@
 from arsenal.datastructures.pdict import pdict
 from collections import namedtuple
-from arsenal.iterextras import head_iter, take
-from arsenal import colors
-from time import time
+from arsenal.iterextras import head_iter
 from genparse import Float
 
 

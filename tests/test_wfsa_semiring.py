@@ -27,8 +27,8 @@ def test_det():
 
     # TODO: this is a quantized real class (see hash and equality methods)
     class Real(Semiring):
-        def __init__(self, score):
-            self.score = score
+        #        def __init__(self, score):
+        #            self.score = score
 
         def __eq__(self, other):
             #            return isinstance(other, Real) and self.score == other.score

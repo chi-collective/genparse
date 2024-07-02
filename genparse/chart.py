@@ -119,8 +119,10 @@ class Chart(dict):
     def sort(self, **kwargs):
         return self.semiring.chart((k, self[k]) for k in sorted(self, **kwargs))
 
-    def sort_descending(self, **kwargs):
-        return self.semiring.chart((k, self[k]) for k in sorted(self, lambda k: -self[k]))
+    def sort_descending(self):
+        return self.semiring.chart(
+            (k, self[k]) for k in sorted(self, key=lambda k: -self[k])
+        )
 
     def normalize(self):
         Z = self.sum()

@@ -1,19 +1,22 @@
-import random
-
-import numpy as np
 from arsenal import colors, timeit
 
-from genparse.cfglm import CFGLM, BoolMaskCFGLM, locally_normalize
-from genparse.lm import GreedilyTokenizedLLM
+from genparse.parse.earley import EarleyLM
+from genparse.cfglm import BoolCFGLM, locally_normalize
 from genparse.proposal import CharacterProposal
 from genparse.semiring import Float
-from genparse.util import LarkStuff, set_seed
+from genparse.util import LarkStuff, set_seed, load_model_by_name
+
+from genparse.proposal.util import (
+    mock_character_proposal,
+    assert_proper_weighting,
+    assert_unbiased_Z,
+)
 
 
 def test_timothy():
     set_seed(0)
 
-    pcfg = CFGLM(
+    pcfg = EarleyLM(
         locally_normalize(
             LarkStuff(r""" start: /[ ]*Tim(othy)?[ ](Fabbri[ ])?Vieira\./""").char_cfg(
                 0.99
@@ -23,9 +26,7 @@ def test_timothy():
     )
 
     prompt = 'Hello my name is'
-    llm = GreedilyTokenizedLLM('gpt2')
-
-    llm.sample('My name is', verbose=1, max_tokens=10)
+    llm = load_model_by_name('gpt2')
 
     proposal = CharacterProposal(llm=llm, guide=pcfg)
     W = Float.chart()
@@ -44,19 +45,19 @@ def test_timothy():
 def todo_chomsky():
     set_seed(0)
 
-    pcfg = CFGLM(
+    pcfg = EarleyLM(
         locally_normalize(
             LarkStuff(
                 r"""
 
-    start: /Noam[ ]Chomsky[ ]famously[ ]wrote,[ ]"/ expr /\."/
+                start: /Noam[ ]Chomsky[ ]famously[ ]wrote,[ ]"/ expr /\."/
 
-    //expr: /[A-Za-z0-9,; ]+/
-    expr: /[Tt]ime[ ]flies[ ]like[ ]an[ ]arrow/
-        | /[iI][ ]like[ ]to[ ]dance/
-        | /[cC]olorless[ ]green[ ]ideas[ ]sleep[ ]furiously/
+                //expr: /[A-Za-z0-9,; ]+/
+                expr: /[Tt]ime[ ]flies[ ]like[ ]an[ ]arrow/
+                  | /[iI][ ]like[ ]to[ ]dance/
+                  | /[cC]olorless[ ]green[ ]ideas[ ]sleep[ ]furiously/
 
-    """
+                """
             ).char_cfg(0.9999),
             tol=1e-300,
         )
@@ -73,7 +74,7 @@ def todo_chomsky():
     # XXX: we are using the boolean CFG instead of the PCFG; the PCFG is running
     # into numerical underflow.  We need to use the log-semiring or a rescaling
     # trick in the Earley parser.
-    pcfg = BoolMaskCFGLM(pcfg.cfg)
+    pcfg = BoolCFGLM(pcfg.cfg)
 
     # print(''.join(pcfg.sample()))
 
@@ -81,15 +82,14 @@ def todo_chomsky():
     #    tmp = pcfg.cfg.spawn(R = Log)
     #    for r in pcfg.cfg:
     #        tmp.add(Log(np.log(r.w)), r.head, *r.body)
-    #    lpcfg = CFGLM(tmp)
+    #    lpcfg = EarleyLM(tmp)
 
     #    x = 'Noam Chomsky famously wrote, "One of the most outrageous things about Modernity has always been muckraking in human nature; it has deceptively distorted the way in which one views human rights by making dece'
     #    lp = lpcfg.p_next(x)
     #    pp = pcfg.p_next(x)
-    #    from IPython import embed; embed()
 
     prompt = ' '
-    llm = GreedilyTokenizedLLM('gpt2')
+    llm = load_model_by_name('gpt2')
 
     W = Float.chart()
 
@@ -106,22 +106,12 @@ def todo_chomsky():
         print(W.normalize())
 
 
-from test_utils.proposal_testing import (
-    enumerate_traces,
-    enumerate_target,
-    make_character_proposal,
-    assert_proper_weighting,
-    assert_unbiased_Z,
-)
-
-
 def test_normalizing_constant_unbiased():
     """
     The expected importance weight should provide an unbiased estimate of the normalizing constant.
     That is, we expect E_{(x,S) ~ q(x,S)}[w(x,S)] = Σ_x p(x).
     """
-    np.random.seed(0)
-    random.seed(0)
+    set_seed(0)
 
     V = {
         '▪',
@@ -134,10 +124,8 @@ def test_normalizing_constant_unbiased():
         ' WHE',
         ' ORD',
         ' SEL',
-        ' ORD',
         ' sta',
         ' WHER',
-        ' ORDE',
         ' SELE',
         ' ORDE',
         ' stat',
@@ -167,7 +155,7 @@ def test_normalizing_constant_unbiased():
             WS: /[ ]/
      """
 
-    proposal = make_character_proposal(V=V, guide_spec=grammar, uniform=True)
+    proposal = mock_character_proposal(V=V, guide_spec=grammar, uniform=True)
 
     prompt = ''
     context = ' '
@@ -201,8 +189,7 @@ def test_proper_weighting():
 
     for the local product of experts distributions. We test this for f(x) = δ(x', x) for all x' ∈ V.
     """
-    np.random.seed(0)
-    random.seed(0)
+    set_seed(0)
 
     #################
     # Boolean guide #
@@ -217,7 +204,7 @@ def test_proper_weighting():
         WS: /[ ]/
     """
 
-    proposal = make_character_proposal(V=V, uniform=True, guide_spec=grammar)
+    proposal = mock_character_proposal(V=V, uniform=True, guide_spec=grammar)
 
     prompt = ''
     context = ''
@@ -235,12 +222,10 @@ def test_proper_weighting():
         ' WHE',
         ' ORD',
         ' SEL',
-        ' ORD',
         ' sta',
         ' WHER',
         ' ORDE',
         ' SELE',
-        ' ORDE',
         ' stat',
         ' stad',
         ' SELECT',
@@ -268,7 +253,7 @@ def test_proper_weighting():
         WS: /[ ]/
     """
 
-    proposal = make_character_proposal(V=V, guide_spec=grammar, uniform=True)
+    proposal = mock_character_proposal(V=V, guide_spec=grammar, uniform=True)
 
     prompt = ''
     context = ' SELECT'
@@ -284,7 +269,7 @@ def test_proper_weighting():
     # Probabilistic guide #
     #######################
 
-    pcfg = CFGLM.from_string(
+    pcfg = EarleyLM.from_string(
         """
 
         1: S -> a
@@ -296,7 +281,7 @@ def test_proper_weighting():
 
     V = {'a', 'aa', 'aaa', '▪'}
 
-    proposal = make_character_proposal(V=V, guide_spec=pcfg, uniform=True)
+    proposal = mock_character_proposal(V=V, guide_spec=pcfg, uniform=True)
 
     prompt = ''
     context = ''

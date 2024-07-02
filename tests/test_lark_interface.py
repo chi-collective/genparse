@@ -1,7 +1,7 @@
 import numpy as np
 
-from genparse.cfglm import CFGLM, locally_normalize
-from genparse.experimental.earley import Earley
+from genparse.parse.earley import EarleyLM, Earley
+from genparse.cfglm import locally_normalize
 from genparse.util import LarkStuff, expand_case_insensitive
 
 grammar1 = r"""
@@ -97,7 +97,7 @@ def test_char_level_cfg():
 
     assert cfg(text) > 0
 
-    lm = CFGLM(locally_normalize(cfg, tol=1e-40, maxiter=np.inf))
+    lm = EarleyLM(locally_normalize(cfg, tol=1e-40, maxiter=np.inf))
 
     p = lm.p_next('SELECT state_color FROM ').normalize()
     print(p)
@@ -200,7 +200,7 @@ def test_char_lm_basics3():
     c2t = lark_stuff.transducer(ignore='', decay=0.1).renumber
     cfg_t = (c2t @ cfg).trim()
 
-    cfg_t_lm = CFGLM(locally_normalize(cfg_t, tol=1e-50))
+    cfg_t_lm = EarleyLM(locally_normalize(cfg_t, tol=1e-50))
 
     v = cfg_t_lm.p_next('SELECT bb').normalize()
     print(v)
@@ -209,7 +209,7 @@ def test_char_lm_basics3():
     del cfg, c2t, cfg_t
 
     char_cfg = lark_stuff.char_cfg(0.1)
-    char_lm = CFGLM(locally_normalize(char_cfg, tol=1e-50))
+    char_lm = EarleyLM(locally_normalize(char_cfg, tol=1e-50))
 
     v = char_lm.p_next('SELECT bb').normalize()
     print(v)
@@ -222,7 +222,7 @@ def test_case_insensitive_char_proposal():
     WS: /[ ]/
     """
 
-    guide = CFGLM(locally_normalize(LarkStuff(grammar).char_cfg(0.99)))
+    guide = EarleyLM(locally_normalize(LarkStuff(grammar).char_cfg(0.99)))
 
     assert guide.p_next('').trim().keys() == {'S', 's', ' '}
     assert guide.p_next('S').trim().keys() == {'E', 'e'}

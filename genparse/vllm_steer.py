@@ -19,8 +19,7 @@ from genparse.vllm_inference import (
 )
 from genparse.util import set_seed
 from genparse.steer import ParticleApproximation
-
-from typing import List
+from genparse.tokenization import decode_tokenizer_vocab
 
 
 class VLLMWrapper:
@@ -35,19 +34,13 @@ class VLLMWrapper:
         verbosity=0,
         timer=None,
     ):
-        from genparse.tokenization import decode_tokenizer_vocab
-
-        super().__init__()
-        # type: AsyncGreedilyTokenizedLLM
         self.llm = llm
         self.n_particles = n_particles
 
-        """
-            One VLLMWrapper is initialized for each prompt.
-            All VLLMWrapper point to the same AsyncGreedilyTokenizedLLM
-            based on one VLLM instance (self.llm).
-            We add the prompt in the VLLMWrapper constructor.
-        """
+        # One VLLMWrapper is initialized for each prompt.
+        # All VLLMWrapper point to the same AsyncGreedilyTokenizedLLM
+        # based on one VLLM instance (self.llm).
+        # We add the prompt in the VLLMWrapper constructor.
 
         self.particles = {}
 
@@ -195,7 +188,7 @@ class VLLMWrapper:
                 (token, _, weight_update) = await particle.proposal.sample_next_token(
                     prompt=self.prompt,
                     context=''.join(particle.context),
-                    p_llm=await self.llm.p_next(_logp=logp),
+                    p_llm=await self.llm.p_next_async(_logp=logp),
                 )
                 token_id = self.token_to_id.get(token, self.llm._model.eos_token_id)
                 particle.context.append(token)
@@ -250,7 +243,7 @@ class VLLMWrapper:
             weight_updates,
             parent_ids,
         ):
-            seq_outputs: List[SequenceOutput] = []
+            seq_outputs = []
 
             for parent_id, next_token_id, logprobs in zip(
                 group_parent_ids, next_token_ids, weight_update
@@ -291,8 +284,6 @@ class VLLMWrapper:
         # Log stats.
         self.llm._model.llm_engine.do_log_stats(scheduler_outputs, processed_output)
 
-        return
-
     async def update(self):
         # prepare logprobs
         with self.timer['llm'](
@@ -326,15 +317,11 @@ class VLLMWrapper:
             scheduler_outputs, seq_group_metadata_list, processed_output
         )
 
-        return
-
     async def step(self):
         scheduler_outputs, seq_group_metadata_list, results = await self.update()
 
         repeats = defaultdict(lambda: 1)
         self.postprocess(scheduler_outputs, seq_group_metadata_list, results, repeats)
-
-        return
 
 
 class VLLMSampler:
@@ -363,7 +350,6 @@ class VLLMSampler:
         """
         Returns:
             particle_approximation (ParticleApproximation)
-            record (dict | NoneType): information about the run
         """
         if seed is not None:
             set_seed(seed)
@@ -383,7 +369,7 @@ class VLLMSampler:
         if method == 'smc-steer':
             assert n_beam is not None
             if return_record:
-                raise Warning('Record not yet implemented for smc-steer')
+                warnings.warn('Record not yet implemented for smc-steer')
             particles = asyncio.run(
                 smc_steer(model, n_particles=n_particles, n_beam=n_beam)
             )
@@ -406,4 +392,4 @@ class VLLMSampler:
         else:
             raise ValueError(f'Unknown inference method: {method}.')
 
-        return ParticleApproximation(particles), record
+        return ParticleApproximation(particles, record=record)
