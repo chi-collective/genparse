@@ -104,15 +104,15 @@ def pcfg_check(cfg, verbose=True):
         return False
 
 
-def cfg_check_bounded(cfg, ub=1.000001, lb=0):
-    chart = cfg.agenda()
-    if all((lb <= v <= ub) for v in chart.values()):
-        print(colors.mark(True), 'PCFG')
-    else:
-        print(
-            colors.mark(False),
-            'PCFG',
-            chart.__str__(
-                style_value=lambda k, v: v if lb <= v <= ub else (colors.light.red % v)
-            ),
-        )
+# def cfg_check_bounded(cfg, ub=1.000001, lb=0):
+#    chart = cfg.agenda()
+#    if all((lb <= v <= ub) for v in chart.values()):
+#        print(colors.mark(True), 'PCFG')
+#    else:
+#        print(
+#            colors.mark(False),
+#            'PCFG',
+#            chart.__str__(
+#                style_value=lambda k, v: v if lb <= v <= ub else (colors.light.red % v)
+#            ),
+#        )
