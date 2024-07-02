@@ -24,6 +24,34 @@ $sentence
 
 SQL query:"""
 )
+_INSTRUCTION_TEMPLATE_V2_PERSONONLY = string.Template(
+    """Write a SQL query about a famous person mentioned in the following sentence:
+
+$sentence
+
+The database has one table, People, with columns as follows:
+ 
+- 'itemLabel.value' (usually the person's common name, which may or may not match given + family name, e.g. Ada Lovelace vs. Ada King)
+- 'given_nameLabel.value' (given name)
+- 'family_nameLabel.value' (family name)
+- 'name_in_native_languageLabel.value' (name as written in native language)
+- 'languages_spoken__written_or_signedLabel.value' (language they speak, write, or sign)
+- 'date_of_birthLabel.value' (their date of birth, in YYYY-MM-DDTHH:mm:ss+XX:ZZ form)
+- 'place_of_birthLabel.value' (their place of birth)
+- 'spouseLabel.value' (their spouse's common name)
+- 'motherLabel.value' (their mother's common name)
+- 'fatherLabel.value' (their father's common name)
+- 'country_of_citizenshipLabel.value' (country they are a citizen of)
+- 'occupationLabel.value' (their occupation)
+- 'religion_or_worldviewLabel.value' (their religion or worldview)
+- 'sex_or_genderLabel.value' (their sex or gender)
+
+The dots are part of the column names and so the column names must be quoted.
+
+Note that a person may appear in multiple rows if, for example, they have more than one occupation, speak more than one language, or are citizens of multiple countries.
+
+SQL query:"""
+)
 
 
 def instruction_prompt_v1_persononly(sentence_dict: dict[str, Any]) -> dict[str, Any]:
@@ -35,9 +63,19 @@ def instruction_prompt_v1_persononly(sentence_dict: dict[str, Any]) -> dict[str,
     }
 
 
+def instruction_prompt_v2_persononly(sentence_dict: dict[str, Any]) -> dict[str, Any]:
+    """Provide the sentence, basic instructions, and a list of columns that can be queried."""
+    return {
+        'prompt': _INSTRUCTION_TEMPLATE_V2_PERSONONLY.substitute(
+            sentence=sentence_dict['sentence']
+        )
+    }
+
+
 _PROMPT_TEMPLATES = {
     'sentence': sentence_prompt,
     'instruction-v1-persononly': instruction_prompt_v1_persononly,
+    'instruction-v2-persononly': instruction_prompt_v2_persononly,
 }
 
 
