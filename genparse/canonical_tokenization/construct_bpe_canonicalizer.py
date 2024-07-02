@@ -29,15 +29,11 @@ def get_json_path_from_hf_name(name):
     return model_path.with_name(tokenizer.vocab_files_names['tokenizer_file'])
 
 
-def construct_canonicalizer_from_tokenizer(
+def construct_dictionary_from_tokenizer(
     tokenizer_data: dict[str, Any],
-) -> dict[str, Any]:
-    # TODO Validate tokenizer attributes (the model is BPE, etc.)
+) -> tuple[list[int], list[tuple[int, int, int]]]:
     model_data = tokenizer_data['model']
-    if model_data['type'] != 'BPE':
-        raise ValueError
     vocab_str_to_int = model_data['vocab']
-    vocabulary_size = len(vocab_str_to_int)
     merge_rules = [x.split(' ', 1) for x in model_data['merges']]
 
     # TODO There are a few kinds of token that are not composite tokens but are
@@ -62,7 +58,7 @@ def construct_canonicalizer_from_tokenizer(
 
     # TODO Handle special tokens more generally. Don't hard-code these values.
     del vocab_str_to_int['<s>']
-    eos_token_id = vocab_str_to_int.pop('</s>')
+    del vocab_str_to_int['</s>']
 
     # TODO Handle byte fallback correctly. For now, just disallow <unk> and all
     # byte tokens.
@@ -89,12 +85,28 @@ def construct_canonicalizer_from_tokenizer(
         for u, v in merge_rules
     ]
 
+    return base_alphabet_as_int, merge_rules_as_int
+
+
+def construct_canonicalizer_from_tokenizer(
+    tokenizer_data: dict[str, Any],
+) -> dict[str, Any]:
+    """Note that tokenizer_data may be modified in-place."""
+    # TODO Validate tokenizer attributes (the model is BPE, etc.)
+    model_data = tokenizer_data['model']
+    if model_data['type'] != 'BPE':
+        raise ValueError
+    vocabulary_size = len(model_data['vocab'])
+    # TODO Don't hard-code </s>.
+    eos_token_id = model_data['vocab']['</s>']
+    base_alphabet, dictionary = construct_dictionary_from_tokenizer(tokenizer_data)
+
     # Free memory.
-    del vocab_str_to_int
-    del merge_rules
+    del tokenizer_data
+    del model_data
 
     # Run Berglund's algorithm to construct the token DFA.
-    dfa = TokenDFA.from_dictionary(base_alphabet_as_int, merge_rules_as_int)
+    dfa = TokenDFA.from_dictionary(base_alphabet, dictionary)
     transition_tensor = torch.tensor(list(dfa.get_transitions()))
     return dict(
         num_states=dfa.num_states,
