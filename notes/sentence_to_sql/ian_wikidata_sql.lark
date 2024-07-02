@@ -33,7 +33,7 @@ _sex_or_gender: "sex_or_genderLabel.value"
 
 STAR: "*"
 value: STRING | NUMBER
-STRING: "\\"" CHAR * "\\""
+STRING: "\"" CHAR * "\""
 CHAR: /(\\")|[^"]/
 NUMBER: /\d+/
 
