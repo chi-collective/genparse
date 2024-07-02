@@ -59,13 +59,14 @@ class TokenProposal(TokenCharacterTrie):
 
         The following procedure, justified using RAVI, gives the way we sample a token and compute the incremental SMC weight update.
 
-        1. Sample a subset S of size K of the token vocabulary by
-            a. enumerating the top K - 1 tokens
-            b. sampling a wilcard token from the remainder of the vocabulary proportional to p_llm(x)
+        1. Sample a subset S of size K (+ 1) of the token vocabulary by
+            a. enumerating the top K tokens
+            b. if there are remaining tokens with non-zero probability, sampling a wilcard token from the remainder of the vocabulary proportional to p_llm(x)
+                * this step ensures absoluate continuity
         2. Compute *unnormalized target* p(x) of each x \in S according to p_llm(x)p_cfg(x).
         3. Compute (local) weight w(x) of each token as p(x)/Pr(x \in S) where Pr(x \in S) is the *inclusion probability*.
-            * Pr(x \in S) = 1 if x in top K - 1
-            * Pr(x \in S) \propto p_llm(x) for the wilcard token
+            * Pr(x \in S) = 1 if x in top K
+            * Pr(x \in S) \propto p_llm(x) for the wilcard token, if applicable
         4. Renormalize the weights of the tokens in S and sample one of them.
         5. Set the incremental SMC weight update w'(x) = \sum_{x \in S} w(x)
 
@@ -80,46 +81,47 @@ class TokenProposal(TokenCharacterTrie):
             weight_update : Incremental SMC weight update.
 
         """
+        proposal_p = 1
+
         if p_llm is None:
             with self.timer['llm'](t=len(context)):
                 p_llm = await self.llm.p_next_async(prompt + context)
 
-        # enumerate top K - 1 tokens
-        Ws = Float.chart(take(self.K - 1, self.traverse_trie(context, p_llm)))
+        # enumerate top K tokens
+        Ws = Float.chart(take(self.K, self.traverse_trie(context, p_llm)))
 
-        # sample wildcard token from p_llm
+        # compute distribution over wildcard tokens
         P_wc = Float.chart({x: p for x, p in p_llm.items() if x not in Ws and p > 0})
 
-        # TODO: P_wc could be empty!
-        # print(f'{P_wc=}')
+        # if P_wc is non-empty, sample a wildcard token to ensure absolute continuity
+        if P_wc:
+            P_wc = P_wc.normalize()
+            wildcard = draw(P_wc)
+            proposal_p *= P_wc[wildcard]
 
-        P_wc = P_wc.normalize()
-        wildcard = draw(P_wc)
-        proposal_p = P_wc[wildcard]
+            # compute the wildcard's weight
+            p_cfg_wc = 1
+            with self.timer['cfg+trie'](t=len(context)):
+                for i, c in enumerate(wildcard):
+                    p_cfg_wc *= self.guide.p_next(context + wildcard[:i])[c]
+            Ws[wildcard] = (
+                p_llm[self.old_eos if wildcard == self.new_eos else wildcard]
+                * p_cfg_wc
+                / P_wc[wildcard]
+            )
 
-        # compute the wildcard's weight
-        p_cfg_wc = 1
-        with self.timer['cfg+trie'](t=len(context)):
-            for i, c in enumerate(wildcard):
-                p_cfg_wc *= self.guide.p_next(context + wildcard[:i])[c]
-        Ws[wildcard] = (
-            p_llm[self.old_eos if wildcard == self.new_eos else wildcard]
-            * p_cfg_wc
-            / P_wc[wildcard]
-        )
+        Ws = Ws.trim()
 
-        # TODO: Ws[wildcard] could be zero!
-        # print(f'{Ws[wildcard]=}')
-
-        # sample token from weights and compute update
-        Ws_norm = Ws.normalize()
-
-        # TODO: Ws_norm could be empty!
-        # print(f'{Ws=} {P_wc=} {Ws_norm=}')
-
-        token = draw(Ws_norm)
-        proposal_p *= Ws_norm[token]
-        weight_update = Ws.sum()
+        if Ws:
+            # sample token from weights and compute update
+            Ws_norm = Ws.normalize()
+            token = draw(Ws_norm)
+            proposal_p *= Ws_norm[token]
+            weight_update = Ws.sum()
+        else:
+            # if there are no possible next tokens, kill the particle
+            token = '💀'
+            weight_update = 0
 
         return (token, proposal_p, weight_update)
 
