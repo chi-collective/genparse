@@ -84,7 +84,7 @@ prompts = [
 
 
 def main():
-    guide = lark_guide(grammar, ignore='[ ]?')
+    guide = lark_guide(grammar)
 
     BATCH_SIZE = 80
 

@@ -21,10 +21,10 @@ def set_seed(seed):
         torch.cuda.manual_seed_all(seed)
 
 
-def lark_guide(grammar, decay=1, ignore=''):
+def lark_guide(grammar, decay=1):
     from genparse.cfglm import BoolCFGLM
 
-    return BoolCFGLM(LarkStuff(grammar).char_cfg(decay, ignore=ignore))
+    return BoolCFGLM(LarkStuff(grammar).char_cfg(decay))
 
 
 @lru_cache(None)
@@ -393,7 +393,7 @@ class LarkStuff:
         self.ignore_terms = ignores
         self.ignore_regex = f'(?:{"|".join([t.pattern.to_regexp() for t in self.terminals if t.name in ignores])})?'
 
-    def transducer(self, decay=0.99, **kwargs):
+    def transducer(self, decay=0.99):
         from genparse import EPSILON, FST, Float
 
         m = FST(Float)
@@ -403,7 +403,7 @@ class LarkStuff:
         m.add_F(STOP, decay)
         m.add_arc(STOP, (EPSILON, EPSILON), START, 1)
         for token_id, token_class in enumerate(self.terminals):
-            fsm = regex_to_greenery(token_class.pattern.to_regexp(), **kwargs)
+            fsm = regex_to_greenery(token_class.pattern.to_regexp())
             m.add_arc(START, (EPSILON, token_class.name), (token_id, fsm.initial), 1)
             for final_state in fsm.finals:
                 m.add_arc((token_id, final_state), (EPSILON, EPSILON), STOP, 1)
@@ -442,22 +442,13 @@ class LarkStuff:
             cfg.add(1 / lhs_count[r.head], r.head, *r.body)
         return cfg.renumber()
 
-    def char_cfg(self, decay=1, ignore=''):
+    def char_cfg(self, decay=1):
         from genparse import CFG, Float
-
-        if ignore:
-            import warnings
-
-            warnings.warn(
-                '`ignore` argument has been deprecated and is no longer functional; specify ignore as part of lark grammar instead.'
-            )
 
         cfg = self.convert()
 
         # rename all of the internals to avoid naming conflicts.
         f = Integerizer()
-
-        # TODO: missing `ignore` at the front of the sentence.
 
         foo = CFG(Float, S=f(cfg.S), V=set())
         for r in cfg:
@@ -560,7 +551,7 @@ def expand_case_insensitive(r):
         ptr += 1
 
 
-def regex_to_greenery(regex, ignore=''):
+def regex_to_greenery(regex):
     """
     Convert `regex`, a python-like regular expression (`re`), into a `greenery`
     finite-state machine (FSM).
@@ -570,7 +561,7 @@ def regex_to_greenery(regex, ignore=''):
     regex = expand_case_insensitive(regex)
 
     # Patch: note that greenery does not escape spaces but both the `re` and `lark` do.
-    return greenery.parse(regex.replace('\\ ', ' ') + ignore).to_fsm()
+    return greenery.parse(regex.replace('\\ ', ' ')).to_fsm()
 
 
 # Not essential; only used in a notebook to visualize individual greenery FSMs

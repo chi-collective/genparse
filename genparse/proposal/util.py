@@ -9,7 +9,7 @@ from genparse.cfglm import BoolCFGLM
 from genparse.util import LarkStuff
 
 
-# TODO: `ignore` should be an explicit argument!  Replace make_guide with `genparse.util.lark_guide`.
+# TODO: Replace make_guide with `genparse.util.lark_guide`.
 def _make_guide(guide_spec):
     if isinstance(guide_spec, str):
         return BoolCFGLM(LarkStuff(guide_spec).char_cfg())

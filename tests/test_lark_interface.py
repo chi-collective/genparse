@@ -30,7 +30,7 @@ def test_tokenization_basics():
     text = 'SELECT state_color FROM data </s>'
     tokens = list(lark_stuff.lex(text))
 
-    T = lark_stuff.transducer(ignore='')  # `ignore` specific to this grammar
+    T = lark_stuff.transducer()
     tks = T(text, None).renumber.epsremove.trim
     # print(tks)
 
@@ -128,7 +128,7 @@ def test_char_lm_basics1():
     )
 
     cfg = lark_stuff.convert().renumber()
-    c2t = lark_stuff.transducer(ignore='', decay=0.3)
+    c2t = lark_stuff.transducer(decay=0.3)
     cfg_t = (c2t.renumber @ cfg).trim()
 
     # pg = cfg_t.cnf.trim().prefix_grammar.trim()
@@ -152,7 +152,7 @@ def test_char_lm_basics2():
     )
 
     cfg = lark_stuff.convert().renumber()
-    c2t = lark_stuff.transducer(ignore='', decay=0.1).renumber.trim
+    c2t = lark_stuff.transducer(decay=0.1).renumber.trim
     cfg_t = (c2t @ cfg).trim()
 
     # print(cfg.cnf.language(5))
@@ -198,7 +198,7 @@ def test_char_lm_basics3():
     )
 
     cfg = lark_stuff.convert().renumber()
-    c2t = lark_stuff.transducer(ignore='', decay=0.1).renumber
+    c2t = lark_stuff.transducer(decay=0.1).renumber
     cfg_t = (c2t @ cfg).trim()
 
     cfg_t_lm = EarleyLM(locally_normalize(cfg_t, tol=1e-50))
@@ -285,7 +285,7 @@ def test_github_issue_26_():
 
     L = LarkStuff(grammar)
 
-    cfg = L.char_cfg(ignore=r'')
+    cfg = L.char_cfg()
 
     assert cfg.V == {'A', 'N', 'D', 'a', 'b', ' '}
 
@@ -315,12 +315,12 @@ def test_github_issue_26_():
     const: "Bill" | "Mary"
     """
 
-    guide = BoolCFGLM(LarkStuff(grammar).char_cfg(ignore='[ ]?'))
+    guide = BoolCFGLM(LarkStuff(grammar).char_cfg())
 
     guide.p_next('exists x . boy(x)').assert_equal({'▪': 1, ' ': 1})
 
     # The bug originally allowed 'a'
-    guide.p_next('exists x . boy(x) ').assert_equal({'▪': 1, ' ': 1, 'A': 1, 'O': 1})
+    guide.p_next('exists x . boy(x) ').assert_equal({'A': 1, 'O': 1})
 
     guide.p_next('exists x . boy(x) a').assert_equal({})
 
