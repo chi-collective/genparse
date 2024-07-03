@@ -151,6 +151,10 @@ if VLLM_AVAILABLE:
             )
             self.request_counter = Counter()
             self.eos_token_id = self.llm_engine._get_eos_token_id(lora_request=None)
+
+        def clear_cache(self):
+            # TODO: implement cache clearing
+            pass
 else:
 
     class vllmpplLLM:
