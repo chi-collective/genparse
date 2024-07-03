@@ -149,7 +149,7 @@ class CharacterProposal(TokenCharacterTrie):
         return cpy
 
     def _guided_sample_trie(self, context, draw, verbosity=0):
-        """
+        r"""
         This function samples a token from the trie and computes the incremental weight update.
 
         The following procedure, justified using RAVI, gives the way we sample a token and compute the incremental SMC weight update.
