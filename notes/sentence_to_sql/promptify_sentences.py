@@ -31,20 +31,20 @@ $sentence
 
 The database has one table, People, with columns as follows:
  
-- 'itemLabel.value' (usually the person's common name, which may or may not match given + family name, e.g. Ada Lovelace vs. Ada King)
-- 'given_nameLabel.value' (given name)
-- 'family_nameLabel.value' (family name)
-- 'name_in_native_languageLabel.value' (name as written in native language)
-- 'languages_spoken__written_or_signedLabel.value' (language they speak, write, or sign)
-- 'date_of_birthLabel.value' (their date of birth, in YYYY-MM-DDTHH:mm:ss+XX:ZZ form)
-- 'place_of_birthLabel.value' (their place of birth)
-- 'spouseLabel.value' (their spouse's common name)
-- 'motherLabel.value' (their mother's common name)
-- 'fatherLabel.value' (their father's common name)
-- 'country_of_citizenshipLabel.value' (country they are a citizen of)
-- 'occupationLabel.value' (their occupation)
-- 'religion_or_worldviewLabel.value' (their religion or worldview)
-- 'sex_or_genderLabel.value' (their sex or gender)
+- "itemLabel.value" (usually the person's common name, which may or may not match given + family name, e.g. Ada Lovelace vs. Ada King)
+- "given_nameLabel.value" (given name)
+- "family_nameLabel.value" (family name)
+- "name_in_native_languageLabel.value" (name as written in native language)
+- "languages_spoken__written_or_signedLabel.value" (language they speak, write, or sign)
+- "date_of_birthLabel.value" (their date of birth, in YYYY-MM-DDTHH:mm:ss+XX:ZZ form)
+- "place_of_birthLabel.value" (their place of birth)
+- "spouseLabel.value" (their spouse's common name)
+- "motherLabel.value" (their mother's common name)
+- "fatherLabel.value" (their father's common name)
+- "country_of_citizenshipLabel.value" (country they are a citizen of)
+- "occupationLabel.value" (their occupation)
+- "religion_or_worldviewLabel.value" (their religion or worldview)
+- "sex_or_genderLabel.value" (their sex or gender)
 
 The dots are part of the column names and so the column names must be quoted.
 
