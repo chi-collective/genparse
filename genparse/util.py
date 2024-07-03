@@ -357,6 +357,18 @@ class LarkStuff:
     no longer a prioritized or maximum-munch semantics to the tokenizer when we
     encode it into the grammar.
 
+    NOTE: In conversion from lark to genparse, there are numerous features that
+    need to be handled with care. Notably, the `ignore` directive in lark is
+    supported by concatenating existing terminal class regexes with an optional
+    prefix containing the ignore terms. The semantics of this are equivalent, but
+    the implementation is not. Likewise, when lark compiles terminal class regexes
+    to python re syntax, not all features are supported by greenery. In particular,
+    case insensitive terminals are not supported by greenery, and must be desugared.
+    In addition, greenery does not escape spaces, but lark does, which is corrected.
+    There may be other cases we have not yet encountered, so it is important to
+    verify that conversions are correct when incorporating new grammars. We expect
+    edge cases with lookahead and lookbehind assertions to be particularly problematic.
+
     """
 
     def __init__(self, grammar, cnf=False):
