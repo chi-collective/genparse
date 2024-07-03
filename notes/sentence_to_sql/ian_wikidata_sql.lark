@@ -38,4 +38,3 @@ CHAR: "''" | /[^']/
 NUMBER: /\d+/
 
 %import common.WS
-%import common.ESCAPED_STRING
