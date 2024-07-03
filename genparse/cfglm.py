@@ -8,13 +8,10 @@ from genparse.cfg import CFG, _gen_nt
 from genparse.lm import LM
 from genparse.semiring import Boolean, Float
 
+
 # EOS = '$EOS'
 # EOS = '🛑'
 EOS = '▪'
-
-# EOT = '#'
-
-ERROR = '💥'
 
 
 def locally_normalize(self, **kwargs):

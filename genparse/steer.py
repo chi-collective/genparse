@@ -46,7 +46,7 @@ class HFPPLParticle(Model):
 
     async def step(self):
         (token, _, weight_update) = await self.proposal.sample_next_token(
-            prompt=self.prompt, context=''.join(self.context)
+            prompt=self.prompt, context=tuple(self.context)
         )
         self.context.append(token)
         self.weight += np.log(weight_update)
@@ -97,6 +97,12 @@ class HFPPLSampler:
         """
         if seed is not None:
             set_seed(seed)
+
+        # tokenize the user's prompt if it was provided as a string rather than
+        # a token sequence (tuple)
+        if not isinstance(prompt, tuple):
+            # TODO: consider token healing by default
+            prompt = tuple(self.llm._decode[i] for i in self.llm.tokenizer.encode(prompt))
 
         model = HFPPLParticle(
             llm=self.llm,

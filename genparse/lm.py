@@ -191,8 +191,17 @@ class AsyncGreedilyTokenizedLLM(LM):
         self._encode = {x: i for i, x in enumerate(self._decode)}
         super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
 
+    def encode_prompt(self, prompt):
+        "Encode `prompt` as a tuple of tokens (each a string)."
+        return tuple(self._decode[i] for i in self.tokenizer.encode(prompt))
+
     def __call__(self, context):
-        return self._model(self.tokenizer.encode(context))
+        assert isinstance(
+            context, tuple
+        ), 'API change; `context` must be explicitly tokenized'
+        assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
+        tokens = [self._encode[x] for x in context]
+        return self._model(tokens)
 
     def clear_cache(self):
         return self._model.clear_cache()
@@ -204,18 +213,24 @@ class AsyncGreedilyTokenizedLLM(LM):
     def p_next(self, *args, **kwargs):
         return asyncio.run(self.p_next_async(*args, **kwargs))
 
-    async def p_next_async(self, context='', _logp=None, **kwargs):  # pylint: disable=unused-argument
+    async def p_next_async(self, context, _logp=None, **kwargs):  # pylint: disable=unused-argument
         # Pass the kwargs to the model.
         # For vllm, we need to provide the log probabilities, and
         # _logp is provided by the vllm centralized step function
-        if isinstance(self._model, vllmpplLLM):
-            assert (
-                _logp is not None
-            ), 'Please provide the log probabilities when using VLLM.'
+
+        assert isinstance(
+            context, tuple
+        ), 'API change; `context` must be explicitly tokenized'
+        assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
+
+        assert (
+            not isinstance(self._model, vllmpplLLM) or _logp is not None
+        ), 'vLLM requires `_logp` to be passed.'
+
         if _logp is None:
-            assert isinstance(context, str)
-            tokens = self.tokenizer.encode(context)
+            tokens = [self._encode[x] for x in context]
             _logp = await self._model.next_token_logprobs(tokens)
+
         _logp = _logp.cpu().numpy() if hasattr(_logp, 'cpu') else _logp
         _p = np.exp(_logp)
         return LazyProb(_p, self._encode, self._decode)

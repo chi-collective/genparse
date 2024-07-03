@@ -55,14 +55,14 @@ def test_basic_aligned_model_iql_small():
 
     proposal = TokenProposal(guide=guide, llm=llm)
 
-    proposal._prompt = ''
+    proposal._prompt = ()
 
     with timeit('took'):
-        p = proposal._p_next('')
+        p = proposal._p_next(())
         print(p)
         assert p.keys() == {'S', 'SE', 'SELECT'}
 
-        p = proposal._p_next('SELECT * FROM data')
+        p = proposal._p_next(('SELECT', ' *', ' FROM', ' data'))
         print(p)
         assert p.keys() == {
             ' ',
@@ -79,7 +79,7 @@ def test_basic_aligned_model_iql_small():
             ' ORDER',
         }
 
-        p = proposal._p_next('SELECT age FROM data')
+        p = proposal._p_next(('SELECT', ' age', ' FROM', ' data'))
         print(p)
         assert p.keys() == {
             ' ',
@@ -127,6 +127,8 @@ def test_normalizing_constant_unbiased():
         ' WHERE',
         ' ORDER',
         ' state',
+        ' data',
+        ' FROM',
         ' stadium',
     }
 
@@ -150,18 +152,18 @@ def test_normalizing_constant_unbiased():
 
     proposal = mock_token_proposal(V=V, guide_spec=grammar, K=10, uniform=True)
 
-    prompt = ''
-    context = ' '
+    prompt = ()
+    context = (' ',)
 
     assert_unbiased_Z(prompt, context, proposal, tol=1e-8)
 
-    prompt = ''
-    context = ' SELECT'
+    prompt = ()
+    context = (' SELECT',)
 
     assert_unbiased_Z(prompt, context, proposal, tol=1e-8)
 
-    prompt = ''
-    context = ' SELECT * FROM data'
+    prompt = ()
+    context = (' SELECT', ' *', ' FROM', ' data')
 
     assert_unbiased_Z(prompt, context, proposal, tol=1e-8)
 
@@ -195,8 +197,8 @@ def test_proper_weighting():
 
     proposal = mock_token_proposal(V=V, guide_spec=grammar, K=2, uniform=True)
 
-    prompt = ''
-    context = ''
+    prompt = ()
+    context = ()
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
@@ -244,13 +246,13 @@ def test_proper_weighting():
 
     proposal = mock_token_proposal(V=V, guide_spec=grammar, K=10, uniform=False)
 
-    prompt = ''
-    context = ' SELECT'
+    prompt = ()
+    context = (' SELECT',)
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
-    prompt = ''
-    context = ' SELECT * FROM data'
+    prompt = ()
+    context = (' SELECT', ' *', ' FROM', ' data')
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
@@ -272,13 +274,13 @@ def test_proper_weighting():
 
     proposal = mock_token_proposal(V=V, guide_spec=pcfg, K=2, uniform=True)
 
-    prompt = ''
-    context = ''
+    prompt = ()
+    context = ()
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
-    prompt = ''
-    context = 'a'
+    prompt = ()
+    context = ('a',)
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
@@ -300,9 +302,13 @@ def test_no_valid_tokens():
 
     proposal = TokenProposal(llm=llm, guide=guide, K=1)
 
-    context = 'aa'
+    context = ('aa',)
 
-    assert_proper_weighting('', context, proposal, tol=1e-8)
+    assert_proper_weighting((), context, proposal, tol=1e-8)
+
+    context = ('a', 'a')
+
+    assert_proper_weighting((), context, proposal, tol=1e-8)
 
 
 def test_no_valid_wildcard_tokens():
@@ -322,9 +328,9 @@ def test_no_valid_wildcard_tokens():
 
     proposal = TokenProposal(llm=llm, guide=guide, K=2)
 
-    context = 'a'
+    context = ('a',)
 
-    assert_proper_weighting('', context, proposal, tol=1e-8)
+    assert_proper_weighting((), context, proposal, tol=1e-8)
 
 
 if __name__ == '__main__':

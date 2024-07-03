@@ -103,7 +103,7 @@ class TokenProposal(TokenCharacterTrie):
             p_cfg_wc = 1
             with self.timer['cfg+trie'](t=len(context)):
                 for i, c in enumerate(wildcard):
-                    p_cfg_wc *= self.guide.p_next(context + wildcard[:i])[c]
+                    p_cfg_wc *= self.guide.p_next(''.join(context) + wildcard[:i])[c]
             Ws[wildcard] = (
                 p_llm[self.old_eos if wildcard == self.new_eos else wildcard]
                 * p_cfg_wc
@@ -188,7 +188,7 @@ class TokenProposal(TokenCharacterTrie):
 
             # Efficiently compute guide.p(x | context + token) for x ∈ guide.V.
             # These are individual characters that are aligned with the trie.
-            p = self.guide.p_next(context + token)
+            p = self.guide.p_next(''.join(context) + token)
 
             children_node = self.children[node]
             for x in children_node:
@@ -210,7 +210,7 @@ class TokenProposal(TokenCharacterTrie):
 
     def sample(
         self,
-        prompt='',
+        prompt=(),
         draw=sample_dict,
         chunked=False,
         max_tokens=float('inf'),
@@ -218,7 +218,7 @@ class TokenProposal(TokenCharacterTrie):
         K=None,
     ):
         self._prompt = prompt
-        context = ''
+        context = ()
         chunks = []
         P = 1
         t = 0
@@ -234,7 +234,7 @@ class TokenProposal(TokenCharacterTrie):
             if y == self.guide.eos:
                 break
             chunks.append(y)
-            context += y
+            context = context + (y,)
             if verbosity > 0:
                 print(colors.cyan % y, end=colors.magenta % '|')
         value = context

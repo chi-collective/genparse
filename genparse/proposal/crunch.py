@@ -40,8 +40,7 @@ class Crunching:
             item = next(iterator)
             print('.', end='')
 
-            # TODO: both models must generate their respective EOS, not just the guide...
-            if item.ys[-1] == self.guide.eos:
+            if item.ys[-1] == self.T.old_eos:
                 if self.guide(item.xs):
                     yield item
                 else:
@@ -55,33 +54,6 @@ class Crunching:
             if not iterator.done:
                 Q[iterator] = -iterator.head.ps
 
-    # simplified version doesn't not benefit for fast guide.p_next computation
-    #    def _____iter_p_next(self, item):
-    #        ps, xs, ys = item
-    #
-    #        #distribution = llm.p_next(ys)
-    #        distribution = self.llm.p_next(''.join(ys))
-    #
-    #        order = distribution._p.argsort()
-    #
-    #        for i in reversed(order):
-    #            p = distribution._p[i]
-    #
-    #            if p == 0: break
-    #            x = distribution._decode[i]
-    #            xsx = xs + x
-    #
-    #            z = self.guide.p_next(xsx).trim()
-    #            if len(z) == 0: continue
-    #
-    #            y = x    # it's already a character string
-    #
-    #            yield Item(
-    #                xs = xs + x,
-    #                ps = ps * p,
-    #                ys = ys + (y,),
-    #            )
-
     def _iter_p_next(self, item):
         """
         This method will lazily enumerate the nodes in the intersection of `llm` and
@@ -94,7 +66,7 @@ class Crunching:
         """
 
         T = self.T
-        p_llm = self.llm.p_next(''.join(item.ys))
+        p_llm = self.llm.p_next(item.ys)
         T._update_leaves(p_llm)
 
         mass = T.mass.copy()
@@ -128,7 +100,8 @@ class Crunching:
                     yield Item(
                         ps=item.ps * P[node] * mass[children_node[None]],
                         xs=item.xs + token,
-                        ys=item.ys + (token,),
+                        ys=item.ys
+                        + (token if token != self.T.new_eos else self.T.old_eos,),
                     )
 
                     continue

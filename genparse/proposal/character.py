@@ -52,7 +52,7 @@ class CharacterProposal(TokenCharacterTrie):
     def sample(
         self, prompt, max_tokens=float('inf'), verbosity=0, draw=sample_dict, **kwargs
     ):
-        context = ''
+        context = ()
         W = 1
         P = 1
         t = 0
@@ -76,7 +76,7 @@ class CharacterProposal(TokenCharacterTrie):
                 break
             if verbosity > 0:
                 print(colors.cyan % token, end=colors.magenta % '|')
-            context += token
+            context = context + (token,)
         if verbosity > 0:
             print()
         return (context, P, W)
@@ -95,18 +95,20 @@ class CharacterProposal(TokenCharacterTrie):
         Proposes a token and incremental weight update.
 
         Args:
-            prompt : The LLM prompt.
-            context : The previous generated tokens.
-            verbosity : > 1 prints sampling process.
-            correct_weights : Whether to correct the importance weights with RAVI.
-                false leads to probabilistically incorrect inference.
-            p_llm: Provide the model with pre-computed p_llm. Since for VLLM, p_llm is computed
+          - prompt : The LLM prompt.
+          - context : The previous generated tokens.
+          - verbosity : > 1 prints sampling process.
+          - correct_weights : Whether to correct the importance weights with RAVI.
+                false leads to improperly weighted samples.
+          - p_llm: Provide the model with pre-computed p_llm. Since for VLLM, p_llm is computed
                 for all particles altogether. We directly pass the corresponding p_llm to
                 the proposal of each particle.
         Returns:
-            token : Proposed LLM token.
-            weight_update : Incremental SMC weight update.
+          - token : Proposed LLM token.
+          - proposal_p :
+          - weight_update : Incremental SMC weight update.
         """
+
         if p_llm is None:
             with self.timer['llm'](t=len(context)):
                 p_llm = await self.llm.p_next_async(prompt + context)
@@ -182,7 +184,7 @@ class CharacterProposal(TokenCharacterTrie):
 
             p1 = Float.chart((a, mass[c] / mass_curr) for a, c in children_curr.items())
 
-            p2 = self.guide.p_next(context + ''.join(path)).trim()
+            p2 = self.guide.p_next(''.join(context) + ''.join(path)).trim()
 
             if None in p1:
                 token = ''.join(path)

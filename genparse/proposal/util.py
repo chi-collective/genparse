@@ -69,7 +69,7 @@ def enumerate_target(proposal, prompt, context):
     for token in proposal.llm.V:
         cfg_prob = 1
         for i, c in enumerate(token):
-            cfg_prob *= proposal.guide.p_next(context + token[:i])[c]
+            cfg_prob *= proposal.guide.p_next(''.join(context) + token[:i])[c]
         p_next[token] = cfg_prob * p_next_llm[token]
     return p_next
 
