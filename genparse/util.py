@@ -357,6 +357,18 @@ class LarkStuff:
     no longer a prioritized or maximum-munch semantics to the tokenizer when we
     encode it into the grammar.
 
+    NOTE: In conversion from lark to genparse, there are numerous features that
+    need to be handled with care. Notably, the `ignore` directive in lark is
+    supported by concatenating existing terminal class regexes with an optional
+    prefix containing the ignore terms. The semantics of this are equivalent, but
+    the implementation is not. Likewise, when lark compiles terminal class regexes
+    to python re syntax, not all features are supported by greenery. In particular,
+    case insensitive terminals are not supported by greenery, and must be desugared.
+    In addition, greenery does not escape spaces, but lark does, which is corrected.
+    There may be other cases we have not yet encountered, so it is important to
+    verify that conversions are correct when incorporating new grammars. We expect
+    edge cases with lookahead and lookbehind assertions to be particularly problematic.
+
     """
 
     def __init__(self, grammar, cnf=False):
@@ -442,8 +454,15 @@ class LarkStuff:
             cfg.add(1 / lhs_count[r.head], r.head, *r.body)
         return cfg.renumber()
 
-    def char_cfg(self, decay=1):
+    def char_cfg(self, decay=1, delimiter=''):
         from genparse import CFG, Float
+
+        if delimiter:
+            import warnings
+
+            warnings.warn(
+                'Use of delimiter enforced between terminals. If delimiter is not a strict subset of `%ignore`, generated strings will deviate from original grammar.'
+            )
 
         cfg = self.convert()
 
@@ -457,7 +476,7 @@ class LarkStuff:
         for token_class in self.terminals:
             if token_class.name in self.ignore_terms:
                 continue
-            regex = self.ignore_regex + token_class.pattern.to_regexp()
+            regex = self.ignore_regex + token_class.pattern.to_regexp() + delimiter
 
             fsa = greenery_to_wfsa(
                 regex, decay=decay, name=lambda x, t=token_class.name: f((t, x))
