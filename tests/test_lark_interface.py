@@ -266,8 +266,8 @@ def test_case_insensitive_expansion():
         expand_case_insensitive('[a-z](?i:a[a-z]z)[a-z]') == '[a-z][aA][a-zA-Z][zZ][a-z]'
     )
 
-    assert expand_case_insensitive('(?i:\s)') == '\s'
-    assert expand_case_insensitive('(?i:\\\\s)') == '\\\\[sS]'
+    assert expand_case_insensitive('(?i:\n)') == '\n'
+    assert expand_case_insensitive('(?i:\\\\n)') == '\\\\[nN]'
 
     sql_example_input = '(?:(?:(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))(?:(?:[ \t\x0c\r\n])+(?i:OUTER))?|(?i:INNER)|(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))|(?i:(?:(?i:OUTER))?))(?:[ \t\x0c\r\n])+)?(?i:JOIN)[ ]?'
     sql_example_output = '(?:(?:(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])(?:(?:[ \t\x0c\r\n])+[oO][uU][tT][eE][rR])?|[iI][nN][nN][eE][rR]|(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])|(?:[oO][uU][tT][eE][rR])?)(?:[ \t\x0c\r\n])+)?[jJ][oO][iI][nN][ ]?'
@@ -350,7 +350,12 @@ def test_char_cfg_delimiter():
     EOS: "</s>"
     """
 
-    guide = BoolCFGLM(LarkStuff(grammar).char_cfg(delimiter='[ \n]'))
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        guide = BoolCFGLM(LarkStuff(grammar).char_cfg(delimiter='[ \n]'))
+
     assert guide.p_next('').keys() == {'S'}
     assert guide.p_next(' ') == {}
     assert guide.p_next('\n') == {}
