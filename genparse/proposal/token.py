@@ -1,5 +1,7 @@
 from arsenal import colors, timers
-from arsenal.datastructures.pdict import pdict
+
+# from arsenal.datastructures.pdict import pdict
+from arsenal.datastructures import LocatorMaxHeap
 from arsenal.iterextras import take
 from arsenal.maths import sample_dict
 
@@ -169,44 +171,68 @@ class TokenProposal(TokenCharacterTrie):
           guide.p(token | context) * llm.p(token | context) for tokens ∈ llm.V
 
         """
+        assert isinstance(context, tuple)
+        assert set(context) <= self.llm.V, f'OOV detected {set(context) - self.llm.V}'
 
         # update the trie with the llm's distribution of next token `p_llm`.
-        self._update_trie(p_llm)
+        self.mass[:] = 0  # reset the mass
+        self._update_leaves(p_llm)
 
-        agenda = pdict()
+        h = self.mass.copy()
+
+        # Update internal nodes of our A* heuristic
+        jump = self.jump
+        for node in self.ordering:
+            m = 0
+            for child in jump[node]:
+                m = max(m, h[child])
+            h[node] = m
+
+        agenda = LocatorMaxHeap()
+
         P = Float.chart()
 
         # initial conditions
         (token, node) = ('', self.root)
-        agenda[token, node] = 0
+        agenda[token, node, False] = 1
         P[node] = 1
 
         self._p_guide = {}
+        children = self.children
 
+        curr_priority = 1
+        prev_best = 1
         while agenda:
-            (token, node) = agenda.pop()
+            (token, node, done), score = agenda.popitem()
+
+            assert score <= curr_priority
+            curr_priority = score
+
+            # terminal state
+            if done:
+                value = P[node] * h[node]
+                assert prev_best >= value
+                prev_best = value
+                self._p_guide[token] = P[node]
+                yield (token, value)
+                continue
 
             # Efficiently compute guide.p(x | context + token) for x ∈ guide.V.
             # These are individual characters that are aligned with the trie.
             p = self.guide.p_next(''.join(context) + token)
 
-            children_node = self.children[node]
-            for x in children_node:
+            for x, y in children[node].items():
                 if x is None:
-                    # print(f'>>> {P[node] * self.mass[children_node[None]]:.20f} {token!r}')
-
-                    self._p_guide[token] = P[node]
-
-                    yield (token, P[node] * self.mass[children_node[None]])
-                    continue
-
-                y = children_node[x]
-
-                P_y = P[node] * p[x]
-
-                if P_y > 0:
+                    P_y = P[node]
                     P[y] = P_y
-                    agenda[token + x, y] = -P_y * self.mass[y]
+                    agenda[token, y, True] = P_y * h[y]
+
+                else:
+                    P_y = P[node] * p[x]
+                    if P_y == 0:
+                        continue
+                    P[y] = P_y
+                    agenda[token + x, y, False] = P_y * h[y]
 
     def sample(
         self,

@@ -42,7 +42,8 @@ class LM:
         P = 1
         for i, y in enumerate(ys):
             assert y in self.V
-            P *= self.p_next(ys[:i]).normalize()[y]
+            #            P *= self.p_next(ys[:i]).normalize()[y]
+            P *= self.p_next(ys[:i])[y]
             if P == 0:
                 break
         return P
@@ -51,12 +52,23 @@ class LM:
         "Compute the (conditional) distribution over the next token given the `prefix`."
         raise NotImplementedError()
 
-    def clear_cache(self):  # pragma: no cover
-        pass
-
     async def p_next_async(self, context):
         "Compute the (conditional) distribution over the next token given the `prefix`."
         return self.p_next(context)
+
+    def p_next_seq(self, context, extension):
+        """
+        Compute `p(extension | context)` where `extension` is a sequence with |extension| > 1.
+        """
+        assert len(extension) >= 1
+        P = 1
+        for i in range(len(extension)):
+            p = self.p_next(context + extension[:i])
+            P *= p[extension[i]]
+        return P
+
+    def clear_cache(self):  # pragma: no cover
+        pass
 
     def sample(
         self,
