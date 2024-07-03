@@ -188,7 +188,7 @@ class VLLMWrapper:
                 (token, _, weight_update) = await particle.proposal.sample_next_token(
                     prompt=self.prompt,
                     context=''.join(particle.context),
-                    p_llm=await self.llm.p_next_async(_logp=logp),
+                    p_llm=await self.llm.p_next_async(context=None, _logp=logp),
                 )
                 token_id = self.token_to_id.get(token, self.llm._model.eos_token_id)
                 particle.context.append(token)
