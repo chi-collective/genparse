@@ -1,4 +1,4 @@
-from arsenal import colors, timers
+from arsenal import colors
 from arsenal.maths import sample_dict
 
 from genparse.proposal.trie_numba import TokenCharacterTrie
@@ -36,13 +36,11 @@ class CharacterProposal(TokenCharacterTrie):
     __slots__ = TokenCharacterTrie.__slots__ + (
         'llm',
         'guide',
-        'timer',
     )
 
     def __init__(self, *, llm, guide):
         self.llm = llm
         self.guide = guide
-        self.timer = timers()
 
         # Filter LLM tokens that are illegal under the cfg
         words = {word for word in llm.V if set(word) <= self.guide.V or word == llm.eos}
@@ -59,13 +57,11 @@ class CharacterProposal(TokenCharacterTrie):
         while True:
             t += 1
             if t <= max_tokens:
-                with self.timer['llm'](t=len(context)):
-                    p_llm = self.llm.p_next(prompt + context)
-                with self.timer['cfg+trie'](t=len(context)):
-                    self._update_trie(p_llm)
-                    token, proposal_p, weight_update = self._guided_sample_trie(
-                        context, verbosity=verbosity, draw=draw, **kwargs
-                    )
+                p_llm = self.llm.p_next(prompt + context)
+                self._update_trie(p_llm)
+                token, proposal_p, weight_update = self._guided_sample_trie(
+                    context, verbosity=verbosity, draw=draw, **kwargs
+                )
             else:
                 token = self.guide.eos
                 weight_update = 1
@@ -110,20 +106,18 @@ class CharacterProposal(TokenCharacterTrie):
         """
 
         if p_llm is None:
-            with self.timer['llm'](t=len(context)):
-                p_llm = await self.llm.p_next_async(prompt + context)
+            p_llm = await self.llm.p_next_async(prompt + context)
 
         self._update_trie(p_llm)
 
-        with self.timer['cfg+trie'](t=len(context)):
-            if correct_weights:
-                (token, proposal_p, weight_update) = self._guided_sample_trie(
-                    context, draw=draw, verbosity=verbosity, **kwargs
-                )
-            else:
-                (token, proposal_p, weight_update) = self._guided_sample_trie_uncorrected(
-                    context, draw=draw, verbosity=verbosity, **kwargs
-                )
+        if correct_weights:
+            (token, proposal_p, weight_update) = self._guided_sample_trie(
+                context, draw=draw, verbosity=verbosity, **kwargs
+            )
+        else:
+            (token, proposal_p, weight_update) = self._guided_sample_trie_uncorrected(
+                context, draw=draw, verbosity=verbosity, **kwargs
+            )
 
         return (token, proposal_p, weight_update)
 
@@ -141,7 +135,6 @@ class CharacterProposal(TokenCharacterTrie):
         cpy.ordering = self.ordering
         cpy.llm = self.llm
         cpy.guide = self.guide
-        cpy.timer = self.timer
         cpy.old_eos = self.old_eos
         cpy.new_eos = self.new_eos
         cpy.token_id_to_leaf = self.token_id_to_leaf

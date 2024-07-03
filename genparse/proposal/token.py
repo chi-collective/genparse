@@ -1,4 +1,4 @@
-from arsenal import colors, timers
+from arsenal import colors
 
 # from arsenal.datastructures.pdict import pdict
 from arsenal.datastructures import LocatorMaxHeap
@@ -34,7 +34,6 @@ class TokenProposal(TokenCharacterTrie):
         self.guide = guide
         self._prompt = None
         self._p_guide = None
-        self.timer = timers()
         self.K = K
 
         # Filter LLM tokens that are illegal under the cfg
@@ -86,8 +85,7 @@ class TokenProposal(TokenCharacterTrie):
         proposal_p = 1
 
         if p_llm is None:
-            with self.timer['llm'](t=len(context)):
-                p_llm = await self.llm.p_next_async(prompt + context)
+            p_llm = await self.llm.p_next_async(prompt + context)
 
         # enumerate top K tokens
         Ws = Float.chart(take(self.K, self.traverse_trie(context, p_llm)))
@@ -102,10 +100,8 @@ class TokenProposal(TokenCharacterTrie):
             proposal_p *= P_wc[wildcard]
 
             # compute the wildcard's weight
-            p_cfg_wc = 1
-            with self.timer['cfg+trie'](t=len(context)):
-                for i, c in enumerate(wildcard):
-                    p_cfg_wc *= self.guide.p_next(''.join(context) + wildcard[:i])[c]
+            p_cfg_wc = self.guide.p_next_seq(''.join(context), wildcard)
+
             Ws[wildcard] = (
                 p_llm[self.old_eos if wildcard == self.new_eos else wildcard]
                 * p_cfg_wc
@@ -153,7 +149,6 @@ class TokenProposal(TokenCharacterTrie):
         # cpy.token_id_to_leaf = self.token_id_to_leaf    # TODO: when we switch to the numba version
         cpy.llm = self.llm
         cpy.guide = self.guide
-        cpy.timer = self.timer
         cpy.old_eos = self.old_eos
         cpy.new_eos = self.new_eos
         cpy._prompt = self._prompt
@@ -268,5 +263,4 @@ class TokenProposal(TokenCharacterTrie):
             value = tuple(chunks)
         if verbosity > 0:
             print()
-        # self.timer.compare()
         return (value, P)
