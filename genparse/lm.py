@@ -218,16 +218,16 @@ class AsyncGreedilyTokenizedLLM(LM):
         # For vllm, we need to provide the log probabilities, and
         # _logp is provided by the vllm centralized step function
 
-        assert isinstance(
-            context, tuple
-        ), 'API change; `context` must be explicitly tokenized'
-        assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
-
         assert (
             not isinstance(self._model, vllmpplLLM) or _logp is not None
         ), 'vLLM requires `_logp` to be passed.'
 
         if _logp is None:
+            assert isinstance(
+                context, tuple
+            ), 'API change; `context` must be explicitly tokenized'
+            assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
+
             tokens = [self._encode[x] for x in context]
             _logp = await self._model.next_token_logprobs(tokens)
 
