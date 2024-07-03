@@ -52,7 +52,7 @@ def run_inference(
         tokenizer=tokenizer,
         batch_size=batch_size,
     )
-    guide = BoolCFGLM(LarkStuff(_SQL_GRAMMAR).char_cfg(0.99, ignore='[ ]?'))
+    guide = BoolCFGLM(LarkStuff(_SQL_GRAMMAR).char_cfg(0.99))
     proposal = CharacterProposal(llm=llm, guide=guide)
     sampler = VLLMSampler(llm=llm, guide=guide)
     reformatted_prompts = (
