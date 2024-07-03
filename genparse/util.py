@@ -22,7 +22,7 @@ def set_seed(seed):
 
 
 def lark_guide(grammar, decay=1):
-    from genparse.cfglm import BoolCFGLM
+    from genparse import BoolCFGLM
 
     return BoolCFGLM(LarkStuff(grammar).char_cfg(decay))
 

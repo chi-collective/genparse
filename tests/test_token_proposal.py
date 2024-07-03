@@ -2,9 +2,7 @@ import numpy as np
 from arsenal import timeit
 
 from genparse.util import set_seed
-from genparse.cfglm import locally_normalize, BoolCFGLM
-from genparse.parse.earley import EarleyLM
-from genparse.lm import MockLLM
+from genparse import locally_normalize, BoolCFGLM, EarleyLM, MockLLM
 from genparse.proposal import TokenProposal
 from genparse.util import LarkStuff, make_mock_llm
 from genparse.proposal.util import (
@@ -114,6 +112,7 @@ def test_normalizing_constant_unbiased():
         ' O',
         ' S',
         ' s',
+        ' *',
         ' WHE',
         ' SEL',
         ' ORD',
@@ -219,6 +218,9 @@ def test_proper_weighting():
         ' ORDE',
         ' stat',
         ' stad',
+        ' FROM',
+        ' *',
+        ' data',
         ' SELECT',
         ' WHERE',
         ' ORDER',

@@ -1,7 +1,6 @@
 import numpy as np
 
-from genparse.parse.earley import EarleyLM, Earley
-from genparse.cfglm import BoolCFGLM, locally_normalize
+from genparse import BoolCFGLM, locally_normalize, EarleyLM, Earley
 from genparse.util import LarkStuff, expand_case_insensitive
 
 

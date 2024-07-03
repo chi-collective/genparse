@@ -1,9 +1,7 @@
 from arsenal import colors, timeit
 
-from genparse.parse.earley import EarleyLM
-from genparse.cfglm import BoolCFGLM, locally_normalize
+from genparse import Float, EarleyLM, BoolCFGLM, locally_normalize
 from genparse.proposal import CharacterProposal
-from genparse.semiring import Float
 from genparse.util import LarkStuff, set_seed, load_model_by_name
 
 from genparse.proposal.util import (

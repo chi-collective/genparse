@@ -5,8 +5,7 @@ import warnings
 from arsenal import colors
 from arsenal.maths import sample_dict
 
-from genparse import EarleyLM, EOS
-from genparse.semiring import Float
+from genparse import EarleyLM, EOS, Float
 from genparse.inference import smc_standard, smc_steer, importance_sampling
 
 # NOTE: if the MAX_LENGTH is not long enough we will see truncation bias.  An
