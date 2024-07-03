@@ -140,6 +140,7 @@ def main():
             'genparse_inference': inference_dict,
             'inference_metadata': {
                 'model': model,
+                'max_tokens': max_new_tokens,
                 'batch_size': batch_size,
                 'n_particles': n_particles,
             },
