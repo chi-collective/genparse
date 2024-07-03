@@ -334,13 +334,32 @@ def test_lark_ignore():
     %ignore WS
     """
 
-    guide = BoolCFGLM(LarkStuff(grammar).char_cfg(0.99))
+    guide = BoolCFGLM(LarkStuff(grammar).char_cfg())
 
     assert guide.p_next('').keys() == {'S', ' '}
     assert guide.p_next(' ').keys() == {'S'}
     assert guide.p_next(' S').keys() == {'E'}
     assert ' ' in guide.p_next(' SELECT').keys()
     assert ' ' not in guide.p_next(' SELECT ').keys()
+
+
+def test_char_cfg_delimiter():
+    grammar = r"""
+    start: "SELECT" NAME "FROM" NAME EOS
+    NAME: /[A-Za-z][A-Za-z]?[A-Za-z]?[A-Za-z]?[A-Za-z]?/
+    EOS: "</s>"
+    """
+
+    guide = BoolCFGLM(LarkStuff(grammar).char_cfg(delimiter='[ \n]'))
+    assert guide.p_next('').keys() == {'S'}
+    assert guide.p_next(' ') == {}
+    assert guide.p_next('\n') == {}
+    assert guide.p_next('SELECT').keys() == {' ', '\n'}
+    assert not any(x in guide.p_next('SELECT ').keys() for x in (' ', '\n'))
+    assert not any(x in guide.p_next('SELECT\n').keys() for x in (' ', '\n'))
+    assert guide.p_next('SELECT\n\n') == {}
+    assert guide.p_next('SELECT x ').keys() == {'F'}
+    assert guide.p_next('SELECT x FROM').keys() == {' ', '\n'}
 
 
 if __name__ == '__main__':

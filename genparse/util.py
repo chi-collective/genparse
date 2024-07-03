@@ -442,8 +442,15 @@ class LarkStuff:
             cfg.add(1 / lhs_count[r.head], r.head, *r.body)
         return cfg.renumber()
 
-    def char_cfg(self, decay=1):
+    def char_cfg(self, decay=1, delimiter=''):
         from genparse import CFG, Float
+
+        if delimiter:
+            import warnings
+
+            warnings.warn(
+                'Use of delimiter enforced between terminals. If delimiter is not a strict subset of `%ignore`, generated strings will deviate from original grammar.'
+            )
 
         cfg = self.convert()
 
@@ -457,7 +464,7 @@ class LarkStuff:
         for token_class in self.terminals:
             if token_class.name in self.ignore_terms:
                 continue
-            regex = self.ignore_regex + token_class.pattern.to_regexp()
+            regex = self.ignore_regex + token_class.pattern.to_regexp() + delimiter
 
             fsa = greenery_to_wfsa(
                 regex, decay=decay, name=lambda x, t=token_class.name: f((t, x))
