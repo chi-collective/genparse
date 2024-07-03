@@ -314,9 +314,11 @@ class MockLLM(LM):
         self._logp = np.log(self._p)
         self._decode = list(V)
         self._encode = {x: i for i, x in enumerate(self._decode)}
-        super().__init__(eos=eos, V=V)
+        super().__init__(eos=eos, V=set(V))
 
-    def p_next(self, _, **kwargs):  # pylint: disable=unused-argument
+    def p_next(self, context, **kwargs):  # pylint: disable=unused-argument
+        assert isinstance(context, tuple)
+        assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
         return LazyProb(self._p, self._encode, self._decode)
 
     async def next_token_logprobs(self, _):

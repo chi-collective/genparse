@@ -24,11 +24,11 @@ class Crunching:
         self.guide = guide
         self.T = TokenProposal(llm=llm, guide=guide, K=None)
 
-    def posterior_enumerate(self, depth):
+    def posterior_enumerate(self, prompt, depth):
         Q = pdict()
 
         it = head_iter(
-            self._iter_p_next(Item(1, '', (self.llm.tokenizer.bos_token,)))
+            self._iter_p_next(Item(1, '', prompt))
         )  # XXX: empty string didn't work
         Q[it] = -1
 
@@ -46,7 +46,7 @@ class Crunching:
                 else:
                     continue
 
-            if len(item.ys) <= depth:
+            if len(item.ys) - len(prompt) <= depth:
                 extend_iter = head_iter(self._iter_p_next(item))
                 if not extend_iter.done:
                     Q[extend_iter] = -extend_iter.head.ps

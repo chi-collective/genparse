@@ -10,7 +10,7 @@ def test_basic():
     llm = load_model_by_name('gpt2')
     guide = lark_guide("""
 
-    start: "Sequential Monte Carlo is " ( "good" | "bad" )
+    start: "Sequential Monte Carlo is " ( "good" | "bad" | "awful" | "great" ) "!"
 
     """)
 
@@ -18,9 +18,9 @@ def test_basic():
 
     items = []
     start = time()
-    for item in take(10, q.posterior_enumerate(depth=10)):
+    for item in take(10, q.posterior_enumerate((llm.eos,), depth=10)):
         print()
-        print(item.ps, (colors.red % '·').join(item.ys[1:]))
+        print(item.ps, (colors.red % '·').join(item.ys))
         items.append(item)
     print('took', time() - start, 'sec')
 
