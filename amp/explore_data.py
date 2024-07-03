@@ -13,9 +13,8 @@ from genparse.util import LarkStuff
 
 
 def load_grammar():
-    with open('amp/grammar/cfgs/lark/lark.cfg') as f:
+    with open('amp/grammar/cfgs/lark/lark_mod.cfg') as f:
         cfg = f.read()
-    cfg = f'start: sent\n{cfg}\nignore: " "\n'
     return cfg
 
 
@@ -65,7 +64,7 @@ def build_inference_engine(model_id, batch_size, max_tokens, n_particles, random
     llm = AsyncGreedilyTokenizedLLM(
         model=vllmpplLLM(model_id), tokenizer=tokenizer, batch_size=batch_size
     )
-    guide = BoolCFGLM(LarkStuff(load_grammar()).char_cfg(0.99))
+    guide = BoolCFGLM(LarkStuff(load_grammar()).char_cfg())
     proposal = CharacterProposal(llm=llm, guide=guide)
     sampler = VLLMSampler(llm=llm, guide=guide)
 
@@ -78,7 +77,7 @@ def build_inference_engine(model_id, batch_size, max_tokens, n_particles, random
             n_particles=n_particles,
             seed=random_seed,
             verbosity=0,
-        ).posterior
+        )
 
     return run_inference
 
