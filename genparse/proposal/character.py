@@ -1,4 +1,4 @@
-from arsenal import colors, timers
+from arsenal import colors
 from arsenal.maths import sample_dict
 
 from genparse.proposal.trie_numba import TokenCharacterTrie
@@ -36,13 +36,11 @@ class CharacterProposal(TokenCharacterTrie):
     __slots__ = TokenCharacterTrie.__slots__ + (
         'llm',
         'guide',
-        'timer',
     )
 
     def __init__(self, *, llm, guide):
         self.llm = llm
         self.guide = guide
-        self.timer = timers()
 
         # Filter LLM tokens that are illegal under the cfg
         words = {word for word in llm.V if set(word) <= self.guide.V or word == llm.eos}
@@ -52,20 +50,18 @@ class CharacterProposal(TokenCharacterTrie):
     def sample(
         self, prompt, max_tokens=float('inf'), verbosity=0, draw=sample_dict, **kwargs
     ):
-        context = ''
+        context = ()
         W = 1
         P = 1
         t = 0
         while True:
             t += 1
             if t <= max_tokens:
-                with self.timer['llm'](t=len(context)):
-                    p_llm = self.llm.p_next(prompt + context)
-                with self.timer['cfg+trie'](t=len(context)):
-                    self._update_trie(p_llm)
-                    token, proposal_p, weight_update = self._guided_sample_trie(
-                        context, verbosity=verbosity, draw=draw, **kwargs
-                    )
+                p_llm = self.llm.p_next(prompt + context)
+                self._update_trie(p_llm)
+                token, proposal_p, weight_update = self._guided_sample_trie(
+                    context, verbosity=verbosity, draw=draw, **kwargs
+                )
             else:
                 token = self.guide.eos
                 weight_update = 1
@@ -76,7 +72,7 @@ class CharacterProposal(TokenCharacterTrie):
                 break
             if verbosity > 0:
                 print(colors.cyan % token, end=colors.magenta % '|')
-            context += token
+            context = context + (token,)
         if verbosity > 0:
             print()
         return (context, P, W)
@@ -95,33 +91,33 @@ class CharacterProposal(TokenCharacterTrie):
         Proposes a token and incremental weight update.
 
         Args:
-            prompt : The LLM prompt.
-            context : The previous generated tokens.
-            verbosity : > 1 prints sampling process.
-            correct_weights : Whether to correct the importance weights with RAVI.
-                false leads to probabilistically incorrect inference.
-            p_llm: Provide the model with pre-computed p_llm. Since for VLLM, p_llm is computed
+          - prompt : The LLM prompt.
+          - context : The previous generated tokens.
+          - verbosity : > 1 prints sampling process.
+          - correct_weights : Whether to correct the importance weights with RAVI.
+                false leads to improperly weighted samples.
+          - p_llm: Provide the model with pre-computed p_llm. Since for VLLM, p_llm is computed
                 for all particles altogether. We directly pass the corresponding p_llm to
                 the proposal of each particle.
         Returns:
-            token : Proposed LLM token.
-            weight_update : Incremental SMC weight update.
+          - token : Proposed LLM token.
+          - proposal_p :
+          - weight_update : Incremental SMC weight update.
         """
+
         if p_llm is None:
-            with self.timer['llm'](t=len(context)):
-                p_llm = await self.llm.p_next_async(prompt + context)
+            p_llm = await self.llm.p_next_async(prompt + context)
 
         self._update_trie(p_llm)
 
-        with self.timer['cfg+trie'](t=len(context)):
-            if correct_weights:
-                (token, proposal_p, weight_update) = self._guided_sample_trie(
-                    context, draw=draw, verbosity=verbosity, **kwargs
-                )
-            else:
-                (token, proposal_p, weight_update) = self._guided_sample_trie_uncorrected(
-                    context, draw=draw, verbosity=verbosity, **kwargs
-                )
+        if correct_weights:
+            (token, proposal_p, weight_update) = self._guided_sample_trie(
+                context, draw=draw, verbosity=verbosity, **kwargs
+            )
+        else:
+            (token, proposal_p, weight_update) = self._guided_sample_trie_uncorrected(
+                context, draw=draw, verbosity=verbosity, **kwargs
+            )
 
         return (token, proposal_p, weight_update)
 
@@ -139,7 +135,6 @@ class CharacterProposal(TokenCharacterTrie):
         cpy.ordering = self.ordering
         cpy.llm = self.llm
         cpy.guide = self.guide
-        cpy.timer = self.timer
         cpy.old_eos = self.old_eos
         cpy.new_eos = self.new_eos
         cpy.token_id_to_leaf = self.token_id_to_leaf
@@ -147,7 +142,7 @@ class CharacterProposal(TokenCharacterTrie):
         return cpy
 
     def _guided_sample_trie(self, context, draw, verbosity=0):
-        """
+        r"""
         This function samples a token from the trie and computes the incremental weight update.
 
         The following procedure, justified using RAVI, gives the way we sample a token and compute the incremental SMC weight update.
@@ -182,7 +177,7 @@ class CharacterProposal(TokenCharacterTrie):
 
             p1 = Float.chart((a, mass[c] / mass_curr) for a, c in children_curr.items())
 
-            p2 = self.guide.p_next(context + ''.join(path)).trim()
+            p2 = self.guide.p_next(''.join(context) + ''.join(path)).trim()
 
             if None in p1:
                 token = ''.join(path)

@@ -1,9 +1,7 @@
 from arsenal import colors, timeit
 
-from genparse.parse.earley import EarleyLM
-from genparse.cfglm import BoolCFGLM, locally_normalize
+from genparse import Float, EarleyLM, BoolCFGLM, locally_normalize
 from genparse.proposal import CharacterProposal
-from genparse.semiring import Float
 from genparse.util import LarkStuff, set_seed, load_model_by_name
 
 from genparse.proposal.util import (
@@ -25,8 +23,8 @@ def test_timothy():
         )
     )
 
-    prompt = 'Hello my name is'
     llm = load_model_by_name('gpt2')
+    prompt = llm.encode_prompt('Hello my name is')
 
     proposal = CharacterProposal(llm=llm, guide=pcfg)
     W = Float.chart()
@@ -39,7 +37,7 @@ def test_timothy():
 
         print(colors.light.yellow % 'sample:', ys)
 
-        print(W.normalize())
+        print(W.project(''.join).normalize())
 
 
 def todo_chomsky():
@@ -88,8 +86,8 @@ def todo_chomsky():
     #    lp = lpcfg.p_next(x)
     #    pp = pcfg.p_next(x)
 
-    prompt = ' '
     llm = load_model_by_name('gpt2')
+    prompt = (llm.eos,)
 
     W = Float.chart()
 
@@ -103,7 +101,8 @@ def todo_chomsky():
 
         print(colors.light.yellow % 'sample:', ys)
 
-        print(W.normalize())
+        # print(W.normalize())
+        print(W.project(''.join).normalize())
 
 
 def test_normalizing_constant_unbiased():
@@ -132,9 +131,16 @@ def test_normalizing_constant_unbiased():
         ' stad',
         ' SELECT',
         ' WHERE',
+        ' FROM',
+        ' data',
         ' ORDER',
         ' state',
         ' stadium',
+        ' *',
+        'd',
+        'a',
+        't',
+        'a',
     }
 
     grammar = r"""
@@ -153,22 +159,24 @@ def test_normalizing_constant_unbiased():
             STAR: "*"
             NUMBER: /\d+/
             WS: /[ ]/
+            SPACE: " "
+            %ignore SPACE
      """
 
     proposal = mock_character_proposal(V=V, guide_spec=grammar, uniform=True)
 
-    prompt = ''
-    context = ' '
+    prompt = ()
+    context = ()
 
     assert_unbiased_Z(prompt, context, proposal, tol=1e-8)
 
-    prompt = ''
-    context = ' SELECT'
+    prompt = ()
+    context = (' SELECT',)
 
     assert_unbiased_Z(prompt, context, proposal, tol=1e-8)
 
-    prompt = ''
-    context = ' SELECT * FROM data'
+    prompt = ()
+    context = (' SELECT', ' *', ' FROM', ' data')
 
     assert_unbiased_Z(prompt, context, proposal, tol=1e-8)
 
@@ -206,8 +214,8 @@ def test_proper_weighting():
 
     proposal = mock_character_proposal(V=V, uniform=True, guide_spec=grammar)
 
-    prompt = ''
-    context = ''
+    prompt = ()
+    context = ()
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
@@ -232,6 +240,9 @@ def test_proper_weighting():
         ' WHERE',
         ' ORDER',
         ' state',
+        ' data',
+        ' FROM',
+        ' *',
         ' stadium',
     }
 
@@ -255,13 +266,13 @@ def test_proper_weighting():
 
     proposal = mock_character_proposal(V=V, guide_spec=grammar, uniform=True)
 
-    prompt = ''
-    context = ' SELECT'
+    prompt = ()
+    context = (' SELECT',)
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
-    prompt = ''
-    context = ' SELECT * FROM data'
+    prompt = ()
+    context = (' SELECT', ' *', ' FROM', ' data')
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
@@ -283,13 +294,13 @@ def test_proper_weighting():
 
     proposal = mock_character_proposal(V=V, guide_spec=pcfg, uniform=True)
 
-    prompt = ''
-    context = ''
+    prompt = ()
+    context = ()
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
-    prompt = ''
-    context = 'a'
+    prompt = ()
+    context = ('a',)
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 

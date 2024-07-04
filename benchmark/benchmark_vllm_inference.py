@@ -116,7 +116,7 @@ prompts = [
 
 
 def main():
-    character_cfg = LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?')
+    character_cfg = LarkStuff(grammar).char_cfg(0.99)
 
     guide = EarleyBoolMaskCFGLM(character_cfg)
 
@@ -127,7 +127,7 @@ def main():
         model=hfppl_llm, tokenizer=tokenizer, batch_size=BATCH_SIZE
     )
 
-    guide = EarleyBoolMaskCFGLM(LarkStuff(grammar).char_cfg(0.99, ignore='[ ]?'))
+    guide = EarleyBoolMaskCFGLM(LarkStuff(grammar).char_cfg(0.99))
     sampler = VLLMSampler(llm=genparse_llm, guide=guide)
     if args.proposal == 'character':
         proposal = CharacterProposal(llm=genparse_llm, guide=guide)

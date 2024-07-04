@@ -1,12 +1,11 @@
 import numpy as np
-from arsenal import timeit
+from arsenal import colors, timeit
+from arsenal.maths.combinatorics import permute
 
-from genparse.util import set_seed
-from genparse.cfglm import locally_normalize, BoolCFGLM
-from genparse.parse.earley import EarleyLM
-from genparse.lm import MockLLM
+from genparse import locally_normalize, BoolCFGLM, EarleyLM, MockLLM, Float
+from genparse.segmentation import prefixes
 from genparse.proposal import TokenProposal
-from genparse.util import LarkStuff, make_mock_llm
+from genparse.util import set_seed, LarkStuff, make_mock_llm
 from genparse.proposal.util import (
     mock_token_proposal,
     assert_proper_weighting,
@@ -55,46 +54,45 @@ def test_basic_aligned_model_iql_small():
 
     proposal = TokenProposal(guide=guide, llm=llm)
 
-    proposal._prompt = ''
+    proposal._prompt = ()
 
-    with timeit('took'):
-        p = proposal._p_next('')
-        print(p)
-        assert p.keys() == {'S', 'SE', 'SELECT'}
+    p = proposal._p_next(())
+    print(p)
+    assert p.keys() == {'S', 'SE', 'SELECT'}
 
-        p = proposal._p_next('SELECT * FROM data')
-        print(p)
-        assert p.keys() == {
-            ' ',
-            ' <',
-            ' </',
-            ' G',
-            ' W',
-            ' O',
-            ' GR',
-            ' WH',
-            ' OR',
-            ' GROUP',
-            ' WHERE',
-            ' ORDER',
-        }
+    p = proposal._p_next(('SELECT', ' *', ' FROM', ' data'))
+    print(p)
+    assert p.keys() == {
+        ' ',
+        ' <',
+        ' </',
+        ' G',
+        ' W',
+        ' O',
+        ' GR',
+        ' WH',
+        ' OR',
+        ' GROUP',
+        ' WHERE',
+        ' ORDER',
+    }
 
-        p = proposal._p_next('SELECT age FROM data')
-        print(p)
-        assert p.keys() == {
-            ' ',
-            ' <',
-            ' </',
-            ' G',
-            ' W',
-            ' O',
-            ' GR',
-            ' WH',
-            ' OR',
-            ' GROUP',
-            ' WHERE',
-            ' ORDER',
-        }
+    p = proposal._p_next(('SELECT', ' age', ' FROM', ' data'))
+    print(p)
+    assert p.keys() == {
+        ' ',
+        ' <',
+        ' </',
+        ' G',
+        ' W',
+        ' O',
+        ' GR',
+        ' WH',
+        ' OR',
+        ' GROUP',
+        ' WHERE',
+        ' ORDER',
+    }
 
     print(proposal.sample())
 
@@ -114,6 +112,7 @@ def test_normalizing_constant_unbiased():
         ' O',
         ' S',
         ' s',
+        ' *',
         ' WHE',
         ' SEL',
         ' ORD',
@@ -127,6 +126,8 @@ def test_normalizing_constant_unbiased():
         ' WHERE',
         ' ORDER',
         ' state',
+        ' data',
+        ' FROM',
         ' stadium',
     }
 
@@ -150,18 +151,18 @@ def test_normalizing_constant_unbiased():
 
     proposal = mock_token_proposal(V=V, guide_spec=grammar, K=10, uniform=True)
 
-    prompt = ''
-    context = ' '
+    prompt = ()
+    context = (' ',)
 
     assert_unbiased_Z(prompt, context, proposal, tol=1e-8)
 
-    prompt = ''
-    context = ' SELECT'
+    prompt = ()
+    context = (' SELECT',)
 
     assert_unbiased_Z(prompt, context, proposal, tol=1e-8)
 
-    prompt = ''
-    context = ' SELECT * FROM data'
+    prompt = ()
+    context = (' SELECT', ' *', ' FROM', ' data')
 
     assert_unbiased_Z(prompt, context, proposal, tol=1e-8)
 
@@ -195,8 +196,8 @@ def test_proper_weighting():
 
     proposal = mock_token_proposal(V=V, guide_spec=grammar, K=2, uniform=True)
 
-    prompt = ''
-    context = ''
+    prompt = ()
+    context = ()
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
@@ -217,6 +218,9 @@ def test_proper_weighting():
         ' ORDE',
         ' stat',
         ' stad',
+        ' FROM',
+        ' *',
+        ' data',
         ' SELECT',
         ' WHERE',
         ' ORDER',
@@ -244,13 +248,13 @@ def test_proper_weighting():
 
     proposal = mock_token_proposal(V=V, guide_spec=grammar, K=10, uniform=False)
 
-    prompt = ''
-    context = ' SELECT'
+    prompt = ()
+    context = (' SELECT',)
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
-    prompt = ''
-    context = ' SELECT * FROM data'
+    prompt = ()
+    context = (' SELECT', ' *', ' FROM', ' data')
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
@@ -272,13 +276,13 @@ def test_proper_weighting():
 
     proposal = mock_token_proposal(V=V, guide_spec=pcfg, K=2, uniform=True)
 
-    prompt = ''
-    context = ''
+    prompt = ()
+    context = ()
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
-    prompt = ''
-    context = 'a'
+    prompt = ()
+    context = ('a',)
 
     assert_proper_weighting(prompt, context, proposal, tol=1e-8)
 
@@ -300,9 +304,13 @@ def test_no_valid_tokens():
 
     proposal = TokenProposal(llm=llm, guide=guide, K=1)
 
-    context = 'aa'
+    context = ('aa',)
 
-    assert_proper_weighting('', context, proposal, tol=1e-8)
+    assert_proper_weighting((), context, proposal, tol=1e-8)
+
+    context = ('a', 'a')
+
+    assert_proper_weighting((), context, proposal, tol=1e-8)
 
 
 def test_no_valid_wildcard_tokens():
@@ -322,9 +330,47 @@ def test_no_valid_wildcard_tokens():
 
     proposal = TokenProposal(llm=llm, guide=guide, K=2)
 
-    context = 'a'
+    context = ('a',)
 
-    assert_proper_weighting('', context, proposal, tol=1e-8)
+    assert_proper_weighting((), context, proposal, tol=1e-8)
+
+
+def test_issue_25():
+    guide = EarleyLM.from_string(
+        """
+        1: S -> a
+        1: S -> a a
+        1: S -> a a a
+        """
+    )
+
+    V = ['a', 'aa', 'aaa', '▪']
+
+    for context in prefixes(tuple('aaa▪')):
+        print(colors.cyan % 'context:', context)
+
+        for perm in permute([1, 2, 3, 4]):
+            llm = MockLLM(V=V, eos='▪', _p=np.array(list(perm)) / sum(perm))
+
+            p_llm = llm.p_next(context)
+            p_guide = Float.chart(
+                {k: guide.p_next_seq(''.join(context), k) for k in p_llm.keys()}
+            )
+
+            want = p_llm.materialize() * p_guide
+
+            proposal = TokenProposal(llm=llm, guide=guide, K=None)
+
+            # Part 1: check that the results are returned in sorted order (from highest to lowest)
+            prev = 1
+            have = Float.chart()
+            for x in proposal.traverse_trie(context, p_llm):
+                assert prev >= x[1], 'error: out-of-order enumeration!'
+                prev = x[1]
+                have[x[0]] = x[1]
+
+            # Part 2: check that we return the correct values for the distributions
+            have.assert_equal(want)
 
 
 if __name__ == '__main__':

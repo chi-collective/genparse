@@ -42,7 +42,7 @@ def main():
 
     guide = {}
     with timeit('preprocessing'):
-        cfg = LarkStuff(open(args.grammar).read()).char_cfg(0.9, ignore='[ ]?')
+        cfg = LarkStuff(open(args.grammar).read()).char_cfg(0.9)
         guide['earley'] = EarleyLM(cfg)
         # guide['cfglm'] = CFGLM(cfg)
 

@@ -8,13 +8,10 @@ from genparse.cfg import CFG, _gen_nt
 from genparse.lm import LM
 from genparse.semiring import Boolean, Float
 
+
 # EOS = '$EOS'
 # EOS = '🛑'
 EOS = '▪'
-
-# EOT = '#'
-
-ERROR = '💥'
 
 
 def locally_normalize(self, **kwargs):
@@ -61,8 +58,7 @@ class BoolCFGLM(LM):
         return Float.chart({w: 1 for w in p})
 
     def __call__(self, context):
-        assert context[-1] == EOS
-        return float(self.model(context) != Boolean.zero)
+        return float(super().__call__(context) > 0)
 
     def clear_cache(self):
         self.model.clear_cache()

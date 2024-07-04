@@ -24,11 +24,11 @@ class Crunching:
         self.guide = guide
         self.T = TokenProposal(llm=llm, guide=guide, K=None)
 
-    def posterior_enumerate(self, depth):
+    def posterior_enumerate(self, prompt, depth):
         Q = pdict()
 
         it = head_iter(
-            self._iter_p_next(Item(1, '', (self.llm.tokenizer.bos_token,)))
+            self._iter_p_next(Item(1, '', prompt))
         )  # XXX: empty string didn't work
         Q[it] = -1
 
@@ -40,47 +40,19 @@ class Crunching:
             item = next(iterator)
             print('.', end='')
 
-            # TODO: both models must generate their respective EOS, not just the guide...
-            if item.ys[-1] == self.guide.eos:
+            if item.ys[-1] == self.T.old_eos:
                 if self.guide(item.xs):
                     yield item
                 else:
                     continue
 
-            if len(item.ys) <= depth:
+            if len(item.ys) - len(prompt) <= depth:
                 extend_iter = head_iter(self._iter_p_next(item))
                 if not extend_iter.done:
                     Q[extend_iter] = -extend_iter.head.ps
 
             if not iterator.done:
                 Q[iterator] = -iterator.head.ps
-
-    # simplified version doesn't not benefit for fast guide.p_next computation
-    #    def _____iter_p_next(self, item):
-    #        ps, xs, ys = item
-    #
-    #        #distribution = llm.p_next(ys)
-    #        distribution = self.llm.p_next(''.join(ys))
-    #
-    #        order = distribution._p.argsort()
-    #
-    #        for i in reversed(order):
-    #            p = distribution._p[i]
-    #
-    #            if p == 0: break
-    #            x = distribution._decode[i]
-    #            xsx = xs + x
-    #
-    #            z = self.guide.p_next(xsx).trim()
-    #            if len(z) == 0: continue
-    #
-    #            y = x    # it's already a character string
-    #
-    #            yield Item(
-    #                xs = xs + x,
-    #                ps = ps * p,
-    #                ys = ys + (y,),
-    #            )
 
     def _iter_p_next(self, item):
         """
@@ -94,7 +66,7 @@ class Crunching:
         """
 
         T = self.T
-        p_llm = self.llm.p_next(''.join(item.ys))
+        p_llm = self.llm.p_next(item.ys)
         T._update_leaves(p_llm)
 
         mass = T.mass.copy()
@@ -128,7 +100,8 @@ class Crunching:
                     yield Item(
                         ps=item.ps * P[node] * mass[children_node[None]],
                         xs=item.xs + token,
-                        ys=item.ys + (token,),
+                        ys=item.ys
+                        + (token if token != self.T.new_eos else self.T.old_eos,),
                     )
 
                     continue

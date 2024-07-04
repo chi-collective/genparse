@@ -1,0 +1,58 @@
+<html>
+  <meta charset="utf-8" />
+
+  <head>
+    <link rel="stylesheet" href="smc.css" />
+  </head>
+
+  <body>
+    <!-- Iosevka Web font -->
+    <link href="https://iosevka-webfonts.github.io/iosevka/iosevka.css" rel="stylesheet">
+    <!-- <h1>Particles plot</h1> -->
+
+    <label for="fileInput">Select JSON File:</label>
+    <input type="file" id="fileInput" accept=".json" />
+    <br />
+    <input type="text" id="load-path" value="Example.json" style="width: 300px" />
+    <button onclick="loadByPath()">Load</button>
+    <br />
+    <div>
+      <label for="yspace_slider">spacing:</label>
+      <input type="range" id="yspace_slider" min="10" max="50" value="15" step="1">
+      <span id="yspace_value">15</span>
+    </div>
+    <label for="left-info-select">info</label>
+    <select id="left-info-select">
+      <option value="">display info</option>
+    </select>
+    <button id="toggle_collapsed_button">Expand</button>
+    <button id="untangle_button">Untangle</button>
+    <br />
+    <div id="svg">
+      <svg>
+        <defs>
+          <marker
+            id="arrow"
+            markerWidth="7"
+            markerHeight="5"
+            refX="2"
+            refY="3.5"
+            orient="auto"
+            markerUnits="strokeWidth"
+            stroke="none"
+            fill="context-stroke"
+            stroke-linejoin="miter"
+          >
+            <polygon points="2 2, 7 3.5, 2 5" />
+          </marker>
+        </defs>
+        <rect id="frame-background" />
+        <g id="frame-foreground"></g>
+      </svg>
+    </div>
+
+    <!-- <script src="./LOCAL_d3/7.8.5/d3.min.js"></script> -->
+
+    <script type="module" src="smc.js"></script>
+  </body>
+</html>

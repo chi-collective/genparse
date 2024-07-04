@@ -1,8 +1,8 @@
 import numpy as np
 
-from genparse.parse.earley import EarleyLM, Earley
-from genparse.cfglm import locally_normalize
+from genparse import BoolCFGLM, locally_normalize, EarleyLM, Earley
 from genparse.util import LarkStuff, expand_case_insensitive
+
 
 grammar1 = r"""
 start: WS? "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
@@ -29,7 +29,7 @@ def test_tokenization_basics():
     text = 'SELECT state_color FROM data </s>'
     tokens = list(lark_stuff.lex(text))
 
-    T = lark_stuff.transducer(ignore='')  # `ignore` specific to this grammar
+    T = lark_stuff.transducer()
     tks = T(text, None).renumber.epsremove.trim
     # print(tks)
 
@@ -127,7 +127,7 @@ def test_char_lm_basics1():
     )
 
     cfg = lark_stuff.convert().renumber()
-    c2t = lark_stuff.transducer(ignore='', decay=0.3)
+    c2t = lark_stuff.transducer(decay=0.3)
     cfg_t = (c2t.renumber @ cfg).trim()
 
     # pg = cfg_t.cnf.trim().prefix_grammar.trim()
@@ -151,7 +151,7 @@ def test_char_lm_basics2():
     )
 
     cfg = lark_stuff.convert().renumber()
-    c2t = lark_stuff.transducer(ignore='', decay=0.1).renumber.trim
+    c2t = lark_stuff.transducer(decay=0.1).renumber.trim
     cfg_t = (c2t @ cfg).trim()
 
     # print(cfg.cnf.language(5))
@@ -197,7 +197,7 @@ def test_char_lm_basics3():
     )
 
     cfg = lark_stuff.convert().renumber()
-    c2t = lark_stuff.transducer(ignore='', decay=0.1).renumber
+    c2t = lark_stuff.transducer(decay=0.1).renumber
     cfg_t = (c2t @ cfg).trim()
 
     cfg_t_lm = EarleyLM(locally_normalize(cfg_t, tol=1e-50))
@@ -265,12 +265,105 @@ def test_case_insensitive_expansion():
         expand_case_insensitive('[a-z](?i:a[a-z]z)[a-z]') == '[a-z][aA][a-zA-Z][zZ][a-z]'
     )
 
-    assert expand_case_insensitive('(?i:\s)') == '\s'
-    assert expand_case_insensitive('(?i:\\\\s)') == '\\\\[sS]'
+    assert expand_case_insensitive('(?i:\n)') == '\n'
+    assert expand_case_insensitive('(?i:\\\\n)') == '\\\\[nN]'
 
     sql_example_input = '(?:(?:(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))(?:(?:[ \t\x0c\r\n])+(?i:OUTER))?|(?i:INNER)|(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))|(?i:(?:(?i:OUTER))?))(?:[ \t\x0c\r\n])+)?(?i:JOIN)[ ]?'
     sql_example_output = '(?:(?:(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])(?:(?:[ \t\x0c\r\n])+[oO][uU][tT][eE][rR])?|[iI][nN][nN][eE][rR]|(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])|(?:[oO][uU][tT][eE][rR])?)(?:[ \t\x0c\r\n])+)?[jJ][oO][iI][nN][ ]?'
     assert expand_case_insensitive(sql_example_input) == sql_example_output
+
+
+def test_github_issue_26_():
+    # [2024-07-02 Tue] The original lark -> genparse.CFG translation of this
+    # grammar had a nonterminal--terminal naming conflict.
+    grammar = """
+    start: x and x
+    x: "b" | "a"
+    and: " AND "
+    """
+
+    L = LarkStuff(grammar)
+
+    cfg = L.char_cfg()
+
+    assert cfg.V == {'A', 'N', 'D', 'a', 'b', ' '}
+
+    cfg.language(100).assert_equal(
+        {
+            ('b', ' ', 'A', 'N', 'D', ' ', 'b'): 0.25,
+            ('b', ' ', 'A', 'N', 'D', ' ', 'a'): 0.25,
+            ('a', ' ', 'A', 'N', 'D', ' ', 'b'): 0.25,
+            ('a', ' ', 'A', 'N', 'D', ' ', 'a'): 0.25,
+        }
+    )
+
+    # The original failing example is below:
+
+    grammar = """
+    start: sent
+    sent: "exists " var " . " sent
+    | "forall " var " . " sent
+    | "( " sent " )"
+    | sent " AND " sent
+    | sent " OR " sent
+    | expr "(" var ")"
+    | expr "(" var ", " var ")"
+    | expr "(" var ", " const ")"
+    var: "x" | "y" | "z" | "a" | "e" | "i"
+    expr: "boy" | "girl"
+    const: "Bill" | "Mary"
+    """
+
+    guide = BoolCFGLM(LarkStuff(grammar).char_cfg())
+
+    guide.p_next('exists x . boy(x)').assert_equal({'▪': 1, ' ': 1})
+
+    # The bug originally allowed 'a'
+    guide.p_next('exists x . boy(x) ').assert_equal({'A': 1, 'O': 1})
+
+    guide.p_next('exists x . boy(x) a').assert_equal({})
+
+
+def test_lark_ignore():
+    grammar = r"""
+    start: "SELECT" NAME "FROM" NAME EOS
+    NAME: /[A-Za-z][A-Za-z]?[A-Za-z]?[A-Za-z]?[A-Za-z]?/
+    EOS: "</s>"
+    WS: /[ ]/
+    %ignore WS
+    """
+
+    guide = BoolCFGLM(LarkStuff(grammar).char_cfg())
+
+    assert guide.p_next('').keys() == {'S', ' '}
+    assert guide.p_next(' ').keys() == {'S'}
+    assert guide.p_next(' S').keys() == {'E'}
+    assert ' ' in guide.p_next(' SELECT').keys()
+    assert ' ' not in guide.p_next(' SELECT ').keys()
+
+
+def test_char_cfg_delimiter():
+    grammar = r"""
+    start: "SELECT" NAME "FROM" NAME EOS
+    NAME: /[A-Za-z][A-Za-z]?[A-Za-z]?[A-Za-z]?[A-Za-z]?/
+    EOS: "</s>"
+    """
+
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        guide = BoolCFGLM(LarkStuff(grammar).char_cfg(delimiter='[ \n]'))
+
+    assert guide.p_next('').keys() == {'S'}
+    assert guide.p_next(' ') == {}
+    assert guide.p_next('\n') == {}
+    assert guide.p_next('SELECT').keys() == {' ', '\n'}
+    assert not any(x in guide.p_next('SELECT ').keys() for x in (' ', '\n'))
+    assert not any(x in guide.p_next('SELECT\n').keys() for x in (' ', '\n'))
+    assert guide.p_next('SELECT\n\n') == {}
+    assert guide.p_next('SELECT x ').keys() == {'F'}
+    assert guide.p_next('SELECT x FROM').keys() == {' ', '\n'}
 
 
 if __name__ == '__main__':

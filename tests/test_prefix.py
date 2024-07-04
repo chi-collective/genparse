@@ -38,12 +38,12 @@ def prefix_weight_bf(self, s, depth, verbose=False):
 def test_parsing():
     cfg = CFG.from_string(
         """
-    1.0: S -> A
-    0.2: A -> A A
-    0.4: A -> a
-    0.4: A -> b
+        1.0: S -> A
+        0.2: A -> A A
+        0.4: A -> a
+        0.4: A -> b
 
-    """,
+        """,
         Real,
     )
 
@@ -69,10 +69,10 @@ def test_parsing():
 def test_palindrome():
     cfg = CFG.from_string(
         """
-    0.3: S -> a S a
-    0.4: S -> b S b
-    0.3: S ->
-    """,
+        0.3: S -> a S a
+        0.4: S -> b S b
+        0.3: S ->
+        """,
         Real,
     )
 

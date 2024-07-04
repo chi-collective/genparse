@@ -9,10 +9,10 @@ from genparse.cfglm import BoolCFGLM
 from genparse.util import LarkStuff
 
 
-# TODO: `ignore` should be an explicit argument!  Replace make_guide with `genparse.util.lark_guide`.
+# TODO: Replace make_guide with `genparse.util.lark_guide`.
 def _make_guide(guide_spec):
     if isinstance(guide_spec, str):
-        return BoolCFGLM(LarkStuff(guide_spec).char_cfg(ignore='[ ]?'))
+        return BoolCFGLM(LarkStuff(guide_spec).char_cfg())
     elif isinstance(guide_spec, LM):
         return guide_spec
     else:
@@ -69,7 +69,7 @@ def enumerate_target(proposal, prompt, context):
     for token in proposal.llm.V:
         cfg_prob = 1
         for i, c in enumerate(token):
-            cfg_prob *= proposal.guide.p_next(context + token[:i])[c]
+            cfg_prob *= proposal.guide.p_next(''.join(context) + token[:i])[c]
         p_next[token] = cfg_prob * p_next_llm[token]
     return p_next
 

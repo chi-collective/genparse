@@ -4,6 +4,7 @@ import random
 import torch
 import transformers
 import hfppl
+from arsenal import Integerizer
 from collections import Counter
 from functools import cached_property, lru_cache
 from IPython.display import HTML, display
@@ -20,10 +21,10 @@ def set_seed(seed):
         torch.cuda.manual_seed_all(seed)
 
 
-def lark_guide(grammar, decay=1, ignore=''):
-    from genparse.cfglm import BoolCFGLM
+def lark_guide(grammar, decay=1):
+    from genparse import BoolCFGLM
 
-    return BoolCFGLM(LarkStuff(grammar).char_cfg(decay, ignore=ignore))
+    return BoolCFGLM(LarkStuff(grammar).char_cfg(decay))
 
 
 @lru_cache(None)
@@ -349,7 +350,25 @@ def show_grammar(cfg_t, chart=None, showzero=False):
 
 class LarkStuff:
     """
-    Utility class for leveraging the lark parsing library.
+    Utility class for leveraging the lark as a front-end syntax for specifying
+    grammars.
+
+    Warning: There may be infelicity in the tokenization semantics as there is
+    no longer a prioritized or maximum-munch semantics to the tokenizer when we
+    encode it into the grammar.
+
+    NOTE: In conversion from lark to genparse, there are numerous features that
+    need to be handled with care. Notably, the `ignore` directive in lark is
+    supported by concatenating existing terminal class regexes with an optional
+    prefix containing the ignore terms. The semantics of this are equivalent, but
+    the implementation is not. Likewise, when lark compiles terminal class regexes
+    to python re syntax, not all features are supported by greenery. In particular,
+    case insensitive terminals are not supported by greenery, and must be desugared.
+    In addition, greenery does not escape spaces, but lark does, which is corrected.
+    There may be other cases we have not yet encountered, so it is important to
+    verify that conversions are correct when incorporating new grammars. We expect
+    edge cases with lookahead and lookbehind assertions to be particularly problematic.
+
     """
 
     def __init__(self, grammar, cnf=False):
@@ -383,14 +402,10 @@ class LarkStuff:
             self.rules = rules
 
         self.terminals = terminals
-        self.ignores = ignores
+        self.ignore_terms = ignores
+        self.ignore_regex = f'(?:{"|".join([t.pattern.to_regexp() for t in self.terminals if t.name in ignores])})?'
 
-    def transducer(self, decay=0.99, **kwargs):
-        """
-        XXX: Warning: There may be infelicity in the tokenization semantics as there is
-        no longer a prioritized or maximum munch semantics to tokenizer.  It is
-        probabilistic and the weights are set pretty arbitrarily.
-        """
+    def transducer(self, decay=0.99):
         from genparse import EPSILON, FST, Float
 
         m = FST(Float)
@@ -400,7 +415,7 @@ class LarkStuff:
         m.add_F(STOP, decay)
         m.add_arc(STOP, (EPSILON, EPSILON), START, 1)
         for token_id, token_class in enumerate(self.terminals):
-            fsm = regex_to_greenery(token_class.pattern.to_regexp(), **kwargs)
+            fsm = regex_to_greenery(token_class.pattern.to_regexp())
             m.add_arc(START, (EPSILON, token_class.name), (token_id, fsm.initial), 1)
             for final_state in fsm.finals:
                 m.add_arc((token_id, final_state), (EPSILON, EPSILON), STOP, 1)
@@ -439,29 +454,41 @@ class LarkStuff:
             cfg.add(1 / lhs_count[r.head], r.head, *r.body)
         return cfg.renumber()
 
-    def char_cfg(self, decay=1, ignore=''):
+    def char_cfg(self, decay=1, delimiter=''):
         from genparse import CFG, Float
+
+        if delimiter:
+            import warnings
+
+            warnings.warn(
+                'Use of delimiter enforced between terminals. If delimiter is not a strict subset of `%ignore`, generated strings will deviate from original grammar.'
+            )
 
         cfg = self.convert()
 
-        foo = CFG(Float, S=cfg.S, V=set())
+        # rename all of the internals to avoid naming conflicts.
+        f = Integerizer()
+
+        foo = CFG(Float, S=f(cfg.S), V=set())
         for r in cfg:
-            foo.add(r.w, r.head, *r.body)
+            foo.add(r.w, f(r.head), *(f(y) for y in r.body))
 
         for token_class in self.terminals:
-            regex = token_class.pattern.to_regexp()
-            if ignore:
-                regex += ignore
+            if token_class.name in self.ignore_terms:
+                continue
+            regex = self.ignore_regex + token_class.pattern.to_regexp() + delimiter
 
             fsa = greenery_to_wfsa(
-                regex, decay=decay, name=lambda x, t=token_class.name: (t, x)
+                regex, decay=decay, name=lambda x, t=token_class.name: f((t, x))
             )
             # display(fsa)
-            G = fsa.to_cfg(S=token_class.name)
+            G = fsa.to_cfg(S=f(token_class.name))
 
             foo.V |= G.V
             for r in G:
                 foo.add(r.w, r.head, *r.body)
+
+        assert len(foo.N & foo.V) == 0
 
         return foo
 
@@ -543,7 +570,7 @@ def expand_case_insensitive(r):
         ptr += 1
 
 
-def regex_to_greenery(regex, ignore=''):
+def regex_to_greenery(regex):
     """
     Convert `regex`, a python-like regular expression (`re`), into a `greenery`
     finite-state machine (FSM).
@@ -553,7 +580,7 @@ def regex_to_greenery(regex, ignore=''):
     regex = expand_case_insensitive(regex)
 
     # Patch: note that greenery does not escape spaces but both the `re` and `lark` do.
-    return greenery.parse(regex.replace('\\ ', ' ') + ignore).to_fsm()
+    return greenery.parse(regex.replace('\\ ', ' ')).to_fsm()
 
 
 # Not essential; only used in a notebook to visualize individual greenery FSMs

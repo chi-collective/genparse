@@ -341,7 +341,7 @@ async def smc_standard_record(model, n_particles, ess_threshold=0.5, return_reco
                     np.random.choice(range(len(particles)), p=probs)
                     for _ in range(n_particles)
                 ]
-                resampled_indices.sort()  # remove this. sorting should be done in post if necessary
+                # resampled_indices.sort()  # removed. sorting should be done in post if necessary
                 particles = [copy.deepcopy(particles[i]) for i in resampled_indices]
                 step['resample_indices'] = resampled_indices
             else:
