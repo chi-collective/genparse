@@ -6,7 +6,7 @@ import transformers
 import hfppl
 from arsenal import Integerizer
 from collections import Counter
-from functools import cached_property, lru_cache
+from functools import lru_cache
 from IPython.display import HTML, display
 
 from genparse.tokenization import decode_tokenizer_vocab

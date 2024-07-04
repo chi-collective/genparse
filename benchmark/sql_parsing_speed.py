@@ -9,8 +9,8 @@ from genparse.segmentation import prefixes
 
 from genparse.util import LarkStuff
 
-from genparse.parse.earley import EarleyLM
-# from genparse.cfglm import CFGLM
+from genparse import EarleyLM
+from genparse.cfglm import BoolCFGLM
 
 
 def load_examples(example_path):
@@ -41,9 +41,11 @@ def main():
     args = parser.parse_args()
 
     guide = {}
+    with timeit('lark'):
+        cfg = LarkStuff(open(args.grammar).read()).char_cfg(decay=0.9)
     with timeit('preprocessing'):
-        cfg = LarkStuff(open(args.grammar).read()).char_cfg(0.9)
-        guide['earley'] = EarleyLM(cfg)
+        # guide['earley'] = EarleyLM(cfg)
+        guide['bool-earley'] = BoolCFGLM(cfg)
         # guide['cfglm'] = CFGLM(cfg)
 
     T = timers()
