@@ -1,5 +1,5 @@
 import numpy as np
-from arsenal import colors, timeit
+from arsenal import colors
 from arsenal.maths.combinatorics import permute
 
 from genparse import locally_normalize, BoolCFGLM, EarleyLM, MockLLM, Float

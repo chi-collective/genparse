@@ -138,7 +138,6 @@ def test_normalizing_constant_unbiased():
         ' stadium',
         ' *',
         'd',
-        'a',
         't',
         'a',
     }

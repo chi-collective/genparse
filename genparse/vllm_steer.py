@@ -38,7 +38,7 @@ class VLLMWrapper:
         self.n_particles = n_particles
 
         # One VLLMWrapper is initialized for each prompt.
-        # All VLLMWrapper point to the same AsyncGreedilyTokenizedLLM
+        # All VLLMWrapper point to the same TokenizedLLM
         # based on one VLLM instance (self.llm).
         # We add the prompt in the VLLMWrapper constructor.
 

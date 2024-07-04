@@ -28,21 +28,25 @@ def lark_guide(grammar, decay=1):
 
 
 @lru_cache(None)
-def make_mock_llm(**kwargs):
+def make_mock_llm(name='gpt2', **kwargs):
+    "Create MockLLM with the same vocabulary as `name` from 🤗."
     from genparse.lm import MockLLM
 
-    H = hf_tokenizer(**kwargs)
-    return MockLLM(V=H.decode, eos=H.eos)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(name, **kwargs)
+    return MockLLM(
+        V=decode_tokenizer_vocab(tokenizer),
+        eos=tokenizer.eos_token,
+    )
 
 
 def load_model_by_name(model_name, batch_size=None):
-    from genparse.lm import AsyncGreedilyTokenizedLLM, LLM
+    from genparse.lm import TokenizedLLM, LLM
 
     if model_name == 'gpt2':
         MODEL_ID = 'gpt2'
         tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_ID)
         model = transformers.AutoModelForCausalLM.from_pretrained(MODEL_ID)
-        return AsyncGreedilyTokenizedLLM(
+        return TokenizedLLM(
             model=LLM(
                 model, V=set(range(tokenizer.vocab_size)), eos=tokenizer.eos_token_id
             ),
@@ -53,7 +57,7 @@ def load_model_by_name(model_name, batch_size=None):
     elif model_name == 'codellama':
         assert torch.cuda.is_available()
         MODEL_ID = 'codellama/CodeLlama-7b-Instruct-hf'
-        return AsyncGreedilyTokenizedLLM(
+        return TokenizedLLM(
             model=hfppl.CachedCausalLM.from_pretrained(MODEL_ID, load_in_8bit=False),
             tokenizer=transformers.AutoTokenizer.from_pretrained(
                 MODEL_ID,
@@ -152,7 +156,7 @@ class InferenceSetupVLLM:
     ):
         from genparse.vllm_compatibility import vllmpplLLM
         from genparse.vllm_steer import VLLMSampler
-        from genparse.lm import AsyncGreedilyTokenizedLLM
+        from genparse.lm import TokenizedLLM
         from genparse.proposal import CharacterProposal, TokenProposal
 
         if guide_opts is None:
@@ -167,7 +171,7 @@ class InferenceSetupVLLM:
 
         if model_name == 'gpt2':
             MODEL_ID = 'gpt2'
-            llm = AsyncGreedilyTokenizedLLM(
+            llm = TokenizedLLM(
                 model=vllmpplLLM(MODEL_ID),
                 tokenizer=transformers.AutoTokenizer.from_pretrained(MODEL_ID),
                 batch_size=batch_size,
@@ -175,7 +179,7 @@ class InferenceSetupVLLM:
 
         elif model_name == 'codellama':
             MODEL_ID = 'codellama/CodeLlama-7b-Instruct-hf'
-            llm = AsyncGreedilyTokenizedLLM(
+            llm = TokenizedLLM(
                 model=vllmpplLLM(MODEL_ID, dtype=torch.float32, max_model_len=4096),
                 tokenizer=transformers.AutoTokenizer.from_pretrained(MODEL_ID),
                 batch_size=batch_size,
@@ -208,144 +212,6 @@ class InferenceSetupVLLM:
             max_tokens=max_tokens,
             **kwargs,
         )
-
-
-class hf_tokenizer:
-    def __init__(self, name='gpt2', **kwargs):
-        if name == 'codellama':
-            name = 'codellama/CodeLlama-7b-Instruct-hf'
-            _kwargs = dict(
-                use_fast=True,
-                prefix_token=None,
-                middle_token=None,
-                suffix_token=None,
-                eot_token=None,
-                fill_token=None,
-            )
-            _kwargs.update(**kwargs)
-
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained(name, **kwargs)
-
-        # there are many ways to extract the string representations of each
-        # token from the HF tokenizers.
-
-        # tokenizer.convert_ids_to_tokens
-        self.decode = decode_tokenizer_vocab(self.tokenizer)
-        # string <-> token id mappings
-        # self.str2int = dict(self.tokenizer.vocab)
-        # self.int2str = {v: k for k, v in self.tokenizer.vocab.items()}
-
-        self.pairs = list(enumerate(self.decode))
-        self.eos = self.tokenizer.eos_token
-
-    @cached_property
-    def fst(self):
-        from genparse.segmentation import bpe_wfst
-
-        return bpe_wfst(self.pairs)
-
-
-# def normalize(p):
-#    Z = sum(p[x] for x in p)
-#    q = p.copy()
-#    for x in q:
-#        q[x] /= Z
-#    return q
-
-
-def bpe2term_approx(tokenizer, bpe_sequence):
-    from genparse import FST, Float
-
-    # approximate the transducer using a single canonical path;
-    # UPDATE: the unpruned answer should match this - it's the uncertainty over bpe that's tricky
-    c = tuple(
-        ([b], tokenizer.convert_ids_to_tokens(b).replace('Ġ', ' ')) for b in bpe_sequence
-    )
-    tmp = FST.from_pairs([([], '')], Float)
-    for pair in c:
-        tmp = tmp * FST.from_pairs([pair], Float)
-    return tmp
-    # TODO: approximate this transducer by a canonical path
-    # return c2t(c, None).trim.epsremove.trim
-
-
-def about(m):
-    print(f'states: {len(m.states)}, trim: {len(m.trim.states)}')
-
-
-# def template(main, annotation):
-#    return f"""\
-# <div style="text-align: center; display: inline-block; font-family: Monospace; margin: 0px !important; padding: 0px !important;">
-#    <div style="margin: 0px !important; padding: 0px !important; border-bottom: 1px solid #ddd;">{html.escape(str(main))}</div>
-#    <div style="font-size: 8pt; color: #bbb; margin: 0px !important; padding: 0px !important;">{html.escape(str(annotation))}</div>
-# </div>
-# """
-
-
-def template(main, annotation):
-    return f"""\
-<div style="text-align: center; display: inline-block; background-color: #eee; font-family: Monospace; margin: 0px !important; padding: 0px !important;">
-    <div style="display: inline-block; margin: 0px !important; padding: 0px !important;">{html.escape(str(main))}</div>
-    <div style="display: inline-block; font-size: 8pt; color: #bbb; margin: 0px !important; padding: 0px !important;">/{html.escape(str(annotation))}</div>
-</div>
-"""
-
-
-def show_grammar(cfg_t, chart=None, showzero=False):
-    """Fancier pretty-printing the grammar.
-
-    - total weight alongsize each nonterminal
-
-    - rules are grouped by their head and how on one line separated by "|"
-
-    - head nonterminals are grouped by SCC (i.e., mutually recursive block) and
-      sort SCCs topologically (layout is top down starting from the root).
-
-    - Grammar is trimmed to nonzero values (to bypas set `showzero=True`).
-
-    """
-    if chart is None:
-        chart = cfg_t.agenda(maxiter=1000)
-
-    def fmt(x):
-        return repr(x)[1:-1] if isinstance(x, str) else repr(x)
-
-    def format_tokens(tokens):
-        if len(tokens) == 0:
-            return template('ε', cfg_t.R.one)
-        return '<span style="padding-right: 10px;"></span>'.join(
-            template(fmt(i), chart[i]) for i in tokens
-        )
-
-    lines = []
-
-    for block in cfg_t.dependency_graph().blocks:
-        if not showzero:
-            block = [
-                x for x in block if chart[x] != cfg_t.R.zero and cfg_t.is_nonterminal(x)
-            ]
-        if not block:
-            continue
-
-        block_code = []
-        for x in block:
-            block_code.append(
-                template(fmt(x), chart[x])  # + '<br/>'
-                + (
-                    '<div style="display: inline-block;">→ %s</div>'
-                    % ' | '.join(
-                        template('', r.w) + format_tokens(r.body) for r in cfg_t.rhs[x]
-                    )
-                )
-            )
-
-        #        lines.append('<div style="border-left: thick solid black; padding-left: 3px; margin-bottom: 5px;">%s</div>' % '\n'.join(block_code))
-        lines.append(
-            '<div style="border-left: thick solid black; padding-left: 3px; margin-bottom: 5px;">%s</div>'
-            % '\n'.join(block_code)
-        )
-
-    return HTML(''.join(lines))
 
 
 class LarkStuff:
@@ -404,35 +270,6 @@ class LarkStuff:
         self.terminals = terminals
         self.ignore_terms = ignores
         self.ignore_regex = f'(?:{"|".join([t.pattern.to_regexp() for t in self.terminals if t.name in ignores])})?'
-
-    def transducer(self, decay=0.99):
-        from genparse import EPSILON, FST, Float
-
-        m = FST(Float)
-        START = 0
-        STOP = 1
-        m.add_I(START, 1)
-        m.add_F(STOP, decay)
-        m.add_arc(STOP, (EPSILON, EPSILON), START, 1)
-        for token_id, token_class in enumerate(self.terminals):
-            fsm = regex_to_greenery(token_class.pattern.to_regexp())
-            m.add_arc(START, (EPSILON, token_class.name), (token_id, fsm.initial), 1)
-            for final_state in fsm.finals:
-                m.add_arc((token_id, final_state), (EPSILON, EPSILON), STOP, 1)
-            dead = {i for i in fsm.states if not fsm.islive(i)}
-            for state in fsm.states:
-                arcs = fsm.map[state]
-                for input_char, next_state in arcs.items():
-                    if next_state in dead:
-                        continue
-                    for char in input_char.get_chars():
-                        m.add_arc(
-                            (token_id, state),
-                            (char, EPSILON),
-                            (token_id, next_state),
-                            decay,
-                        )
-        return m
 
     def convert(self):
         "Convert the lark grammar into a `genparse.CFG` grammar."

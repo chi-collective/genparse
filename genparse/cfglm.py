@@ -2,8 +2,6 @@
 Fast computation of the posterior distrubtion over the next word in a WCFG language model.
 """
 
-from arsenal import colors
-
 from genparse.cfg import CFG, _gen_nt
 from genparse.lm import LM
 from genparse.semiring import Boolean, Float
@@ -78,37 +76,3 @@ def add_EOS(cfg):
     for r in cfg:
         new.add(r.w, r.head, *r.body)
     return new
-
-
-def pcfg_check(cfg, verbose=True):
-    chart = cfg.agenda()
-    if all((0 <= v <= 1.000001) for v in chart.values()):
-        if verbose:
-            print(colors.mark(True), 'PCFG')
-        return True
-    else:
-        if verbose:
-            print(
-                colors.mark(False),
-                'PCFG',
-                chart.__str__(
-                    style_value=lambda k, v: (
-                        v if abs(1 - v) <= 1e-5 else (colors.light.red % v)
-                    )
-                ),
-            )
-        return False
-
-
-# def cfg_check_bounded(cfg, ub=1.000001, lb=0):
-#    chart = cfg.agenda()
-#    if all((lb <= v <= ub) for v in chart.values()):
-#        print(colors.mark(True), 'PCFG')
-#    else:
-#        print(
-#            colors.mark(False),
-#            'PCFG',
-#            chart.__str__(
-#                style_value=lambda k, v: v if lb <= v <= ub else (colors.light.red % v)
-#            ),
-#        )

@@ -73,7 +73,7 @@ class HFPPLSampler:
     def __init__(self, llm, guide):
         """
         Args:
-            llm (AsyncGreedilyTokenizedLLM)
+            llm (TokenizedLLM)
             guide (LM)
         """
         self.llm = llm

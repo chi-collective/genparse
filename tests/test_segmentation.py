@@ -123,27 +123,6 @@ def test_distortion():
     have.project(f).assert_equal(want.project(f), verbose=True)
 
 
-# def test_bpe():
-#    import numpy as np
-#    from genparse.util import hf_tokenizer
-#
-#    H = hf_tokenizer()
-#
-#    _, B = zip(*H.pairs)
-#    B = list(B)
-#
-#    np.random.shuffle(B)
-#    B = B[:500]
-#
-#    A = {c for b in B for c in b}
-#
-#    B = set(B) | A
-#
-#    T = segmentation_pfst(B, A, canonical=True).trim
-#
-#    print(T.dim, 'states')
-
-
 if __name__ == '__main__':
     from arsenal import testing_framework
 

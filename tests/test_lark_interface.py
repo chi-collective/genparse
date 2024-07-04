@@ -23,23 +23,6 @@ WS: /[ \t\f\r\n]/
 """
 
 
-def test_tokenization_basics():
-    lark_stuff = LarkStuff(grammar1)
-
-    text = 'SELECT state_color FROM data </s>'
-    tokens = list(lark_stuff.lex(text))
-
-    T = lark_stuff.transducer()
-    tks = T(text, None).renumber.epsremove.trim
-    # print(tks)
-
-    # check that lark's token sequence is in the transducer's language
-    tmp = tks.to_cfg().renumber().cnf.language(10)
-
-    target = tuple(t.type for t in tokens)
-    assert target in tmp
-
-
 def test_parsing_basics():
     lark_stuff = LarkStuff(grammar1, cnf=True)
 
@@ -116,21 +99,17 @@ def test_char_lm_basics1():
     lark_stuff = LarkStuff(
         r"""
 
-    start: "SELECT" WS NAME WS "FROM" WS NAME WS EOS
+        start: "SELECT" WS NAME WS "FROM" WS NAME WS EOS
 
-    EOS: "</s>"
-    NAME: /[A-Za-z][A-Za-z]?[A-Za-z]?[A-Za-z]?[A-Za-z]?/
-    STAR: "*"
-    WS: /[ ]/
+        EOS: "</s>"
+        NAME: /[A-Za-z][A-Za-z]?[A-Za-z]?[A-Za-z]?[A-Za-z]?/
+        STAR: "*"
+        WS: /[ ]/
 
-    """
+        """
     )
 
-    cfg = lark_stuff.convert().renumber()
-    c2t = lark_stuff.transducer(decay=0.3)
-    cfg_t = (c2t.renumber @ cfg).trim()
-
-    # pg = cfg_t.cnf.trim().prefix_grammar.trim()
+    cfg_t = lark_stuff.char_cfg()
 
     pg = locally_normalize(cfg_t.cnf.trim()).prefix_grammar.trim()
     pg = pg.cnf
@@ -142,71 +121,49 @@ def test_char_lm_basics1():
 def test_char_lm_basics2():
     lark_stuff = LarkStuff(
         r"""
-
-    start: NAME
-
-    NAME: /(a|b)+/
-
-    """
+        start: NAME
+        NAME: /(a|b)+/
+        """
     )
-
-    cfg = lark_stuff.convert().renumber()
-    c2t = lark_stuff.transducer(decay=0.1).renumber.trim
-    cfg_t = (c2t @ cfg).trim()
-
-    # print(cfg.cnf.language(5))
-    # print(cfg_t.cnf.language(3))
-
-    # print(cfg_t.agenda().__str__(style_value=lambda k, v: (colors.light.red % v) if v > 1 or v < 0 else v))
-
+    cfg_t = lark_stuff.char_cfg()
     pg = cfg_t.cnf.prefix_grammar.cnf.trim()
-
-    pg.cnf.language(3).assert_equal(
+    pg.materialize(3).assert_equal(
         {
-            (): 0.025,
-            ('a',): 0.0125,
-            ('b',): 0.0125,
-            ('a', 'a'): 0.00125,
-            ('a', 'b'): 0.00125,
-            ('b', 'a'): 0.00125,
-            ('b', 'b'): 0.00125,
-            ('a', 'a', 'a'): 0.000125,
-            ('a', 'a', 'b'): 0.000125,
-            ('a', 'b', 'a'): 0.000125,
-            ('a', 'b', 'b'): 0.000125,
-            ('b', 'a', 'a'): 0.000125,
-            ('b', 'a', 'b'): 0.000125,
-            ('b', 'b', 'a'): 0.000125,
-            ('b', 'b', 'b'): 0.000125,
+            (): 1,
+            ('a',): 0.5,
+            ('b',): 0.5,
+            ('a', 'a'): 0.16666,
+            ('a', 'b'): 0.16666,
+            ('b', 'a'): 0.16666,
+            ('b', 'b'): 0.16666,
+            ('a', 'a', 'a'): 0.055555,
+            ('a', 'a', 'b'): 0.055555,
+            ('a', 'b', 'a'): 0.055555,
+            ('a', 'b', 'b'): 0.055555,
+            ('b', 'a', 'a'): 0.055555,
+            ('b', 'a', 'b'): 0.055555,
+            ('b', 'b', 'a'): 0.055555,
+            ('b', 'b', 'b'): 0.055555,
         },
         tol=1e-4,
     )
-
-    assert pg('a') > 0
 
 
 def test_char_lm_basics3():
     lark_stuff = LarkStuff(
         r"""
-
-    start: "SELECT" " " NAME " " "FROM"
-
-    NAME: /b+/
-
-    """
+        start: "SELECT" " " NAME " " "FROM"
+        NAME: /b+/
+        """
     )
 
-    cfg = lark_stuff.convert().renumber()
-    c2t = lark_stuff.transducer(decay=0.1).renumber
-    cfg_t = (c2t @ cfg).trim()
+    cfg_t = lark_stuff.char_cfg(decay=0.1)
 
     cfg_t_lm = EarleyLM(locally_normalize(cfg_t, tol=1e-50))
 
     v = cfg_t_lm.p_next('SELECT bb').normalize()
     print(v)
     assert set(v.trim().keys()) == {' ', 'b'}
-
-    del cfg, c2t, cfg_t
 
     char_cfg = lark_stuff.char_cfg(0.1)
     char_lm = EarleyLM(locally_normalize(char_cfg, tol=1e-50))

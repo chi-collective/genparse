@@ -190,7 +190,7 @@ class LLM(LM):
 #        ]  # return the conditional distribution of just the last token
 
 
-class AsyncGreedilyTokenizedLLM(LM):
+class TokenizedLLM(LM):
     """
     This is a simple class which wraps a token LLM with a tokenizer.
     """
