@@ -2,6 +2,7 @@ import dataclasses
 import itertools
 import sys
 from collections.abc import Iterable, Sequence
+from arsenal import iterview
 
 
 State = int
@@ -26,7 +27,7 @@ class TokenDFA:
         base_alphabet: Iterable[Symbol], dictionary: Iterable[MergeRule]
     ) -> 'TokenDFA':
         dfa = TokenDFA.from_base_alphabet(base_alphabet)
-        for rule in dictionary:
+        for rule in iterview(dictionary, transient=True):
             dfa.merge_rule(rule)
         return dfa
 
