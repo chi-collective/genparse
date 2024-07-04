@@ -51,7 +51,7 @@ def decode_tokenizer_vocab(tokenizer):
 
     # `mapping` maps ids in `all_special_ids` to the null string, so we convert those using HF.
     # TODO: change this
-    return [mapping.map(i).decode('utf-8') for i in range(tokenizer.vocab_size)]
+    return [mapping.map(i).decode('utf-8') for i in range(len(tokenizer))]
 
 
 ###### The following code was taken directly from https://github.com/epfl-dlab/transformers-CFG/blob/main/transformers_cfg/tokenization/mapping.py
