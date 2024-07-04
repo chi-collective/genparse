@@ -60,6 +60,12 @@ class TokenDFA:
     def num_states(self) -> int:
         return len(self.transitions)
 
+    def new_state(self) -> State:
+        new_state = len(self.transitions)
+        self.transitions.append({})
+        self.in_degree.append(0)
+        return new_state
+
     def new_states(self, n: int) -> range:
         prev_len = len(self.transitions)
         for _ in range(n):
@@ -114,34 +120,35 @@ class TokenDFA:
                 self.transitions[state] = _NO_TRANSITIONS
 
     def merge_rule(self, rule: MergeRule) -> None:
+        """Precondition: The initial DFA must have had targetc at most 1
+        (which is the case for the base alphabet DFA). Otherwise, the result
+        of this method might be incorrect."""
         # This implements Algorithm 2 of https://arxiv.org/pdf/2405.07671
         u, v, uv = rule
-        # Use dict to ensure deterministic iteration order.
-        S2 = {}
+        # The general form of Berglund's algorithm uses a *set* S2 of states.
+        # However, the maximum size of S2 depends on properties of the base
+        # alphabet DFA, and in our case it's guaranteed to be of size at most
+        # 1. So we only need to remember one state s2.
+        s2 = None
         for s1 in self.states():
-            s2 = self.get_state_to(s1, u)
-            if s2 is not None:
-                s3 = self.get_state_to(s2, v)
+            maybe_s2 = self.get_state_to(s1, u)
+            if maybe_s2 is not None:
+                s3 = self.get_state_to(maybe_s2, v)
                 if s3 is not None:
                     self.add_transition(s1, uv, s3)
-                    S2[s2] = True
+                    s2 = maybe_s2
         # If S2 is empty, the rest of this algorithm is a no-op. Stop early to
         # save time.
-        if not S2:
+        if s2 is None:
             return
-        fresh = self.new_states(len(S2))
+        fresh_s2 = self.new_state()
         excluded = [v]
         if u == v:
             excluded.append(uv)
-        for s2, fresh_s2 in zip(S2, fresh):
-            for alpha, state_to in self.get_transitions_from_state(s2):
-                if alpha not in excluded:
-                    self.add_transition(fresh_s2, alpha, state_to)
-        state_to_fresh = dict(zip(S2, fresh))
+        for alpha, state_to in self.get_transitions_from_state(s2):
+            if alpha not in excluded:
+                self.add_transition(fresh_s2, alpha, state_to)
         for q in self.states():
-            state_to = self.get_state_to(q, u)
-            if state_to is not None:
-                fresh_state_to = state_to_fresh.get(state_to)
-                if fresh_state_to is not None:
-                    self.reset_transition(q, u, fresh_state_to)
-                    self.check_state_for_removal(state_to)
+            if self.get_state_to(q, u) == s2:
+                self.reset_transition(q, u, fresh_s2)
+                self.check_state_for_removal(s2)
