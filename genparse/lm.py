@@ -9,7 +9,7 @@ from arsenal.maths import sample_dict
 
 from genparse.semiring import Float
 from genparse.tokenization import decode_tokenizer_vocab
-from genparse.vllm_compatibility import vllmpplLLM
+from genparse.backends.vllm import vllmpplLLM
 
 
 class LM:

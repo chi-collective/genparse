@@ -10,7 +10,6 @@ from arsenal.maths import logsumexp, sample_dict
 
 from hfppl import Model
 
-from genparse import EOS
 from genparse.inference import (
     importance_sampling,
     smc_standard,
@@ -55,7 +54,7 @@ class HFPPLParticle(Model):
         if self.verbosity > 1:
             print(f"`{token}` : {''.join(self.context)} : {self.weight}")
 
-        if token == self.llm.eos or self.max_tokens == 0 or token == EOS:
+        if token == self.llm.eos or self.max_tokens == 0 or token == self.guide.eos:
             self.finish()
             return
 

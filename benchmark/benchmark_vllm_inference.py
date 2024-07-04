@@ -1,23 +1,19 @@
+import os
 import pickle
 from argparse import ArgumentParser
-from random import seed
-import os
 
 import numpy as np
+import torch
+import transformers
 from arsenal import colors
-from hfppl import CachedCausalLM
-from torch import manual_seed
-from transformers import AutoTokenizer, set_seed
 
 from genparse import Float
-from genparse.cfglm import EarleyBoolMaskCFGLM
-from genparse.lm import AsyncGreedilyTokenizedLLM
-from genparse.vllm_compatibility import vllmpplLLM
+from genparse.cfglm import BoolCFGLM
+from genparse.lm import TokenizedLLM
+from genparse.backends.vllm import vllmpplLLM, VLLMSampler
 from genparse.proposal import CharacterProposal, TokenProposal
-from genparse.vllm_steer import VLLMSampler
-from genparse.util import LarkStuff
+from genparse.util import LarkStuff, set_seed
 
-import torch
 
 torch.backends.cuda.matmul.allow_tf32 = True
 
@@ -38,25 +34,17 @@ p.add_argument(
 args = p.parse_args()
 
 
-RANDOM_SEED = args.seed
-set_seed(RANDOM_SEED)
-seed(RANDOM_SEED)
-manual_seed(RANDOM_SEED)
+set_seed(args.seed)
 
 
 if args.model == 'gpt2':
     import transformers
-
-    from genparse.lm import LLM
 
     MODEL_ID = 'gpt2'
     hfppl_llm = vllmpplLLM(MODEL_ID)
     tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_ID)
 
 elif args.model == 'codellama':
-    import transformers
-    import torch
-
     assert torch.cuda.is_available()
 
     MODEL_ID = 'codellama/CodeLlama-7b-Instruct-hf'
@@ -118,16 +106,16 @@ prompts = [
 def main():
     character_cfg = LarkStuff(grammar).char_cfg(0.99)
 
-    guide = EarleyBoolMaskCFGLM(character_cfg)
+    guide = BoolCFGLM(character_cfg)
 
     BATCH_SIZE = 80
 
     hfppl_llm.batch_size = BATCH_SIZE
-    genparse_llm = AsyncGreedilyTokenizedLLM(
+    genparse_llm = TokenizedLLM(
         model=hfppl_llm, tokenizer=tokenizer, batch_size=BATCH_SIZE
     )
 
-    guide = EarleyBoolMaskCFGLM(LarkStuff(grammar).char_cfg(0.99))
+    guide = BoolCFGLM(LarkStuff(grammar).char_cfg(0.99))
     sampler = VLLMSampler(llm=genparse_llm, guide=guide)
     if args.proposal == 'character':
         proposal = CharacterProposal(llm=genparse_llm, guide=guide)

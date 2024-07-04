@@ -7,4 +7,6 @@ from genparse.semiring import Boolean, Entropy, Float, Log, MaxPlus, MaxTimes, R
 from genparse.wfsa import EPSILON, WFSA
 from genparse.util import load_model_by_name, lark_guide, InferenceSetup
 from genparse.parse.earley import EarleyLM, Earley
+
 # from genparse.parse.cky import CKYLM
+from genparse.backends.vllm import InferenceSetupVLLM
