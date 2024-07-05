@@ -137,6 +137,42 @@ function setToggleCollapsed() {
   }
 }
 
+function clearHighlights() {
+  frame_foreground.selectAll(".highlighted").classed("highlighted", false);
+}
+
+function highlightAncestors(history, particle, t, i) {
+  console.log("highlighting ancestors of", "particle", i, "at time", t);
+  // Remove previous highlights
+  clearHighlights();
+
+  // Traverse and highlight ancestors
+  let currentParticle = particle;
+  let currentT = t;
+  let currentI = i;
+  
+  while (currentT > 0) {
+
+    const linkId = `#link-${currentT}-${currentI}`;
+    frame_foreground.select(linkId).classed("highlighted", true);
+
+    const ancestorId = `#particle-${currentT}-${currentI}`;
+    frame_foreground.select(ancestorId).classed("highlighted", true);
+
+    currentT--;
+    currentI = currentParticle.parent;
+    currentParticle = history[currentT].particles[currentI];
+  }
+
+  const rootId = `#particle-${currentT}-${currentI}`;
+  frame_foreground.select(rootId).classed("highlighted", true);
+
+  frame_foreground.selectAll("path.highlighted").raise();
+  frame_foreground.selectAll(".particle.highlighted").raise();
+  frame_foreground.selectAll("text.highlighted").raise();
+
+}
+
 function showData(data, options = {}) {
   const {
     collapsed = false,
@@ -194,6 +230,7 @@ function showData(data, options = {}) {
 
   frame_foreground.selectAll("*").remove();
   frame_background.attr("width", SVG_WIDTH).attr("height", SVG_HEIGHT);
+  frame_background.on("click", clearHighlights);
 
   const link = d3.linkVertical().x(d => d.x).y(d => d.y);
   const tooltip = d3.select("body").append("div").attr("class", "tooltip");
@@ -204,6 +241,9 @@ function showData(data, options = {}) {
     .append("g")
     .attr("class", "step")
     .attr("transform", (d, t) => `translate(0, ${t * (collapsed ? 2 * y_offset : particle_yspace * d.particles.length + y_offset)})`);
+
+  // Create a group for paths so that we can manipulate separately
+  const pathGroup = frame_foreground.append("g").attr("class", "path-group");
 
   step_groups.each(function (step, t) {
     const step_group = d3.select(this);
@@ -219,13 +259,12 @@ function showData(data, options = {}) {
       .enter()
       .append("g")
       .attr("class", "particle")
-      .attr("transform", (d, i) => `translate(${x_offset + i * particle_xspace}, ${y_offset + (collapsed ? 0 : i * particle_yspace)})`);
+      .attr("transform", (d, i) => `translate(${x_offset + i * particle_xspace}, ${y_offset + (collapsed ? 0 : i * particle_yspace)})`)
 
     particle_groups.each(function (particle, i) {
       const particle_g = d3.select(this);
       const r = particle_yspace / 2;
       const max_length = 300;
-
       const radius = largest_relweight > 0 && !isNaN(particle.relative_weight)
         ? r * Math.sqrt(particle.relative_weight / largest_relweight) + 2
         : 1;
@@ -233,7 +272,10 @@ function showData(data, options = {}) {
       particle_g.append("circle")
         .attr("r", radius)
         .attr("fill", color_scale(i))
-        .classed("particle-circle", true);
+        
+      particle_g
+        .attr("id", `particle-${t}-${i}`)
+        .on("click", (event, d) => highlightAncestors(history, d, t, i));
 
       if (collapsed) {
         const particle_text = particle_g.append("text")
@@ -361,18 +403,17 @@ function showData(data, options = {}) {
           y: y_offset + current_y + current_state_y,
         };
         
-        frame_foreground
+        pathGroup
           .append("path")
           .attr(
-            "d",
-            link({
+            "d", link({
               source: parent_location,
               target: {
                 x: current_location.x,
                 y: current_location.y - radius - stroke_width * arrow_width,
-              },
-            })
+              }})
           )
+          .attr("id", `link-${t}-${i}`)
           .attr("fill", "none")
           .attr("stroke-width", stroke_width)
           .attr("stroke", color_scale(particle.parent))
@@ -381,6 +422,10 @@ function showData(data, options = {}) {
       }
     });
   });
+
+  pathGroup.lower();
+  frame_foreground.selectAll(".particle").raise();
+  frame_foreground.selectAll("text").raise();
 }
 
 function showProb(prob, digits = 0) {
