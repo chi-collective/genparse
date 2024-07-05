@@ -1,6 +1,7 @@
 from arsenal import colors
 
-from genparse import examples, add_EOS
+import examples
+from genparse import add_EOS
 from genparse.cfg import CFG
 from genparse.parse.earley import Earley, EarleyLM
 from genparse.parse.cky import CKYLM, IncrementalCKY

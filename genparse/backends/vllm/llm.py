@@ -119,7 +119,7 @@ if VLLM_AVAILABLE:
             max_seq_len_to_capture: int = 8192,
             disable_custom_all_reduce: bool = False,
             **kwargs,
-        ) -> None:
+        ):
             if 'disable_log_stats' not in kwargs:
                 kwargs['disable_log_stats'] = True
             engine_args = EngineArgs(

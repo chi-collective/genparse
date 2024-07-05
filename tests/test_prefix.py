@@ -2,7 +2,7 @@ from itertools import product
 
 from arsenal import colors
 
-from genparse import examples
+import examples
 from genparse.cfg import CFG
 from genparse.semiring import Real
 

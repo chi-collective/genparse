@@ -5,7 +5,7 @@ Fast computation of the posterior distrubtion over the next word in a PCFG langu
 from arsenal import colors
 
 import genparse
-import genparse.examples
+import examples
 from genparse import CFG, Float, add_EOS
 from genparse.parse.cky import CKYLM
 
@@ -69,7 +69,7 @@ def test_new_abcdx():
 
 
 def test_new_palindrome():
-    cfg = add_EOS(genparse.examples.palindrome_ab)
+    cfg = add_EOS(examples.palindrome_ab)
 
     for prefix in ['', 'a', 'ab']:
         print()
@@ -84,7 +84,7 @@ def test_new_palindrome():
 
 
 def test_new_papa():
-    cfg = add_EOS(genparse.examples.papa)
+    cfg = add_EOS(examples.papa)
 
     for prefix in [
         [],
@@ -104,7 +104,7 @@ def test_new_papa():
 
 
 def test_sample():
-    cfg = CKYLM(genparse.examples.papa)
+    cfg = CKYLM(examples.papa)
     sample = cfg.sample(prob=True)
     print(sample)
 
@@ -112,7 +112,7 @@ def test_sample():
 def test_lm():
     from genparse.lm import LM
 
-    cfg = CKYLM(genparse.examples.papa)
+    cfg = CKYLM(examples.papa)
     sample = cfg.sample(prob=False) + (cfg.eos,)
     print(sample)
 
@@ -120,7 +120,7 @@ def test_lm():
 
 
 def test_clear_cache():
-    cfg = CKYLM(genparse.examples.papa)
+    cfg = CKYLM(examples.papa)
     assert len(cfg.model._chart) == 0
     sample = cfg.sample(prob=False) + (cfg.eos,)
     p = cfg(sample)

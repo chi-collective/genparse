@@ -1,7 +1,8 @@
 import numpy as np
 from arsenal import colors
 
-from genparse import CFG, EOS, Float, examples, add_EOS
+import examples
+from genparse import CFG, EOS, Float, add_EOS
 from genparse.parse.cky import CKYLM, IncrementalCKY
 from genparse.parse.earley_rescaled import Earley, EarleyLM
 
