@@ -119,6 +119,7 @@ text {
 .particle text {
   font-weight: normal;
   fill: #777;
+  z-index: 10;
 }
 
 .particle text .token {
@@ -135,6 +136,7 @@ text {
 path.particle-link {
   fill: none;
   opacity: 0.3;
+  z-index: -1;
 }
 
 /* Styles for collapsed state */
@@ -143,3 +145,24 @@ path.particle-link {
     opacity: 0.1;
   }
 }
+
+path.highlighted {
+  stroke-width: 4px !important;
+  opacity: 0.8 !important;
+}
+
+.particle.highlighted text {
+  z-index: 20;
+  text-shadow: 0px 0px 4px yellow;
+}
+
+.particle.highlighted circle {
+  stroke: yellow;
+  stroke-width: 4px;
+}
+
+/* Text background shouldn't be interactable */
+rect.text-background {
+  pointer-events: none;
+}
+
