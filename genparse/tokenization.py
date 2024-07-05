@@ -1,11 +1,10 @@
 """
 Tools for tokenization.
 
-TODO: write tests for this
-
 """
 
 from typing import Dict, List
+from arsenal import defaultdict
 
 
 def ints2bytes(sequence: List[int]) -> bytes:
@@ -21,40 +20,33 @@ def bytes2ints(byte_sequence: bytes) -> List[int]:
 
 
 def get_tokenizer_mapping(tokenizer):
-    """
-    Very similar to get_mapping in transformers_cfg.tokenization.mapping
-    but with special case to handle codellama tokenizer.
-    """
     name = tokenizer.__class__.__name__.lower()
-    if (
-        'gpt2' in name
-        or 'bloom' in name
-        or 'pretrainedtokenizer' in name
-        or 'codegen' in name
-        or 'gptneox' in name
-    ):
+    if 'gpt2' in name:
         return BBPEMapping(tokenizer)
     elif 'codellama' in name:
         return BPEMapping(tokenizer)
     elif 't5' in name:
         return BPEMapping(tokenizer)
-    elif 'llama' in name:
-        return LlamaBPEMapping(tokenizer)
-    elif 'xglm' in name:
-        return UniGramMapping(tokenizer)
     else:
         raise ValueError(f'Unknown tokenizer type: {tokenizer.__class__.__name__}')
 
 
 def decode_tokenizer_vocab(tokenizer):
     mapping = get_tokenizer_mapping(tokenizer)
+    decoded = mapping.post_process([mapping(i) for i in range(len(tokenizer))])
 
-    # `mapping` maps ids in `all_special_ids` to the null string, so we convert those using HF.
-    # TODO: change this
-    return [mapping.map(i).decode('utf-8') for i in range(len(tokenizer))]
+    tmp = defaultdict(list)
+    for i, t in enumerate(decoded):
+        tmp[t].append(i)
+    for x in tmp:
+        assert (
+            len(tmp[x]) == 1
+        ), f'surface form {x!r} maps to more than one token> {tmp[x]}'
+
+    return decoded
 
 
-###### The following code was taken directly from https://github.com/epfl-dlab/transformers-CFG/blob/main/transformers_cfg/tokenization/mapping.py
+###### The following code was taken from https://github.com/epfl-dlab/transformers-CFG/blob/main/transformers_cfg/tokenization/mapping.py
 
 
 class Mapping:
@@ -75,7 +67,7 @@ class Mapping:
         raw_token = self.tokenizer.convert_ids_to_tokens(token_id)
         return raw_token
 
-    def map(self, token_id: int) -> bytes:
+    def __call__(self, token_id: int) -> bytes:
         token = self._map(token_id)
         return bytes(token, 'utf-8')
 
@@ -84,7 +76,7 @@ class BBPEMapping(Mapping):
     #    def __init__(self, *args, **kwargs):
     #        super().__init__(*args, **kwargs)
 
-    def _map(self, token_id: int) -> str:
+    def __call__(self, token_id: int) -> str:
         raw_token = super()._map(token_id)
         if raw_token.startswith('Ġ'):
             raw_token = raw_token.replace('Ġ', ' ')
@@ -94,30 +86,8 @@ class BBPEMapping(Mapping):
             raw_token = raw_token.replace('ĉ', '\t')
         return raw_token
 
-
-class UnicodeBBPEMapping(Mapping):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.intermediate_encoding = UnicodeBBPEMapping.get_intermediate_encoding(
-            self.tokenizer
-        )
-
-    def _map(self, token_id: int) -> str:
-        raw_token = super()._map(token_id)
-        # if raw_token.startswith("Ġ"):
-        #     raw_token = raw_token.replace("Ġ", " ")
-        return raw_token
-
-    def map(self, token_id: int) -> bytes:
-        raw_token = self._map(token_id)
-        return self.intermediate_encoding.token2bytes(raw_token)
-
-    @staticmethod
-    def get_intermediate_encoding(tokenizer):
-        if 'gpt2' in tokenizer.__class__.__name__.lower():
-            return ByteEncoding(tokenizer)
-        else:
-            return None
+    def post_process(self, tokens):
+        return tokens
 
 
 class BPEMapping(Mapping):
@@ -125,7 +95,7 @@ class BPEMapping(Mapping):
         super().__init__(tokenizer)
         self.last_token_id = None
 
-    def _map(self, token_id: int) -> str:
+    def __call__(self, token_id: int) -> str:
         raw_token = super()._map(token_id)
 
         # we need to check if the token is at the beginning of the sentence to remove the space
@@ -134,9 +104,6 @@ class BPEMapping(Mapping):
         if self.last_token_id is not None and self.last_token_id == self.bos_token_id:
             at_bos = True
         self.last_token_id = token_id
-        if raw_token.startswith('<0x'):
-            hex_value = raw_token[4:-1]
-            raw_token = chr(int(hex_value, 16))
         if raw_token.startswith('▁'):
             raw_token = raw_token.replace('▁', ' ')
             if at_bos:
@@ -144,90 +111,15 @@ class BPEMapping(Mapping):
                 raw_token = raw_token[1:]
         return raw_token
 
-
-class LlamaBPEMapping(BPEMapping):
-    #    def __init__(self, tokenizer):
-    #        super().__init__(tokenizer)
-
-    def _map(self, token_id: int) -> str:
-        raw_token = super()._map(token_id)
-        # if the token is hex, token is a string like "<0x00>"
-        # first 256 tokens are hex
-        if raw_token.startswith('<0x'):
-            hex_value = raw_token[4:-1]
-            raw_token = chr(int(hex_value, 16))
-        return raw_token
-
-
-class WordPieceMapping(Mapping):
-    #    def __init__(self, tokenizer):
-    #        super().__init__(tokenizer)
-
-    def map(self, token_id: int) -> bytes:
-        if token_id in self.special:
-            return bytes()
-        return bytes(
-            self.tokenizer.decode([token_id], clean_up_tokenization_spaces=False),
-            'utf-8',
-        )
-
-
-class UniGramMapping(Mapping):
-    #    def __init__(self, tokenizer):
-    #        super().__init__(tokenizer)
-
-    def map(self, token_id: int) -> bytes:
-        if token_id in self.special:
-            return bytes()
-        return bytes(
-            self.tokenizer.decode([token_id], clean_up_tokenization_spaces=False),
-            'utf-8',
-        )
-
-
-class XGLMUniGramMapping(Mapping):
-    def __init__(self, tokenizer):
-        super().__init__(tokenizer)
-        self.bos_token_id = tokenizer.eos_token_id
-        self.eos_token_id = None
-
-
-class ByteEncoding:
-    def __init__(self, tokenizer):
-        # check if the tokenizer is fast, if so, convert it to slow
-        if tokenizer.is_fast:
-            from transformers import AutoTokenizer
-
-            tokenizer = AutoTokenizer.from_pretrained(
-                tokenizer.name_or_path, use_fast=False
-            )
-        self.tokenizer = tokenizer
-        self.byte2char: Dict[int, str] = tokenizer.byte_encoder
-        self.char2byte: Dict[str, int] = tokenizer.byte_decoder
-        # code point to byte
-        self.cdp2byte: Dict[int, int] = {ord(c): b for c, b in self.char2byte.items()}
-        self.byte2cdp: Dict[int, int] = {v: k for k, v in self.cdp2byte.items()}
-
-    def map(self, byte: int) -> int:
-        assert 0 <= byte < 256, f'byte: {byte} is not in the range [0, 256)'
-        return ord(self.byte2char[byte])
-
-    def token_ids2bytes(self, token_ids: List[int]) -> bytes:
-        tokens: List[str] = self.tokenizer.convert_ids_to_tokens(token_ids)
-        # for token id = BOS, the token should be empty string instead of <s>
-        # TODO, this may cause issues because this means that special tokens like BOS can appear at any position
-        tokens = [
-            '' if token in self.tokenizer.all_special_ids else token for token in tokens
-        ]
-        bytez: List[List[int]] = [self.token2bytes(token) for token in tokens]
-        # join the bytes
-        return ints2bytes(sum(bytez, []))
-
-    def token_id2bytes(self, token_id: int) -> bytes:
-        token: str = self.tokenizer.convert_ids_to_tokens(token_id)
-        return self.token2bytes(token)
-
-    def token2bytes(self, token: str) -> bytes:
-        # import pdb; pdb.set_trace()
-        bytes_seq: List[int] = [self.char2byte[c] for c in token]
-        return bytes(bytes_seq)
+    def post_process(self, tokens):
+        decoded = []
+        for t in tokens:
+            if t.startswith('<0x'):
+                new_t = chr(int(t[3:-1], 16))
+                if new_t not in tokens:
+                    decoded.append(new_t)
+                else:
+                    decoded.append(t)
+            else:
+                decoded.append(t)
+        return decoded
