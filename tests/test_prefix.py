@@ -7,21 +7,6 @@ from genparse.cfg import CFG
 from genparse.semiring import Real
 
 
-def cfg_hack(cfg):
-    "Coerce all grammar symbols into strings; use with caution."
-    return CFG.from_string(str(cfg), semiring=cfg.R, start=cfg.S)
-
-
-def keep_nonzero(semiring, chart):
-    new = semiring.chart()
-    for k, v in chart.items():
-        if v == semiring.zero:
-            continue
-        new[k] = v
-    return new
-
-
-# TODO: only for testing purposes
 def prefix_weight_bf(self, s, depth, verbose=False):
     "Brute-force computation of the prefix weight of the sequence `s`."
     bf = self.R.zero
