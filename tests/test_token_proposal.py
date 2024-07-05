@@ -5,7 +5,7 @@ from arsenal.maths.combinatorics import permute
 from genparse import locally_normalize, BoolCFGLM, EarleyLM, MockLLM, Float
 from genparse.segmentation import prefixes
 from genparse.proposal import TokenProposal
-from genparse.util import set_seed, LarkStuff, make_mock_llm
+from genparse.util import set_seed, LarkStuff, load_model_by_name
 from genparse.proposal.util import (
     mock_token_proposal,
     assert_proper_weighting,
@@ -23,7 +23,7 @@ from genparse.proposal.util import (
 def test_basic_aligned_model_iql_small():
     set_seed(0)
 
-    llm = make_mock_llm()
+    llm = load_model_by_name('mock-gpt2')
 
     # the base character-level CFG language model
     guide = EarleyLM(

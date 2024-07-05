@@ -6,10 +6,7 @@ import transformers
 import hfppl
 from arsenal import Integerizer
 from collections import Counter
-from functools import lru_cache
 from IPython.display import HTML, display
-
-from genparse.tokenization import decode_tokenizer_vocab
 
 
 def set_seed(seed):
@@ -27,20 +24,15 @@ def lark_guide(grammar, decay=1):
     return BoolCFGLM(LarkStuff(grammar).char_cfg(decay))
 
 
-@lru_cache(None)
-def make_mock_llm(name='gpt2', **kwargs):
-    "Create MockLLM with the same vocabulary as `name` from 🤗."
-    from genparse.lm import MockLLM
-
-    tokenizer = transformers.AutoTokenizer.from_pretrained(name, **kwargs)
-    return MockLLM(
-        V=decode_tokenizer_vocab(tokenizer),
-        eos=tokenizer.eos_token,
-    )
-
-
 def load_model_by_name(model_name, batch_size=None):
-    from genparse.lm import TokenizedLLM, LLM
+    """
+    Load an LLM from 🤗 into a genparse `TokenizedLLM`.
+
+    Adding "mock-" will create an imitation model over the same vocabulary
+    that can be used for testing.
+    """
+    from genparse.lm import TokenizedLLM, LLM, MockLLM
+    from genparse.tokenization import decode_tokenizer_vocab
 
     if model_name == 'gpt2':
         MODEL_ID = 'gpt2'
@@ -54,8 +46,23 @@ def load_model_by_name(model_name, batch_size=None):
             batch_size=batch_size,
         )
 
+    elif model_name == 'mock-gpt2':
+        tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2')
+        return MockLLM(
+            V=decode_tokenizer_vocab(tokenizer),
+            eos=tokenizer.eos_token,
+        )
+
+    elif model_name == 'mock-codellama':
+        tokenizer = transformers.AutoTokenizer.from_pretrained(
+            'codellama/CodeLlama-7b-Instruct-hf'
+        )
+        return MockLLM(
+            V=decode_tokenizer_vocab(tokenizer),
+            eos=tokenizer.eos_token,
+        )
+
     elif model_name == 'codellama':
-        assert torch.cuda.is_available()
         MODEL_ID = 'codellama/CodeLlama-7b-Instruct-hf'
         return TokenizedLLM(
             model=hfppl.CachedCausalLM.from_pretrained(MODEL_ID, load_in_8bit=False),

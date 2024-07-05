@@ -1,12 +1,15 @@
 from genparse.util import InferenceSetup
+from arsenal import colors
 
 
 def test_basic():
     grammar = """
     start: "Sequential Monte Carlo is " ( "good" | "bad" )
+
+    %ignore /[ ]/
     """
     infer = InferenceSetup('gpt2', grammar, proposal_name='character')
-    particles = infer(' ', n_particles=15, return_record=True)
+    particles = infer(' ', n_particles=15, return_record=True, seed=1234)
 
     print(particles)
 
@@ -19,6 +22,9 @@ def test_basic():
     print('candidate:', repr(candidate), 'risk:', particles.risk(cost, candidate))
 
     assert particles.record is not None
+    f = '/tmp/viz.html'
+    particles.record.plotly().write_html(f)
+    print(f'wrote {colors.link("file://" + f)}')
 
 
 if __name__ == '__main__':

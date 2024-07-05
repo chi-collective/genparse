@@ -96,9 +96,9 @@ def test_basics():
 
     """
 
-    from genparse.util import make_mock_llm
+    from genparse.util import load_model_by_name
 
-    llm = make_mock_llm()
+    llm = load_model_by_name('mock-gpt2')
 
     guide = LarkGuide(llm, json_grammar, 'value')
     text = '{"8W{0sxM{{}]]vpEC4|i;]V@Jg_#P^j\n?k%noXNt\2#2]a8a\PJru]/`M6gaqb@EhFx"'
