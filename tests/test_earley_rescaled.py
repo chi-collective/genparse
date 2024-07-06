@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 from arsenal import colors
 
@@ -5,12 +6,6 @@ import examples
 from genparse import CFG, EOS, Float, add_EOS
 from genparse.parse.cky import CKYLM, IncrementalCKY
 from genparse.parse.earley_rescaled import Earley, EarleyLM
-
-
-# class Log(_Log):
-#    @classmethod
-#    def from_string(cls, x):
-#        return cls(np.log(np.float128(float(x))))
 
 
 def test_basics():
@@ -23,13 +18,9 @@ def test_basics():
             Float,
         )
     )
-
     x = 'a' * 110
-
     want = (len(x) - 1) * np.log(0.001) + 1 * np.log(0.999)
-
     assert Float.metric(p.model.logp(x + EOS), want) <= 1e-5
-
     p.p_next(x).assert_equal(
         {
             EOS: 0.999,
@@ -61,10 +52,7 @@ def test_cycles():
         """,
         Float,
     )
-
     earley = Earley(cfg)
-    # print(earley.order)
-
     assert_equal(earley('c'), cfg('c'))
 
 
@@ -338,17 +326,26 @@ def test_p_next_new_abcdx():
     ckylm = CKYLM(add_EOS(cfg))
     earley = EarleyLM(add_EOS(cfg))
 
-    for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
+    for prefix in ['', 'a', 'ab', 'abc', 'abcd']:
         print()
         print(colors.light.blue % prefix)
         want = ckylm.p_next(prefix)
-        want = want.normalize() if want.trim() else want
+        assert abs(want.sum() - 1) <= 1e-10, want
         print(want)
         have = earley.p_next(prefix)
         print(have)
+        assert abs(have.sum() - 1) <= 1e-10, have
         err = have.metric(want)
         print(colors.mark(err <= 1e-5))
         assert err <= 1e-5, err
+
+    prefix = 'acbde'
+    print()
+    print(colors.light.blue % prefix)
+    with pytest.raises(AssertionError):
+        ckylm.p_next(prefix)
+    with pytest.raises(AssertionError):
+        earley.p_next(prefix)
 
 
 def test_p_next_palindrome():
@@ -427,7 +424,7 @@ def test_mystery():
         want = cky.p_next(prefix)
         want = want.normalize() if want.trim() else want
         print(want)
-        have = earley.p_next(prefix)
+        have = earley.next_token_weights(earley.chart(prefix))
         print(have)
         err = have.metric(want)
         print(colors.mark(err <= 1e-5))

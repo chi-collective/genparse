@@ -126,6 +126,8 @@ class Chart(dict):
 
     def normalize(self):
         Z = self.sum()
+        if Z == 0:
+            return self
         return self.semiring.chart((k, v / Z) for k, v in self.items())
 
     def filter(self, f):

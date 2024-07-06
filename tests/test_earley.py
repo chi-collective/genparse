@@ -1,3 +1,4 @@
+import pytest
 from arsenal import colors
 
 import examples
@@ -30,10 +31,7 @@ def test_cycles():
         """,
         Float,
     )
-
     earley = Earley(cfg)
-    # print(earley.order)
-
     assert_equal(earley('c'), cfg('c'))
 
 
@@ -324,7 +322,7 @@ def test_p_next_new_abcdx():
     ckylm = CKYLM(add_EOS(cfg))
     earley = EarleyLM(add_EOS(cfg))
 
-    for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
+    for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbd']:
         print()
         print(colors.light.blue % prefix)
         want = ckylm.p_next(prefix)
@@ -334,6 +332,17 @@ def test_p_next_new_abcdx():
         err = have.metric(want)
         print(colors.mark(err <= 1e-5))
         assert err <= 1e-5, err
+
+    prefix = 'acbde'
+    print()
+    print(colors.light.blue % prefix)
+    with pytest.raises(AssertionError):
+        ckylm.p_next(prefix)
+    with pytest.raises(AssertionError):
+        earley.p_next(prefix)
+    err = have.metric(want)
+    print(colors.mark(err <= 1e-5))
+    assert err <= 1e-5, err
 
 
 def test_p_next_palindrome():
@@ -411,7 +420,7 @@ def test_mystery():
         print(colors.light.blue % prefix)
         want = cky.p_next(prefix)
         print(want)
-        have = earley.p_next(prefix)
+        have = earley.next_token_weights(earley.chart(prefix))
         print(have)
         err = have.metric(want)
         print(colors.mark(err <= 1e-5))

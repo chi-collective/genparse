@@ -2,6 +2,7 @@
 Fast computation of the posterior distrubtion over the next word in a PCFG language model.
 """
 
+import pytest
 from arsenal import colors
 
 import genparse
@@ -18,28 +19,12 @@ def next_token_weights_slow(cfg, prefix):
     """
     Compute the posterior over the next word in O(V N³) time.
     """
-    Z = cfg.prefix_weight(prefix)
     p = cfg.R.chart()
     for v in sorted(cfg.V):
         p[v] = cfg.prefix_weight([*prefix, v])
         if p[v] == cfg.R.zero:
             del p[v]
-    return Z, p
-
-
-# def next_token_weights_less_slow(cfg, prefix):
-#    """
-#    Compute the posterior over the next word in O(V N²) time.
-#    """
-#    N = len(prefix)
-#    P = cfg.prefix_grammar.cnf
-#    chart = P._parse_chart(prefix)
-#    Z = chart[0, P.S, N]
-#    p = {}
-#    for v in sorted(cfg.V):
-#        p[v] = extend_chart(P, chart, [*prefix, v])[0, P.S, N+1]
-#        if p[v] == cfg.R.zero: del p[v]
-#    return Z, p
+    return p
 
 
 def test_new_abcdx():
@@ -56,16 +41,24 @@ def test_new_abcdx():
         )
     )
 
-    for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbde']:
+    for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'dcba']:
         print()
         print(colors.light.blue % prefix)
-        want = next_token_weights_slow(cfg, prefix)[1]
+        want = next_token_weights_slow(cfg, prefix).normalize()
         print(want)
         have = fast_posterior(cfg, prefix)
         print(have)
         err = have.metric(want)
         print(colors.mark(err <= 1e-5))
         assert err <= 1e-5, err
+
+    prefix = 'acbde'
+    print()
+    print(colors.light.blue % prefix)
+    # with pytest.raises(AssertionError):
+    #    next_token_weights_slow(cfg, prefix).normalize()
+    with pytest.raises(AssertionError):
+        fast_posterior(cfg, prefix)
 
 
 def test_new_palindrome():
@@ -74,7 +67,7 @@ def test_new_palindrome():
     for prefix in ['', 'a', 'ab']:
         print()
         print(colors.light.blue % prefix)
-        want = next_token_weights_slow(cfg, prefix)[1]
+        want = next_token_weights_slow(cfg, prefix).normalize()
         print(want)
         have = fast_posterior(cfg, prefix)
         print(have)
@@ -95,7 +88,7 @@ def test_new_papa():
     ]:
         print()
         print(colors.light.blue % prefix)
-        want = next_token_weights_slow(cfg, prefix)[1]
+        want = next_token_weights_slow(cfg, prefix).normalize()
         print(want)
         have = fast_posterior(cfg, prefix)
         print(have)

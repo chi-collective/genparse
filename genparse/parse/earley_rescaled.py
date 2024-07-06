@@ -22,7 +22,8 @@ class EarleyLM(LM):
         super().__init__(V=cfg.V, eos=EOS)
 
     def p_next(self, context):
-        return self.model.p_next(context)
+        assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
+        return self.model.next_token_weights(self.model.chart(context)).normalize()
 
     def clear_cache(self):
         self.model.clear_cache()
@@ -174,9 +175,6 @@ class Earley:
             return chart + [
                 last_chart
             ]  # TODO: avoid list addition here as it is not constant time!
-
-    def p_next(self, prefix):
-        return self.next_token_weights(self.chart(prefix))
 
     def logp(self, x):
         cols = self.chart(x)

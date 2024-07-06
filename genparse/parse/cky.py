@@ -15,15 +15,14 @@ class CKYLM(LM):
     def __init__(self, cfg, **kwargs):
         if EOS not in cfg.V:
             cfg = add_EOS(cfg)
-
         self.cfg = cfg
         self.pfg = self.cfg.cnf.prefix_grammar.cnf
         self.model = IncrementalCKY(self.pfg, **kwargs)
-
         super().__init__(V=cfg.V, eos=EOS)
 
     def p_next(self, context):
-        return self.model.p_next(context)
+        assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
+        return self.model.p_next(context).normalize()
 
     @classmethod
     def from_string(cls, x, semiring=Float, **kwargs):
