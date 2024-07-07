@@ -413,7 +413,6 @@ class WFSA:
             for a, j, w in self.arcs(i):
                 if j in active:
                     new.add_arc(i, a, j, w)
-
         return new
 
     @cached_property
@@ -484,7 +483,7 @@ class WFSA:
 
         if S is None:
             S = _gen_nt()
-        cfg = CFG(R=self.R, V=self.alphabet, S=S)
+        cfg = CFG(R=self.R, V=self.alphabet - {EPSILON}, S=S)
 
         # add production rule for initial states
         for i, w in self.I:
