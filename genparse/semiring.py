@@ -220,7 +220,7 @@ class Expectation(Semiring):
     def star(self):
         p, r = self.score
         ps = 1 / (1 - p)
-        return Expectation((ps, ps * r * ps))
+        return Expectation(ps, ps * r * ps)
 
     def __repr__(self):
         return f'<{self.score[0]},{self.score[1]}>'
