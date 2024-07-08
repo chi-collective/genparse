@@ -10,11 +10,10 @@ from typing import Any
 
 import transformers
 
+from genparse.backends.vllm import vllmpplLLM, VLLMSampler
 from genparse.cfglm import BoolCFGLM
-from genparse.lm import AsyncGreedilyTokenizedLLM
+from genparse.lm import TokenizedLLM
 from genparse.proposal import CharacterProposal
-from genparse.vllm_compatibility import vllmpplLLM
-from genparse.vllm_steer import VLLMSampler
 from genparse.util import LarkStuff
 
 logger = logging.getLogger(__name__)
@@ -47,7 +46,7 @@ def run_inference(
     n_particles: int,
 ) -> list[dict[str, float]]:
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
-    llm = AsyncGreedilyTokenizedLLM(
+    llm = TokenizedLLM(
         model=vllmpplLLM(model_name),
         tokenizer=tokenizer,
         batch_size=batch_size,
