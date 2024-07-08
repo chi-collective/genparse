@@ -9,6 +9,9 @@ from arsenal.maths import sample
 
 from graphviz import Digraph
 from genparse import Float, EOS
+import re
+
+Z = lambda x: 1 if sum(x.values()) == 0 else sum(x.values())  # avoid division by zero
 
 
 class Sampler:
@@ -33,12 +36,25 @@ class Sampler:
             for sym in self.V:
                 self.next_node(curr, sym)  # ensure that every child is initialized
             cs = list(curr.children)
-            Z = sum([self.lm1.p_next(curr.prefix)[b] for b in cs])
-            ms = [curr.children[b].mass * self.lm1.p_next(curr.prefix)[b] / Z for b in cs]
+
+            # print(f" lm1 : {[(b,self.lm1.p_next(curr.prefix)[b]) for b in cs]}")
+            # print(f" lm2 : {[(b,self.lm2.p_next(curr.prefix)[b]) for b in cs]}")
+
+            ms = [
+                curr.children[b].mass
+                * self.lm1.p_next(curr.prefix)[b]
+                / Z(self.lm1.p_next(curr.prefix))
+                * self.lm2.p_next(curr.prefix)[b]
+                / Z(self.lm2.p_next(curr.prefix))
+                for b in cs
+            ]
+
             a = cs[sample(ms)]
             curr = curr.children[a]
+            print(curr.mass, curr.prefix)
+            print(cs, ms)
         # self.update_backward(curr) # backward update of the efg values.
-        curr.update_backward(self.lm1)
+        curr.update_backward(self.lm1, self.lm2)
         return curr.prefix
 
     def next_node(self, node, a):
@@ -47,51 +63,25 @@ class Sampler:
         This method should be used together with the GAD sampler"""
         if node.children and a in node.children.keys():
             return node.children[a]
-        else:
-            next = Node(self.lm2.p_next(node.prefix)[a], node, prefix=node.prefix + a)
+        # elif a==EOS:
+        #     next = Node(self.lm2.model(node.prefix + a), node, prefix=node.prefix + a) #Base case: EOS
+        #     node.children[a] = next
+        #     return next
+        elif a == EOS:
+            next = Node(Float.one, node, prefix=node.prefix + a)
             node.children[a] = next
             return next
-
-    # def update_backward(self, leaf):
-    #     """ This method updates backwards the mass of the node -- leaf to root ---,
-    #     following the approximate EFG scheme of Park et al.(2024)
-    #     """
-    #     curr = leaf
-    #     parent = leaf.parent
-    #     while True:
-    #         if curr == self.root:
-    #             return
-
-    #         print(f" curr:{curr.prefix,curr.mass}, parent {parent.prefix,parent.mass}")
-    #         Z = sum([self.lm1.p_next(parent.prefix)[a] for a in list(parent.children)])
-    #         parent.mass = sum([self.lm1.p_next(parent.prefix)[a]/Z*node.mass \
-    #                            for a, node in parent.children.items()]) # WE have to normalize since we need the next-token weight
-    #         curr = parent
-    #         parent = curr.parent
-
-    # def __call__(self, p, context=None):
-    #     "Sample an action while updating the trace cursor and tree data structure."
-
-    #     if not isinstance(p, dict):
-    #         p = dict(enumerate(p))
-
-    #     cur = self.cur
-
-    #     if cur.children is None:  # initialize the newly discovered node
-    #         cur.children = {a: Node(cur.mass * p[a], parent=cur) for a in p if p[a] > 0}
-    #         self.cur.context = (
-    #             context  # store the context, which helps detect trace divergence
-    #         )
-
-    #     if context != cur.context:
-    #         print(colors.light.red % 'ERROR: trace divergence detected:')
-    #         print(colors.light.red % 'trace context:', self.cur.context)
-    #         print(colors.light.red % 'calling context:', context)
-    #         raise ValueError((p, cur))
-
-    # a = cur.sample()
-    # self.cur = cur.children[a]  # advance the cursor
-    # return a
+        else:
+            next = Node(
+                self.lm1.p_next(node.prefix)[a]
+                / Z(self.lm1.p_next(node.prefix))
+                * self.lm2.p_next(node.prefix)[a]
+                / Z(self.lm2.p_next(node.prefix)),
+                node,
+                prefix=node.prefix + a,
+            )
+            node.children[a] = next
+            return next
 
 
 class Node:
@@ -144,20 +134,26 @@ class Node:
             path.append(a)
         return (P, path, curr)
 
-    def update_backward(self, lm1):
+    def update_backward(self, lm1, lm2):
         """This method updates backwards the mass of the node -- leaf to root ---,
         following the approximate EFG scheme of Park et al.(2024)
         """
-        # print(f" curr:{curr.prefix,curr.mass}, parent {parent.prefix,parent.mass}")
-        Z = sum([lm1.p_next(self.prefix)[a] for a in list(self.children)])
-        self.mass = sum(
+        if self.parent is None:
+            return
+        parent = self.parent
+
+        parent.mass = sum(
             [
-                lm1.p_next(self.prefix)[a] / Z * node.mass
-                for a, node in self.children.items()
+                lm1.p_next(parent.prefix)[a]
+                / Z(lm1.p_next(parent.prefix))
+                * lm2.p_next(parent.prefix)[a]
+                / Z(lm2.p_next(parent.prefix))
+                * node.mass
+                for a, node in parent.children.items()
             ]
         )  # WE have to normalize since we need the next-token weight
-        if self.parent is not None:
-            self.parent.update_backward(lm1)
+
+        parent.update_backward(lm1, lm2)
 
     # def update(self):
     #     "Restore the invariant that self.mass = sum children mass."

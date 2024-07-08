@@ -3,6 +3,7 @@
 import numpy as np
 
 from genparse.chart import Chart
+import re
 
 
 class Semiring:
@@ -194,6 +195,37 @@ class Float:
     zero = 0
     one = 1
 
+
+class Expectation(Semiring):
+    def star(self):
+        NotImplementedError
+
+    def __init__(self, p1, p2):
+        super().__init__((p1, p2))
+
+    @classmethod
+    def from_string(cls, string):
+        try:
+            input = re.findall(r'<(.*),(.*)>', string)[0]
+            return cls(float(input[0]), float(input[1]))
+        except ValueError:
+            raise ValueError("Invalid input format. Expected '<float,float>'")
+
+    def __add__(self, other):
+        return Expectation(self.score[0] + other.score[0], self.score[1] + other.score[1])
+
+    def __mul__(self, other):
+        return Expectation(
+            self.score[0] * other.score[0],
+            self.score[0] * other.score[1] + self.score[1] * other.score[0],
+        )
+
+    def __repr__(self):
+        return f'<{self.score[0]},{self.score[1]}>'
+
+
+Expectation.zero = Expectation.from_string('<0,0>')
+Expectation.one = Expectation.from_string('<1,1>')
 
 # class F128:
 #    def star(self):
