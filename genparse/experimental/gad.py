@@ -64,7 +64,7 @@ class Sampler:
         if node.children and a in node.children.keys():
             return node.children[a]
         # elif a==EOS:
-        #     next = Node(self.lm2.model(node.prefix + a), node, prefix=node.prefix + a) #Base case: EOS
+        #     next = Node(self.lm2.model(node.prefix + a), node, prefix=node.prefix + a) # Base case: EOS
         #     node.children[a] = next
         #     return next
         elif a == EOS:
