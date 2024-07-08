@@ -23,7 +23,7 @@ def convert_rules(benchclamp_rule_set):
 def convert_rhs_token(token):
     print(token)
 
-    if token["type"] == "terminal":
+    if token['type'] == 'terminal':
         name = json.loads(token['underlying'])
     else:
         name = token['underlying']
