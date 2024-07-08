@@ -34,7 +34,11 @@ _sex_or_gender: "\"sex_or_genderLabel.value\""
 STAR: "*"
 people_value: STRING | NUMBER
 STRING: "'" CHAR * "'"
-CHAR: "''" | /[^']/
+LETTER: "a".."z" | "A".."Z"
+BACKSLASH: "\\"
+SYMBOL: "(" | ")" | "[" | "]" | "{" | "}" | "!" | "@" | "%" | "*" | "." | "," | ":" | ";" | "<" | "=" | ">" | "/" | "?" | "_" | "`"
+DIGIT: "0".."9"
+CHAR: "''" | LETTER | DIGIT | SYMBOL | (BACKSLASH BACKSLASH)
 NUMBER: /\d+/
 
 %import common.WS
