@@ -197,9 +197,6 @@ class Float:
 
 
 class Expectation(Semiring):
-    def star(self):
-        NotImplementedError
-
     def __init__(self, p1, p2):
         super().__init__((p1, p2))
 
@@ -220,12 +217,18 @@ class Expectation(Semiring):
             self.score[0] * other.score[1] + self.score[1] * other.score[0],
         )
 
+    def star(self):
+        p, r = self.score
+        ps = 1 / (1 - p)
+        return Expectation((ps, ps * r * ps))
+
     def __repr__(self):
         return f'<{self.score[0]},{self.score[1]}>'
 
 
 Expectation.zero = Expectation.from_string('<0,0>')
-Expectation.one = Expectation.from_string('<1,1>')
+Expectation.one = Expectation.from_string('<1,0>')
+
 
 # class F128:
 #    def star(self):
