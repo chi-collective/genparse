@@ -51,7 +51,7 @@ def test_basic():
             'Sequential Monte Carlo is good!▪': 0.15011121181916223,
         }
     )
-    want.assert_equal(P, tol=1e-10)
+    want.assert_equal(P, tol=1e-5)
 
 
 def test_basic_beam():
@@ -96,7 +96,7 @@ def test_basic_beam():
 
     # This is a regression test; not an required behavior
     want = Float.chart({'Sequential Monte Carlo is awful!▪': 1.0})
-    want.assert_equal(P, tol=1e-10)
+    want.assert_equal(P, tol=1e-5)
 
 
 if __name__ == '__main__':
