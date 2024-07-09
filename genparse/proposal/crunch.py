@@ -27,9 +27,7 @@ class Crunching:
     def posterior_enumerate(self, prompt, depth):
         Q = pdict()
 
-        it = head_iter(
-            self._iter_p_next(Item(1, '', prompt))
-        )  # XXX: empty string didn't work
+        it = head_iter(self._iter_p_next(Item(1, (), prompt)))
         Q[it] = -1
 
         while Q:
@@ -40,11 +38,10 @@ class Crunching:
             item = next(iterator)
             print('.', end='')
 
-            if item.ys[-1] == self.T.old_eos:
-                if self.guide(item.xs):
+            if item.xs[-1] == self.T.new_eos:
+                if self.guide(''.join(item.xs)):
                     yield item
-                else:
-                    continue
+                continue
 
             if len(item.ys) - len(prompt) <= depth:
                 extend_iter = head_iter(self._iter_p_next(item))
@@ -57,59 +54,11 @@ class Crunching:
     def _iter_p_next(self, item):
         """
         This method will lazily enumerate the nodes in the intersection of `llm` and
-        and the `guide` for the given context.
-
-        Here intersection means
-
-          guide.p(token | context) * llm.p(token | context) for tokens ∈ llm.V
-
+        and the `guide` for the given context using the TokenProposal.
         """
-
-        T = self.T
-        p_llm = self.llm.p_next(item.ys)
-        T._update_leaves(p_llm)
-
-        mass = T.mass.copy()
-
-        # Update internal nodes for our A* heuristic
-        jump = T.jump
-        for node in T.ordering:
-            m = 0
-            for child in jump[node]:
-                m = max(m, mass[child])
-            mass[node] = m
-
-        agenda = pdict()
-        P = Float.chart()
-
-        # initial conditions
-        (token, node) = ('', T.root)
-        agenda[token, node] = 0
-        P[node] = 1
-
-        while agenda:
-            (token, node) = agenda.pop()
-
-            # Efficiently compute guide.p(x | context + token) for x ∈ guide.V.
-            # These are individual characters that are aligned with the trie.
-            p = self.guide.p_next(item.xs + token)
-
-            children_node = T.children[node]
-            for x in children_node:
-                if x is None:
-                    yield Item(
-                        ps=item.ps * P[node] * mass[children_node[None]],
-                        xs=item.xs + token,
-                        ys=item.ys
-                        + (token if token != self.T.new_eos else self.T.old_eos,),
-                    )
-
-                    continue
-
-                y = children_node[x]
-
-                P_y = P[node] * p[x]
-
-                if P_y > 0:
-                    P[y] = P_y
-                    agenda[token + x, y] = -P_y * mass[y]
+        for token, value in self.T.traverse_trie(item.xs, self.llm.p_next(item.ys)):
+            yield Item(
+                item.ps * value,
+                item.xs + (token,),
+                item.ys + ((token,) if token != self.T.new_eos else (self.T.old_eos,)),
+            )

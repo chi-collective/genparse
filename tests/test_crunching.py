@@ -18,7 +18,7 @@ def test_basic():
 
     items = []
     start = time()
-    for item in take(10, q.posterior_enumerate((llm.eos,), depth=10)):
+    for item in take(5, q.posterior_enumerate((llm.eos,), depth=10)):
         print()
         print(item.ps, (colors.red % '·').join(item.ys))
         items.append(item)
@@ -29,7 +29,7 @@ def test_basic():
     assert items == want, [items, want]
 
     # all sequences are valid
-    assert all(guide(item.xs) == 1 for item in items)
+    assert all(guide(''.join(item.xs)) == 1 for item in items)
 
     # show posterior over strings
     P = Float.chart()

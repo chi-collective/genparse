@@ -41,7 +41,7 @@ class LM:
         assert ys[-1] == self.eos
         P = 1
         for i, y in enumerate(ys):
-            assert y in self.V
+            assert y in self.V, y
             #            P *= self.p_next(ys[:i]).normalize()[y]
             P *= self.p_next(ys[:i])[y]
             if P == 0:
