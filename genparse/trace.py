@@ -10,13 +10,16 @@ from graphviz import Digraph
 
 from genparse.semiring import Float
 from genparse.util import format_table
+from genparse.lm import LazyProb
+
+import numpy as np
 
 
 class generation_tree:
-    def __init__(self, lm, **opts):
+    def __init__(self, lm, remaining_mass=0.0, **opts):
         tracer = TraceSWOR()
         D = Float.chart()
-        while tracer.root.mass > 0:
+        while tracer.root.mass > remaining_mass:
             with tracer:
                 s, p = lm.sample(draw=tracer, **opts)
                 D[s] += p
@@ -27,6 +30,24 @@ class generation_tree:
     def _repr_html_(self):
         return format_table([[self.D, self.tracer]])
 
+    def __repr__(self):
+        return str(self.D) + str(self.tracer)
+
+
+def separe_tokens_and_probs(input):
+    if isinstance(input, LazyProb):
+        tokens = input.keys()
+        p = input.values()
+    elif isinstance(input, dict):
+        tokens = list(input.keys())
+        p = np.array(list(input.values()))
+    elif isinstance(input, np.ndarray):
+        tokens = range(len(input))
+        p = input
+    else:
+        raise ValueError(f'Expected LazyProb, dict or np.ndarray, got {type(input)}')
+    return tokens, p
+
 
 class Tracer:
     """
@@ -34,22 +55,20 @@ class Tracer:
     """
 
     def __init__(self):
-        self.root = Node(1.0, None, None)
+        self.root = Node(idx=-1, mass=1.0, parent=None)
         self.cur = None
+        self.inner_nodes = 0  # stats
 
     def __call__(self, p, context=None):
         "Sample an action while updating the trace cursor and tree data structure."
 
-        if not isinstance(p, dict):
-            p = dict(enumerate(p))
-
+        tokens, p = separe_tokens_and_probs(p)
         cur = self.cur
 
-        if cur.children is None:  # initialize the newly discovered node
-            cur.children = {a: Node(cur.mass * p[a], parent=cur) for a in p if p[a] > 0}
-            self.cur.context = (
-                context  # store the context, which helps detect trace divergence
-            )
+        if cur.child_masses is None:
+            self.inner_nodes += 1
+            cur.child_masses = cur.mass * p
+            cur.context = context
 
         if context != cur.context:
             print(colors.light.red % 'ERROR: trace divergence detected:')
@@ -57,25 +76,53 @@ class Tracer:
             print(colors.light.red % 'calling context:', context)
             raise ValueError((p, cur))
 
-        a = cur.sample()
-        self.cur = cur.children[a]  # advance the cursor
-        return a
+        sampled_idx = cur.sample()
+        if sampled_idx not in cur.born_children:
+            cur.born_children[sampled_idx] = Node(
+                idx=sampled_idx,
+                mass=cur.child_masses[sampled_idx].item(),
+                parent=cur,
+                token=tokens[sampled_idx],
+            )
+        self.cur = cur.born_children[sampled_idx]
+        return tokens[sampled_idx]
 
 
 class Node:
-    __slots__ = ('mass', 'parent', 'children', 'context', '_mass')
+    __slots__ = (
+        'idx',
+        'mass',
+        'parent',
+        'token',
+        'child_masses',
+        'born_children',
+        'context',
+        '_mass',
+    )
+    global_node_counter = 0
 
-    def __init__(self, mass, parent, children=None, context=None):
+    def __init__(
+        self,
+        idx,
+        mass,
+        parent,
+        token=None,
+        child_masses=None,
+        born_children=None,
+        context=None,
+    ):
+        self.idx = idx
         self.mass = mass
         self.parent = parent
-        self.children = children
+        self.token = token  # used for visualization
+        self.child_masses = child_masses
+        self.born_children = {} if born_children is None else born_children
         self.context = context
         self._mass = mass  # bookkeeping: remember the original mass
+        Node.global_node_counter += 1
 
     def sample(self):
-        cs = list(self.children)
-        ms = [c.mass for c in self.children.values()]
-        return cs[sample(ms)]
+        return sample(self.child_masses)
 
     def p_next(self):
         return Float.chart((a, c.mass / self.mass) for a, c in self.children.items())
@@ -95,11 +142,13 @@ class Node:
             path.append(a)
         return (P, path, curr)
 
-    def update(self):
+    def update(
+        self,  # Fennwick tree alternative, sumheap
+    ):  # todo: optimize this by subtracting from masses, instead of resumming
         "Restore the invariant that self.mass = sum children mass."
-        if self.children is not None:
-            self.mass = sum(y.mass for y in self.children.values())
         if self.parent is not None:
+            self.parent.child_masses[self.idx] = self.mass
+            self.parent.mass = np.sum(self.parent.child_masses).item()
             self.parent.update()
 
     def graphviz(
@@ -128,13 +177,14 @@ class Node:
         while q:
             x = q.pop()
             xs.add(x)
-            if x.children is None:
+            if x.child_masses is None:
                 continue
-            for a, y in x.children.items():
+            for a, y in x.born_children.items():
+                a = y.token if y.token is not None else a
                 g.edge(str(f(x)), str(f(y)), label=f'{fmt_edge(x,a,y)}')
                 q.append(y)
         for x in xs:
-            if x.children is not None:
+            if x.child_masses is not None:
                 g.node(str(f(x)), label=str(fmt_node(x)), shape='box')
             else:
                 g.node(str(f(x)), label=str(fmt_node(x)), shape='box', fillcolor='gray')
@@ -155,3 +205,20 @@ class TraceSWOR(Tracer):
 
     def _repr_svg_(self):
         return self.root.graphviz()._repr_image_svg_xml()
+
+    def sixel_render(self):
+        try:
+            from sixel import converter
+            import sys
+            from io import BytesIO
+
+            c = converter.SixelConverter(BytesIO(self.root.graphviz()._repr_image_png()))
+            c.write(sys.stdout)
+        except ImportError:
+            import warnings
+
+            warnings.warn('Install imgcat or sixel to enable rendering.')
+            print(self)
+
+    def __repr__(self):
+        return self.root.graphviz().source
