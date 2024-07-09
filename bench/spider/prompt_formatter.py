@@ -33,13 +33,13 @@ class SpiderPromptFormatter:
         )
 
         self.codellama_prompt_template = (
-                """<s>[INST]
+            """<s>[INST]
 {system_prompt}
 
 {user_message_1} [/INST] {model_answer_1} </s>"""
-                + '<s>[INST] {user_message_2} [/INST] {model_answer_2} </s>'
-                + '<s>[INST] {user_message_3} [/INST] {model_answer_3} </s>'
-                + '<s>[INST] {user_message} [/INST]'
+            + '<s>[INST] {user_message_2} [/INST] {model_answer_2} </s>'
+            + '<s>[INST] {user_message_3} [/INST] {model_answer_3} </s>'
+            + '<s>[INST] {user_message} [/INST]'
         )
 
         self.system_prompt = (
