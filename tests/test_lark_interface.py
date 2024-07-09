@@ -323,6 +323,18 @@ def test_char_cfg_delimiter():
     assert guide.p_next('SELECT x FROM').keys() == {' ', '\n'}
 
 
+def test_char_cfg_charset():
+    import string
+
+    grammar = r'start: /.+/'
+    guide = BoolCFGLM(LarkStuff(grammar).char_cfg(charset='core'))
+    assert guide.p_next('').keys() == set(string.printable)
+
+    grammar = r'start: /[^a]+/'
+    guide = BoolCFGLM(LarkStuff(grammar).char_cfg(charset='core'))
+    assert guide.p_next('').keys() == set(string.printable) - {'a'}
+
+
 if __name__ == '__main__':
     from arsenal import testing_framework
 

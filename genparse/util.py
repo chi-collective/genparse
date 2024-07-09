@@ -167,9 +167,12 @@ class LarkStuff:
     to python re syntax, not all features are supported by greenery. In particular,
     case insensitive terminals are not supported by greenery, and must be desugared.
     In addition, greenery does not escape spaces, but lark does, which is corrected.
-    There may be other cases we have not yet encountered, so it is important to
-    verify that conversions are correct when incorporating new grammars. We expect
-    edge cases with lookahead and lookbehind assertions to be particularly problematic.
+    Furthermore, the greenery implementations of `.` and `^` are in terms of negated
+    character classes, and require special handling. In our conversion, we consider
+    negation with respect to a superset defined by `string.printable`. There may be
+    other cases we have not yet encountered, so it is important to verify that
+    conversions are correct when incorporating new grammars. We expect edge cases
+    with lookahead and lookbehind assertions to be particularly problematic.
 
     """
 
@@ -227,7 +230,7 @@ class LarkStuff:
             cfg.add(1 / lhs_count[r.head], r.head, *r.body)
         return cfg.renumber()
 
-    def char_cfg(self, decay=1, delimiter=''):
+    def char_cfg(self, decay=1, delimiter='', charset='core'):
         from genparse import CFG, Float
 
         if delimiter:
@@ -252,7 +255,10 @@ class LarkStuff:
             regex = self.ignore_regex + token_class.pattern.to_regexp() + delimiter
 
             fsa = greenery_to_wfsa(
-                regex, decay=decay, name=lambda x, t=token_class.name: f((t, x))
+                regex,
+                decay=decay,
+                name=lambda x, t=token_class.name: f((t, x)),
+                charset=charset,
             )
             # display(fsa)
             G = fsa.to_cfg(S=f(token_class.name))
@@ -356,28 +362,16 @@ def regex_to_greenery(regex):
     return greenery.parse(regex.replace('\\ ', ' ')).to_fsm()
 
 
-# Not essential; only used in a notebook to visualize individual greenery FSMs
-# def greenery_to_fsa(fsm):
-#    import fsa
-#    if isinstance(fsm, str): fsm = regex_to_greenery(fsm)
-#    m = fsa.FSA()
-#    m.add_start(fsm.initial)
-#    for final_state in fsm.finals:
-#        m.add_stop(final_state)
-#    rejection_states = [e for e in fsm.states if not fsm.islive(e)]
-#    for state in fsm.states:
-#        arcs = fsm.map[state]
-#        for input_char, next_state in arcs.items():
-#            if next_state in rejection_states:  # rejection state
-#                continue
-#            for char in input_char.get_chars():
-#                m.add(state, char, next_state)
-#    return m
-
-
-# Not essential; only used in a notebook to visualize individual greenery FSMs
-def greenery_to_wfsa(fsm, decay=0.99, name=lambda x: x):
+def greenery_to_wfsa(fsm, decay=1, name=lambda x: x, charset='core'):
     from genparse import WFSA, Float
+
+    if charset == 'core':
+        import string
+
+        charset = set(string.printable)
+    else:
+        # TODO: implement other charsets
+        raise NotImplementedError(f'charset {charset} not implemented')
 
     if isinstance(fsm, str):
         fsm = regex_to_greenery(fsm)
@@ -393,7 +387,11 @@ def greenery_to_wfsa(fsm, decay=0.99, name=lambda x: x):
         for input_char, next_state in arcs.items():
             if next_state in rejection_states:
                 continue  # rejection state
-            for char in input_char.get_chars():
+            if input_char.negated:
+                chars = charset - set(input_char.get_chars())
+            else:
+                chars = input_char.get_chars()
+            for char in chars:
                 K += 1
         if state in fsm.finals:
             K += 1
@@ -407,7 +405,11 @@ def greenery_to_wfsa(fsm, decay=0.99, name=lambda x: x):
         for input_char, next_state in arcs.items():
             if next_state in rejection_states:
                 continue  # rejection state
-            for char in input_char.get_chars():
+            if input_char.negated:
+                chars = charset - set(input_char.get_chars())
+            else:
+                chars = input_char.get_chars()
+            for char in chars:
                 m.add_arc(name(state), char, name(next_state), decay / K)
 
     return m
