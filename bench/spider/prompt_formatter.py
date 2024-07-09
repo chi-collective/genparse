@@ -32,6 +32,16 @@ class SpiderPromptFormatter:
             + '<s>[INST] {user_message} [/INST]'
         )
 
+        self.codellama_prompt_template = (
+            """<s>[INST]
+{system_prompt}
+
+{user_message_1} [/INST] {model_answer_1} </s>"""
+            + '<s>[INST] {user_message_2} [/INST] {model_answer_2} </s>'
+            + '<s>[INST] {user_message_3} [/INST] {model_answer_3} </s>'
+            + '<s>[INST] {user_message} [/INST]'
+        )
+
         self.system_prompt = (
             'You are a coding assistant helping an analyst answer questions over business data in SQL. '
             'More specifically, the analyst provides you a database schema '
@@ -49,6 +59,37 @@ class SpiderPromptFormatter:
 Please write me a SQL statement that answers the following question: {utterance}
 
 Remember, DO NOT provide any commentary or explanation of what the code does, just the SQL statement ending in a semicolon."""
+
+    def format_codellama(self, datum):
+        spider_train_data = self.spider_train_data
+        db_map = self.db_map
+
+        codellama_prompt_template = self.codellama_prompt_template
+        system_prompt = self.system_prompt
+        user_message_template = self.user_message_template
+
+        prompt_var_dict = {
+            'system_prompt': system_prompt,
+        }
+
+        # in-context examples from training data
+        for i, example_id in enumerate([10, 100, 1000], 1):
+            train_datum = spider_train_data[example_id]
+            user_message = user_message_template.format(
+                schema_str=serialize_schema(db_map[train_datum.schema_name]),
+                utterance=train_datum.utterance,
+            )
+            prompt_var_dict[f'user_message_{i}'] = user_message
+            prompt_var_dict[f'model_answer_{i}'] = train_datum.query + ';'
+
+        # the actual question
+        user_message = user_message_template.format(
+            schema_str=serialize_schema(db_map[datum.schema_name]),
+            utterance=datum.utterance,
+        )
+        prompt_var_dict['user_message'] = user_message
+
+        return codellama_prompt_template.format(**prompt_var_dict)
 
     def format_llama2(self, datum):
         spider_train_data = self.spider_train_data
@@ -92,7 +133,7 @@ Remember, DO NOT provide any commentary or explanation of what the code does, ju
                 utterance=train_datum.utterance,
             )
             messages.append({'role': 'user', 'content': user_message})
-            messages.append({'role': 'system', 'content': train_datum.query + ';'})
+            messages.append({'role': 'assistant', 'content': train_datum.query + ';'})
 
         # the actual question
         user_message = self.user_message_template.format(

@@ -1,6 +1,5 @@
 from arsenal import colors
 
-# from arsenal.datastructures.pdict import pdict
 from arsenal.datastructures import LocatorMaxHeap
 from arsenal.iterextras import take
 from arsenal.maths import sample_dict
@@ -166,7 +165,7 @@ class TokenProposal(TokenCharacterTrie):
           guide.p(token | context) * llm.p(token | context) for tokens ∈ llm.V
 
         """
-        assert isinstance(context, tuple)
+        assert isinstance(context, tuple), context
         assert set(context) <= self.llm.V, f'OOV detected {set(context) - self.llm.V}'
 
         # update the trie with the llm's distribution of next token `p_llm`.

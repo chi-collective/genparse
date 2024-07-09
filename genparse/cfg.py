@@ -197,7 +197,7 @@ class CFG:
 
     @cached_property
     def rhs(self):
-        "Map from nonterminal to rules with it as their right-hand side."
+        "Map from each nonterminal to the list of rules with it as their left-hand side."
         rhs = defaultdict(list)
         for r in self:
             rhs[r.head].append(r)
