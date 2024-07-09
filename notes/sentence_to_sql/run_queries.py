@@ -61,7 +61,8 @@ def main():
         for query in inference_dict['genparse_inference']:
             error = False
             try:
-                query_result = cursor.execute(query).fetchall()
+                clean_query = query.removesuffix('\u25aa').removesuffix('</s>')
+                query_result = cursor.execute(clean_query).fetchall()
             except (sqlite3.OperationalError, sqlite3.ProgrammingError) as e:
                 query_result = str(e)
                 error = True
