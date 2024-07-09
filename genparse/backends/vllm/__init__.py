@@ -17,6 +17,7 @@ class InferenceSetupVLLM:
         guide_opts=None,
         proposal_opts=None,
         batch_size=None,
+        temperature=1,
     ):
         from genparse.lm import TokenizedLLM
 
@@ -36,6 +37,7 @@ class InferenceSetupVLLM:
                 model=vllmpplLLM(MODEL_ID),
                 tokenizer=transformers.AutoTokenizer.from_pretrained(MODEL_ID),
                 batch_size=batch_size,
+                temperature=temperature,
             )
 
         elif model_name == 'codellama':
@@ -44,6 +46,7 @@ class InferenceSetupVLLM:
                 model=vllmpplLLM(MODEL_ID, dtype=torch.float32, max_model_len=4096),
                 tokenizer=transformers.AutoTokenizer.from_pretrained(MODEL_ID),
                 batch_size=batch_size,
+                temperature=temperature,
             )
 
         else:

@@ -24,7 +24,7 @@ def lark_guide(grammar, decay=1):
     return BoolCFGLM(LarkStuff(grammar).char_cfg(decay))
 
 
-def load_model_by_name(model_name, batch_size=None):
+def load_model_by_name(model_name, batch_size=None, temperature=1):
     """
     Load an LLM from 🤗 into a genparse `TokenizedLLM`.
 
@@ -44,6 +44,7 @@ def load_model_by_name(model_name, batch_size=None):
             ),
             tokenizer=tokenizer,
             batch_size=batch_size,
+            temperature=1,
         )
 
     elif model_name == 'mock-gpt2':
@@ -76,6 +77,7 @@ def load_model_by_name(model_name, batch_size=None):
                 suffix_token=None,
             ),
             batch_size=batch_size,
+            temperature=1,
         )
 
     else:
@@ -92,6 +94,7 @@ class InferenceSetup:
         batch_size=None,
         guide_opts=None,
         proposal_opts=None,
+        temperature=1,
     ):
         from genparse.steer import HFPPLSampler
         from genparse.proposal import CharacterProposal, TokenProposal
@@ -104,7 +107,9 @@ class InferenceSetup:
         if seed is not None:
             set_seed(seed)
 
-        llm = load_model_by_name(model_name, batch_size=batch_size)
+        llm = load_model_by_name(
+            model_name, batch_size=batch_size, temperature=temperature
+        )
         guide = lark_guide(grammar, **guide_opts)
         sampler = HFPPLSampler(llm=llm, guide=guide)
 
@@ -129,25 +134,6 @@ class InferenceSetup:
             max_tokens=max_tokens,
             **kwargs,
         )
-
-
-#        if args.particles > 1 and record is not None:
-#            fig = record.plot_particles_trajectory()
-#            fig.write_html('viz.html')
-#            print('wrote to viz.html')
-#
-#        print(colors.yellow % 'character posterior')
-#        posterior = Float.chart()
-#        for p in particles:
-#            posterior[''.join(p.context).strip()] += np.exp(p.weight)
-#        print(posterior.normalize())
-#
-#        if 0:
-#            print(colors.yellow % 'token posterior')
-#            posterior = Float.chart()
-#            for p in particles:
-#                posterior[tuple(p.context)] += np.exp(p.weight)
-#            print(posterior.normalize())
 
 
 class LarkStuff:
