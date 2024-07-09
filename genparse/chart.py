@@ -1,6 +1,4 @@
-from arsenal import colors
-
-from genparse.util import format_table
+from .util import format_table
 
 
 class Chart(dict):
@@ -77,6 +75,8 @@ class Chart(dict):
         )
 
     def assert_equal(self, want, *, domain=None, tol=1e-5, verbose=False, throw=True):
+        from arsenal import colors
+
         if not isinstance(want, Chart):
             want = self.semiring.chart(want)
         if domain is None:

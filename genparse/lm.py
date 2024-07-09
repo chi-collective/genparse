@@ -9,7 +9,6 @@ from arsenal.maths import sample_dict
 
 from genparse.semiring import Float
 from genparse.tokenization import decode_tokenizer_vocab
-from genparse.backends.vllm import vllmpplLLM
 
 
 class LM:
@@ -228,6 +227,7 @@ class TokenizedLLM(LM):
         # Pass the kwargs to the model.
         # For vllm, we need to provide the log probabilities, and
         # _logp is provided by the vllm centralized step function
+        from genparse.backends.vllm import vllmpplLLM
 
         assert (
             not isinstance(self._model, vllmpplLLM) or _logp is not None

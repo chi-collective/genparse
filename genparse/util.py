@@ -1,15 +1,9 @@
-import html
-import numpy as np
-import random
-import torch
-import transformers
-import hfppl
-from arsenal import Integerizer
-from collections import Counter
-from IPython.display import HTML, display
-
-
 def set_seed(seed):
+    import numpy as np
+    import torch
+    import transformers
+    import random
+
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -33,6 +27,8 @@ def load_model_by_name(model_name, batch_size=None, temperature=1):
     """
     from genparse.lm import TokenizedLLM, LLM, MockLLM
     from genparse.tokenization import decode_tokenizer_vocab
+    import hfppl
+    import transformers
 
     if model_name == 'gpt2':
         MODEL_ID = 'gpt2'
@@ -199,6 +195,7 @@ class LarkStuff:
     def convert(self):
         "Convert the lark grammar into a `genparse.CFG` grammar."
         from genparse import CFG, Float, Rule
+        from collections import Counter
 
         try:
             rules = [
@@ -218,6 +215,7 @@ class LarkStuff:
 
     def char_cfg(self, decay=1, delimiter='', charset='core'):
         from genparse import CFG, Float
+        from arsenal import Integerizer
 
         if delimiter:
             import warnings
@@ -402,6 +400,8 @@ def greenery_to_wfsa(fsm, decay=1, name=lambda x: x, charset='core'):
 
 
 def format_table(rows, headings=None):
+    import html
+
     def fmt(x):
         if hasattr(x, '_repr_html_'):
             return x._repr_html_()
@@ -429,4 +429,6 @@ def format_table(rows, headings=None):
 
 
 def display_table(*args, **kwargs):
+    from IPython.display import HTML, display
+
     return display(HTML(format_table(*args, **kwargs)))
