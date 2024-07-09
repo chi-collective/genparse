@@ -133,7 +133,7 @@ Remember, DO NOT provide any commentary or explanation of what the code does, ju
                 utterance=train_datum.utterance,
             )
             messages.append({'role': 'user', 'content': user_message})
-            messages.append({'role': 'system', 'content': train_datum.query + ';'})
+            messages.append({'role': 'assistant', 'content': train_datum.query + ';'})
 
         # the actual question
         user_message = self.user_message_template.format(
