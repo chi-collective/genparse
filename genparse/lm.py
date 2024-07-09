@@ -195,12 +195,13 @@ class TokenizedLLM(LM):
     This is a simple class which wraps a token LLM with a tokenizer.
     """
 
-    def __init__(self, tokenizer, model, batch_size):
+    def __init__(self, tokenizer, model, batch_size, temperature=1):
         self.tokenizer = tokenizer
         self._model = model
         self._model.batch_size = batch_size
         self._decode = decode_tokenizer_vocab(self.tokenizer)
         self._encode = {x: i for i, x in enumerate(self._decode)}
+        self.temperature = temperature
         super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
 
     def encode_prompt(self, prompt):
@@ -244,7 +245,8 @@ class TokenizedLLM(LM):
             _logp = await self._model.next_token_logprobs(tokens)
 
         _logp = _logp.cpu().numpy() if hasattr(_logp, 'cpu') else _logp
-        _p = np.exp(_logp)
+        _p_un = np.exp(_logp / self.temperature)
+        _p = _p_un / sum(_p_un)
         return LazyProb(_p, self._encode, self._decode)
 
 
