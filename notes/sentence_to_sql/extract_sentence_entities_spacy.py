@@ -28,6 +28,19 @@ def save_jsonl(outputs: list[dict[str, Any]], path: Path) -> None:
             jsonl_out.write('\n')
 
 
+def _uniquify(items):
+    """
+    O(n^2) order-preserving uniquification.
+
+    Fine for short lists like a single sentence's list of PERSON entities.
+    """
+    result = []
+    for item in items:
+        if item not in items:
+            result.append(item)
+    return result
+
+
 def main():
     parser = ArgumentParser(description=__doc__)
     parser.add_argument('sentences_path', type=Path, help='Path to the prompts file.')
@@ -67,7 +80,9 @@ def main():
         {
             **sentence_datum,
             'entities': {
-                'people': [ent.text for ent in doc.ents if ent.label_ == PERSON_LABEL]
+                'people': _uniquify(
+                    [ent.text for ent in doc.ents if ent.label_ == PERSON_LABEL]
+                )
             },
             'entities_metadata': {
                 'model': spacy_model,
