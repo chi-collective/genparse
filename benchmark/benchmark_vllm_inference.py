@@ -38,8 +38,6 @@ set_seed(args.seed)
 
 
 if args.model == 'gpt2':
-    import transformers
-
     MODEL_ID = 'gpt2'
     hfppl_llm = vllmpplLLM(MODEL_ID)
     tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_ID)
