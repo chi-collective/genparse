@@ -3,7 +3,6 @@ from arsenal import Integerizer
 
 from collections import defaultdict
 
-# from arsenal.datastructures.pdict import pdict
 from arsenal.datastructures.heap import LocatorMaxHeap
 
 from genparse.cfglm import EOS, add_EOS, locally_normalize, CFG
@@ -46,7 +45,6 @@ class Column:
         self.waiting_for = defaultdict(list)
 
         # priority queue used when first filling the column
-        #        self.Q = pdict()
         self.Q = LocatorMaxHeap()
 
         self.rescale = None

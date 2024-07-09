@@ -1,6 +1,5 @@
 from arsenal import colors
 
-# from arsenal.datastructures.pdict import pdict
 from arsenal.datastructures import LocatorMaxHeap
 from arsenal.iterextras import take
 from arsenal.maths import sample_dict

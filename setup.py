@@ -33,7 +33,7 @@ test_requirements = [
 
 setup(
     name='genparse',
-    version='0.0.1',
+    version='0.0.2',
     description='',
     install_requires=requirements,
     extras_require={'test': test_requirements, 'vllm': ['vllm==0.5.0.post1']},
