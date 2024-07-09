@@ -276,7 +276,7 @@ class LazyProb:
     tokens distribution over next tokens.
     """
 
-    def __init__(self, _p: torch.tensor, encode: dict[str, int], decode: dict[int, str]):
+    def __init__(self, _p: torch.tensor, encode: dict[str, int], decode: list[str]):
         self._p = _p
         self._encode = encode
         self._decode = decode
