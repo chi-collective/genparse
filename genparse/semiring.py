@@ -214,7 +214,7 @@ class Expectation(Semiring):
     def __mul__(self, other):
         return Expectation(
             self.score[0] * other.score[0],
-            self.score[0] * other.score[1] + self.score[1] * other.score[0],
+            self.score[0] * other.score[1] + other.score[0] * self.score[1],
         )
 
     def star(self):
