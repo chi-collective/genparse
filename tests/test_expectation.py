@@ -11,6 +11,14 @@ cfg_1 = CFG.from_string(
     Expectation,  # The expectaton semiring takes < p(X), p(X) * X >
 )
 
+cfg_2 = CFG.from_string(
+    """
+       <0.9,1.8>: S → a S b  
+       <0.1,0>: S →  
+    """,
+    Expectation,  # The expectaton semiring takes < p(X), p(X) * X >
+)
+
 
 cfg_finite = CFG.from_string(
     """
@@ -32,9 +40,16 @@ def test_1():
 
 
 def test_2():
-    """The expected lenght of a string in cfg_1 is E[L] =  Σ_{n=0}^{\infty} (n+1)*(0.7^n * 0.3) = 10/3
+    """The expected lenght of a string in cfg_2 is E[L] =  Σ_{n=0}^{\infty} 2n*(0.9^n * 0.1) = 18
     Hint: differentiate the geometric series !"""
 
+    want = 18
+    have = cfg_2.treesum().score[1]
+
+    assert abs(want - have) < tol
+
+
+def test_finite():
     want = 2
     have = cfg_finite.treesum().score[1]
 
