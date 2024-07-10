@@ -1,4 +1,4 @@
-from genparse.util import InferenceSetup
+from genparse import InferenceSetup
 from arsenal import colors
 
 
