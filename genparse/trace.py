@@ -34,19 +34,13 @@ class generation_tree:
         return str(self.D) + str(self.tracer)
 
 
-def separe_tokens_and_probs(input):
-    if isinstance(input, LazyProb):
-        tokens = input.keys()
-        p = input.values()
-    elif isinstance(input, dict):
-        tokens = list(input.keys())
-        p = np.array(list(input.values()))
-    elif isinstance(input, np.ndarray):
-        tokens = range(len(input))
-        p = input
+def separate_keys_vals(x):
+    if isinstance(x, LazyProb):
+        return x.keys(), x.values()
+    elif isinstance(x, np.ndarray):
+        return range(len(x)), x
     else:
-        raise ValueError(f'Expected LazyProb, dict or np.ndarray, got {type(input)}')
-    return tokens, p
+        return list(x.keys()), np.array(list(x.values()))
 
 
 class Tracer:
@@ -57,16 +51,14 @@ class Tracer:
     def __init__(self):
         self.root = Node(idx=-1, mass=1.0, parent=None)
         self.cur = None
-        self.inner_nodes = 0  # stats
 
     def __call__(self, p, context=None):
         "Sample an action while updating the trace cursor and tree data structure."
 
-        tokens, p = separe_tokens_and_probs(p)
+        keys, p = separate_keys_vals(p)
         cur = self.cur
 
         if cur.child_masses is None:
-            self.inner_nodes += 1
             cur.child_masses = cur.mass * p
             cur.context = context
 
@@ -76,16 +68,16 @@ class Tracer:
             print(colors.light.red % 'calling context:', context)
             raise ValueError((p, cur))
 
-        sampled_idx = cur.sample()
-        if sampled_idx not in cur.born_children:
-            cur.born_children[sampled_idx] = Node(
-                idx=sampled_idx,
-                mass=cur.child_masses[sampled_idx].item(),
+        a = cur.sample()
+        if a not in cur.active_children:
+            cur.active_children[a] = Node(
+                idx=a,
+                mass=cur.child_masses[a],
                 parent=cur,
-                token=tokens[sampled_idx],
+                token=keys[a],
             )
-        self.cur = cur.born_children[sampled_idx]
-        return tokens[sampled_idx]
+        self.cur = cur.active_children[a]
+        return keys[a]
 
 
 class Node:
@@ -95,11 +87,10 @@ class Node:
         'parent',
         'token',
         'child_masses',
-        'born_children',
+        'active_children',
         'context',
         '_mass',
     )
-    global_node_counter = 0
 
     def __init__(
         self,
@@ -108,7 +99,6 @@ class Node:
         parent,
         token=None,
         child_masses=None,
-        born_children=None,
         context=None,
     ):
         self.idx = idx
@@ -116,10 +106,9 @@ class Node:
         self.parent = parent
         self.token = token  # used for visualization
         self.child_masses = child_masses
-        self.born_children = {} if born_children is None else born_children
+        self.active_children = {}
         self.context = context
         self._mass = mass  # bookkeeping: remember the original mass
-        Node.global_node_counter += 1
 
     def sample(self):
         return sample(self.child_masses)
@@ -142,13 +131,13 @@ class Node:
             path.append(a)
         return (P, path, curr)
 
-    def update(
-        self,  # Fennwick tree alternative, sumheap
-    ):  # todo: optimize this by subtracting from masses, instead of resumming
+    def update(self):
+        # TODO: Fennwick tree alternative, sumheap
+        # TODO: optimize this by subtracting from masses, instead of resumming
         "Restore the invariant that self.mass = sum children mass."
         if self.parent is not None:
             self.parent.child_masses[self.idx] = self.mass
-            self.parent.mass = np.sum(self.parent.child_masses).item()
+            self.parent.mass = np.sum(self.parent.child_masses)
             self.parent.update()
 
     def graphviz(
@@ -179,7 +168,7 @@ class Node:
             xs.add(x)
             if x.child_masses is None:
                 continue
-            for a, y in x.born_children.items():
+            for a, y in x.active_children.items():
                 a = y.token if y.token is not None else a
                 g.edge(str(f(x)), str(f(y)), label=f'{fmt_edge(x,a,y)}')
                 q.append(y)
@@ -189,6 +178,16 @@ class Node:
             else:
                 g.node(str(f(x)), label=str(fmt_node(x)), shape='box', fillcolor='gray')
         return g
+
+    def downstream_nodes(self):
+        q = [self]
+        while q:
+            x = q.pop()
+            yield x
+            if x.child_masses is None:
+                continue
+            for a, y in x.active_children.items():
+                q.append(y)
 
 
 class TraceSWOR(Tracer):

@@ -27,12 +27,10 @@ def test_grammar():
 
     cfg = CFGLM.from_string(
         """
-
-    1: S -> a
-    1: S -> a a
-    2: S -> a a a
-
-    """
+        1: S -> a
+        1: S -> a a
+        2: S -> a a a
+        """
     )
     Node.global_node_counter = 0
     tracer = TraceSWOR()
@@ -40,24 +38,21 @@ def test_grammar():
         with tracer:
             s, p = cfg.sample(draw=tracer)
     tracer.sixel_render()
-    assert Node.global_node_counter == 7
-    assert tracer.inner_nodes == 4
+    assert len(list(tracer.root.downstream_nodes())) == 7
+    # TODO: assert tracer.inner_nodes == 4
 
 
 def test_mock_lm():
     from genparse import MockLLM, EOS
 
-    np.random.seed(0)
-
     lm = MockLLM([EOS, 'a', 'b', 'c'], EOS)
-    Node.global_node_counter = 0
     tracer = TraceSWOR()
     while tracer.root.mass > 0.0:
         with tracer:
             s, p = lm.sample(draw=tracer, max_tokens=1)
     tracer.sixel_render()
-    assert Node.global_node_counter == 17
-    assert tracer.inner_nodes == 4
+    assert len(list(tracer.root.downstream_nodes())) == 17
+    # TODO: assert tracer.inner_nodes == 4
 
 
 def sample_lazyprob(p):
@@ -70,38 +65,43 @@ def sample_lazyprob(p):
 
 @pytest.mark.skip  # performance test
 def test_deep_no_tree():
-    from genparse import MockLLM, EOS
-    import os
-    import psutil
-
-    Node.global_node_counter = 0
     lm = MockLLM({EOS}.union(str(n) for n in range(50000)), EOS)
     tracer = TraceSWOR()
-    for leaves in (progress := tqdm(range(1, 201))):
-        progress.set_description(
-            f'{leaves} generations for {tracer.root.mass:.15e} remaining mass, {Node.global_node_counter} nodes, {tracer.inner_nodes} inner nodes'
-        )
-        s, p = lm.sample(draw=sample_lazyprob, max_tokens=50)
-    print(f'Used mem: {psutil.Process(os.getpid()).memory_info().rss / 1024**2:.2f} MB')
+    with memory_change():
+        for leaves in (progress := tqdm(range(1, 201))):
+            progress.set_description(
+                f'{leaves} generations for {tracer.root.mass:.15e} remaining mass'
+            )
+            lm.sample(draw=sample_lazyprob, max_tokens=50)
 
 
 @pytest.mark.skip  # performance test
 def test_deep():
-    from genparse import MockLLM, EOS
-    import os
-    import psutil
-
     lm = MockLLM({EOS}.union(str(n) for n in range(50000)), EOS)
-    Node.global_node_counter = 0
     tracer = TraceSWOR()
-    for leaves in (progress := tqdm(range(1, 201))):
-        progress.set_description(
-            f'{leaves} generations for {tracer.root.mass:.15e} remaining mass, {Node.global_node_counter} nodes, {tracer.inner_nodes} inner nodes'
-        )
-        with tracer:
-            s, p = lm.sample(draw=tracer, max_tokens=50)
-        leaves += 1
-    print(f'Used mem: {psutil.Process(os.getpid()).memory_info().rss / 1024**2:.2f} MB')
+    with memory_change():
+        for leaves in (progress := tqdm(range(1, 201))):
+            progress.set_description(
+                f'{leaves} generations for {tracer.root.mass:.15e} remaining mass'
+            )
+            with tracer:
+                lm.sample(draw=tracer, max_tokens=50)
+            leaves += 1
+
+
+from genparse import MockLLM, EOS
+import os
+import psutil
+from contextlib import contextmanager
+
+
+@contextmanager
+def memory_change():
+    pid = os.getpid()
+    before = psutil.Process(pid).memory_info().rss
+    yield
+    after = psutil.Process(pid).memory_info().rss
+    print(f'Used mem: {(after - before) / 10**6:.2f} MB')
 
 
 if __name__ == '__main__':
