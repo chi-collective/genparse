@@ -115,6 +115,38 @@ Note that a person may appear in multiple rows if, for example, they have more t
 SQL query:"""
 )
 
+_INSTRUCTION_TEMPLATE_V4_PERSONONLY_WITH_ENTITIES = string.Template(
+    """Write a SQL query about a famous person mentioned in the following sentence:
+
+$sentence
+
+The database has one table, People, with columns as follows:
+
+- "given_nameLabel.value" (given name)
+- "family_nameLabel.value" (family name)
+- "name_in_native_languageLabel.value" (name as written in native language)
+- "languages_spoken__written_or_signedLabel.value" (language they speak, write, or sign)
+- "date_of_birthLabel.value" (their date of birth, in YYYY-MM-DDTHH:mm:ss+XX:ZZ form)
+- "place_of_birthLabel.value" (their place of birth)
+- "spouseLabel.value" (their spouse's common name)
+- "motherLabel.value" (their mother's common name)
+- "fatherLabel.value" (their father's common name)
+- "country_of_citizenshipLabel.value" (country they are a citizen of)
+- "occupationLabel.value" (their occupation)
+- "religion_or_worldviewLabel.value" (their religion or worldview)
+- "sex_or_genderLabel.value" (their sex or gender)
+
+The dots are part of the column names and so the column names must be quoted.
+
+Note that a person may appear in multiple rows if, for example, they have more than one occupation, speak more than one language, or are citizens of multiple countries.
+
+The people named in the sentence are:
+
+$people
+
+SQL query:"""
+)
+
 
 def instruction_prompt_v1_persononly(sentence_dict: dict[str, Any]) -> dict[str, Any]:
     """Use the sentence itself as prompt with no instructions."""
@@ -163,12 +195,25 @@ def instruction_prompt_v3_persononly_with_entities_only(
     }
 
 
+def instruction_prompt_v4_persononly_with_entities(
+    sentence_dict: dict[str, Any],
+) -> dict[str, Any]:
+    """Provide the sentence, the names, basic instructions, and a list of columns that can be queried."""
+    return {
+        'prompt': _INSTRUCTION_TEMPLATE_V4_PERSONONLY_WITH_ENTITIES.substitute(
+            sentence=sentence_dict['sentence'],
+            people=_format_as_list(sentence_dict['entities']['people']),
+        )
+    }
+
+
 _PROMPT_TEMPLATES = {
     'sentence': sentence_prompt,
     'instruction-v1-persononly': instruction_prompt_v1_persononly,
     'instruction-v2-persononly': instruction_prompt_v2_persononly,
     'instruction-v3-persononly-with-entities': instruction_prompt_v3_persononly_with_entities,
     'instruction-v3-persononly-with-entities-only': instruction_prompt_v3_persononly_with_entities_only,
+    'instruction-v4-persononly-with-entities': instruction_prompt_v4_persononly_with_entities,
 }
 
 
