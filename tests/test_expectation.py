@@ -1,31 +1,31 @@
 from genparse.cfg import CFG
-from genparse.semiring import Expectation
+from genparse.semiring import Expectation, Float
 
 tol = 1e-8
 
 cfg_1 = CFG.from_string(
     """
-       <0.7,0.7>: S → a S  
-       <0.3,0.3>: S → a 
+       0.7: S → a S  
+       0.3: S → a 
     """,
-    Expectation,  # The expectaton semiring takes < p(X), p(X) * X >
+    Float,
 )
 
 cfg_2 = CFG.from_string(
     """
-       <0.9,1.8>: S → a S b  
-       <0.1,0>: S →  
+       0.9: S → a S b  
+       0.1: S →  
     """,
-    Expectation,  # The expectaton semiring takes < p(X), p(X) * X >
+    Float,
 )
 
 
 cfg_finite = CFG.from_string(
     """
-       <0.5,1.5>: S → a a a
-       <0.5,0.5>: S → a 
+       0.5: S → a a a
+       0.5: S → a 
     """,
-    Expectation,
+    Float,
 )
 
 
@@ -34,7 +34,7 @@ def test_1():
     Hint: differentiate the geometric series !"""
 
     want = 10 / 3
-    have = cfg_1.treesum().score[1]
+    have = cfg_1.expected_length
 
     assert abs(want - have) < tol
 
@@ -44,14 +44,14 @@ def test_2():
     Hint: differentiate the geometric series !"""
 
     want = 18
-    have = cfg_2.treesum().score[1]
+    have = cfg_2.expected_length
 
     assert abs(want - have) < tol
 
 
 def test_finite():
     want = 2
-    have = cfg_finite.treesum().score[1]
+    have = cfg_finite.expected_length
 
     assert abs(want - have) < tol
 
