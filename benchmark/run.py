@@ -10,7 +10,7 @@ from genparse.util import LarkStuff, set_seed
 def test_token_arith():
     set_seed(0)
 
-    cfg = locally_normalize(LarkStuff(arith, cnf=False).char_cfg(0.9), tol=1e-100).trim()
+    cfg = locally_normalize(LarkStuff(arith, cnf=False).char_cfg(), tol=1e-100).trim()
 
     guide = EarleyLM(cfg)
 
@@ -27,7 +27,7 @@ def test_token_arith():
 def test_character_arith():
     set_seed(0)
 
-    cfg = locally_normalize(LarkStuff(arith, cnf=False).char_cfg(0.99), tol=1e-100).trim()
+    cfg = locally_normalize(LarkStuff(arith, cnf=False).char_cfg(), tol=1e-100).trim()
 
     guide = EarleyLM(cfg)
 
@@ -44,9 +44,7 @@ def test_character_arith():
 def test_token_iql_small():
     set_seed(0)
 
-    cfg = locally_normalize(
-        LarkStuff(iql_small, cnf=False).char_cfg(0.99), tol=1e-100
-    ).trim()
+    cfg = locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(), tol=1e-100).trim()
 
     llm = make_mock_llm()
 
@@ -65,9 +63,7 @@ def test_character_iql_small():
 
     llm = make_mock_llm()
 
-    cfg = locally_normalize(
-        LarkStuff(iql_small, cnf=False).char_cfg(0.99), tol=1e-100
-    ).trim()
+    cfg = locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(), tol=1e-100).trim()
 
     guide = EarleyLM(cfg)
 

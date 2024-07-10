@@ -47,7 +47,7 @@ def test_basic_aligned_model_iql_small():
                 //WS: /[ \t\f\r\n]/
                 WS: " "
                 """
-            ).char_cfg(0.9),
+            ).char_cfg(),
             tol=1e-100,
         ).trim()
     )

@@ -12,7 +12,7 @@ from genparse.cfglm import BoolCFGLM
 from genparse.lm import TokenizedLLM
 from genparse.backends.vllm import vllmpplLLM, VLLMSampler
 from genparse.proposal import CharacterProposal, TokenProposal
-from genparse.util import LarkStuff, set_seed
+from genparse.util import set_seed, lark_guide
 
 
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -102,9 +102,7 @@ prompts = [
 
 
 def main():
-    character_cfg = LarkStuff(grammar).char_cfg(0.99)
-
-    guide = BoolCFGLM(character_cfg)
+    guide = lark_guide(grammar)
 
     BATCH_SIZE = 80
 
@@ -113,7 +111,6 @@ def main():
         model=hfppl_llm, tokenizer=tokenizer, batch_size=BATCH_SIZE
     )
 
-    guide = BoolCFGLM(LarkStuff(grammar).char_cfg(0.99))
     sampler = VLLMSampler(llm=genparse_llm, guide=guide)
     if args.proposal == 'character':
         proposal = CharacterProposal(llm=genparse_llm, guide=guide)

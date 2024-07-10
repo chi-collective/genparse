@@ -89,23 +89,25 @@ class TokenProposal(TokenCharacterTrie):
         # enumerate top K tokens
         Ws = Float.chart(take(self.K, self.traverse_trie(context, p_llm)))
 
-        # compute distribution over wildcard tokens
-        P_wc = Float.chart({x: p for x, p in p_llm.items() if x not in Ws and p > 0})
+        # Was the distrbution truncated?  If so, use a wildcard sample to debias it.
+        if self.K is not None and len(Ws) == self.K:
+            # compute distribution over wildcard tokens
+            P_wc = Float.chart({x: p for x, p in p_llm.items() if x not in Ws and p > 0})
 
-        # if P_wc is non-empty, sample a wildcard token to ensure absolute continuity
-        if P_wc:
-            P_wc = P_wc.normalize()
-            wildcard = draw(P_wc)
-            proposal_p *= P_wc[wildcard]
+            # if P_wc is non-empty, sample a wildcard token to ensure absolute continuity
+            if P_wc:
+                P_wc = P_wc.normalize()
+                wildcard = draw(P_wc)
+                proposal_p *= P_wc[wildcard]
 
-            # compute the wildcard's weight
-            p_cfg_wc = self.guide.p_next_seq(''.join(context), wildcard)
+                # compute the wildcard's weight
+                p_cfg_wc = self.guide.p_next_seq(''.join(context), wildcard)
 
-            Ws[wildcard] = (
-                p_llm[self.old_eos if wildcard == self.new_eos else wildcard]
-                * p_cfg_wc
-                / P_wc[wildcard]
-            )
+                Ws[wildcard] = (
+                    p_llm[self.old_eos if wildcard == self.new_eos else wildcard]
+                    * p_cfg_wc
+                    / P_wc[wildcard]
+                )
 
         Ws = Ws.trim()
 
