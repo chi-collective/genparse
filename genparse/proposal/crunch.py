@@ -1,18 +1,16 @@
 import numpy as np
 from collections import namedtuple, Counter
-from arsenal import colors
 from arsenal.datastructures.pdict import pdict
 from arsenal.iterextras import head_iter
-from genparse import Float
 from genparse.proposal import TokenProposal
-
-
-Item = namedtuple('Item', 'ps, xs, ys')
 
 
 from time import time
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
+
+
+Item = namedtuple('Item', 'ps, xs, ys')
 
 
 class Crunching:

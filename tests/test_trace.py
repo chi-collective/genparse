@@ -1,9 +1,23 @@
+import pytest
+from tqdm import tqdm
+from arsenal.maths import sample
+
+import os
+import psutil
+from contextlib import contextmanager
+
+from genparse import EarleyLM as CFGLM, MockLLM, EOS
 from genparse.lm import LazyProb
 from genparse.trace import Node, TraceSWOR
-from tqdm import tqdm
-import numpy as np
-from arsenal.maths import sample
-import pytest
+
+
+@contextmanager
+def memory_change():
+    pid = os.getpid()
+    before = psutil.Process(pid).memory_info().rss
+    yield
+    after = psutil.Process(pid).memory_info().rss
+    print(f'Used mem: {(after - before) / 10**6:.2f} MB')
 
 
 def test_basics():
@@ -23,8 +37,6 @@ def test_basics():
 
 
 def test_grammar():
-    from genparse import EarleyLM as CFGLM
-
     cfg = CFGLM.from_string(
         """
         1: S -> a
@@ -36,23 +48,25 @@ def test_grammar():
     tracer = TraceSWOR()
     while tracer.root.mass > 0:
         with tracer:
-            s, p = cfg.sample(draw=tracer)
+            cfg.sample(draw=tracer)
     tracer.sixel_render()
-    assert len(list(tracer.root.downstream_nodes())) == 7
-    # TODO: assert tracer.inner_nodes == 4
+    assert sum(1 for _ in tracer.root.downstream_nodes()) == 7
+    assert (
+        sum(1 for x in tracer.root.downstream_nodes() if x.child_masses is not None) == 4
+    )
 
 
 def test_mock_lm():
-    from genparse import MockLLM, EOS
-
     lm = MockLLM([EOS, 'a', 'b', 'c'], EOS)
     tracer = TraceSWOR()
     while tracer.root.mass > 0.0:
         with tracer:
-            s, p = lm.sample(draw=tracer, max_tokens=1)
+            lm.sample(draw=tracer, max_tokens=1)
     tracer.sixel_render()
     assert len(list(tracer.root.downstream_nodes())) == 17
-    # TODO: assert tracer.inner_nodes == 4
+    assert (
+        sum(1 for x in tracer.root.downstream_nodes() if x.child_masses is not None) == 4
+    )
 
 
 def sample_lazyprob(p):
@@ -87,21 +101,6 @@ def test_deep():
             with tracer:
                 lm.sample(draw=tracer, max_tokens=50)
             leaves += 1
-
-
-from genparse import MockLLM, EOS
-import os
-import psutil
-from contextlib import contextmanager
-
-
-@contextmanager
-def memory_change():
-    pid = os.getpid()
-    before = psutil.Process(pid).memory_info().rss
-    yield
-    after = psutil.Process(pid).memory_info().rss
-    print(f'Used mem: {(after - before) / 10**6:.2f} MB')
 
 
 if __name__ == '__main__':

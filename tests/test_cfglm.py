@@ -5,7 +5,6 @@ Fast computation of the posterior distrubtion over the next word in a PCFG langu
 import pytest
 from arsenal import colors
 
-import genparse
 import examples
 from genparse import CFG, Float, add_EOS
 from genparse.parse.cky import CKYLM

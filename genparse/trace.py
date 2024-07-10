@@ -186,7 +186,7 @@ class Node:
             yield x
             if x.child_masses is None:
                 continue
-            for a, y in x.active_children.items():
+            for y in x.active_children.values():
                 q.append(y)
 
 

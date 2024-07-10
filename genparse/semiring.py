@@ -201,12 +201,12 @@ class Expectation(Semiring):
         super().__init__((p1, p2))
 
     @classmethod
-    def from_string(cls, string):
+    def from_string(cls, x):
         try:
-            input = re.findall(r'<(.*),(.*)>', string)[0]
-            return cls(float(input[0]), float(input[1]))
+            y = re.findall(r'<(.*),\s*(.*)>', x)[0]
+            return cls(float(y[0]), float(y[1]))
         except ValueError:
-            raise ValueError("Invalid input format. Expected '<float,float>'")
+            raise AssertionError("Invalid input format. Expected '<float,float>'")  # pylint: disable=raise-missing-from
 
     def __add__(self, other):
         return Expectation(self.score[0] + other.score[0], self.score[1] + other.score[1])

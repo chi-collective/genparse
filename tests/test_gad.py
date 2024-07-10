@@ -1,11 +1,7 @@
-import html
 import numpy as np
-from arsenal import Integerizer, colors
-from arsenal.maths import sample
 
-from graphviz import Digraph
-from genparse import Float, EOS, add_EOS, CFG
-from genparse.experimental.gad import Sampler, Node
+from genparse import Float, CFG
+from genparse.experimental.gad import Sampler
 from genparse.parse.earley import EarleyLM
 
 
@@ -33,12 +29,15 @@ def test_GAD_finite_1():
 
     sampler = Sampler(lm1, lm2)
 
-    for i in range(0, 15):
+    for _ in range(0, 15):
         sampler.sample()
 
     print(sampler.root.mass)
-    assert sampler.root.mass == 0.15
+    assert np.allclose(sampler.root.mass, 0.15)
     print('test passed!')
 
 
-test_GAD_finite_1()
+if __name__ == '__main__':
+    from arsenal import testing_framework
+
+    testing_framework(globals())

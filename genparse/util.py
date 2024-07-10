@@ -44,7 +44,7 @@ def load_model_by_name(model_name, batch_size=None, temperature=1):
             ),
             tokenizer=tokenizer,
             batch_size=batch_size,
-            temperature=1,
+            temperature=temperature,
         )
 
     elif model_name == 'mock-gpt2':
@@ -77,7 +77,7 @@ def load_model_by_name(model_name, batch_size=None, temperature=1):
                 suffix_token=None,
             ),
             batch_size=batch_size,
-            temperature=1,
+            temperature=temperature,
         )
 
     else:

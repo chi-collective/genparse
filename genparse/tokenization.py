@@ -3,7 +3,7 @@ Tools for tokenization.
 
 """
 
-from typing import Dict, List
+from typing import List
 from arsenal import defaultdict
 
 
