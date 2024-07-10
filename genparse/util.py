@@ -22,10 +22,10 @@ def set_seed(seed):
         torch.cuda.manual_seed_all(seed)
 
 
-def lark_guide(grammar, decay=1):
+def lark_guide(grammar, **kwargs):
     from genparse import BoolCFGLM
 
-    return BoolCFGLM(LarkStuff(grammar).char_cfg(decay))
+    return BoolCFGLM(LarkStuff(grammar).char_cfg(**kwargs))
 
 
 def load_model_by_name(model_name, batch_size=None, temperature=1):
