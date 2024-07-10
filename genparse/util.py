@@ -13,7 +13,7 @@ def set_seed(seed):
 
 
 def lark_guide(grammar, decay=1):
-    from genparse import BoolCFGLM
+    from genparse.cfglm import BoolCFGLM
 
     return BoolCFGLM(LarkStuff(grammar).char_cfg(decay))
 
@@ -194,7 +194,8 @@ class LarkStuff:
 
     def convert(self):
         "Convert the lark grammar into a `genparse.CFG` grammar."
-        from genparse import CFG, Float, Rule
+        from genparse.cfg import CFG, Rule
+        from genparse.semiring import Float
         from collections import Counter
 
         try:
@@ -214,7 +215,8 @@ class LarkStuff:
         return cfg.renumber()
 
     def char_cfg(self, decay=1, delimiter='', charset='core'):
-        from genparse import CFG, Float
+        from genparse.cfg import CFG
+        from genparse.semiring import Float
         from arsenal import Integerizer
 
         if delimiter:
@@ -347,7 +349,8 @@ def regex_to_greenery(regex):
 
 
 def greenery_to_wfsa(fsm, decay=1, name=lambda x: x, charset='core'):
-    from genparse import WFSA, Float
+    from genparse.wfsa import WFSA
+    from genparse.semiring import Float
 
     if charset == 'core':
         import string

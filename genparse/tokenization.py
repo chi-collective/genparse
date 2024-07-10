@@ -2,7 +2,6 @@
 Tools for tokenization.
 """
 
-from typing import List
 from arsenal import defaultdict
 
 

@@ -981,7 +981,7 @@ class CFG:
 
     def truncate_length(self, max_length):
         "Transform this grammar so that it only generates strings with length ≤ `max_length`."
-        from genparse import WFSA
+        from genparse.wfsa import WFSA
 
         m = WFSA(self.R)
         m.add_I(0, self.R.one)

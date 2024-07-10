@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from genparse.lm import LM
 from genparse.cfglm import EOS, add_EOS, locally_normalize, CFG
-from genparse import Float
+from genparse.semiring import Float
 
 
 class CKYLM(LM):

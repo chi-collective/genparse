@@ -8,8 +8,7 @@ from arsenal.datastructures.heap import LocatorMaxHeap
 from genparse.cfglm import EOS, add_EOS, locally_normalize, CFG
 from genparse.linear import WeightedGraph
 from genparse.lm import LM
-from genparse.semiring import Boolean
-from genparse import Float
+from genparse.semiring import Boolean, Float
 
 
 class EarleyLM(LM):
