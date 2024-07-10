@@ -9,7 +9,7 @@ from arsenal import Integerizer, colors
 
 from genparse.fst import FST
 from genparse.linear import WeightedGraph
-from genparse.semiring import Boolean
+from genparse.semiring import Boolean, Expectation, Float
 from genparse.wfsa import EPSILON
 
 
@@ -219,6 +219,21 @@ class CFG:
     @property
     def num_rules(self):
         return len(self.rules)
+
+    @property
+    def expected_length(self):
+        """Computes the expected length of a string using the Expecattion semiring ()"""
+        assert (
+            self.R == Float
+        ), 'This method only supports grammars over the Float semiring'
+        new_cfg = self.__class__(R=Expectation, S=self.S, V=self.V)
+        for r in self:
+            new_cfg.add(
+                Expectation(r.w, r.w * sum(self.is_terminal(y) for y in r.body)),
+                r.head,
+                *r.body,
+            )
+        return new_cfg.treesum().score[1]
 
     def spawn(self, *, R=None, S=None, V=None):
         "Create an empty grammar with the same `R`, `S`, and `V`."
