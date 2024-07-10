@@ -1,22 +1,20 @@
 """
 Tools for tokenization.
-
 """
 
-from typing import List
 from arsenal import defaultdict
 
 
-def ints2bytes(sequence: List[int]) -> bytes:
-    # check in the range of 0-255
-    for item in sequence:
-        if not 0 <= item <= 255:
-            raise ValueError(f'item: {item} is not in the range [0, 255]')
-    return bytes(sequence)
+# def ints2bytes(sequence):
+#    # check in the range of 0-255
+#    for item in sequence:
+#        if not 0 <= item <= 255:
+#           raise ValueError(f'item: {item} is not in the range [0, 255]')
+#    return bytes(sequence)
 
 
-def bytes2ints(byte_sequence: bytes) -> List[int]:
-    return list(byte_sequence)
+# def bytes2ints(byte_sequence):
+#    return list(byte_sequence)
 
 
 def get_tokenizer_mapping(tokenizer):

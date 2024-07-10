@@ -208,13 +208,11 @@ class TokenizedLLM(LM):
         "Encode `prompt` as a tuple of tokens (each a string)."
         return tuple(self._decode[i] for i in self.tokenizer.encode(prompt))
 
+    # TODO: cover me!
     def __call__(self, context):
-        assert isinstance(
-            context, tuple
-        ), 'API change; `context` must be explicitly tokenized'
+        assert isinstance(context, tuple), '`context` must be explicitly tokenized'
         assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
-        tokens = [self._encode[x] for x in context]
-        return self._model(tokens)
+        return self._model([self._encode[x] for x in context])
 
     def clear_cache(self):
         return self._model.clear_cache()
