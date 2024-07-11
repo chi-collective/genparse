@@ -25,8 +25,14 @@ def get_tokenizer_mapping(tokenizer):
         return BPEMapping(tokenizer)
     elif 't5' in name:
         return BPEMapping(tokenizer)
+    elif 'llama3' in name:
+        return LLaMaMapping(tokenizer)
     else:
-        raise ValueError(f'Unknown tokenizer type: {tokenizer.__class__.__name__}')
+        raise ValueError(
+            f'Unknown tokenizer type: {tokenizer.__class__.__name__}.'
+            'GenParse only supports the following tokenizers:'
+            'gpt2, codellama, t5, llama3'
+        )
 
 
 def decode_tokenizer_vocab(tokenizer):
@@ -82,6 +88,19 @@ class BBPEMapping(Mapping):
             raw_token = raw_token.replace('Ċ', '\n')
         if raw_token.startswith('ĉ'):
             raw_token = raw_token.replace('ĉ', '\t')
+        return raw_token
+
+    def post_process(self, tokens):
+        return tokens
+
+
+class LLaMaMapping(Mapping):
+    def __call__(self, token_id: int) -> str:
+        raw_token = super()._map(token_id)
+        raw_token = raw_token.replace('Ġ', ' ')
+        raw_token = raw_token.replace('Ċ', '\n')
+        raw_token = raw_token.replace('ĉ', '\t')
+        raw_token = raw_token.replace('č', '\r')
         return raw_token
 
     def post_process(self, tokens):
