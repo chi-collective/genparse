@@ -53,18 +53,28 @@ def load_model_by_name(model_name, batch_size=None, temperature=1):
 
     elif model_name == 'mock-gpt2':
         tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2')
-        return MockLLM(
-            V=decode_tokenizer_vocab(tokenizer),
-            eos=tokenizer.eos_token,
+        return TokenizedLLM(
+            model=MockLLM(
+                V=decode_tokenizer_vocab(tokenizer),
+                eos=tokenizer.eos_token,
+            ),
+            tokenizer=tokenizer,
+            batch_size=batch_size,
+            temperature=temperature,
         )
 
     elif model_name == 'mock-codellama':
         tokenizer = transformers.AutoTokenizer.from_pretrained(
             'codellama/CodeLlama-7b-Instruct-hf'
         )
-        return MockLLM(
-            V=decode_tokenizer_vocab(tokenizer),
-            eos=tokenizer.eos_token,
+        return TokenizedLLM(
+            model=MockLLM(
+                V=decode_tokenizer_vocab(tokenizer),
+                eos=tokenizer.eos_token,
+            ),
+            tokenizer=tokenizer,
+            batch_size=batch_size,
+            temperature=temperature,
         )
 
     elif model_name == 'codellama':
