@@ -77,6 +77,27 @@ def test_papa():
     assert cfg.R.metric(have, want) <= 1e-10
 
 
+def test_papa_lm():
+    cfg = examples.papa
+
+    earley = EarleyLM(cfg)
+
+    x = 'papa ate the caviar'.split()
+    want = cfg(x)
+    have = earley(x + [EOS])
+    assert cfg.R.metric(have, want) <= 1e-10
+
+    x = 'papa ate the caviar with the spoon'.split()
+    want = cfg(x)
+    have = earley(x + [EOS])
+    assert cfg.R.metric(have, want) <= 1e-10
+
+    x = 'papa ate'.split()
+    want = cfg(x)
+    have = earley(x + [EOS])
+    assert cfg.R.metric(have, want) <= 1e-10
+
+
 def test_palindrome():
     cfg = examples.palindrome_ab
 

@@ -2,8 +2,7 @@ import pytest
 from arsenal import colors
 
 import examples
-from genparse import add_EOS
-from genparse.cfg import CFG
+from genparse import add_EOS, EOS, CFG
 from genparse.parse.earley import Earley, EarleyLM
 from genparse.parse.cky import CKYLM, IncrementalCKY
 from genparse.semiring import Float, MaxTimes
@@ -53,6 +52,27 @@ def test_papa():
     x = 'papa ate'.split()
     want = cfg(x)
     have = earley(x)
+    assert cfg.R.metric(have, want) <= 1e-10
+
+
+def test_papa_lm():
+    cfg = examples.papa
+
+    earley = EarleyLM(cfg)
+
+    x = 'papa ate the caviar'.split()
+    want = cfg(x)
+    have = earley(x + [EOS])
+    assert cfg.R.metric(have, want) <= 1e-10
+
+    x = 'papa ate the caviar with the spoon'.split()
+    want = cfg(x)
+    have = earley(x + [EOS])
+    assert cfg.R.metric(have, want) <= 1e-10
+
+    x = 'papa ate'.split()
+    want = cfg(x)
+    have = earley(x + [EOS])
     assert cfg.R.metric(have, want) <= 1e-10
 
 
