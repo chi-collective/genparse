@@ -39,6 +39,7 @@ class LM:
     def __call__(self, ys):
         "Compute the probability of a complete string."
         assert ys[-1] == self.eos
+        assert self.check_no_bos(ys)
         P = 1
         for i, y in enumerate(ys):
             assert y in self.V, y
@@ -47,6 +48,9 @@ class LM:
             if P == 0:
                 break
         return P
+
+    def check_no_bos(self, ys):
+        return True
 
     def p_next(self, context):
         "Compute the (conditional) distribution over the next token given the `prefix`."
@@ -128,6 +132,12 @@ class LLM(LM):
 
     def clear_cache(self):
         self._cache.clear()
+
+    def check_no_bos(self, ys):
+        if len(ys) == 0:
+            return True
+        BOS = self.model.config.bos_token_id
+        return not ys[0] == BOS
 
     async def next_token_logprobs(self, context):
         return self.p_next(context).log()
