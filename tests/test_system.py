@@ -9,7 +9,7 @@ def test_basic():
     %ignore /[ ]/
     """
     infer = InferenceSetup('gpt2', grammar, proposal_name='character')
-    particles = infer(' ', n_particles=15, return_record=True, seed=1234)
+    particles = infer('', n_particles=15, return_record=True, seed=1234)
 
     print(particles)
 
@@ -25,13 +25,6 @@ def test_basic():
     f = '/tmp/viz.html'
     particles.record.plotly().write_html(f)
     print(f'wrote {colors.link("file://" + f)}')
-
-
-def test_empty_string():
-    grammar = 'start: "Sequential Monte Carlo is " ( "good" )'
-    m = InferenceSetup('gpt2', grammar, proposal_name='character')
-    posterior = m('', n_particles=1).posterior
-    assert posterior == {'Sequential Monte Carlo is good▪': 1.0}
 
 
 if __name__ == '__main__':
