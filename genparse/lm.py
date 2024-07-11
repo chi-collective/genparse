@@ -158,6 +158,8 @@ class LLM(LM):
             context = torch.LongTensor([context])
         prefix = context.squeeze().tolist()
         prefix = (prefix,) if isinstance(prefix, int) else tuple(prefix)
+        BOS = self.model.config.bos_token_id
+        prefix = (BOS,) + prefix if len(prefix) == 0 or prefix[0] != BOS else prefix
         with torch.no_grad():
             outputs = self.get_state(prefix)
             # Calculate the log_softmax to get the log probabilities for each time step
