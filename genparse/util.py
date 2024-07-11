@@ -4,9 +4,13 @@ import random
 import torch
 import transformers
 import hfppl
-from arsenal import Integerizer
+import arsenal
 from collections import Counter
 from IPython.display import HTML, display
+
+import string
+import interegular
+from interegular.fsm import anything_else
 
 
 def set_seed(seed):
@@ -18,10 +22,10 @@ def set_seed(seed):
         torch.cuda.manual_seed_all(seed)
 
 
-def lark_guide(grammar, decay=1):
+def lark_guide(grammar, **kwargs):
     from genparse import BoolCFGLM
 
-    return BoolCFGLM(LarkStuff(grammar).char_cfg(decay))
+    return BoolCFGLM(LarkStuff(grammar).char_cfg(**kwargs))
 
 
 def load_model_by_name(model_name, batch_size=None, temperature=1):
@@ -137,8 +141,7 @@ class InferenceSetup:
 
 
 class LarkStuff:
-    """
-    Utility class for leveraging the lark as a front-end syntax for specifying
+    """Utility class for leveraging the lark as a front-end syntax for specifying
     grammars.
 
     Warning: There may be infelicity in the tokenization semantics as there is
@@ -146,19 +149,25 @@ class LarkStuff:
     encode it into the grammar.
 
     NOTE: In conversion from lark to genparse, there are numerous features that
-    need to be handled with care. Notably, the `ignore` directive in lark is
-    supported by concatenating existing terminal class regexes with an optional
-    prefix containing the ignore terms. The semantics of this are equivalent, but
-    the implementation is not. Likewise, when lark compiles terminal class regexes
-    to python re syntax, not all features are supported by greenery. In particular,
-    case insensitive terminals are not supported by greenery, and must be desugared.
-    In addition, greenery does not escape spaces, but lark does, which is corrected.
-    Furthermore, the greenery implementations of `.` and `^` are in terms of negated
-    character classes, and require special handling. In our conversion, we consider
-    negation with respect to a superset defined by `string.printable`. There may be
-    other cases we have not yet encountered, so it is important to verify that
-    conversions are correct when incorporating new grammars. We expect edge cases
-    with lookahead and lookbehind assertions to be particularly problematic.
+    need to be handled with care.
+
+    * Notably, the `ignore` directive in lark is supported by concatenating
+      existing terminal class regexes with an optional prefix containing the
+      ignore terms. The semantics of this are equivalent, but the implementation
+      is not.
+
+    * When lark compiles terminal class regexes to python re syntax, not all
+      features are supported by greenery.
+
+      - Our implementations of `.` and `^` are in terms of negated character
+        classes, and require special handling.  In our conversion, we consider
+        negation with respect to a superset defined by `string.printable`. There
+        may be other cases we have not yet encountered, so it is important to
+        verify that conversions are correct when incorporating new grammars. We
+        expect edge cases with lookahead and lookbehind assertions to be
+        particularly problematic.
+
+    TODO: update now that greenery has been replaced by interegular
 
     """
 
@@ -182,14 +191,14 @@ class LarkStuff:
 
         if cnf:
             self.parser = lark.parsers.cyk.Parser(rules)
-            self.instance = lark.Lark(grammar, lexer='basic', parser='cyk')
-            self.lex = self.instance.lex
+            # self.instance = lark.Lark(grammar, lexer='basic', parser='cyk')
+            # self.lex = self.instance.lex
             self.rules = self.parser.grammar.rules
 
         else:
             # self.parser = lark.parsers.earley.Parser(rules)
-            self.instance = lark.Lark(grammar, parser='earley')
-            self.lex = self.instance.lex
+            # self.instance = lark.Lark(grammar, parser='earley')
+            # self.lex = self.instance.lex
             self.rules = rules
 
         self.terminals = terminals
@@ -216,8 +225,13 @@ class LarkStuff:
             cfg.add(1 / lhs_count[r.head], r.head, *r.body)
         return cfg.renumber()
 
-    def char_cfg(self, decay=1, delimiter='', charset='core'):
+    def char_cfg(self, decay=None, delimiter='', charset='core'):
         from genparse import CFG, Float
+
+        if decay is not None:
+            import warnings
+
+            warnings.warn('Option `decay` is deprecated')
 
         if delimiter:
             import warnings
@@ -229,7 +243,7 @@ class LarkStuff:
         cfg = self.convert()
 
         # rename all of the internals to avoid naming conflicts.
-        f = Integerizer()
+        f = arsenal.Integerizer()
 
         foo = CFG(Float, S=f(cfg.S), V=set())
         for r in cfg:
@@ -240,9 +254,8 @@ class LarkStuff:
                 continue
             regex = self.ignore_regex + token_class.pattern.to_regexp() + delimiter
 
-            fsa = greenery_to_wfsa(
+            fsa = interegular_to_wfsa(
                 regex,
-                decay=decay,
                 name=lambda x, t=token_class.name: f((t, x)),
                 charset=charset,
             )
@@ -258,145 +271,184 @@ class LarkStuff:
         return foo
 
 
-#    def simple_tokenizer(self, text):
-#        "simple DIY prioritized tokenizer; uses Python's `re` library."
-#        # The regex pattern to match any of the tokens
-#        token_regex = '|'.join(f'(?P<{t.name}>{t.pattern.value})'
-#                               for t in sorted(self.terminals,
-#                                               key=lambda t: -t.priority))
-#        for match in re.finditer(token_regex, text):
-#            token_type = match.lastgroup
-#            token_value = match.group()
-#            if token_type not in self.ignores:
-#                yield token_type, token_value
+# def expand_case_insensitive(r):
+#    """
+#    Lark accepts case-insensitive terminals of the form `".*"i`
+#    In python re syntax, these compile to `(?i:.*)`
+#    This function desugars the latter into a format supported by greenery,
+#    Supporting arbitrary nesting of case insensitive contexts,
+#    And does so in a single O(len(r)) scan.
+#    """
+#    end = len(r)
+#    last3 = ('', '', '')
+#    state = 0
+#    count = 0
+#    depth = 0
+#    ptr = 0
+#    out = ''
+#    fix_sugar = any(_ in r for _ in ('[a-z]', '[A-Z]', '[a-zA-Z]'))
+#    while True:
+#        if ptr == end:
+#            if fix_sugar:
+#                out = out.replace('[[aA]-[zZ]]', '[a-zA-Z]').replace(
+#                    '[[aA]-[zZ][aA]-[zZ]]', '[a-zA-Z]'
+#                )
+#            return out
+#        c = r[ptr]
+#        if state == 0:
+#            if c == ':' and ''.join(last3) == '(?i':
+#                out = out[:-3]
+#                state = 1
+#                count = 1
+#            else:
+#                out += c
+#        elif state == 1:
+#            if c.isalpha():
+#                if last3[2] == '\\' and last3[1] != '\\':
+#                    out += c
+#                else:
+#                    out += f'[{c.lower()}{c.upper()}]'
+#            elif c == ':' and ''.join(last3) == '(?i':
+#                out = out[:-6]
+#                depth += 1
+#            elif c == ']':
+#                if ''.join(last3) == f'[{last3[1].lower()}{last3[1].upper()}':
+#                    out = out[:-8] + out[-7:-4]
+#                else:
+#                    out += c
+#            elif c == '(':
+#                count += 1
+#                out += c
+#            elif c == ')':
+#                count -= 1
+#                if count == 0:
+#                    state = 0
+#                elif count == depth:
+#                    depth -= 1
+#                else:
+#                    out += c
+#            else:
+#                out += c
+#        else:
+#            raise ValueError('invalid state')
+#        last3 = (last3[1], last3[2], c)
+#        ptr += 1
 
 
-def expand_case_insensitive(r):
-    """
-    Lark accepts case-insensitive terminals of the form `".*"i`
-    In python re syntax, these compile to `(?i:.*)`
-    This function desugars the latter into a format supported by greenery,
-    Supporting arbitrary nesting of case insensitive contexts,
-    And does so in a single O(len(r)) scan.
-    """
-    end = len(r)
-    last3 = ('', '', '')
-    state = 0
-    count = 0
-    depth = 0
-    ptr = 0
-    out = ''
-    fix_sugar = any(_ in r for _ in ('[a-z]', '[A-Z]', '[a-zA-Z]'))
-    while True:
-        if ptr == end:
-            if fix_sugar:
-                out = out.replace('[[aA]-[zZ]]', '[a-zA-Z]').replace(
-                    '[[aA]-[zZ][aA]-[zZ]]', '[a-zA-Z]'
-                )
-            return out
-        c = r[ptr]
-        if state == 0:
-            if c == ':' and ''.join(last3) == '(?i':
-                out = out[:-3]
-                state = 1
-                count = 1
-            else:
-                out += c
-        elif state == 1:
-            if c.isalpha():
-                if last3[2] == '\\' and last3[1] != '\\':
-                    out += c
-                else:
-                    out += f'[{c.lower()}{c.upper()}]'
-            elif c == ':' and ''.join(last3) == '(?i':
-                out = out[:-6]
-                depth += 1
-            elif c == ']':
-                if ''.join(last3) == f'[{last3[1].lower()}{last3[1].upper()}':
-                    out = out[:-8] + out[-7:-4]
-                else:
-                    out += c
-            elif c == '(':
-                count += 1
-                out += c
-            elif c == ')':
-                count -= 1
-                if count == 0:
-                    state = 0
-                elif count == depth:
-                    depth -= 1
-                else:
-                    out += c
-            else:
-                out += c
-        else:
-            raise ValueError('invalid state')
-        last3 = (last3[1], last3[2], c)
-        ptr += 1
+# def regex_to_greenery(regex):
+#    """
+#    Convert `regex`, a python-like regular expression (`re`), into a `greenery`
+#    finite-state machine (FSM).
+#    """
+#    import greenery
+#
+#    regex = expand_case_insensitive(regex)
+#
+#    # Patch: note that greenery does not escape spaces but both the `re` and `lark` do.
+#    return greenery.parse(regex.replace('\\ ', ' ')).to_fsm()
 
 
-def regex_to_greenery(regex):
-    """
-    Convert `regex`, a python-like regular expression (`re`), into a `greenery`
-    finite-state machine (FSM).
-    """
-    import greenery
+# def greenery_to_wfsa(fsm, decay=1, name=lambda x: x, charset='core'):
+#    from genparse import WFSA, Float
+#
+#    if charset == 'core':
+#        import string
+#
+#        charset = set(string.printable)
+#    else:
+#        # TODO: implement other charsets
+#        raise NotImplementedError(f'charset {charset} not implemented')
+#
+#    if isinstance(fsm, str):
+#        fsm = regex_to_greenery(fsm)
+#    m = WFSA(Float)
+#    m.add_I(name(fsm.initial), 1)
+#
+#    rejection_states = [e for e in fsm.states if not fsm.islive(e)]
+#    for state in fsm.states:
+#        arcs = fsm.map[state]
+#
+#        # determine this state's fan out...
+#        K = 0
+#        for input_char, next_state in arcs.items():
+#            if next_state in rejection_states:
+#                continue  # rejection state
+#            if input_char.negated:
+#                chars = charset - set(input_char.get_chars())
+#            else:
+#                chars = input_char.get_chars()
+#            for char in chars:
+#                K += 1
+#        if state in fsm.finals:
+#            K += 1
+#
+#        if K == 0:
+#            continue
+#
+#        if state in fsm.finals:
+#            m.add_F(name(state), decay / K)
+#
+#        for input_char, next_state in arcs.items():
+#            if next_state in rejection_states:
+#                continue  # rejection state
+#            if input_char.negated:
+#                chars = charset - set(input_char.get_chars())
+#            else:
+#                chars = input_char.get_chars()
+#            for char in chars:
+#                m.add_arc(name(state), char, name(next_state), decay / K)
+#
+#    return m
 
-    regex = expand_case_insensitive(regex)
 
-    # Patch: note that greenery does not escape spaces but both the `re` and `lark` do.
-    return greenery.parse(regex.replace('\\ ', ' ')).to_fsm()
-
-
-def greenery_to_wfsa(fsm, decay=1, name=lambda x: x, charset='core'):
+def interegular_to_wfsa(pattern, name=lambda x: x, charset='core'):
     from genparse import WFSA, Float
 
     if charset == 'core':
-        import string
-
         charset = set(string.printable)
     else:
         # TODO: implement other charsets
         raise NotImplementedError(f'charset {charset} not implemented')
 
-    if isinstance(fsm, str):
-        fsm = regex_to_greenery(fsm)
+    # Compile the regex pattern to an FSM
+    fsm = interegular.parse_pattern(pattern).to_fsm()
+
+    # if anything_else in fsm.alphabet:
+    #    print(arsenal.colors.orange % 'ALPHABET:', set(fsm.alphabet))
+    #    print(arsenal.colors.orange % 'ANYTHING ELSE:', charset - set(fsm.alphabet))
+
+    def expand_alphabet(a):
+        if anything_else in fsm.alphabet.by_transition[a]:
+            assert fsm.alphabet.by_transition[a] == [anything_else]
+            return charset - set(fsm.alphabet)
+        else:
+            return fsm.alphabet.by_transition[a]
+
     m = WFSA(Float)
     m.add_I(name(fsm.initial), 1)
 
     rejection_states = [e for e in fsm.states if not fsm.islive(e)]
-    for state in fsm.states:
-        arcs = fsm.map[state]
-
-        # determine this state's fan out...
+    for i in fsm.states:
+        # determine this state's fan out
         K = 0
-        for input_char, next_state in arcs.items():
-            if next_state in rejection_states:
-                continue  # rejection state
-            if input_char.negated:
-                chars = charset - set(input_char.get_chars())
-            else:
-                chars = input_char.get_chars()
-            for char in chars:
+        for a, j in fsm.map[i].items():
+            # print(f'{i} --{a}/{fsm.alphabet.by_transition[a]}--> {j}')
+            if j in rejection_states:
+                continue
+            for A in expand_alphabet(a):
+                assert isinstance(A, str) and len(A) == 1
                 K += 1
-        if state in fsm.finals:
+        if i in fsm.finals:
             K += 1
-
         if K == 0:
             continue
-
-        if state in fsm.finals:
-            m.add_F(name(state), decay / K)
-
-        for input_char, next_state in arcs.items():
-            if next_state in rejection_states:
-                continue  # rejection state
-            if input_char.negated:
-                chars = charset - set(input_char.get_chars())
-            else:
-                chars = input_char.get_chars()
-            for char in chars:
-                m.add_arc(name(state), char, name(next_state), decay / K)
+        if i in fsm.finals:
+            m.add_F(name(i), 1 / K)
+        for a, j in fsm.map[i].items():
+            if j in rejection_states:
+                continue
+            for A in expand_alphabet(a):
+                m.add_arc(name(i), A, name(j), 1 / K)
 
     return m
 

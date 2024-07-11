@@ -16,9 +16,7 @@ def test_timothy():
 
     pcfg = EarleyLM(
         locally_normalize(
-            LarkStuff(r""" start: /[ ]*Tim(othy)?[ ](Fabbri[ ])?Vieira\./""").char_cfg(
-                0.99
-            ),
+            LarkStuff(r""" start: /[ ]*Tim(othy)?[ ](Fabbri[ ])?Vieira\./""").char_cfg(),
             tol=1e-100,
         )
     )
@@ -56,7 +54,7 @@ def todo_chomsky():
                   | /[cC]olorless[ ]green[ ]ideas[ ]sleep[ ]furiously/
 
                 """
-            ).char_cfg(0.9999),
+            ).char_cfg(),
             tol=1e-300,
         )
     )

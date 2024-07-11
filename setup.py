@@ -4,7 +4,8 @@ requirements = [
     'arsenal @ git+https://github.com/timvieira/arsenal',
     'frozendict',
     'graphviz',  # for notebook visualizations
-    'greenery>=4.2.1',
+    #'greenery>=4.2.1',
+    'interegular',
     'hfppl @ git+https://github.com/probcomp/hfppl',
     'IPython',
     'jsons',  # for spider benchmarking

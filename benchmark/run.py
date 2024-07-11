@@ -2,53 +2,50 @@ from example_grammars import arith, iql_small
 
 from genparse import locally_normalize
 from genparse.parse.earley import EarleyLM
-from genparse.lm import make_mock_llm
 from genparse.proposal import CharacterProposal, TokenProposal
-from genparse.util import LarkStuff, set_seed
+from genparse.util import LarkStuff, set_seed, load_model_by_name
 
 
 def test_token_arith():
     set_seed(0)
 
-    cfg = locally_normalize(LarkStuff(arith, cnf=False).char_cfg(0.9), tol=1e-100).trim()
+    cfg = locally_normalize(LarkStuff(arith, cnf=False).char_cfg(), tol=1e-100).trim()
 
     guide = EarleyLM(cfg)
 
-    llm = make_mock_llm()
+    llm = load_model_by_name('mock-gpt2')
 
     proposal = TokenProposal(guide=guide, llm=llm, K=5)
 
     samples = []
     for _ in range(10):
-        samples.append(proposal.sample(prompt='', max_tokens=100, verbosity=1))
+        samples.append(proposal.sample(prompt=(), max_tokens=100, verbosity=1))
         print(samples[-1])
 
 
 def test_character_arith():
     set_seed(0)
 
-    cfg = locally_normalize(LarkStuff(arith, cnf=False).char_cfg(0.99), tol=1e-100).trim()
+    cfg = locally_normalize(LarkStuff(arith, cnf=False).char_cfg(), tol=1e-100).trim()
 
     guide = EarleyLM(cfg)
 
-    llm = make_mock_llm()
+    llm = load_model_by_name('mock-gpt2')
 
     proposal = CharacterProposal(llm=llm, guide=guide)
 
     samples = []
     for _ in range(10):
-        samples.append(proposal.sample(prompt='', max_tokens=100, verbosity=1))
+        samples.append(proposal.sample(prompt=(), max_tokens=100, verbosity=1))
         print(samples[-1])
 
 
 def test_token_iql_small():
     set_seed(0)
 
-    cfg = locally_normalize(
-        LarkStuff(iql_small, cnf=False).char_cfg(0.99), tol=1e-100
-    ).trim()
+    cfg = locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(), tol=1e-100).trim()
 
-    llm = make_mock_llm()
+    llm = load_model_by_name('mock-gpt2')
 
     guide = EarleyLM(cfg)
 
@@ -63,11 +60,9 @@ def test_token_iql_small():
 def test_character_iql_small():
     set_seed(0)
 
-    llm = make_mock_llm()
+    llm = load_model_by_name('mock-gpt2')
 
-    cfg = locally_normalize(
-        LarkStuff(iql_small, cnf=False).char_cfg(0.99), tol=1e-100
-    ).trim()
+    cfg = locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(), tol=1e-100).trim()
 
     guide = EarleyLM(cfg)
 
@@ -75,7 +70,7 @@ def test_character_iql_small():
 
     samples = []
     for _ in range(10):
-        samples.append(proposal.sample(prompt='', max_tokens=100, verbosity=1))
+        samples.append(proposal.sample(prompt=(), max_tokens=100, verbosity=1))
         print(samples[-1])
 
 

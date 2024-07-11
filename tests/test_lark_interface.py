@@ -1,7 +1,10 @@
+import lark
 import numpy as np
+import string
+from arsenal import colors
 
 from genparse import BoolCFGLM, locally_normalize, EarleyLM, Earley
-from genparse.util import LarkStuff, expand_case_insensitive
+from genparse.util import LarkStuff
 
 
 grammar1 = r"""
@@ -27,7 +30,10 @@ def test_parsing_basics():
     lark_stuff = LarkStuff(grammar1, cnf=True)
 
     text = 'SELECT state_color FROM data </s>'
-    tokens = list(lark_stuff.lex(text))
+
+    instance = lark.Lark(grammar1, parser='earley')
+
+    tokens = list(instance.lex(text))
 
     g = lark_stuff.convert().renumber()
     assert g.in_cnf()  # lark returns a grammar in CNF
@@ -50,7 +56,7 @@ def test_parsing_basics():
     lark_stuff = LarkStuff(grammar1, cnf=False)
 
     text = 'SELECT state_color FROM data </s>'
-    tokens = list(lark_stuff.lex(text))
+    tokens = list(instance.lex(text))
 
     g = lark_stuff.convert().renumber()
 
@@ -73,7 +79,7 @@ def test_char_level_cfg():
     # tokens = list(lark_stuff.lex(text))
     # print(lark_stuff.parser.parse(tokens, 'start'))
 
-    cfg = lark_stuff.char_cfg(0.1)
+    cfg = lark_stuff.char_cfg()
 
     # print(len(cfg.trim()))
     # print(len(cfg.cnf))
@@ -157,7 +163,7 @@ def test_char_lm_basics3():
         """
     )
 
-    cfg_t = lark_stuff.char_cfg(decay=0.1)
+    cfg_t = lark_stuff.char_cfg()
 
     cfg_t_lm = EarleyLM(locally_normalize(cfg_t, tol=1e-50))
 
@@ -165,7 +171,7 @@ def test_char_lm_basics3():
     print(v)
     assert set(v.trim().keys()) == {' ', 'b'}
 
-    char_cfg = lark_stuff.char_cfg(0.1)
+    char_cfg = lark_stuff.char_cfg()
     char_lm = EarleyLM(locally_normalize(char_cfg, tol=1e-50))
 
     v = char_lm.p_next('SELECT bb').normalize()
@@ -179,55 +185,55 @@ def test_case_insensitive_char_proposal():
     WS: /[ ]/
     """
 
-    guide = EarleyLM(locally_normalize(LarkStuff(grammar).char_cfg(0.99)))
+    guide = EarleyLM(locally_normalize(LarkStuff(grammar).char_cfg()))
 
     assert guide.p_next('').trim().keys() == {'S', 's', ' '}
     assert guide.p_next('S').trim().keys() == {'E', 'e'}
     assert guide.p_next('s').trim().keys() == {'E', 'e'}
 
 
-def test_case_insensitive_expansion():
-    assert expand_case_insensitive('AND') == 'AND'
-    assert expand_case_insensitive('(?i:AND)') == '[aA][nN][dD]'
-
-    assert expand_case_insensitive('[aA][nN][dD]') == '[aA][nN][dD]'
-    assert expand_case_insensitive('(?i:[aA][nN][dD])') == '[aA][nN][dD]'
-
-    assert expand_case_insensitive('(?i:AND|OR)') == '[aA][nN][dD]|[oO][rR]'
-    assert expand_case_insensitive('(?i:[aA][nN][dD]|OR)') == '[aA][nN][dD]|[oO][rR]'
-    assert expand_case_insensitive('(?i:AND)|(?i:OR)') == '[aA][nN][dD]|[oO][rR]'
-
-    assert expand_case_insensitive('(?i:[aA][nN][d)') == '[aA][nN][[dD]'
-    assert expand_case_insensitive('(?i:[aA][nN][dD)') == '[aA][nN][[dD][dD]'
-    assert expand_case_insensitive('(?i:[aA][nN][dE])') == '[aA][nN][[dD][eE]]'
-    assert expand_case_insensitive('(?i:[aA][nN][dDE])') == '[aA][nN][[dD][dD][eE]]'
-
-    assert expand_case_insensitive('(?i:(?i:AND))') == '[aA][nN][dD]'
-    assert expand_case_insensitive('(?i:(?i:(?i:AND)))') == '[aA][nN][dD]'
-    assert (
-        expand_case_insensitive('(?i:(?i:(?i:AND)))(?i:(?i:AND))(?i:AND)')
-        == '[aA][nN][dD][aA][nN][dD][aA][nN][dD]'
-    )
-    assert (
-        expand_case_insensitive('(?i:(?i:(?i:AND)|(?i:OR)))') == '[aA][nN][dD]|[oO][rR]'
-    )
-
-    assert expand_case_insensitive('(?i:(AND|OR))') == '([aA][nN][dD]|[oO][rR])'
-    assert expand_case_insensitive('(?i:AND|(?i:OR))') == '[aA][nN][dD]|[oO][rR]'
-
-    assert (
-        expand_case_insensitive('(?i:[a-z][A-Z][a-zA-z])') == '[a-zA-Z][a-zA-Z][a-zA-Z]'
-    )
-    assert (
-        expand_case_insensitive('[a-z](?i:a[a-z]z)[a-z]') == '[a-z][aA][a-zA-Z][zZ][a-z]'
-    )
-
-    assert expand_case_insensitive('(?i:\n)') == '\n'
-    assert expand_case_insensitive('(?i:\\\\n)') == '\\\\[nN]'
-
-    sql_example_input = '(?:(?:(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))(?:(?:[ \t\x0c\r\n])+(?i:OUTER))?|(?i:INNER)|(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))|(?i:(?:(?i:OUTER))?))(?:[ \t\x0c\r\n])+)?(?i:JOIN)[ ]?'
-    sql_example_output = '(?:(?:(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])(?:(?:[ \t\x0c\r\n])+[oO][uU][tT][eE][rR])?|[iI][nN][nN][eE][rR]|(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])|(?:[oO][uU][tT][eE][rR])?)(?:[ \t\x0c\r\n])+)?[jJ][oO][iI][nN][ ]?'
-    assert expand_case_insensitive(sql_example_input) == sql_example_output
+# def test_case_insensitive_expansion():
+#    assert expand_case_insensitive('AND') == 'AND'
+#    assert expand_case_insensitive('(?i:AND)') == '[aA][nN][dD]'
+#
+#    assert expand_case_insensitive('[aA][nN][dD]') == '[aA][nN][dD]'
+#    assert expand_case_insensitive('(?i:[aA][nN][dD])') == '[aA][nN][dD]'
+#
+#    assert expand_case_insensitive('(?i:AND|OR)') == '[aA][nN][dD]|[oO][rR]'
+#    assert expand_case_insensitive('(?i:[aA][nN][dD]|OR)') == '[aA][nN][dD]|[oO][rR]'
+#    assert expand_case_insensitive('(?i:AND)|(?i:OR)') == '[aA][nN][dD]|[oO][rR]'
+#
+#    assert expand_case_insensitive('(?i:[aA][nN][d)') == '[aA][nN][[dD]'
+#    assert expand_case_insensitive('(?i:[aA][nN][dD)') == '[aA][nN][[dD][dD]'
+#    assert expand_case_insensitive('(?i:[aA][nN][dE])') == '[aA][nN][[dD][eE]]'
+#    assert expand_case_insensitive('(?i:[aA][nN][dDE])') == '[aA][nN][[dD][dD][eE]]'
+#
+#    assert expand_case_insensitive('(?i:(?i:AND))') == '[aA][nN][dD]'
+#    assert expand_case_insensitive('(?i:(?i:(?i:AND)))') == '[aA][nN][dD]'
+#    assert (
+#        expand_case_insensitive('(?i:(?i:(?i:AND)))(?i:(?i:AND))(?i:AND)')
+#        == '[aA][nN][dD][aA][nN][dD][aA][nN][dD]'
+#    )
+#    assert (
+#        expand_case_insensitive('(?i:(?i:(?i:AND)|(?i:OR)))') == '[aA][nN][dD]|[oO][rR]'
+#    )
+#
+#    assert expand_case_insensitive('(?i:(AND|OR))') == '([aA][nN][dD]|[oO][rR])'
+#    assert expand_case_insensitive('(?i:AND|(?i:OR))') == '[aA][nN][dD]|[oO][rR]'
+#
+#    assert (
+#        expand_case_insensitive('(?i:[a-z][A-Z][a-zA-z])') == '[a-zA-Z][a-zA-Z][a-zA-Z]'
+#    )
+#    assert (
+#        expand_case_insensitive('[a-z](?i:a[a-z]z)[a-z]') == '[a-z][aA][a-zA-Z][zZ][a-z]'
+#    )
+#
+#    assert expand_case_insensitive('(?i:\n)') == '\n'
+#    assert expand_case_insensitive('(?i:\\\\n)') == '\\\\[nN]'
+#
+#    sql_example_input = '(?:(?:(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))(?:(?:[ \t\x0c\r\n])+(?i:OUTER))?|(?i:INNER)|(?:(?i:RIGHT)|(?i:FULL)|(?i:LEFT))|(?i:(?:(?i:OUTER))?))(?:[ \t\x0c\r\n])+)?(?i:JOIN)[ ]?'
+#    sql_example_output = '(?:(?:(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])(?:(?:[ \t\x0c\r\n])+[oO][uU][tT][eE][rR])?|[iI][nN][nN][eE][rR]|(?:[rR][iI][gG][hH][tT]|[fF][uU][lL][lL]|[lL][eE][fF][tT])|(?:[oO][uU][tT][eE][rR])?)(?:[ \t\x0c\r\n])+)?[jJ][oO][iI][nN][ ]?'
+#    assert expand_case_insensitive(sql_example_input) == sql_example_output
 
 
 def test_github_issue_26_():
@@ -324,15 +330,21 @@ def test_char_cfg_delimiter():
 
 
 def test_char_cfg_charset():
-    import string
+    grammar = r'start: /[^a]+/'
+    guide = BoolCFGLM(LarkStuff(grammar).char_cfg(charset='core'))
+    have = set(guide.p_next('').trim().keys())
+    want = set(string.printable) - {'a'}
+    assert have == want, f'\n\nhave=\n{have}\n\nwant=\n{want}'
+    print(colors.mark(True), repr(grammar))
 
     grammar = r'start: /.+/'
     guide = BoolCFGLM(LarkStuff(grammar).char_cfg(charset='core'))
-    assert guide.p_next('').keys() == set(string.printable)
-
-    grammar = r'start: /[^a]+/'
-    guide = BoolCFGLM(LarkStuff(grammar).char_cfg(charset='core'))
-    assert guide.p_next('').keys() == set(string.printable) - {'a'}
+    have = set(guide.p_next('').trim().keys())
+    want = set(string.printable) - {
+        '\n'
+    }  # interegular does not default to multiline regular expressions
+    assert have == want, f'\n\nhave=\n{have}\n\nwant=\n{want}'
+    print(colors.mark(True), repr(grammar))
 
 
 if __name__ == '__main__':
