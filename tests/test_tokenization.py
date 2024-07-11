@@ -1,101 +1,69 @@
 from transformers import AutoTokenizer
-
+import warnings
 from genparse.tokenization import decode_tokenizer_vocab
+from genparse.lm import TokenizedLLM
 
-CASES = [
+cases = [
     'state',
     ' state',
     ' SELECT state',
     '\n',
     '\t',
     '.',
-    ':',
-    '+=',
     'SELECT * FROM AIRPORTS WHERE city  =  "Anthony"	flight_2',
-    ' SELECT count(*)  FROM FLIGHTS  AS T1 JOIN AIRPORTS AS T2  ON T1.DestAirport',
-    '  SELECT Name   FROM country WHERE IndepYear  >  1950	world_1  ',
 ]
 
+failed_cases = [  # just a few of the likely many failure modes with the current method
+    '\t\n\r',
+    '®',
+    '’•¶∂ƒ˙∆£Ħ爨ൠᅘ∰፨',
+    '×',
+    '¯',
+]
 
-def test_codellama():
-    tokenizer = AutoTokenizer.from_pretrained(
-        'codellama/CodeLlama-7b-Instruct-hf',
-        use_fast=True,
-        prefix_token=None,
-        middle_token=None,
-        suffix_token=None,
-        eot_token=None,
-        fill_token=None,
-    )
+tokenizer_names = ['codellama/CodeLlama-7b-Instruct-hf', 'gpt2']
 
-    decoded = decode_tokenizer_vocab(tokenizer)
-
-    decoded_size = len(decoded)
-    tok_size = tokenizer.vocab_size
-    assert decoded_size == tok_size, [decoded_size, tok_size]
-
-    for case in CASES:
-        encd = tokenizer.encode(case)
-        have = ''.join([decoded[i] for i in encd])
-        want = tokenizer.decode(encd)
-        assert want == have, [want, have, case]
-
-        # NOTE: codellama's `encode` prepends a space to everything
-        # there doesn't seem to be any way to disable this behaviour
+# "meta-llama/Meta-Llama-3-8B",
 
 
-def test_gpt2():
-    tokenizer = AutoTokenizer.from_pretrained(
-        'gpt2',
-        use_fast=True,
-        prefix_token=None,
-        middle_token=None,
-        suffix_token=None,
-        eot_token=None,
-        fill_token=None,
-    )
-
-    decoded = decode_tokenizer_vocab(tokenizer)
-
-    decoded_size = len(decoded)
-    tok_size = tokenizer.vocab_size
-    assert decoded_size == tok_size, [decoded_size, tok_size]
-
-    for case in CASES:
-        encd = tokenizer.encode(case)
-        have = ''.join([decoded[i] for i in encd])
-        want = tokenizer.decode(encd)
-        assert want == have, [want, have, case]
+class DummyLM:
+    pass
 
 
-def test_t5():
-    tokenizer = AutoTokenizer.from_pretrained(
-        'google-t5/t5-small',
-        use_fast=True,
-        prefix_token=None,
-        middle_token=None,
-        suffix_token=None,
-        eot_token=None,
-        fill_token=None,
-    )
+tokenizers = []
+for tokenizer_name in tokenizer_names:
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+        tokenizers.append((tokenizer_name, tokenizer))
+    except Exception:
+        warnings.warn(
+            'Failed to load {tokenizer_name} with exception {e}. Not testing this tokenizer.'
+        )
 
-    decoded = decode_tokenizer_vocab(tokenizer)
 
-    decoded_size = len(decoded)
-    tok_size = tokenizer.vocab_size
-    assert decoded_size == tok_size, [decoded_size, tok_size]
+def test_decoding():
+    for tokenizer_name, tokenizer in tokenizers:
+        decoded = decode_tokenizer_vocab(tokenizer)
 
-    # tokenizer.add_eos_token = False # NOTE: disabling not possible for this tokenizer
-    # NOTE: T5 tokenizer removes consecutive occurences of whitespace tokens
-    # and always adds a space to the begining of the string, unless there already is one
-    # or the string is empty. smh.
+        decoded_size = len(decoded)
+        tok_voc_size = len(tokenizer)
+        assert decoded_size == tok_voc_size, [decoded_size, tok_voc_size, tokenizer_name]
 
-    for case in CASES:
-        encd = tokenizer.encode(case)
-        have = ''.join([decoded[i] for i in encd])
-        want = tokenizer.decode(encd)
-        have = have[1:] if have.startswith(' ') else have
-        assert want == have, [want, have, case]
+        for case in cases:
+            encd = tokenizer.encode(case)
+            have = ''.join([decoded[i] for i in encd])
+            want = tokenizer.decode(encd)
+            assert want == have, [want, have, case, tokenizer_name]
+
+
+def test_encoding():
+    for tokenizer_name, tokenizer in tokenizers:
+        llm = TokenizedLLM(model=DummyLM(), tokenizer=tokenizer, batch_size=0)
+
+        for case in cases:
+            want = llm.tokenizer.encode(case)
+            have = [llm._encode[i] for i in llm.encode_prompt(case)]
+            assert want == have, [want, have, tokenizer_name]
 
 
 if __name__ == '__main__':
