@@ -42,7 +42,8 @@ class LM:
         P = 1
         for i, y in enumerate(ys):
             assert y in self.V, y
-            P *= self.p_next(ys[:i])[y]
+            p = self.p_next(ys[:i])
+            P *= p[y]
             if P == 0:
                 break
         return P
@@ -211,6 +212,9 @@ class TokenizedLLM(LM):
     def __call__(self, context):
         assert isinstance(context, tuple), '`context` must be explicitly tokenized'
         assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
+        assert (
+            context[-1] == self.eos
+        ), f'Context must end with eos ({self.eos!r}); got {context = }.'
         return self._model([self._encode[x] for x in context])
 
     def clear_cache(self):
