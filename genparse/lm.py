@@ -111,7 +111,6 @@ class LLM(LM):
         self.model.eval()  # Set the model in "evaluation mode"
         self._cache = {}
 
-    # TODO: cover me!
     def __call__(self, input_ids):
         if isinstance(input_ids, list):
             input_ids = torch.LongTensor([input_ids]).squeeze()
