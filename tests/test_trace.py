@@ -1,5 +1,4 @@
 import pytest
-from tqdm import tqdm
 from arsenal.maths import sample
 
 import os
@@ -77,30 +76,21 @@ def sample_lazyprob(p):
     return tok
 
 
-@pytest.mark.skip  # performance test
-def test_deep_no_tree():
+def test_sampling_baseline(benchmark):
     lm = MockLLM({EOS}.union(str(n) for n in range(50000)), EOS)
-    tracer = TraceSWOR()
-    with memory_change():
-        for leaves in (progress := tqdm(range(1, 201))):
-            progress.set_description(
-                f'{leaves} generations for {tracer.root.mass:.15e} remaining mass'
-            )
-            lm.sample(draw=sample_lazyprob, max_tokens=50)
+    benchmark(lm.sample, draw=sample_lazyprob, max_tokens=50)
 
 
-@pytest.mark.skip  # performance test
-def test_deep():
+@pytest.mark.benchmark(warmup=True, warmup_iterations=50)
+def test_sampling_gentree(benchmark):
+    def sample_from_gentree(lm, tracer):
+        with tracer:
+            lm.sample(draw=tracer, max_tokens=50)
+
     lm = MockLLM({EOS}.union(str(n) for n in range(50000)), EOS)
     tracer = TraceSWOR()
-    with memory_change():
-        for leaves in (progress := tqdm(range(1, 201))):
-            progress.set_description(
-                f'{leaves} generations for {tracer.root.mass:.15e} remaining mass'
-            )
-            with tracer:
-                lm.sample(draw=tracer, max_tokens=50)
-            leaves += 1
+    benchmark(sample_from_gentree, lm, tracer)
+    print('{tracer.root.mass:.15e} remaining mass')
 
 
 if __name__ == '__main__':
