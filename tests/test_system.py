@@ -27,6 +27,13 @@ def test_basic():
     print(f'wrote {colors.link("file://" + f)}')
 
 
+def test_empty_string():
+    grammar = 'start: "Sequential Monte Carlo is " ( "good" )'
+    m = InferenceSetup('gpt2', grammar, proposal_name='character')
+    posterior = m('', n_particles=1).posterior
+    assert posterior == {'Sequential Monte Carlo is good▪': 1.0}
+
+
 if __name__ == '__main__':
     from arsenal import testing_framework
 
