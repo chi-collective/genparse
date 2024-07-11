@@ -191,14 +191,14 @@ class LarkStuff:
 
         if cnf:
             self.parser = lark.parsers.cyk.Parser(rules)
-            self.instance = lark.Lark(grammar, lexer='basic', parser='cyk')
-            self.lex = self.instance.lex
+            # self.instance = lark.Lark(grammar, lexer='basic', parser='cyk')
+            # self.lex = self.instance.lex
             self.rules = self.parser.grammar.rules
 
         else:
             # self.parser = lark.parsers.earley.Parser(rules)
-            self.instance = lark.Lark(grammar, parser='earley')
-            self.lex = self.instance.lex
+            # self.instance = lark.Lark(grammar, parser='earley')
+            # self.lex = self.instance.lex
             self.rules = rules
 
         self.terminals = terminals
@@ -417,7 +417,7 @@ def interegular_to_wfsa(pattern, name=lambda x: x, charset='core'):
     #    print(arsenal.colors.orange % 'ALPHABET:', set(fsm.alphabet))
     #    print(arsenal.colors.orange % 'ANYTHING ELSE:', charset - set(fsm.alphabet))
 
-    def expand_alphabet(i, a):
+    def expand_alphabet(a):
         if anything_else in fsm.alphabet.by_transition[a]:
             assert fsm.alphabet.by_transition[a] == [anything_else]
             return charset - set(fsm.alphabet)
@@ -435,7 +435,7 @@ def interegular_to_wfsa(pattern, name=lambda x: x, charset='core'):
             # print(f'{i} --{a}/{fsm.alphabet.by_transition[a]}--> {j}')
             if j in rejection_states:
                 continue
-            for A in expand_alphabet(i, a):
+            for A in expand_alphabet(a):
                 assert isinstance(A, str) and len(A) == 1
                 K += 1
         if i in fsm.finals:
@@ -447,7 +447,7 @@ def interegular_to_wfsa(pattern, name=lambda x: x, charset='core'):
         for a, j in fsm.map[i].items():
             if j in rejection_states:
                 continue
-            for A in expand_alphabet(i, a):
+            for A in expand_alphabet(a):
                 m.add_arc(name(i), A, name(j), 1 / K)
 
     return m

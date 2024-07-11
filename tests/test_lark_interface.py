@@ -1,3 +1,4 @@
+import lark
 import numpy as np
 import string
 from arsenal import colors
@@ -29,7 +30,10 @@ def test_parsing_basics():
     lark_stuff = LarkStuff(grammar1, cnf=True)
 
     text = 'SELECT state_color FROM data </s>'
-    tokens = list(lark_stuff.lex(text))
+
+    instance = lark.Lark(grammar1, parser='earley')
+
+    tokens = list(instance.lex(text))
 
     g = lark_stuff.convert().renumber()
     assert g.in_cnf()  # lark returns a grammar in CNF
@@ -52,7 +56,7 @@ def test_parsing_basics():
     lark_stuff = LarkStuff(grammar1, cnf=False)
 
     text = 'SELECT state_color FROM data </s>'
-    tokens = list(lark_stuff.lex(text))
+    tokens = list(instance.lex(text))
 
     g = lark_stuff.convert().renumber()
 
