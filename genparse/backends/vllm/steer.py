@@ -65,7 +65,7 @@ class VLLMWrapper:
         self.guide = guide
         self.prompt = prompt
         if not prompt.startswith(self.llm.tokenizer.eos_token):
-            self.prompt = self.llm.tokenizer.eos_token + prompt
+            self.prompt = self.llm.tokenizer.bos_token + prompt
 
         self.proposal = proposal  # the original proposal
 
