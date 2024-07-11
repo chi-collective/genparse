@@ -26,7 +26,7 @@ class LM:
 
       - `V`: a vocabulary of symbols
 
-      - `eos`: a distinguished symbold $\not\in$ `V`
+      - `eos`: a distinguished end of sequence symbol
 
       - `p_next(xs)`: $p(\cdot \mid x_1 \cdots x_T)$ is provided by subclasses.
 
@@ -42,7 +42,6 @@ class LM:
         P = 1
         for i, y in enumerate(ys):
             assert y in self.V, y
-            #            P *= self.p_next(ys[:i]).normalize()[y]
             P *= self.p_next(ys[:i])[y]
             if P == 0:
                 break
