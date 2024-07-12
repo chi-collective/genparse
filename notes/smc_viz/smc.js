@@ -190,6 +190,11 @@ function showData(data, options = {}) {
   // modify the history data in place however we need
   history.forEach((step, t) => {
 
+    if (!step.resample_indices) {
+      // add in resample_indices if they don't exist (each particle is extended)
+      step.resample_indices = Array.from({length: step.particles.length}, (_, i) => i);
+    }
+
     // Untangling logic (so resampled indices don't need to be sorted in the json input)
     if (untangle && t > 0 && history[t - 1].resample_indices) {
         const prevStep = history[t - 1];
@@ -199,10 +204,8 @@ function showData(data, options = {}) {
         prevStep.resample_indices = perm.permute(prevStep.resample_indices);
         step.particles = perm.permute(step.particles);
         
-        // Update current step's resample_indices if it exists
-        if (step.resample_indices) {
-            step.resample_indices = perm.reIndex(step.resample_indices);
-        }
+        // Update current step's resample_indices
+        step.resample_indices = perm.reIndex(step.resample_indices);
     }
 
     const particles = step.particles;

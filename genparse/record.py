@@ -239,6 +239,10 @@ def untangle_history(history):
 
         prev_step = untangled_history[t - 1]
 
+        if 'resample_indices' not in step:
+            # add in resample_indices if they don't exist (each particle is extended)
+            step['resample_indices'] = [i for i in range(len(step['particles']))]
+
         if 'resample_indices' in prev_step:
             # Create a permutation based on the previous step's resample_indices
             perm = create_permutation(prev_step['resample_indices'])
@@ -249,9 +253,8 @@ def untangle_history(history):
             # Reorder current step's particles
             step['particles'] = perm['permute'](step['particles'])
 
-            # Update current step's resample_indices if it exists
-            if 'resample_indices' in step:
-                step['resample_indices'] = perm['re_index'](step['resample_indices'])
+            # Update current step's resample_indices
+            step['resample_indices'] = perm['re_index'](step['resample_indices'])
 
         # reorder the resample_indices if they're there and it's the last step
         if t == len(history) - 1 and 'resample_indices' in step:
