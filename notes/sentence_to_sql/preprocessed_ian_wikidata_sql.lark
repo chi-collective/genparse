@@ -1,0 +1,43 @@
+// Based on https://github.com/probcomp/genparse/blob/main/benchmark/grammars/tiny_sql.lark
+start: "SELECT" WS select_expr_people WS "FROM" WS from_expr_people [WS "WHERE" WS bool_condition_people] [WS "GROUP BY" WS var_list_people] [WS "ORDER BY" WS orderby_expr_people] WS* EOS
+EOS: "</s>"
+
+select_expr_people: STAR | select_list_people
+select_list_people: select_var_people ("," WS select_var_people)*
+select_var_people: people_column
+
+from_expr_people: "People"
+
+bool_condition_people: bool_expr_people | "(" bool_condition_people WS "AND" WS bool_condition_people ")" | "(" bool_condition_people WS "OR" WS bool_condition_people ")"
+bool_expr_people: people_column WS* "=" WS* people_value | people_column WS* "<" WS* people_value
+
+orderby_expr_people: var_list_people WS "ASC" | var_list_people WS "DESC"
+var_list_people: people_column ("," WS people_column)*
+
+people_column: _common_name | _given_name | _family_name | _name_in_native_language | _languages_spoken_written_or_signed | _date_of_birth | _place_of_birth | _spouse | _mother | _father | _country_of_citizenship | _occupation | _religion_or_worldview | _sex_or_gender
+_common_name: "item_label"
+_given_name: "given_name"
+_family_name: "family_name"
+_name_in_native_language: "name_in_native_language"
+_languages_spoken_written_or_signed: "languages_spoken__written_or_signed"
+_date_of_birth: "date_of_birth"
+_place_of_birth: "place_of_birth"
+_spouse: "spouse"
+_mother: "mother"
+_father: "father"
+_country_of_citizenship: "country_of_citizenship"
+_occupation: "occupation"
+_religion_or_worldview: "religion_or_worldview"
+_sex_or_gender: "sex_or_gender"
+
+
+STAR: "*"
+people_value: STRING | NUMBER
+STRING: "'" CHAR * "'"
+LETTER: "a".."z" | "A".."Z"
+BACKSLASH: "\\"
+SYMBOL: "(" | ")" | "[" | "]" | "{" | "}" | "!" | "@" | "%" | "*" | "." | "," | ":" | ";" | "<" | "=" | ">" | "/" | "?" | "_" | "`"
+DIGIT: "0".."9"
+CHAR: "''" | LETTER | DIGIT | SYMBOL | (BACKSLASH BACKSLASH)
+NUMBER: /\d+/
+WS: " "
