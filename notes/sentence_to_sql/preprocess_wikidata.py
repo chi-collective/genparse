@@ -28,6 +28,7 @@ DROP_COLUMNS = (
 TYPE_TAG_SUFFIX = '.type'
 XML_LANG_SUFFIX = '.xml:lang'
 RENAME_COLUMNS = {
+    'item.value': 'qnode_uri',
     'item': 'item_label',
 }
 
