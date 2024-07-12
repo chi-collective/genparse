@@ -22,13 +22,54 @@ def set_seed(seed):
         torch.cuda.manual_seed_all(seed)
 
 
+def top_p_filter(p, top_p):
+    """
+    Implemented top-p filtering, aka Nucleus Sampling.
+
+    >>> P = [1/2, 1/4, 1/8, 1/16, 1/32, 1/64, 1-(1/2 + 1/4 + 1/8 + 1/16 + 1/32 + 1/64)]
+
+    >>> top_p_filter(P, 1.0)
+    array([0.5     , 0.25    , 0.125   , 0.0625  , 0.03125 , 0.015625,
+           0.015625])
+
+    >>> top_p_filter(P, 0.75)
+    array([0.66666667, 0.33333333, 0.        , 0.        , 0.        ,
+           0.        , 0.        ])
+
+    >>> top_p_filter(P, 0.5)
+    array([1., 0., 0., 0., 0., 0., 0.])
+
+    >>> top_p_filter(P, 0.0001)
+    array([1., 0., 0., 0., 0., 0., 0.])
+
+    """
+    assert 0 <= top_p <= 1
+
+    p = np.asarray(p)
+    assert np.allclose(np.sum(p), 1), np.sum(p)
+
+    order = np.argsort(p)[::-1]
+
+    total = 0
+    for i in order:
+        if total >= top_p:
+            p[i] = 0
+        total += p[i]
+
+    Z = p.sum()
+
+    p /= Z
+
+    return p
+
+
 def lark_guide(grammar, **kwargs):
     from genparse import BoolCFGLM
 
     return BoolCFGLM(LarkStuff(grammar).char_cfg(**kwargs))
 
 
-def load_model_by_name(model_name, batch_size=None, temperature=1):
+def load_model_by_name(model_name, batch_size=None, temperature=1, top_p=None):
     """
     Load an LLM from 🤗 into a genparse `TokenizedLLM`.
 
@@ -49,6 +90,7 @@ def load_model_by_name(model_name, batch_size=None, temperature=1):
             tokenizer=tokenizer,
             batch_size=batch_size,
             temperature=temperature,
+            top_p=top_p,
         )
 
     elif model_name == 'mock-gpt2':
@@ -61,6 +103,7 @@ def load_model_by_name(model_name, batch_size=None, temperature=1):
             tokenizer=tokenizer,
             batch_size=batch_size,
             temperature=temperature,
+            top_p=top_p,
         )
 
     elif model_name == 'mock-codellama':
@@ -75,6 +118,7 @@ def load_model_by_name(model_name, batch_size=None, temperature=1):
             tokenizer=tokenizer,
             batch_size=batch_size,
             temperature=temperature,
+            top_p=top_p,
         )
 
     elif model_name == 'codellama':
@@ -92,6 +136,7 @@ def load_model_by_name(model_name, batch_size=None, temperature=1):
             ),
             batch_size=batch_size,
             temperature=temperature,
+            top_p=top_p,
         )
 
     else:

@@ -2,7 +2,6 @@ import pytest
 import numpy as np
 from genparse.lm import LM
 from genparse.util import load_model_by_name
-from arsenal import colors
 
 
 def test_tokenized_llm():
@@ -54,6 +53,10 @@ def test_tokenized_llm():
 
 
 def test_llm_probs():
+    """
+    Check consistency between the two methods for evaluating the LM's probability
+    """
+
     lm = load_model_by_name('gpt2')
 
     x = lm.encode_prompt('Sequential Monte Carlo is good') + (lm.tokenizer.eos_token,)
@@ -63,13 +66,24 @@ def test_llm_probs():
     have = np.log(LM.__call__(lm, x))
     want = np.log(lm(x))
 
-    print(
-        'prob:',
-        have,
-        want,
-    )
+    assert np.allclose(have, want)
 
-    # check consistency between the two methods for evaluating the LM's probability
+    # annealing and top_p methods should also be consistent!
+
+    assert lm.top_p is None
+    assert lm.temperature == 1
+
+    lm.top_p = 0.95
+
+    have = np.log(LM.__call__(lm, x))
+    want = np.log(lm(x))
+    assert np.allclose(have, want)
+
+    lm.top_p = None
+    lm.temperature = 0.25
+
+    have = np.log(LM.__call__(lm, x))
+    want = np.log(lm(x))
     assert np.allclose(have, want)
 
 

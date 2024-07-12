@@ -10,6 +10,7 @@ from arsenal.maths import sample_dict
 from genparse.semiring import Float
 from genparse.tokenization import decode_tokenizer_vocab
 from genparse.backends.vllm import vllmpplLLM
+from genparse.util import top_p_filter
 
 
 class LM:
@@ -171,56 +172,35 @@ class LLM(LM):
         return probs[0, :]  # return the conditional distribution of just the last token
 
 
-# class NoCacheLLM(LM):
-#    """
-#    This is a simple class that wraps HuggingFace transformers.
-#    """
-#
-#    def __init__(self, model, V, eos):
-#        super().__init__(V=V, eos=eos)
-#        self.model = model
-#        self.model.eval()  # Set the model in "evaluation mode"
-#
-#    def __call__(self, context):
-#        raise NotImplementedError()
-#
-#    def p_next(self, context):
-#        if isinstance(context, (tuple, list)):
-#            context = torch.LongTensor([context])
-#        with torch.no_grad():
-#            outputs = self.model(input_ids=context, labels=context)
-#            lprobs = torch.nn.functional.softmax(outputs.logits, dim=-1)
-#        return lprobs[
-#            0, -1, :
-#        ]  # return the conditional distribution of just the last token
-
-
 class TokenizedLLM(LM):
     """
     This is a simple class which wraps a token LLM with a tokenizer.
     """
 
-    def __init__(self, tokenizer, model, batch_size, temperature=1):
+    def __init__(self, tokenizer, model, batch_size, temperature=1, top_p=None):
         self.tokenizer = tokenizer
         self._model = model
         self._model.batch_size = batch_size
         self._decode = decode_tokenizer_vocab(self.tokenizer)
         self._encode = {x: i for i, x in enumerate(self._decode)}
         self.temperature = temperature
+        self.top_p = top_p
         super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
 
     def encode_prompt(self, prompt):
         "Encode `prompt` as a tuple of tokens (each a string)."
         return tuple(self._decode[i] for i in self.tokenizer.encode(prompt))
 
-    # TODO: cover me!
     def __call__(self, context):
         assert isinstance(context, tuple), '`context` must be explicitly tokenized'
         assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
         assert (
             context[-1] == self.eos
         ), f'Context must end with eos ({self.eos!r}); got {context = }.'
-        return self._model([self._encode[x] for x in context])
+        if self.temperature == 1 and self.top_p is None:
+            return self._model([self._encode[x] for x in context])
+        else:
+            return super().__call__(context)
 
     def clear_cache(self):
         return self._model.clear_cache()
@@ -232,8 +212,7 @@ class TokenizedLLM(LM):
     def p_next(self, *args, **kwargs):
         return asyncio.run(self.p_next_async(*args, **kwargs))
 
-    async def p_next_async(self, context, _logp=None, **kwargs):  # pylint: disable=unused-argument
-        # Pass the kwargs to the model.
+    async def p_next_async(self, context, _logp=None):
         # For vllm, we need to provide the log probabilities, and
         # _logp is provided by the vllm centralized step function
 
@@ -251,8 +230,19 @@ class TokenizedLLM(LM):
             _logp = await self._model.next_token_logprobs(tokens)
 
         _logp = _logp.cpu().numpy() if hasattr(_logp, 'cpu') else _logp
-        _p_un = np.exp(_logp / self.temperature)
-        _p = _p_un / sum(_p_un)
+
+        # Below, we apply post-processing operations on the conditional
+        # probabilities, such as temperature and top-p filters.
+
+        if self.temperature != 1:
+            _logp = _logp / self.temperature
+
+        _p = np.exp(_logp)
+        _p /= _p.sum()
+
+        if self.top_p is not None:
+            _p = top_p_filter(_p.copy(), self.top_p)
+
         return LazyProb(_p, self._encode, self._decode)
 
 
@@ -336,7 +326,7 @@ class MockLLM(LM):
         self._encode = {x: i for i, x in enumerate(self._decode)}
         super().__init__(eos=eos, V=set(V))
 
-    def p_next(self, context, **kwargs):  # pylint: disable=unused-argument
+    def p_next(self, context):
         assert isinstance(context, tuple)
         assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
         return LazyProb(self._p, self._encode, self._decode)

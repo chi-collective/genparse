@@ -1,3 +1,4 @@
+import asyncio
 from arsenal import colors
 
 from arsenal.datastructures import LocatorMaxHeap
@@ -6,12 +7,6 @@ from arsenal.maths import sample_dict
 
 from genparse.proposal.trie import TokenCharacterTrie
 from genparse.semiring import Float
-
-
-# TODO: It's tempting to require proposal distributions to implement the `LM`
-# interface, but it might be difficult to correctly implement `__call__` and
-# `p_next` as proposal distributions may only be distributions over sample paths
-# rather than character strings.  That appears to be a significant difference.
 
 
 class TokenProposal(TokenCharacterTrie):
@@ -40,20 +35,13 @@ class TokenProposal(TokenCharacterTrie):
 
         super().__init__(words, old_eos=llm.eos, new_eos=guide.eos)
 
-    def _p_next(self, context, K=None, execute_model_req=None, **kwargs):  # pylint: disable=unused-argument
-        p_llm = self.llm.p_next(
-            self._prompt + context, execute_model_req=execute_model_req
-        )
-        return Float.chart(take(K, self.traverse_trie(context, p_llm))).normalize()
-
     async def sample_next_token(
         self,
         prompt,
         context,
         draw=sample_dict,
         p_llm=None,
-        **kwargs,
-    ):  # pylint: disable=unused-argument
+    ):
         r"""
         Proposes a token and incremental weight update.
 
@@ -230,6 +218,7 @@ class TokenProposal(TokenCharacterTrie):
                     P[y] = P_y
                     agenda[token + x, y, False] = P_y * h[y]
 
+    # TODO: unifty with `CharacterProposal.sample`.
     def sample(
         self,
         prompt=(),
@@ -237,7 +226,6 @@ class TokenProposal(TokenCharacterTrie):
         chunked=False,
         max_tokens=float('inf'),
         verbosity=False,
-        K=None,
     ):
         self._prompt = prompt
         context = ()
@@ -247,9 +235,10 @@ class TokenProposal(TokenCharacterTrie):
         while True:
             t += 1
             if t <= max_tokens:
-                p = self._p_next(context, K=K).normalize()
-                y = draw(p)
-                P *= p[y]
+                (y, p, _) = asyncio.run(
+                    self.sample_next_token(prompt=prompt, context=context, draw=draw)
+                )
+                P *= p
             else:
                 y = self.guide.eos
                 P *= 1  # deterministic
