@@ -78,9 +78,14 @@ def main():
         csv_out_path.open(mode='w', encoding='utf-8', newline='') as csv_out,
     ):
         reader = csv.DictReader(csv_in)
-        writer = csv.DictWriter(csv_out, fieldnames=reader.fieldnames)
         columns_to_drop = choose_columns_to_drop(reader.fieldnames)
         # PyCharm gets confused and thinks the rows are strings
+        output_columns = [
+            clean_column(column)
+            for column in reader.fieldnames
+            if column not in columns_to_drop
+        ]
+        writer = csv.DictWriter(csv_out, fieldnames=output_columns)
         row: dict[str, Any]
         for row in reader:
             kept_columns_only = {
