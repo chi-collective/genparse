@@ -27,6 +27,9 @@ DROP_COLUMNS = (
 # We don't care about those.
 TYPE_TAG_SUFFIX = '.type'
 XML_LANG_SUFFIX = '.xml:lang'
+RENAME_COLUMNS = {
+    'item': 'item_label',
+}
 
 
 def choose_columns_to_drop(fieldnames: Iterable[str]) -> set[str]:
@@ -41,7 +44,9 @@ def choose_columns_to_drop(fieldnames: Iterable[str]) -> set[str]:
 
 def clean_column(column: str) -> str:
     """Clean the given column name."""
-    return column.removesuffix('Label.value')
+    result = column.removesuffix('Label.value')
+    result = RENAME_COLUMNS.get(result, result)
+    return result
 
 
 def main():
