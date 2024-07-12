@@ -86,6 +86,7 @@ def main():
             if column not in columns_to_drop
         ]
         writer = csv.DictWriter(csv_out, fieldnames=output_columns)
+        writer.writeheader()
         row: dict[str, Any]
         for row in reader:
             kept_columns_only = {
