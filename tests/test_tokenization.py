@@ -19,6 +19,7 @@ failed_cases = [  # just a few of the likely many failure modes with the current
     '’•¶∂ƒ˙∆£Ħ爨ൠᅘ∰፨',
     '×',
     '¯',
+    '¬',
 ]
 
 tokenizer_names = ['codellama/CodeLlama-7b-Instruct-hf', 'gpt2']

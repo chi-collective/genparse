@@ -18,20 +18,17 @@ from arsenal import defaultdict
 
 
 def get_tokenizer_mapping(tokenizer):
-    name = tokenizer.__class__.__name__.lower()
+    name = tokenizer.name_or_path.lower()
     if 'gpt2' in name:
-        return BBPEMapping(tokenizer)
+        return GPT2Mapping(tokenizer)
     elif 'codellama' in name:
-        return BPEMapping(tokenizer)
-    elif 't5' in name:
-        return BPEMapping(tokenizer)
-    elif 'llama3' in name:
+        return CodeLLaMaMapping(tokenizer)
+    elif 'llama-3' in name:
         return LLaMaMapping(tokenizer)
     else:
         raise ValueError(
-            f'Unknown tokenizer type: {tokenizer.__class__.__name__}.'
-            'GenParse only supports the following tokenizers:'
-            'gpt2, codellama, t5, llama3'
+            f'Unknown tokenizer type: {tokenizer.name_or_path}.'
+            f'GenParse supports the following tokenizers: gpt2, codellama, llama-3'
         )
 
 
@@ -76,7 +73,7 @@ class Mapping:
         return bytes(token, 'utf-8')
 
 
-class BBPEMapping(Mapping):
+class GPT2Mapping(Mapping):
     #    def __init__(self, *args, **kwargs):
     #        super().__init__(*args, **kwargs)
 
@@ -107,7 +104,7 @@ class LLaMaMapping(Mapping):
         return tokens
 
 
-class BPEMapping(Mapping):
+class CodeLLaMaMapping(Mapping):
     def __init__(self, tokenizer):
         super().__init__(tokenizer)
         self.last_token_id = None
