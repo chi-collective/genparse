@@ -65,6 +65,7 @@ def sample_prompt(self, prompt, draw=sample_dict, verbosity=0, complete=False):
         if verbosity > 1:
             print(q.top(5))
 
+        q = q.sort_descending()
         y = draw(q)
 
         context = context + (y,)
