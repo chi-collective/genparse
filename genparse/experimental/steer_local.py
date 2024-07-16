@@ -87,28 +87,18 @@ class LocalPOESampler:
 
 
     Example usage:
-    ```
-        from vllm import LLM
-
-        model_id = 'codellama/CodeLlama-7b-Instruct-hf'
-        vllm_llm = LLM(model = 'codellama/CodeLlama-7b-Instruct-hf')
-
-        from genparse import BoolCFGLM
-        from genparse.util import LarkStuff
-
-        char_cfg = LarkStuff(grammar).char_cfg()
-        guide = BoolCFGLM(char_cfg)
-
-        from genparse.experimental.steer_local import LocalPOESampler
-
-        sampler = LocalPOESampler(vllm_llm, guide, K = 5)
-        approx = sampler.run_inference(
+    >>> from vllm import LLM
+    >>> vllm_llm = LLM(model = 'codellama/CodeLlama-7b-Instruct-hf')
+    >>> from genparse.util import lark_guide
+    >>> guide = lark_guide(grammar)
+    >>> from genparse.experimental.steer_local import LocalPOESampler
+    >>> sampler = LocalPOESampler(vllm_llm, guide, K = 5)
+    >>> approx = sampler.run_inference(
             prompt = prompt,
             n_particles = 5,
             max_tokens = 100,
             seed = 0
         )
-    ```
     """
 
     def __init__(self, vllm_llm, guide, K):
