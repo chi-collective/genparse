@@ -141,3 +141,28 @@ def _update_trie_numba(
         for child in jump[node]:
             total_mass += mass[child]
         mass[node] = total_mass
+
+
+@numba.jit(nopython=True)
+def _update_trie_numba_max(
+    mass: numba.float64[:],
+    _p: numba.float64[:],
+    jump: List[numba.int32[:]],
+    token_id_to_leaf: numba.int32[:, :],
+    ordering: numba.int32[:],
+):  # pragma: no cover
+    # update leaves
+    M = token_id_to_leaf.shape[0]
+    for k in range(M):
+        i = token_id_to_leaf[k, 0]
+        x = token_id_to_leaf[k, 1]
+        mass[x] = _p[i]
+
+    # update internal nodes
+    N = ordering.shape[0]
+    for i in range(N):
+        node = ordering[i]
+        total_mass = 0
+        for child in jump[node]:
+            total_mass = max(total_mass, mass[child])
+        mass[node] = total_mass

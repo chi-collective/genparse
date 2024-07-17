@@ -5,7 +5,7 @@ from arsenal.datastructures import LocatorMaxHeap
 from arsenal.iterextras import take
 from arsenal.maths import sample_dict
 
-from genparse.proposal.trie import TokenCharacterTrie
+from genparse.proposal.trie_numba import TokenCharacterTrie, _update_trie_numba_max
 from genparse.semiring import Float
 
 
@@ -33,7 +33,7 @@ class TokenProposal(TokenCharacterTrie):
         # Filter LLM tokens that are illegal under the cfg
         words = {word for word in llm.V if set(word) <= self.guide.V or word == llm.eos}
 
-        super().__init__(words, old_eos=llm.eos, new_eos=guide.eos)
+        super().__init__(words, encode=llm._encode, old_eos=llm.eos, new_eos=guide.eos)
 
     async def sample_next_token(
         self,
@@ -112,16 +112,6 @@ class TokenProposal(TokenCharacterTrie):
 
         return (token, proposal_p, weight_update)
 
-    def _update_internal(self):
-        # overrides base method.  Takes max rather than sum of internal nodes
-        jump = self.jump
-        mass = self.mass
-        for node in self.ordering:
-            m = 0
-            for child in jump[node]:
-                m = max(m, mass[child])
-            mass[node] = m
-
     def __deepcopy__(self, memo):
         cpy = type(self).__new__(type(self))
 
@@ -159,18 +149,17 @@ class TokenProposal(TokenCharacterTrie):
         assert set(context) <= self.llm.V, f'OOV detected {set(context) - self.llm.V}'
 
         # update the trie with the llm's distribution of next token `p_llm`.
-        self.mass[:] = 0  # reset the mass
-        self._update_leaves(p_llm)
+        self.mass[self.word2leaf[self.new_eos]] = p_llm[self.old_eos]
+
+        _update_trie_numba_max(
+            mass=self.mass,
+            _p=p_llm._p,
+            token_id_to_leaf=self.token_id_to_leaf,
+            jump=self.jump,
+            ordering=self.ordering,
+        )
 
         h = self.mass.copy()
-
-        # Update internal nodes of our A* heuristic
-        jump = self.jump
-        for node in self.ordering:
-            m = 0
-            for child in jump[node]:
-                m = max(m, h[child])
-            h[node] = m
 
         agenda = LocatorMaxHeap()
 

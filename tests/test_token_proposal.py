@@ -47,6 +47,36 @@ def test_timothy():
             )
 
 
+def test_top_K():
+    from arsenal.iterextras import take
+
+    set_seed(0)
+
+    guide = lark_guide(
+        r"""
+        start: /[ ]*Tim(othy)?[ ](Fabbri[ ])?Vieira\./
+        """
+    )
+
+    llm = load_model_by_name('gpt2')
+
+    guide.V |= {w for word in llm.V for w in word}
+
+    proposal = TokenProposal(llm=llm, guide=guide, K=None)
+
+    context = ('Tim',)
+    p_llm = llm.p_next(context)
+
+    # Test that `traverse_trie`'s token's are returned in order of largest to
+    # smallest probability
+    prev = 1
+    for y, p_y in proposal.traverse_trie(context, p_llm):
+        assert p_y <= prev
+        prev = p_y
+        assert np.allclose(p_y, p_llm[y] * guide.p_next_seq(''.join(context), y))
+        print(prev, '\t', repr(y))
+
+
 def test_basic_aligned_model_iql_small():
     set_seed(0)
 
