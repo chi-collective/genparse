@@ -1,11 +1,11 @@
 import numpy as np
-from arsenal import colors
+from arsenal import colors, timeit
 from arsenal.maths.combinatorics import permute
 
 from genparse import locally_normalize, BoolCFGLM, EarleyLM, MockLLM, Float
 from genparse.segmentation import prefixes
 from genparse.proposal import TokenProposal
-from genparse.util import set_seed, LarkStuff, load_model_by_name
+from genparse.util import set_seed, lark_guide, LarkStuff, load_model_by_name
 from genparse.proposal.util import (
     mock_token_proposal,
     assert_proper_weighting,
@@ -18,6 +18,33 @@ from genparse.proposal.util import (
 #        p_x = self.guide.pfg(context + x)  # prefix weight of context + x
 #        if p_x == 0: continue
 #        yield (context + x, p_x)
+
+
+def test_timothy():
+    set_seed(0)
+
+    guide = lark_guide(
+        r"""
+        start: /[ ]*Tim(othy)?[ ](Fabbri[ ])?Vieira\./
+        """
+    )
+
+    llm = load_model_by_name('gpt2')
+    prompt = llm.encode_prompt('Hello my name is')
+
+    guide.V |= {w for word in llm.V for w in word}
+
+    proposal = TokenProposal(llm=llm, guide=guide, K=10)
+    with timeit('sample'):
+        for _ in range(10):
+            print(colors.line(80))
+            x, q = proposal.sample(prompt, max_tokens=50)
+            print(
+                f'{np.log(q):.2f}\t',
+                (colors.light.cyan % '[')
+                + (colors.light.cyan % '|').join(x)
+                + (colors.light.cyan % ']'),
+            )
 
 
 def test_basic_aligned_model_iql_small():

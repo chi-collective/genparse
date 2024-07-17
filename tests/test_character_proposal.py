@@ -1,8 +1,9 @@
+import numpy as np
 from arsenal import colors, timeit
 
 from genparse import Float, EarleyLM, BoolCFGLM, locally_normalize
 from genparse.proposal import CharacterProposal
-from genparse.util import LarkStuff, set_seed, load_model_by_name
+from genparse.util import set_seed, lark_guide, LarkStuff, load_model_by_name
 
 from genparse.proposal.util import (
     mock_character_proposal,
@@ -14,28 +15,22 @@ from genparse.proposal.util import (
 def test_timothy():
     set_seed(0)
 
-    pcfg = EarleyLM(
-        locally_normalize(
-            LarkStuff(r""" start: /[ ]*Tim(othy)?[ ](Fabbri[ ])?Vieira\./""").char_cfg(),
-            tol=1e-100,
-        )
-    )
+    guide = lark_guide(r""" start: /[ ]*Tim(othy)?[ ](Fabbri[ ])?Vieira\./""")
 
     llm = load_model_by_name('gpt2')
     prompt = llm.encode_prompt('Hello my name is')
 
-    proposal = CharacterProposal(llm=llm, guide=pcfg)
-    W = Float.chart()
-    for _ in range(10):
-        print('----------------------------------')
-        with timeit('sample'):
-            ys, _, w = proposal.sample(prompt, verbosity=1, max_tokens=50)
-
-        W[ys] += w
-
-        print(colors.light.yellow % 'sample:', ys)
-
-        print(W.project(''.join).normalize())
+    proposal = CharacterProposal(llm=llm, guide=guide)
+    with timeit('sample'):
+        for _ in range(10):
+            print(colors.line(80))
+            x, q, w = proposal.sample(prompt, max_tokens=50)
+            print(
+                f'{np.log(q):.2f}\t{np.log(w):.2f}\t',
+                (colors.light.cyan % '[')
+                + (colors.light.cyan % '|').join(x)
+                + (colors.light.cyan % ']'),
+            )
 
 
 def todo_chomsky():
