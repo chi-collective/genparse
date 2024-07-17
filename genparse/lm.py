@@ -247,7 +247,9 @@ class TokenizedLLM(LM):
         if self.temperature != 1:
             _logp = _logp / self.temperature
 
-        _p = np.exp(_logp)
+        exp_dtype = np.float64 if np.any(_logp < -100) else _logp.dtype
+        assert np.all(_logp > -700), 'log probabilities too low, will cause underflow'
+        _p = np.exp(_logp, dtype=exp_dtype)
         _p /= _p.sum()
 
         if self.top_p is not None:
