@@ -14,8 +14,6 @@ from genparse import Float
 from genparse.lm import LM
 from genparse.steer import ParticleApproximation
 
-from vllm import SamplingParams
-
 
 class MinimalLM(LM):
     def __init__(self, tokenizer):
@@ -108,6 +106,8 @@ class LocalPOESampler:
         self.masker = LocalMasker(self.llm, self.guide, K=K)
 
     def run_inference(self, prompt, n_particles, max_tokens, seed):
+        from vllm import SamplingParams
+
         sampling_params = SamplingParams(
             n=n_particles,
             seed=seed,
