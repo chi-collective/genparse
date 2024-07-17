@@ -2,77 +2,157 @@
 Experimental method for sampling a tokenization that is consistent with an observed string.
 """
 
-from genparse import Float
-from genparse.trace import TraceSWOR
-from genparse.util import set_seed, load_model_by_name
+import numpy as np
+import pylab as pl
 
 from arsenal import colors
-from arsenal.maths import sample_dict
+from arsenal.maths import sample_dict, logsumexp, compare
+from collections import defaultdict
+
+from genparse import Float
 
 
-def test_healing():
-    set_seed(0)
+log_zero = float('-inf')
 
-    # lm = load_model_by_name('mock-gpt2')
-    lm = load_model_by_name('gpt2', temperature=0.12)
 
-    prompt = ' Sequential Monte Carlo is good'
+class PromptParticle:
+    def __init__(self, lm, prompt, draw=sample_dict):
+        context = ()
+        k = 0
 
-    tracer = TraceSWOR()
+        V = sorted(lm.V)  # sorting for random seed consistency
 
-    while tracer.root.mass > 1e-5:
-        with tracer:
-            context = sample_prompt(lm, prompt, verbosity=0, draw=tracer, complete=True)
-        print(
-            f'{tracer.root.mass:.8f} '
+        logP = 0.0
+        logQ = 0.0
+        logW = 0.0
+
+        while True:
+            logp = lm.logp_next(context)
+
+            logq = defaultdict(lambda: log_zero)
+
+            tmp = log_zero
+            for y in V:
+                if y == lm.eos:
+                    continue
+                if (
+                    prompt[k:].startswith(y)
+                    or len(prompt[k:]) < len(y)
+                    and y.startswith(prompt[k:])
+                ):
+                    logq[y] = logp[y]
+                    tmp = logsumexp([tmp, logp[y]])
+
+            logπ = defaultdict(lambda: log_zero)
+            for y in sorted(logq):
+                logπ[y] = logq[y] - tmp
+
+            y = draw.log_sample(logπ)
+
+            logP += logp[y]
+            logQ += logπ[y]
+            logW += tmp
+
+            context = context + (y,)
+
+            k += len(y)
+
+            if len(prompt[k:]) == 0:
+                break
+
+        self.context = context
+        self.logP = logP
+        self.logQ = logQ
+        self.logW = logW
+
+    def __repr__(self):
+        return (
+            f'{self.logW}:\t'
             + colors.light.cyan % '['
-            + (colors.light.cyan % '|').join(context)
+            + (colors.light.cyan % '|').join(
+                # [colors.bg.magenta, '%s'][i % 2] % repr(y)[1:-1] for i, y in enumerate(self.context)
+                repr(y)[1:-1]
+                for i, y in enumerate(self.context)
+            )
             + colors.light.cyan % ']'
         )
 
-    print(f'truncated with {tracer.root.mass:g} mass left')
+
+def p_next_healing(self, context):
+    # token healing will take all but the last token and then resample the last one
+    # since it might be a partial token.
+    assert isinstance(context, str)
+    token_ids = self.tokenizer.encode(context)
+    tokens = tuple(self._decode[t] for t in token_ids)
+
+    token_prefix = tokens[-1]
+    tokens = tokens[:-1]
+
+    _p = self.p_next(tokens)
+
+    pp = Float.chart()
+    for x in _p.keys():
+        if x.startswith(token_prefix):
+            pp[x] = _p[x]
+    return pp.normalize()
 
 
-# TODO: This is a work-in-progress method for sampling a tokenization that is
-# consistent with an observed string `prompt`
-def sample_prompt(self, prompt, draw=sample_dict, verbosity=0, complete=False):
-    # context = (self.tokenizer.bos_token,)
-    context = ()
-    k = 0
-    while True:
-        p = self.p_next(context)
+def logprefix(self, context):
+    return sum(self.logp_next(context[:i])[y] for i, y in enumerate(context))
 
-        if verbosity > 0:
-            print(context, repr(prompt[k:]))
-        q = Float.chart()
-        for y in self.V:
-            if prompt[k:].startswith(y):
-                q[y] = p[y]
 
-            if not complete and len(prompt[k:]) <= len(y) and y.startswith(prompt[k:]):
-                q[y] = p[y]
+import pandas as pd
 
-        # EOS is not allowed until after the prompt is covered
-        if len(prompt[k:]) == 0:
-            q[self.eos] = p[self.eos]
 
-            if complete:
-                q.clear()
-                q[self.eos] = 1
+def test_healing():
+    from genparse.trace1 import TraceSWOR
+    from genparse.util import set_seed, load_model_by_name
+    from arsenal import iterview
 
-        q = q.normalize()
+    lm = load_model_by_name('gpt2')
 
-        if verbosity > 1:
-            print(q.top(5))
+    prompt = ' Sequential Monte Carlo is g'
 
-        y = draw(q)
+    tracer = TraceSWOR()
 
-        context = context + (y,)
+    data = []
 
-        if y == self.eos:
-            return context
+    for T in iterview(range(20)):
+        with tracer:
+            particle = PromptParticle(lm, prompt, draw=tracer)
+            log_mass = tracer.cur.log_mass  # must do in the with-statement!
 
-        k += len(y)
+        print(f'{tracer.root.log_mass}\t', particle)
+
+        data.append(
+            {
+                'context': particle.context,
+                'logP': particle.logP,
+                'logW': particle.logW,
+                'logQ': particle.logQ,
+                'logprefix': logprefix(lm, particle.context),
+                'log_mass': log_mass,
+            }
+        )
+
+    print(f'truncated with {tracer.root.log_mass:g} log mass left')
+    df = pd.DataFrame(data)
+
+    # identities about various quantities associated with the particle
+    assert np.allclose(df.logP - df.logQ, df.logW)
+    assert np.allclose(df.log_mass, df.logQ)
+
+    # check that the target is the same as the logprefix weight
+    assert np.allclose(df.logprefix, df.logP)
+
+    # The proposal distribution over prompts is not well-correlated with the
+    # prefix probability of the token string.
+    assert not np.allclose(df.logprefix, df.logQ)
+
+    # However, the importance weight distrbution is (we are using $p(x) =
+    # \frac{p(x)}{q(x)} q(x) = w(x) q(x)$ here since we are enumerating $x$
+    # rather than sampling it.)
+    assert np.allclose(df.logprefix, df.logQ + df.logW)
 
 
 if __name__ == '__main__':

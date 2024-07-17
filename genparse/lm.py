@@ -39,18 +39,19 @@ class LM:
 
     def __call__(self, ys):
         "Compute the probability of a complete string."
+        return np.exp(self.logp(ys))
+
+    def logp(self, ys):
+        "Compute the probability of a complete string."
         assert ys[-1] == self.eos
-        P = 1
-        for i, y in enumerate(ys):
-            assert y in self.V, y
-            p = self.p_next(ys[:i])
-            P *= p[y]
-            if P == 0:
-                break
-        return P
+        return sum(self.logp_next(ys[:i])[y] for i, y in enumerate(ys))
+
+    def logp_next(self, ys):
+        "Compute the log conditional distribution over the next token given the `prefix`."
+        raise NotImplementedError()
 
     def p_next(self, context):
-        "Compute the (conditional) distribution over the next token given the `prefix`."
+        "Compute the conditional distribution over the next token given the `prefix`."
         raise NotImplementedError()
 
     async def p_next_async(self, context):
@@ -113,6 +114,9 @@ class LLM(LM):
         self._cache = {}
 
     def __call__(self, input_ids):
+        return np.exp(self.logp(input_ids))
+
+    def logp(self, input_ids):
         if isinstance(input_ids, list):
             input_ids = torch.LongTensor([input_ids]).squeeze()
         if input_ids[0] != self.model.config.bos_token_id:
@@ -124,7 +128,7 @@ class LLM(LM):
             outputs = self.model(input_ids=input_ids, labels=input_ids)
             lprobs = torch.nn.functional.log_softmax(outputs.logits, dim=-1)
         token_lprobs = torch.gather(lprobs, 1, input_ids[1:].unsqueeze(-1)).squeeze(-1)
-        return np.exp(torch.sum(token_lprobs, dim=-1).item())
+        return torch.sum(token_lprobs, dim=-1).item()
 
     def clear_cache(self):
         self._cache.clear()
@@ -158,6 +162,9 @@ class LLM(LM):
             return value
 
     def p_next(self, context):
+        return np.exp(self.logp_next(context))
+
+    def logp_next(self, context):
         if isinstance(context, (tuple, list)):
             context = torch.LongTensor([context])
         prefix = context.squeeze().tolist()
@@ -167,7 +174,7 @@ class LLM(LM):
         with torch.no_grad():
             outputs = self.get_state(prefix)
             # Calculate the log_softmax to get the log probabilities for each time step
-            probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
+            probs = torch.nn.functional.log_softmax(outputs.logits, dim=-1)
         # return lprobs[0,-1,:]  # return the conditional distribution of just the last token
         return probs[0, :]  # return the conditional distribution of just the last token
 
@@ -209,10 +216,13 @@ class TokenizedLLM(LM):
         p = await self.p_next_async(context)
         return p.map_values(np.log)
 
-    def p_next(self, *args, **kwargs):
-        return asyncio.run(self.p_next_async(*args, **kwargs))
+    def p_next(self, context, _logp=None):
+        return asyncio.run(self.p_next_async(context, _logp=None, return_logp=False))
 
-    async def p_next_async(self, context, _logp=None):
+    def logp_next(self, context, _logp=None):
+        return asyncio.run(self.p_next_async(context, _logp=None, return_logp=True))
+
+    async def p_next_async(self, context, _logp=None, return_logp=False):
         # For vllm, we need to provide the log probabilities, and
         # _logp is provided by the vllm centralized step function
 
@@ -243,7 +253,10 @@ class TokenizedLLM(LM):
         if self.top_p is not None:
             _p = top_p_filter(_p.copy(), self.top_p)
 
-        return LazyProb(_p, self._encode, self._decode)
+        if return_logp:
+            return LazyProb(np.log(_p), self._encode, self._decode)
+        else:
+            return LazyProb(_p, self._encode, self._decode)
 
 
 #    def p_next_healing(self, context, top=10):
