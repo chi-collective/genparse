@@ -125,12 +125,11 @@ class TokenProposal(TokenCharacterTrie):
         cpy.word2leaf = self.word2leaf
         cpy.jump = self.jump
         cpy.ordering = self.ordering
-        # cpy.token_id_to_leaf = self.token_id_to_leaf    # TODO: when we switch to the numba version
         cpy.llm = self.llm
         cpy.guide = self.guide
         cpy.old_eos = self.old_eos
         cpy.new_eos = self.new_eos
-        cpy._prompt = self._prompt
+        cpy.token_id_to_leaf = self.token_id_to_leaf
         cpy.K = self.K
 
         return cpy

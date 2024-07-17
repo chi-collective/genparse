@@ -17,7 +17,7 @@ class InferenceSetupVLLM:
         guide_opts=None,
         proposal_opts=None,
         batch_size=None,
-        temperature=1,
+        llm_opts=None,
     ):
         from genparse.lm import TokenizedLLM
 
@@ -25,6 +25,8 @@ class InferenceSetupVLLM:
             guide_opts = {}
         if proposal_opts is None:
             proposal_opts = {}
+        if llm_opts is None:
+            llm_opts = {}
 
         if seed is not None:
             set_seed(seed)
@@ -37,7 +39,7 @@ class InferenceSetupVLLM:
                 model=vllmpplLLM(MODEL_ID),
                 tokenizer=transformers.AutoTokenizer.from_pretrained(MODEL_ID),
                 batch_size=batch_size,
-                temperature=temperature,
+                **llm_opts,
             )
 
         elif model_name == 'codellama':
@@ -46,7 +48,7 @@ class InferenceSetupVLLM:
                 model=vllmpplLLM(MODEL_ID, dtype=torch.float32, max_model_len=4096),
                 tokenizer=transformers.AutoTokenizer.from_pretrained(MODEL_ID),
                 batch_size=batch_size,
-                temperature=temperature,
+                **llm_opts,
             )
 
         else:

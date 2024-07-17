@@ -154,7 +154,7 @@ class InferenceSetup:
         batch_size=None,
         guide_opts=None,
         proposal_opts=None,
-        temperature=1,
+        llm_opts=None,
     ):
         from genparse.steer import HFPPLSampler
         from genparse.proposal import CharacterProposal, TokenProposal
@@ -163,13 +163,13 @@ class InferenceSetup:
             guide_opts = {}
         if proposal_opts is None:
             proposal_opts = {}
+        if llm_opts is None:
+            llm_opts = {}
 
         if seed is not None:
             set_seed(seed)
 
-        llm = load_model_by_name(
-            model_name, batch_size=batch_size, temperature=temperature
-        )
+        llm = load_model_by_name(model_name, batch_size=batch_size, **llm_opts)
         guide = lark_guide(grammar, **guide_opts)
         sampler = HFPPLSampler(llm=llm, guide=guide)
 
