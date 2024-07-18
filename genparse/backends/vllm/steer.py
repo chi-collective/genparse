@@ -79,7 +79,7 @@ class VLLMWrapper:
                 VLLMParticle(
                     prompt=prompt,
                     max_tokens=self.max_tokens,
-                    proposal=copy.deepcopy(self.proposal),
+                    proposal=self.proposal,
                 )
                 for _ in range(self.n_particles)
             ]
