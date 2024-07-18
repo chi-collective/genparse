@@ -4,9 +4,10 @@ Language model steering methods
 
 import asyncio
 import warnings
-
 import numpy as np
 from arsenal.maths import logsumexp, sample_dict
+from arsenal import colors
+from copy import deepcopy
 
 from hfppl import Model
 
@@ -61,11 +62,26 @@ class HFPPLParticle(Model):
     def immutable_properties(self):
         return ['llm', 'prompt', 'guide', 'verbosity']
 
-    def __repr__(self):
-        return f"`{'' if not self.context else self.context[-1]}` : {''.join(self.context)} : {self.weight}"
+    #    def __repr__(self):
+    #        return f"`{'' if not self.context else self.context[-1]}` : {''.join(self.context)} : {self.weight}"
 
     def __str__(self):
-        return ''.join(self.context)
+        return repr(self)
+
+    def __repr__(self):
+        return (
+            f'{self.weight:.2f}:\t'
+            + colors.light.cyan % '['
+            + (colors.light.cyan % '|').join(
+                # [colors.bg.magenta, '%s'][i % 2] % repr(y)[1:-1] for i, y in enumerate(self.context)
+                repr(y)[1:-1]
+                for y in self.context
+            )
+            + colors.light.cyan % ']'
+        )
+
+    def __lt__(self, other):
+        return self.weight < other.weight
 
 
 class HFPPLSampler:
@@ -148,14 +164,13 @@ class HFPPLSampler:
 class ParticleApproximation:
     def __init__(self, particles, record=None):
         self.particles = particles
-        self.log_weights = [p.weight for p in self.particles]
+        self.log_weights = np.array([p.weight for p in self.particles])
         self.log_ml = logsumexp(self.log_weights) - np.log(len(self.log_weights))
         self.record = record
-
         posterior = Float.chart()
         for p in self.particles:
             posterior[''.join(p.context)] += np.exp(p.weight)
-        self.posterior = posterior.normalize()
+        self.posterior = posterior.normalize().sort_descending()
 
     def __iter__(self):
         return iter(self.particles)
@@ -174,3 +189,15 @@ class ParticleApproximation:
 
     def risk(self, kernel, candidate):
         return sum(p * kernel(candidate, y) for y, p in self.posterior.items())
+
+    def finalize(self, eos):
+        "Optionally, we can zero-out invalid particles, i.e., those that do not end in eos."
+        particles = deepcopy(self.particles)
+        for p in particles:
+            if p.context[-1] != eos:
+                p.weight = float('-inf')
+        return ParticleApproximation(particles, self.record)
+
+    def show(self):
+        for p in sorted(self, reverse=True):
+            print(p)
