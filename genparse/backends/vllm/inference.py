@@ -31,7 +31,7 @@ class VLLMParticle(Model):
         return
 
     def immutable_properties(self):
-        return ['prompt', 'guide', 'verbosity']
+        return ['prompt', 'guide', 'verbosity', 'proposal']
 
     def context_ids_tuple(self):
         return tuple(self.context_ids)
