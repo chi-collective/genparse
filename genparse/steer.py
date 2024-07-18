@@ -5,7 +5,7 @@ Language model steering methods
 import asyncio
 import warnings
 import numpy as np
-from arsenal.maths import logsumexp, sample_dict
+from arsenal.maths import logsumexp, sample_dict, log_sample
 from arsenal import colors
 from copy import deepcopy
 
@@ -37,6 +37,11 @@ class HFPPLParticle(Model):
         self.proposal = proposal
         self.max_tokens = max_tokens
         self.verbosity = verbosity
+
+    def reweight(self, weight):
+        new = deepcopy(self)
+        new.weight = weight
+        return new
 
     async def step(self):
         (token, _, weight_update) = await self.proposal.sample_next_token(
@@ -208,3 +213,10 @@ class ParticleApproximation:
     def show(self):
         for p in sorted(self, reverse=True):
             print(p)
+
+    def resample(self):
+        indices = log_sample(self.log_normalized_weights, size=self.size)
+        avg_weight = self.log_total - np.log(self.size)
+        return ParticleApproximation(
+            [self.particles[i].reweight(avg_weight) for i in indices]
+        )

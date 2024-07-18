@@ -1,7 +1,8 @@
 from transformers import AutoTokenizer
-import warnings
+
 from genparse.tokenization import decode_tokenizer_vocab
 from genparse.lm import TokenizedLLM
+
 
 cases = [
     'state',
@@ -22,24 +23,20 @@ failed_cases = [  # just a few of the likely many failure modes with the current
     '¬',
 ]
 
-tokenizer_names = ['codellama/CodeLlama-7b-Instruct-hf', 'gpt2']
+tokenizer_names = [
+    'codellama/CodeLlama-7b-Instruct-hf',
+    # "meta-llama/Meta-Llama-3-8B",
+    'gpt2',
+]
 
-# "meta-llama/Meta-Llama-3-8B",
+tokenizers = [
+    (tokenizer_name, AutoTokenizer.from_pretrained(tokenizer_name))
+    for tokenizer_name in tokenizer_names
+]
 
 
 class DummyLM:
     pass
-
-
-tokenizers = []
-for tokenizer_name in tokenizer_names:
-    try:
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-        tokenizers.append((tokenizer_name, tokenizer))
-    except Exception:
-        warnings.warn(
-            'Failed to load {tokenizer_name} with exception {e}. Not testing this tokenizer.'
-        )
 
 
 def test_decoding():

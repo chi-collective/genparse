@@ -1,9 +1,9 @@
 import numpy as np
 from arsenal import colors, timeit
 
-from genparse import Float, EarleyLM, BoolCFGLM, locally_normalize
+from genparse import Float, EarleyLM
 from genparse.proposal import CharacterProposal
-from genparse.util import set_seed, lark_guide, LarkStuff, load_model_by_name
+from genparse.util import set_seed, lark_guide, load_model_by_name
 
 from genparse.proposal.util import (
     mock_character_proposal,
@@ -36,22 +36,17 @@ def test_timothy():
 def todo_chomsky():
     set_seed(0)
 
-    pcfg = EarleyLM(
-        locally_normalize(
-            LarkStuff(
-                r"""
+    guide = lark_guide(
+        r"""
 
-                start: /Noam[ ]Chomsky[ ]famously[ ]wrote,[ ]"/ expr /\."/
+        start: /Noam[ ]Chomsky[ ]famously[ ]wrote,[ ]"/ expr /\."/
 
-                //expr: /[A-Za-z0-9,; ]+/
-                expr: /[Tt]ime[ ]flies[ ]like[ ]an[ ]arrow/
-                  | /[iI][ ]like[ ]to[ ]dance/
-                  | /[cC]olorless[ ]green[ ]ideas[ ]sleep[ ]furiously/
+        //expr: /[A-Za-z0-9,; ]+/
+        expr: /[Tt]ime[ ]flies[ ]like[ ]an[ ]arrow/
+        | /[iI][ ]like[ ]to[ ]dance/
+        | /[cC]olorless[ ]green[ ]ideas[ ]sleep[ ]furiously/
 
-                """
-            ).char_cfg(),
-            tol=1e-300,
-        )
+        """
     )
 
     # TODO: we can improve this model considerably by encoding the max length
@@ -65,26 +60,13 @@ def todo_chomsky():
     # XXX: we are using the boolean CFG instead of the PCFG; the PCFG is running
     # into numerical underflow.  We need to use the log-semiring or a rescaling
     # trick in the Earley parser.
-    pcfg = BoolCFGLM(pcfg.cfg)
-
-    # print(''.join(pcfg.sample()))
-
-    #    from genparse.semiring import Log
-    #    tmp = pcfg.cfg.spawn(R = Log)
-    #    for r in pcfg.cfg:
-    #        tmp.add(Log(np.log(r.w)), r.head, *r.body)
-    #    lpcfg = EarleyLM(tmp)
-
-    #    x = 'Noam Chomsky famously wrote, "One of the most outrageous things about Modernity has always been muckraking in human nature; it has deceptively distorted the way in which one views human rights by making dece'
-    #    lp = lpcfg.p_next(x)
-    #    pp = pcfg.p_next(x)
 
     llm = load_model_by_name('gpt2')
     prompt = (llm.eos,)
 
     W = Float.chart()
 
-    proposal = CharacterProposal(llm=llm, guide=pcfg)
+    proposal = CharacterProposal(llm=llm, guide=guide)
     for _ in range(10):
         print('----------------------------------')
         with timeit('sample'):

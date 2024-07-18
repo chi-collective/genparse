@@ -5,14 +5,12 @@ from genparse.trace import TraceSWOR
 from genparse import Float
 from genparse.lm import MockLLM, LM
 from genparse.proposal import TokenProposal, CharacterProposal
-from genparse.cfglm import BoolCFGLM
-from genparse.util import LarkStuff
+from genparse.util import lark_guide
 
 
-# TODO: Replace make_guide with `genparse.util.lark_guide`.
 def _make_guide(guide_spec):
     if isinstance(guide_spec, str):
-        return BoolCFGLM(LarkStuff(guide_spec).char_cfg())
+        return lark_guide(guide_spec)
     elif isinstance(guide_spec, LM):
         return guide_spec
     else:

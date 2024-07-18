@@ -37,25 +37,25 @@ class LM:
         self.eos = eos
         self.V = V
 
-    def __call__(self, ys):
+    def __call__(self, context):
         "Compute the probability of a complete string."
         #        return np.exp(self.logp(ys))
-        assert ys[-1] == self.eos
+        assert context[-1] == self.eos
         P = 1
-        for i, y in enumerate(ys):
+        for i, y in enumerate(context):
             assert y in self.V, y
-            p = self.p_next(ys[:i])
+            p = self.p_next(context[:i])
             P *= p[y]
             if P == 0:
                 break
         return P
 
-    def logp(self, ys):
+    def logp(self, context):
         "Compute the probability of a complete string."
-        assert ys[-1] == self.eos
-        return sum(self.logp_next(ys[:i])[y] for i, y in enumerate(ys))
+        assert context[-1] == self.eos
+        return sum(self.logp_next(context[:i])[y] for i, y in enumerate(context))
 
-    def logp_next(self, ys):
+    def logp_next(self, context):
         "Compute the log conditional distribution over the next token given the `prefix`."
         raise NotImplementedError()
 
@@ -122,10 +122,11 @@ class LLM(LM):
         self.model.eval()  # Set the model in "evaluation mode"
         self._cache = {}
 
-    def __call__(self, input_ids):
-        return np.exp(self.logp(input_ids))
+    def __call__(self, context):
+        return np.exp(self.logp(context))
 
-    def logp(self, input_ids):
+    def logp(self, context):
+        input_ids = context
         if isinstance(input_ids, list):
             input_ids = torch.LongTensor([input_ids]).squeeze()
         if input_ids[0] != self.model.config.bos_token_id:
@@ -354,6 +355,11 @@ class MockLLM(LM):
         assert isinstance(context, tuple)
         assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
         return LazyProb(self._p, self._encode, self._decode)
+
+    def logp_next(self, context):
+        assert isinstance(context, tuple)
+        assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
+        return LazyProb(self._logp, self._encode, self._decode)
 
     async def next_token_logprobs(self, _):
         return self._logp

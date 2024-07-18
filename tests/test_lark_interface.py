@@ -4,7 +4,7 @@ import string
 from arsenal import colors
 
 from genparse import BoolCFGLM, locally_normalize, EarleyLM, Earley
-from genparse.util import LarkStuff
+from genparse.lark_interface import LarkStuff
 
 
 grammar1 = r"""

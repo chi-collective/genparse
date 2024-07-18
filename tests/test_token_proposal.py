@@ -2,10 +2,10 @@ import numpy as np
 from arsenal import colors, timeit
 from arsenal.maths.combinatorics import permute
 
-from genparse import locally_normalize, BoolCFGLM, EarleyLM, MockLLM, Float
+from genparse import BoolCFGLM, EarleyLM, MockLLM, Float
 from genparse.segmentation import prefixes
 from genparse.proposal import TokenProposal
-from genparse.util import set_seed, lark_guide, LarkStuff, load_model_by_name
+from genparse.util import set_seed, lark_guide, load_model_by_name
 from genparse.proposal.util import (
     mock_token_proposal,
     assert_proper_weighting,
@@ -48,8 +48,6 @@ def test_timothy():
 
 
 def test_top_K():
-    from arsenal.iterextras import take
-
     set_seed(0)
 
     guide = lark_guide(
@@ -83,30 +81,25 @@ def test_basic_aligned_model_iql_small():
     llm = load_model_by_name('mock-gpt2')
 
     # the base character-level CFG language model
-    guide = EarleyLM(
-        locally_normalize(
-            LarkStuff(
-                r"""
-                start: "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
-                EOS: "</s>"
-                select_expr: STAR | select_list
-                bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
-                bool_expr: var "=" value | var ">" value | var "<" value
-                from_expr: "data"
-                orderby_expr: var_list WS "ASC" | var_list WS "DESC"
-                select_list: select_var ("," WS select_var)*
-                var_list: var ("," WS var)*
-                select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
-                var: "age" | "gender" | "year" | "state_color" | "zipcode" | "vote" | "race_ethnicity"
-                value: NUMBER | "red" | "blue" | "white" | "black" | "latino" | "republican" | "democrat" | "male" | "female"
-                STAR: "*"
-                NUMBER: /\d+/
-                //WS: /[ \t\f\r\n]/
-                WS: " "
-                """
-            ).char_cfg(),
-            tol=1e-100,
-        ).trim()
+    guide = lark_guide(
+        r"""
+        start: "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
+        EOS: "</s>"
+        select_expr: STAR | select_list
+        bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
+        bool_expr: var "=" value | var ">" value | var "<" value
+        from_expr: "data"
+        orderby_expr: var_list WS "ASC" | var_list WS "DESC"
+        select_list: select_var ("," WS select_var)*
+        var_list: var ("," WS var)*
+        select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
+        var: "age" | "gender" | "year" | "state_color" | "zipcode" | "vote" | "race_ethnicity"
+        value: NUMBER | "red" | "blue" | "white" | "black" | "latino" | "republican" | "democrat" | "male" | "female"
+        STAR: "*"
+        NUMBER: /\d+/
+        //WS: /[ \t\f\r\n]/
+        WS: " "
+        """
     )
 
     proposal = TokenProposal(guide=guide, llm=llm)
@@ -319,7 +312,7 @@ def test_proper_weighting():
     # Probabilistic guide #
     #######################
 
-    pcfg = EarleyLM.from_string(
+    guide = EarleyLM.from_string(
         """
 
         1: S -> a
@@ -331,7 +324,7 @@ def test_proper_weighting():
 
     V = {'a', 'aa', 'aaa', '▪'}
 
-    proposal = mock_token_proposal(V=V, guide_spec=pcfg, K=2, uniform=True)
+    proposal = mock_token_proposal(V=V, guide_spec=guide, K=2, uniform=True)
 
     prompt = ()
     context = ()
