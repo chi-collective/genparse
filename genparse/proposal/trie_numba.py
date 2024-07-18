@@ -90,13 +90,22 @@ class TokenCharacterTrie:
             [np.array(sorted(x.values()), dtype=np.int32) for x in new_children]
         )
 
-    def _update_trie(self, words):
+    def update_trie_sum(self, p_llm):
         # convert llm.eos to guide.eos
-        self.mass[self.word2leaf[self.new_eos]] = words[self.old_eos]
-
+        self.mass[self.word2leaf[self.new_eos]] = p_llm[self.old_eos]
         _update_trie_numba(
             mass=self.mass,
-            _p=words._p,
+            _p=p_llm._p,
+            token_id_to_leaf=self.token_id_to_leaf,
+            jump=self.jump,
+            ordering=self.ordering,
+        )
+
+    def update_trie_max(self, p_llm):
+        self.mass[self.word2leaf[self.new_eos]] = p_llm[self.old_eos]
+        _update_trie_numba_max(
+            mass=self.mass,
+            _p=p_llm._p,
             token_id_to_leaf=self.token_id_to_leaf,
             jump=self.jump,
             ordering=self.ordering,

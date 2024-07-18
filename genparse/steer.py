@@ -59,10 +59,7 @@ class HFPPLParticle(Model):
             return
 
     def immutable_properties(self):
-        return ['llm', 'prompt', 'guide', 'verbosity']
-
-    #    def __repr__(self):
-    #        return f"`{'' if not self.context else self.context[-1]}` : {''.join(self.context)} : {self.weight}"
+        return ['llm', 'prompt', 'guide', 'proposal', 'verbosity']
 
     def __str__(self):
         return repr(self)

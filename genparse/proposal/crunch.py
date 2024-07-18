@@ -101,7 +101,7 @@ class Crunching:
                     rate=nodes / (time() - start_time),
                 )
 
-                if item.xs[-1] == self.T.new_eos:
+                if item.xs[-1] == self.guide.eos:
                     if self.guide(''.join(item.xs)):
                         yield item
                     continue
@@ -133,5 +133,5 @@ class Crunching:
             yield Item(
                 item.ps * value,
                 item.xs + (token,),
-                item.ys + ((token,) if token != self.T.new_eos else (self.T.old_eos,)),
+                item.ys + ((token,) if token != self.guide.eos else (self.llm.eos,)),
             )

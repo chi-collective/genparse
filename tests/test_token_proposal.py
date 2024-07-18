@@ -38,9 +38,9 @@ def test_timothy():
     with timeit('sample'):
         for _ in range(10):
             print(colors.line(80))
-            x, q = proposal.sample(prompt, max_tokens=50)
+            x, q, w = proposal.sample(prompt, max_tokens=50)
             print(
-                f'{np.log(q):.2f}\t',
+                f'{np.log(q):.2f}\t{np.log(w):.2f}',
                 (colors.light.cyan % '[')
                 + (colors.light.cyan % '|').join(x)
                 + (colors.light.cyan % ']'),
@@ -104,47 +104,7 @@ def test_basic_aligned_model_iql_small():
 
     proposal = TokenProposal(guide=guide, llm=llm)
 
-    #    proposal._prompt = ()
-
-    #   p = proposal._p_next(())
-    #   print(p)
-    #   assert p.keys() == {'S', 'SE', 'SELECT'}
-
-    #    p = proposal._p_next(('SELECT', ' *', ' FROM', ' data'))
-    #    print(p)
-    #    assert p.keys() == {
-    #        ' ',
-    #        ' <',
-    #        ' </',
-    #        ' G',
-    #        ' W',
-    #        ' O',
-    #        ' GR',
-    #        ' WH',
-    #        ' OR',
-    #        ' GROUP',
-    #        ' WHERE',
-    #        ' ORDER',
-    #    }
-    #
-    #    p = proposal._p_next(('SELECT', ' age', ' FROM', ' data'))
-    #    print(p)
-    #    assert p.keys() == {
-    #        ' ',
-    #        ' <',
-    #        ' </',
-    #        ' G',
-    #        ' W',
-    #        ' O',
-    #        ' GR',
-    #        ' WH',
-    #        ' OR',
-    #        ' GROUP',
-    #        ' WHERE',
-    #        ' ORDER',
-    #    }
-
-    print(proposal.sample())
+    print(proposal.sample(max_tokens=50))
 
 
 def test_normalizing_constant_unbiased():
@@ -182,22 +142,22 @@ def test_normalizing_constant_unbiased():
     }
 
     grammar = r"""
-            start: WS? "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
-            EOS: "▪"
-            select_expr: STAR | select_list
-            bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
-            bool_expr: var "=" value | var ">" value | var "<" value
-            from_expr: "data"
-            orderby_expr: var_list WS "ASC" | var_list WS "DESC"
-            select_list: select_var ("," WS select_var)*
-            var_list: var ("," WS var)*
-            select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
-            var: "state" | "stadium"
-            value: NUMBER | "'red'"
-            STAR: "*"
-            NUMBER: /\d+/
-            WS: /[ ]/
-     """
+        start: WS? "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
+        EOS: "▪"
+        select_expr: STAR | select_list
+        bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
+        bool_expr: var "=" value | var ">" value | var "<" value
+        from_expr: "data"
+        orderby_expr: var_list WS "ASC" | var_list WS "DESC"
+        select_list: select_var ("," WS select_var)*
+        var_list: var ("," WS var)*
+        select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
+        var: "state" | "stadium"
+        value: NUMBER | "'red'"
+        STAR: "*"
+        NUMBER: /\d+/
+        WS: /[ ]/
+        """
 
     proposal = mock_token_proposal(V=V, guide_spec=grammar, K=10, uniform=True)
 

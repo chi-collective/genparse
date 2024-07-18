@@ -3,9 +3,10 @@ from arsenal.maths import sample_dict
 
 from genparse.proposal.trie_numba import TokenCharacterTrie
 from genparse.semiring import Float
+from genparse.proposal.base import Proposal
 
 
-class CharacterProposal(TokenCharacterTrie):
+class CharacterProposal(Proposal):
     """Proposal distribution that combines an `llm` (token-based LM) and `guide`
     (character-based LM).
 
@@ -32,8 +33,7 @@ class CharacterProposal(TokenCharacterTrie):
 
     """
 
-    # pylint: disable=redefined-slots-in-subclass
-    __slots__ = TokenCharacterTrie.__slots__ + (
+    __slots__ = (
         'llm',
         'guide',
     )
@@ -45,44 +45,16 @@ class CharacterProposal(TokenCharacterTrie):
         # Filter LLM tokens that are illegal under the cfg
         words = {word for word in llm.V if set(word) <= self.guide.V or word == llm.eos}
 
-        super().__init__(words, encode=llm._encode, old_eos=llm.eos, new_eos=guide.eos)
-
-    def sample(
-        self, prompt, max_tokens=float('inf'), verbosity=0, draw=sample_dict, **kwargs
-    ):
-        context = ()
-        W = 1
-        P = 1
-        t = 0
-        while True:
-            t += 1
-            if t <= max_tokens:
-                p_llm = self.llm.p_next(prompt + context)
-                self._update_trie(p_llm)
-                token, proposal_p, weight_update = self._guided_sample_trie(
-                    context, verbosity=verbosity, draw=draw, **kwargs
-                )
-            else:
-                token = self.guide.eos
-                weight_update = 1
-                proposal_p = 1
-            W *= weight_update
-            P *= proposal_p
-            if self.guide.eos == token:
-                break
-            if verbosity > 0:
-                print(colors.cyan % token, end=colors.magenta % '|')
-            context = context + (token,)
-        if verbosity > 0:
-            print()
-        return (context, P, W)
+        self.trie = TokenCharacterTrie(
+            words, encode=llm._encode, old_eos=llm.eos, new_eos=guide.eos
+        )
 
     async def sample_next_token(
         self,
         prompt,
         context,
         verbosity=0,
-        correct_weights=True,
+        # correct_weights=True,
         draw=sample_dict,
         p_llm=None,
         **kwargs,
@@ -108,38 +80,18 @@ class CharacterProposal(TokenCharacterTrie):
         if p_llm is None:
             p_llm = await self.llm.p_next_async(prompt + context)
 
-        self._update_trie(p_llm)
+        self.trie.update_trie_sum(p_llm)
 
-        if correct_weights:
-            (token, proposal_p, weight_update) = self._guided_sample_trie(
-                context, draw=draw, verbosity=verbosity, **kwargs
-            )
-        else:
-            (token, proposal_p, weight_update) = self._guided_sample_trie_uncorrected(
-                context, draw=draw, verbosity=verbosity, **kwargs
-            )
+        # if correct_weights:
+        (token, proposal_p, weight_update) = self._guided_sample_trie(
+            context, draw=draw, verbosity=verbosity, **kwargs
+        )
+        # else:
+        #    (token, proposal_p, weight_update) = self._guided_sample_trie_uncorrected(
+        #        context, draw=draw, verbosity=verbosity, **kwargs
+        #    )
 
         return (token, proposal_p, weight_update)
-
-    def __deepcopy__(self, memo):
-        cpy = type(self).__new__(type(self))
-
-        # the only thing that needs a real copy is the mass array
-        cpy.mass = self.mass.copy()
-
-        # pass the other member variables thru
-        cpy.root = self.root
-        cpy.children = self.children
-        cpy.word2leaf = self.word2leaf
-        cpy.jump = self.jump
-        cpy.ordering = self.ordering
-        cpy.llm = self.llm
-        cpy.guide = self.guide
-        cpy.old_eos = self.old_eos
-        cpy.new_eos = self.new_eos
-        cpy.token_id_to_leaf = self.token_id_to_leaf
-
-        return cpy
 
     def _guided_sample_trie(self, context, draw, verbosity=0):
         r"""
@@ -157,20 +109,21 @@ class CharacterProposal(TokenCharacterTrie):
             5. Set the incremental SMC weight update $w^\prime(x) = \sum_{x \in S} w(x)$
 
         """
-        curr = self.root
-        path = []
 
+        curr = self.trie.root
+        children = self.trie.children
+        mass = self.trie.mass
+
+        path = []
         inclusion_prob = 1  # path prefix probability
         cfg_prob = 1
         proposal_p = 1  # probability of trace
 
         weights = Float.chart()
 
-        children = self.children
-        mass = self.mass
-
         if verbosity > 1:
             print(colors.line(80))
+
         while True:
             children_curr = children[curr]
             mass_curr = mass[curr]
@@ -239,84 +192,85 @@ class CharacterProposal(TokenCharacterTrie):
 
         return (token, proposal_p, weight_update)
 
-    def _guided_sample_trie_uncorrected(self, context, draw, verbosity=0):
-        """
-        This function samples a token from the trie and computes the incremental weight update.
 
-        WARNING: This function is probabilistically incorrect; it produces biased estimates.
-        The returned weight update is given as p_llm(x) * p_cfg(x) / q(x,S) where x is the proposed token
-        and S is the path through the trie from which x is sampled.
-
-        """
-        curr = self.root
-        path = []
-        guide_prob = 1
-        proposal_prob = 1
-        exits = Float.chart()
-
-        children = self.children
-        mass = self.mass
-
-        if verbosity > 1:
-            print(colors.line(80))
-        while True:
-            children_curr = children[curr]
-            mass_curr = mass[curr]
-
-            p1 = Float.chart((a, mass[c] / mass_curr) for a, c in children_curr.items())
-
-            p2 = self.guide.p_next(context + ''.join(path)).trim()
-
-            if None in p1:
-                exits[''.join(path)] = mass[children_curr[None]]
-                if verbosity > 1:
-                    print(
-                        colors.blue % 'ADDED EXIT',
-                        repr(''.join(path)),
-                        'prob=',
-                        proposal_prob,
-                    )
-
-            _q = (p1 * p2).trim()
-
-            if verbosity > 1:
-                print(colors.yellow % 'calling context=', repr(''.join(context)))
-                print(colors.yellow % 'partial token=', repr(''.join(path)))
-                if not _q:
-                    print('llm (top 10) =', p1.top(10))
-                    print('guide (top 10) =', p2.top(10))
-                print('_q (top 10) =', _q.top(10))
-
-            if not _q:
-                break
-
-            q = _q.normalize()
-
-            a = draw(q)
-            guide_prob *= p2[a]
-            proposal_prob *= q[a]
-            curr = children_curr[a]
-
-            if verbosity > 1:
-                print(colors.orange % 'action', repr(a), 'context', repr(''.join(path)))
-
-            path.append(a)
-
-        # Sample the end-of-token marker in hindsight
-        exits = exits.normalize()
-
-        if verbosity > 1:
-            print(colors.light.green % 'p exits:', exits)
-
-        token = draw(exits)
-
-        if verbosity > 1:
-            print(colors.orange % 'picked exit', repr(path))
-
-        proposal_prob *= exits[token]
-
-        llm_prob = mass[self.word2leaf[token]]
-
-        weight_update = (llm_prob * guide_prob) / proposal_prob
-
-        return (token, proposal_prob, weight_update)
+#    def _guided_sample_trie_uncorrected(self, context, draw, verbosity=0):
+#        """
+#        This function samples a token from the trie and computes the incremental weight update.
+#
+#        WARNING: This function is probabilistically incorrect; it produces biased estimates.
+#        The returned weight update is given as p_llm(x) * p_cfg(x) / q(x,S) where x is the proposed token
+#        and S is the path through the trie from which x is sampled.
+#
+#        """
+#        curr = self.root
+#        path = []
+#        guide_prob = 1
+#        proposal_prob = 1
+#        exits = Float.chart()
+#
+#        children = self.children
+#        mass = self.mass
+#
+#        if verbosity > 1:
+#            print(colors.line(80))
+#        while True:
+#            children_curr = children[curr]
+#            mass_curr = mass[curr]
+#
+#            p1 = Float.chart((a, mass[c] / mass_curr) for a, c in children_curr.items())
+#
+#            p2 = self.guide.p_next(context + ''.join(path)).trim()
+#
+#            if None in p1:
+#                exits[''.join(path)] = mass[children_curr[None]]
+#                if verbosity > 1:
+#                    print(
+#                        colors.blue % 'ADDED EXIT',
+#                        repr(''.join(path)),
+#                        'prob=',
+#                        proposal_prob,
+#                    )
+#
+#            _q = (p1 * p2).trim()
+#
+#            if verbosity > 1:
+#                print(colors.yellow % 'calling context=', repr(''.join(context)))
+#                print(colors.yellow % 'partial token=', repr(''.join(path)))
+#                if not _q:
+#                    print('llm (top 10) =', p1.top(10))
+#                    print('guide (top 10) =', p2.top(10))
+#                print('_q (top 10) =', _q.top(10))
+#
+#            if not _q:
+#                break
+#
+#            q = _q.normalize()
+#
+#            a = draw(q)
+#            guide_prob *= p2[a]
+#            proposal_prob *= q[a]
+#            curr = children_curr[a]
+#
+#            if verbosity > 1:
+#                print(colors.orange % 'action', repr(a), 'context', repr(''.join(path)))
+#
+#            path.append(a)
+#
+#        # Sample the end-of-token marker in hindsight
+#        exits = exits.normalize()
+#
+#        if verbosity > 1:
+#            print(colors.light.green % 'p exits:', exits)
+#
+#        token = draw(exits)
+#
+#        if verbosity > 1:
+#            print(colors.orange % 'picked exit', repr(path))
+#
+#        proposal_prob *= exits[token]
+#
+#        llm_prob = mass[self.word2leaf[token]]
+#
+#        weight_update = (llm_prob * guide_prob) / proposal_prob
+#
+#        return (token, proposal_prob, weight_update)
