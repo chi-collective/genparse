@@ -54,7 +54,6 @@ class CharacterProposal(Proposal):
         prompt,
         context,
         verbosity=0,
-        # correct_weights=True,
         draw=sample_dict,
         p_llm=None,
         **kwargs,
@@ -75,26 +74,7 @@ class CharacterProposal(Proposal):
           - token : Proposed LLM token.
           - proposal_p :
           - weight_update : Incremental SMC weight update.
-        """
 
-        if p_llm is None:
-            p_llm = await self.llm.p_next_async(prompt + context)
-
-        self.trie.update_trie_sum(p_llm)
-
-        # if correct_weights:
-        (token, proposal_p, weight_update) = self._guided_sample_trie(
-            context, draw=draw, verbosity=verbosity, **kwargs
-        )
-        # else:
-        #    (token, proposal_p, weight_update) = self._guided_sample_trie_uncorrected(
-        #        context, draw=draw, verbosity=verbosity, **kwargs
-        #    )
-
-        return (token, proposal_p, weight_update)
-
-    def _guided_sample_trie(self, context, draw, verbosity=0):
-        r"""
         This function samples a token from the trie and computes the incremental weight update.
 
         The following procedure, justified using RAVI, gives the way we sample a token and compute the incremental SMC weight update.
@@ -110,9 +90,12 @@ class CharacterProposal(Proposal):
 
         """
 
+        if p_llm is None:
+            p_llm = await self.llm.p_next_async(prompt + context)
+
+        mass = self.trie.mass_sum(p_llm)
         curr = self.trie.root
         children = self.trie.children
-        mass = self.trie.mass
 
         path = []
         inclusion_prob = 1  # path prefix probability
@@ -191,86 +174,3 @@ class CharacterProposal(Proposal):
             print(colors.orange % 'weight update=', weight_update)
 
         return (token, proposal_p, weight_update)
-
-
-#    def _guided_sample_trie_uncorrected(self, context, draw, verbosity=0):
-#        """
-#        This function samples a token from the trie and computes the incremental weight update.
-#
-#        WARNING: This function is probabilistically incorrect; it produces biased estimates.
-#        The returned weight update is given as p_llm(x) * p_cfg(x) / q(x,S) where x is the proposed token
-#        and S is the path through the trie from which x is sampled.
-#
-#        """
-#        curr = self.root
-#        path = []
-#        guide_prob = 1
-#        proposal_prob = 1
-#        exits = Float.chart()
-#
-#        children = self.children
-#        mass = self.mass
-#
-#        if verbosity > 1:
-#            print(colors.line(80))
-#        while True:
-#            children_curr = children[curr]
-#            mass_curr = mass[curr]
-#
-#            p1 = Float.chart((a, mass[c] / mass_curr) for a, c in children_curr.items())
-#
-#            p2 = self.guide.p_next(context + ''.join(path)).trim()
-#
-#            if None in p1:
-#                exits[''.join(path)] = mass[children_curr[None]]
-#                if verbosity > 1:
-#                    print(
-#                        colors.blue % 'ADDED EXIT',
-#                        repr(''.join(path)),
-#                        'prob=',
-#                        proposal_prob,
-#                    )
-#
-#            _q = (p1 * p2).trim()
-#
-#            if verbosity > 1:
-#                print(colors.yellow % 'calling context=', repr(''.join(context)))
-#                print(colors.yellow % 'partial token=', repr(''.join(path)))
-#                if not _q:
-#                    print('llm (top 10) =', p1.top(10))
-#                    print('guide (top 10) =', p2.top(10))
-#                print('_q (top 10) =', _q.top(10))
-#
-#            if not _q:
-#                break
-#
-#            q = _q.normalize()
-#
-#            a = draw(q)
-#            guide_prob *= p2[a]
-#            proposal_prob *= q[a]
-#            curr = children_curr[a]
-#
-#            if verbosity > 1:
-#                print(colors.orange % 'action', repr(a), 'context', repr(''.join(path)))
-#
-#            path.append(a)
-#
-#        # Sample the end-of-token marker in hindsight
-#        exits = exits.normalize()
-#
-#        if verbosity > 1:
-#            print(colors.light.green % 'p exits:', exits)
-#
-#        token = draw(exits)
-#
-#        if verbosity > 1:
-#            print(colors.orange % 'picked exit', repr(path))
-#
-#        proposal_prob *= exits[token]
-#
-#        llm_prob = mass[self.word2leaf[token]]
-#
-#        weight_update = (llm_prob * guide_prob) / proposal_prob
-#
-#        return (token, proposal_prob, weight_update)

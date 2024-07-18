@@ -7,7 +7,6 @@ class TokenCharacterTrie:
     __slots__ = (
         'root',
         'children',
-        'mass',
         'word2leaf',
         'jump',
         'ordering',
@@ -49,7 +48,6 @@ class TokenCharacterTrie:
         self.token_id_to_leaf = token_id_to_leaf
         self.root = root
         self.children = children
-        self.mass = np.zeros(len(children), dtype=np.float64)
         self.word2leaf = word2leaf
         self.jump = List([np.array(sorted(x.values()), dtype=np.int32) for x in children])
         self.ordering = np.array(list(self._order(self.root)), np.int32)
@@ -65,15 +63,12 @@ class TokenCharacterTrie:
 
     # TODO: test this method!!!!!!
     def rename(self, f):
-        N = len(self.mass)
+        N = len(self.children)
 
         new_children = [{} for _ in range(N)]
-        new_mass = np.zeros(N)
-
         nodes = range(N)
 
         for x in nodes:
-            new_mass[f(x)] = self.mass[x]
             for letter, y in self.children[x].items():
                 new_children[f(x)][letter] = f(y)
 
@@ -90,26 +85,33 @@ class TokenCharacterTrie:
             [np.array(sorted(x.values()), dtype=np.int32) for x in new_children]
         )
 
-    def update_trie_sum(self, p_llm):
-        # convert llm.eos to guide.eos
-        self.mass[self.word2leaf[self.new_eos]] = p_llm[self.old_eos]
-        _update_trie_numba(
-            mass=self.mass,
-            _p=p_llm._p,
-            token_id_to_leaf=self.token_id_to_leaf,
-            jump=self.jump,
-            ordering=self.ordering,
-        )
+    def alloc_mass(self):
+        return np.zeros(len(self.children), dtype=np.float64)
 
-    def update_trie_max(self, p_llm):
-        self.mass[self.word2leaf[self.new_eos]] = p_llm[self.old_eos]
-        _update_trie_numba_max(
-            mass=self.mass,
+    def mass_sum(self, p_llm):
+        mass = self.alloc_mass()
+        # convert llm.eos to guide.eos
+        mass[self.word2leaf[self.new_eos]] = p_llm[self.old_eos]
+        _update_trie_numba(
+            mass=mass,
             _p=p_llm._p,
             token_id_to_leaf=self.token_id_to_leaf,
             jump=self.jump,
             ordering=self.ordering,
         )
+        return mass
+
+    def mass_max(self, p_llm):
+        mass = self.alloc_mass()
+        mass[self.word2leaf[self.new_eos]] = p_llm[self.old_eos]
+        _update_trie_numba_max(
+            mass=mass,
+            _p=p_llm._p,
+            token_id_to_leaf=self.token_id_to_leaf,
+            jump=self.jump,
+            ordering=self.ordering,
+        )
+        return mass
 
     def _order(self, node):
         "Topological ordering of nodes beneath `node`."

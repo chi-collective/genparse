@@ -128,9 +128,7 @@ class TokenProposal(Proposal):
         assert set(context) <= self.llm.V, f'OOV detected {set(context) - self.llm.V}'
 
         # update the trie with the llm's distribution of next token `p_llm`.
-        self.trie.update_trie_max(p_llm)
-
-        h = self.trie.mass.copy()
+        h = self.trie.mass_max(p_llm)
 
         agenda = LocatorMaxHeap()
 
