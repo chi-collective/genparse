@@ -21,12 +21,6 @@ from genparse.semiring import Float
 from genparse.util import set_seed
 
 
-# ____________________________________________________________________________________
-# Approximate inference with HFPPL
-# This code is still experimental and actively being developed
-# TODO: write tests
-
-
 class HFPPLParticle(Model):
     """
     Simple HFPPL model (particle).
@@ -164,12 +158,25 @@ class HFPPLSampler:
 class ParticleApproximation:
     def __init__(self, particles, record=None):
         self.particles = particles
+        self.size = len(particles)
         self.log_weights = np.array([p.weight for p in self.particles])
-        self.log_ml = logsumexp(self.log_weights) - np.log(len(self.log_weights))
+        self.log_total = logsumexp(self.log_weights)
+
+        # log-marginal likelihood estimate (Note: need to exponentiate to have
+        # an unbiased estimate of the true marginal likelihood).
+        self.log_ml = self.log_total - np.log(self.size)
+
+        # log-normalized weights
+        self.log_normalized_weights = self.log_weights - self.log_total
+
+        # Compute the effective sample size
+        self.log_ess = -logsumexp(2 * self.log_normalized_weights)
+        self.ess = np.exp(self.log_ess)
+
         self.record = record
         posterior = Float.chart()
-        for p in self.particles:
-            posterior[''.join(p.context)] += np.exp(p.weight)
+        for p, w in zip(self.particles, self.log_normalized_weights):
+            posterior[''.join(p.context)] += np.exp(w)
         self.posterior = posterior.normalize().sort_descending()
 
     def __iter__(self):
