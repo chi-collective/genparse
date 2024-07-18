@@ -53,7 +53,6 @@ class CharacterProposal(Proposal):
         self,
         prompt,
         context,
-        verbosity=0,
         draw=sample_dict,
         p_llm=None,
         **kwargs,
@@ -64,7 +63,6 @@ class CharacterProposal(Proposal):
         Args:
           - prompt : The LLM prompt.
           - context : The previous generated tokens.
-          - verbosity : > 1 prints sampling process.
           - correct_weights : Whether to correct the importance weights with RAVI.
                 false leads to improperly weighted samples.
           - p_llm: Provide the model with pre-computed p_llm. Since for VLLM, p_llm is computed
@@ -104,43 +102,20 @@ class CharacterProposal(Proposal):
 
         weights = Float.chart()
 
-        if verbosity > 1:
-            print(colors.line(80))
-
         while True:
             children_curr = children[curr]
             mass_curr = mass[curr]
 
             p1 = Float.chart((a, mass[c] / mass_curr) for a, c in children_curr.items())
 
-            p2 = self.guide.p_next(''.join(context) + ''.join(path)).trim()
+            p2 = self.guide.p_next(''.join(context) + ''.join(path))
 
             if None in p1:
-                token = ''.join(path)
-
-                weights[token] = (mass[children_curr[None]] * cfg_prob) / inclusion_prob
-
-                if verbosity > 1:
-                    print(
-                        colors.blue % 'ADDED TOKEN TO S',
-                        repr(token),
-                        'weight=',
-                        weights[token],
-                        'token prob=',
-                        mass[children_curr[None]] * cfg_prob,
-                        'inclusion prob=',
-                        inclusion_prob,
-                    )
+                weights[''.join(path)] = (
+                    mass[children_curr[None]] * cfg_prob
+                ) / inclusion_prob
 
             _q = (p1 * p2).trim()
-
-            if verbosity > 1:
-                print(colors.yellow % 'calling context=', repr(''.join(context)))
-                print(colors.yellow % 'partial token=', repr(''.join(path)))
-                if not _q:
-                    print('llm (top 10) =', p1.top(10))
-                    print('guide (top 10) =', p2.top(10))
-                print('_q (top 10) =', _q.top(10))
 
             if not _q:
                 break
@@ -153,24 +128,11 @@ class CharacterProposal(Proposal):
             proposal_p *= q[a]
 
             curr = children_curr[a]
-
-            if verbosity > 1:
-                print(colors.orange % 'action', repr(a), 'context', repr(''.join(path)))
-
             path.append(a)
 
         normalized_weights = weights.normalize()
-
-        if verbosity > 1:
-            print(colors.light.green % 'token weights:', weights)
-            print(colors.light.green % 'token probs:', normalized_weights)
-
         token = draw(normalized_weights)
         proposal_p *= normalized_weights[token]
         weight_update = weights.sum()
-
-        if verbosity > 1:
-            print(colors.orange % 'sampled token=', repr(token))
-            print(colors.orange % 'weight update=', weight_update)
 
         return (token, proposal_p, weight_update)
