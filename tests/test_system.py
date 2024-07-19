@@ -8,8 +8,11 @@ def test_basic():
 
     %ignore /[ ]/
     """
-    infer = InferenceSetup('gpt2', grammar, proposal_name='character')
-    particles = infer('', n_particles=15, return_record=True, seed=1234)
+    #    infer = InferenceSetup('gpt2', grammar, proposal_name='character')
+    infer = InferenceSetup('gpt2', grammar, proposal_name='token')
+    particles = infer(
+        ' ', n_particles=20, ess_threshold=0.5, return_record=True, seed=1234
+    )
 
     print(particles)
 

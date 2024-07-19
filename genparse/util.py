@@ -3,7 +3,6 @@ import numpy as np
 import random
 import torch
 import transformers
-import hfppl
 from IPython.display import HTML, display
 
 
@@ -117,6 +116,8 @@ def load_model_by_name(model_name, batch_size=None, temperature=1, top_p=None):
         )
 
     elif model_name == 'codellama':
+        import hfppl
+
         MODEL_ID = 'codellama/CodeLlama-7b-Instruct-hf'
         return TokenizedLLM(
             model=hfppl.CachedCausalLM.from_pretrained(MODEL_ID, load_in_8bit=False),
@@ -150,7 +151,7 @@ class InferenceSetup:
         proposal_opts=None,
         llm_opts=None,
     ):
-        from genparse.steer import HFPPLSampler
+        from genparse.steer import Sampler
         from genparse.proposal import CharacterProposal, TokenProposal
 
         if guide_opts is None:
@@ -165,7 +166,7 @@ class InferenceSetup:
 
         llm = load_model_by_name(model_name, batch_size=batch_size, **llm_opts)
         guide = lark_guide(grammar, **guide_opts)
-        sampler = HFPPLSampler(llm=llm, guide=guide)
+        sampler = Sampler(llm=llm, guide=guide)
 
         if proposal_name == 'character':
             proposal = CharacterProposal(llm=llm, guide=guide, **proposal_opts)

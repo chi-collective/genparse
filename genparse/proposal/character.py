@@ -1,4 +1,3 @@
-from arsenal import colors
 from arsenal.maths import sample_dict
 
 from genparse.proposal.trie_numba import TokenCharacterTrie
@@ -55,7 +54,6 @@ class CharacterProposal(Proposal):
         context,
         draw=sample_dict,
         p_llm=None,
-        **kwargs,
     ):
         """
         Proposes a token and incremental weight update.

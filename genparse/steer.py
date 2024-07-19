@@ -29,7 +29,7 @@ class Particle(namedtuple('Particle', 'weight, context, parent, done')):
         )
 
 
-class HFPPLSampler:
+class Sampler:
     def __init__(self, llm, guide):
         """
         Args:
@@ -169,6 +169,9 @@ class ParticleApproximation:
     def __iter__(self):
         return iter(self.particles)
 
+    def __getitem__(self, i):
+        return self.particles[i]
+
     def sample(self, n=None, draw=sample_dict):
         if n is None:
             return draw(self.posterior)
@@ -186,11 +189,13 @@ class ParticleApproximation:
 
     def finalize(self, eos):
         "Optionally, we can zero-out invalid particles, i.e., those that do not end in eos."
-        particles = deepcopy(self.particles)
-        for p in particles:
-            if p.context[-1] != eos:
-                p.weight = float('-inf')
-        return ParticleApproximation(particles, self.record)
+        return ParticleApproximation(
+            [
+                p if p.context[-1] == eos else p._replace(weight=float('-inf'))
+                for p in self
+            ],
+            self.record,
+        )
 
     def show(self):
         for p in sorted(self, reverse=True):
@@ -265,7 +270,7 @@ async def smc_standard(
             step_info['average_weight'] = avg_weight
 
         # Resample if necessary
-        if particles.ess < np.log(ess_threshold) * particles.size:
+        if particles.ess < ess_threshold * particles.size:
             # resampling: sample indices to copy
             resampled_indices = log_sample(
                 particles.log_normalized_weights, size=particles.size

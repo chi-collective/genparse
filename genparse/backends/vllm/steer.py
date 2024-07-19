@@ -416,12 +416,12 @@ async def smc_standard(model, n_particles, ess_threshold=0.5, return_record=True
     Standard sequential Monte Carlo algorithm with multinomial resampling.
 
     Args:
-        model (hfppl.modeling.Model): The model to perform inference on.
+        model (Model): The model to perform inference on.
         n_particles (int): Number of particles to execute concurrently.
         ess_threshold (float): Effective sample size below which resampling is triggered, given as a fraction of `n_particles`.
 
     Returns:
-        particles (list[hfppl.modeling.Model]): The completed particles after inference.
+        particles: The completed particles after inference.
         record (SMCRecord): Information about inference run history.
     """
     verbosity = model.verbosity if hasattr(model, 'verbosity') else 0
