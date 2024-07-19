@@ -172,7 +172,7 @@ class LLM(LM):
             return value
 
     def p_next(self, context):
-        return np.exp(self.logp_next(context))
+        return np.exp(self.logp_next(context).cpu())
 
     def logp_next(self, context):
         if isinstance(context, (tuple, list)):
