@@ -30,7 +30,7 @@ class ProposalServer:
         self.max_n_particles = max_n_particles
         self.llm_vocab_size = len(llm.V)
 
-        self.start()
+        # self.start()
 
     def start(self):
         # Create shared memory
@@ -84,13 +84,10 @@ class ProposalServer:
             token, _, w = proposal.sample(context=task.context, p_llm=p_llm)
             self.result_queue.put(Result(id=task.id, token=token, weight=w))
 
-    def __exit__(self, *args):
-        self.cleanup()
-
 
 class CharacterProposalServer(ProposalServer):
     def create_instance(self):
-        return CharacterProposal(self.guide, self.llm)
+        return CharacterProposal(self.llm, self.guide)
 
 
 class TokenProposalServer(ProposalServer):
@@ -99,7 +96,7 @@ class TokenProposalServer(ProposalServer):
         super().__init__(**kwargs)
 
     def create_instance(self):
-        return TokenProposal(self.guide, self.llm, self.K)
+        return TokenProposal(self.llm, self.guide, self.K)
 
 
 class BatchProposal:
