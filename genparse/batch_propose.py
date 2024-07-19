@@ -148,52 +148,6 @@ class BatchProposal:
         self.proposal_server.cleanup()
 
 
-class VLLMBatchProposal(BatchProposal):
-    def __init__(self, proposal_server):
-        self.proposal_server = proposal_server
-
-    def batch_next_token_probs(self, particles):
-        # default sequential implementation
-        return [self.proposal_server.llm.p_next(p.prompt + p.context) for p in particles]
-
-    def batch_step(self, particles):
-        to_serve = len(particles)
-
-        if to_serve > self.proposal_server.max_n_particles:
-            raise ValueError(
-                'Too many particles. Consider increasing self.proposal_server.max_n_particles.'
-            )
-
-        p_llms = self.batch_next_token_probs(particles)
-
-        for i, p_llm in enumerate(p_llms):
-            self.proposal_server.shared_array[i] = p_llm._p
-
-        for i, p in enumerate(particles):
-            if not p.is_done():
-                self.proposal_server.task_queue.put(Task(id=i, context=p.context))
-            else:
-                to_serve -= 1
-
-        while to_serve > 0:
-            result = self.proposal_server.result_queue.get()
-            particle = particles[result.id]
-            particle.context += (result.token,)
-            particle.weight += result.weight
-            particles[result.id] = particle
-            to_serve -= 1
-
-        if not self.proposal_server.result_queue.empty():
-            raise ValueError(
-                'Finished serving particle requests, but result queue is non-empty.'
-            )
-
-        return particles
-
-    def cleanup(self):
-        self.proposal_server.cleanup()
-
-
 class BatchProposalBaseline:
     def __init__(self, proposal):
         self.proposal = proposal
