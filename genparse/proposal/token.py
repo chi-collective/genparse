@@ -22,10 +22,10 @@ class TokenProposal(Proposal):
     """
 
     def __init__(self, *, llm, guide, K=None):
-        self.llm = llm
-        self.guide = guide
         self.K = K
+        super().__init__(llm=llm, guide=guide)
 
+<<<<<<< HEAD
         # Filter LLM tokens that are illegal under the cfg
         words = {word for word in llm.V if set(word) <= self.guide.V or word == llm.eos}
 
@@ -74,10 +74,10 @@ class TokenProposal(Proposal):
             weight_update : Incremental SMC weight update.
 
         """
+=======
+    async def sample_set(self, context, p_llm, draw=sample_dict):
+>>>>>>> debe650 (first pass at batch proposal)
         proposal_p = 1
-
-        if p_llm is None:
-            p_llm = await self.llm.p_next_async(prompt + context)
 
         # enumerate top K tokens
         Ws = Float.chart(take(self.K, self.traverse_trie(context, p_llm)))
@@ -102,20 +102,7 @@ class TokenProposal(Proposal):
                     / P_wc[wildcard]
                 )
 
-        Ws = Ws.trim()
-
-        if Ws:
-            # sample token from weights and compute update
-            Ws_norm = Ws.normalize()
-            token = draw(Ws_norm)
-            proposal_p *= Ws_norm[token]
-            weight_update = Ws.sum()
-        else:
-            # if there are no possible next tokens, kill the particle
-            token = '💀'
-            weight_update = 0
-
-        return (token, proposal_p, weight_update)
+        return (Ws, proposal_p)
 
     def traverse_trie(self, context, p_llm):
         """

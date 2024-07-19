@@ -4,8 +4,36 @@ from genparse.proposal.trie_numba import TokenCharacterTrie
 from genparse.semiring import Float
 from genparse.proposal.base import Proposal
 
+"""
+Proposal distribution that combines an `llm` (token-based LM) and `guide`
+(character-based LM).
+
+The way that samples are generated is that we
+(1) materialize the next-token distribution `llm.p_next(context)`
+(2) convert it into a character-level trie augmented with an end-of-token marker.
+(3) sample a path in the trie (starting at its root) which takes the local
+    product of the trie distribution and the guide, excluding the
+    end-of-token.
+(4) given the path, we then sample an end-of-token anywhere along the path.
+
+The reason why we like this proposal distribution is its efficiency: in
+practice, `p_llm` is one big batched evaluation, that is given by a blackbox
+model, and `p_guide` is a character-level LM.  Although, any given call to
+p_guide is fast, calling it for every token is very slow - even with GPU
+parallelism.  This proposal distrbution avoid making a huge number of calls
+to p_guide (as in `CharAlignedCFGLM`) by *sampling* paths in the
+character-trie rather than *enumerating* them.
+
+We could probably improve this generative procees by collapsing the
+post-path sampling of exits, but it would probably require the cost that we
+are trying to avoid!  (That is probably deeply connected with
+`CharAlignedCFGLM`, but we haven't worked out the precise connection.)
+
+"""
+
 
 class CharacterProposal(Proposal):
+<<<<<<< HEAD
     """Proposal distribution that combines an `llm` (token-based LM) and `guide`
     (character-based LM).
 
@@ -91,12 +119,17 @@ class CharacterProposal(Proposal):
 
         if p_llm is None:
             p_llm = await self.llm.p_next_async(prompt + context)
+=======
+    __slots__ = ('llm', 'guide')
+>>>>>>> debe650 (first pass at batch proposal)
 
+    def sample_set(self, context, p_llm, draw=sample_dict):
         mass = self.trie.mass_sum(p_llm)
         curr = self.trie.root
         children = self.trie.children
 
-        path = []
+        token = ''
+
         inclusion_prob = 1  # path prefix probability
         cfg_prob = 1
         proposal_p = 1  # probability of trace
@@ -108,6 +141,7 @@ class CharacterProposal(Proposal):
             mass_curr = mass[curr]
 
             p1 = Float.chart((a, mass[c] / mass_curr) for a, c in children_curr.items())
+<<<<<<< HEAD
 
             p2 = self.guide.p_next(''.join(context) + ''.join(path))
 
@@ -115,6 +149,12 @@ class CharacterProposal(Proposal):
                 weights[''.join(path)] = (
                     mass[children_curr[None]] * cfg_prob
                 ) / inclusion_prob
+=======
+            p2 = self.guide.p_next(''.join(context) + token).trim()
+
+            if None in p1:
+                weights[token] = (mass[children_curr[None]] * cfg_prob) / inclusion_prob
+>>>>>>> debe650 (first pass at batch proposal)
 
             _q = (p1 * p2).trim()
 
@@ -129,6 +169,7 @@ class CharacterProposal(Proposal):
             proposal_p *= q[a]
 
             curr = children_curr[a]
+<<<<<<< HEAD
             path.append(a)
 
         normalized_weights = weights.normalize()
@@ -137,3 +178,8 @@ class CharacterProposal(Proposal):
         weight_update = weights.sum()
 
         return (token, proposal_p, weight_update)
+=======
+            token += a
+
+        return (weights, proposal_p)
+>>>>>>> debe650 (first pass at batch proposal)
