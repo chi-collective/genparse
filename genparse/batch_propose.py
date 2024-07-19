@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from genparse.proposal import CharacterProposal
 import multiprocessing as mp
 import numpy as np
 from genparse.util import set_seed
 from genparse.lm import LazyProb
+from genparse.proposal import CharacterProposal, TokenProposal
 
 
 @dataclass
@@ -19,7 +19,7 @@ class Result:
     weight: float
 
 
-class CharacterProposalServer:
+class ProposalServer:
     def __init__(self, llm, guide, num_processes, max_n_particles, seed=0):
         self.llm = llm
         self.guide = guide
@@ -66,9 +66,6 @@ class CharacterProposalServer:
         self.result_queue = mp.Queue()
         self.start()
 
-    def create_instance(self):
-        return CharacterProposal(self.llm, self.guide)
-
     def worker(self, id):
         set_seed(self.seed + id)
         local_array = np.ndarray(
@@ -87,6 +84,23 @@ class CharacterProposalServer:
             token, _, w = proposal.sample(context=task.context, p_llm=p_llm)
             self.result_queue.put(Result(id=task.id, token=token, weight=w))
 
+    def __exit__(self, *args):
+        self.cleanup()
+
+
+class CharacterProposalServer(ProposalServer):
+    def create_instance(self):
+        return CharacterProposal(self.guide, self.llm)
+
+
+class TokenProposalServer(ProposalServer):
+    def __init__(self, K, **kwargs):
+        self.K = K
+        super().__init__(**kwargs)
+
+    def create_instance(self):
+        return TokenProposal(self.guide, self.llm, self.K)
+
 
 class BatchProposal:
     def __init__(self, proposal_server):
@@ -97,12 +111,17 @@ class BatchProposal:
         return [self.proposal_server.llm.p_next(p.prompt + p.context) for p in particles]
 
     def batch_step(self, particles):
+        to_serve = len(particles)
+
+        if to_serve > self.proposal_server.max_n_particles:
+            raise ValueError(
+                'Too many particles. Consider increasing self.proposal_server.max_n_particles.'
+            )
+
         p_llms = self.batch_next_token_probs(particles)
 
         for i, p_llm in enumerate(p_llms):
             self.proposal_server.shared_array[i] = p_llm._p
-
-        to_serve = len(particles)
 
         for i, p in enumerate(particles):
             if not p.is_done():
@@ -119,9 +138,54 @@ class BatchProposal:
             to_serve -= 1
 
         if not self.proposal_server.result_queue.empty():
-            self.cleanup()
             raise ValueError(
-                'Finished serving particle requests, but result queue is non-empty'
+                'Finished serving particle requests, but result queue is non-empty.'
+            )
+
+        return particles
+
+    def cleanup(self):
+        self.proposal_server.cleanup()
+
+
+class VLLMBatchProposal(BatchProposal):
+    def __init__(self, proposal_server):
+        self.proposal_server = proposal_server
+
+    def batch_next_token_probs(self, particles):
+        # default sequential implementation
+        return [self.proposal_server.llm.p_next(p.prompt + p.context) for p in particles]
+
+    def batch_step(self, particles):
+        to_serve = len(particles)
+
+        if to_serve > self.proposal_server.max_n_particles:
+            raise ValueError(
+                'Too many particles. Consider increasing self.proposal_server.max_n_particles.'
+            )
+
+        p_llms = self.batch_next_token_probs(particles)
+
+        for i, p_llm in enumerate(p_llms):
+            self.proposal_server.shared_array[i] = p_llm._p
+
+        for i, p in enumerate(particles):
+            if not p.is_done():
+                self.proposal_server.task_queue.put(Task(id=i, context=p.context))
+            else:
+                to_serve -= 1
+
+        while to_serve > 0:
+            result = self.proposal_server.result_queue.get()
+            particle = particles[result.id]
+            particle.context += (result.token,)
+            particle.weight += result.weight
+            particles[result.id] = particle
+            to_serve -= 1
+
+        if not self.proposal_server.result_queue.empty():
+            raise ValueError(
+                'Finished serving particle requests, but result queue is non-empty.'
             )
 
         return particles
