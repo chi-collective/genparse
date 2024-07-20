@@ -32,8 +32,6 @@ def test_timothy():
     llm = load_model_by_name('gpt2')
     prompt = llm.encode_prompt('Hello my name is')
 
-    guide.V |= {w for word in llm.V for w in word}
-
     proposal = TokenProposal(llm=llm, guide=guide, K=10)
     with timeit('sample'):
         for _ in range(10):
@@ -57,8 +55,6 @@ def test_top_K():
     )
 
     llm = load_model_by_name('gpt2')
-
-    guide.V |= {w for word in llm.V for w in word}
 
     proposal = TokenProposal(llm=llm, guide=guide, K=None)
 

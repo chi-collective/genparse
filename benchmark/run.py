@@ -15,7 +15,6 @@ def test_token_arith():
     cfg = locally_normalize(LarkStuff(arith, cnf=False).char_cfg(), tol=1e-100).trim()
 
     guide = EarleyLM(cfg)
-    guide.V |= {w for word in llm.V for w in word}
 
     proposal = TokenProposal(guide=guide, llm=llm, K=5)
 
@@ -33,7 +32,6 @@ def test_character_arith():
     cfg = locally_normalize(LarkStuff(arith, cnf=False).char_cfg(), tol=1e-100).trim()
 
     guide = EarleyLM(cfg)
-    guide.V |= {w for word in llm.V for w in word}
 
     proposal = CharacterProposal(llm=llm, guide=guide)
 
@@ -51,7 +49,6 @@ def test_token_iql_small():
     cfg = locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(), tol=1e-100).trim()
 
     guide = EarleyLM(cfg)
-    guide.V |= {w for word in llm.V for w in word}
 
     proposal = TokenProposal(llm=llm, guide=guide, K=5)
 
@@ -69,7 +66,6 @@ def test_character_iql_small():
     cfg = locally_normalize(LarkStuff(iql_small, cnf=False).char_cfg(), tol=1e-100).trim()
 
     guide = EarleyLM(cfg)
-    guide.V |= {w for word in llm.V for w in word}
 
     proposal = CharacterProposal(llm=llm, guide=guide)
 

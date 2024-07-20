@@ -44,6 +44,9 @@ class CharacterProposal(Proposal):
         # Filter LLM tokens that are illegal under the cfg
         words = {word for word in llm.V if set(word) <= self.guide.V or word == llm.eos}
 
+        # Augment the guide's character vocabulary to avoid to avoid OOV issues
+        self.guide.V |= {w for word in llm.V for w in word}
+
         self.trie = TokenCharacterTrie(
             words, encode=llm._encode, old_eos=llm.eos, new_eos=guide.eos
         )
