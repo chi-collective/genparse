@@ -18,6 +18,8 @@ class Proposal:
             words, encode=llm._encode, old_eos=llm.eos, new_eos=guide.eos
         )
 
+        self.eos = self.trie.new_eos
+
     def sample(self, context, p_llm=None, prompt=None, draw=sample_dict, **kwargs):
         """Proposes a token and compute its RAVI incremental weight update."""
         if p_llm is None:
@@ -27,7 +29,7 @@ class Proposal:
             )
             p_llm = self.llm.p_next(prompt + context)
 
-        (weights, p) = self.sample_set(context, p_llm=p_llm, **kwargs)
+        (weights, p) = self.sample_set(context, p_llm=p_llm, draw=draw, **kwargs)
 
         if weights:
             probs = weights.normalize()
@@ -36,7 +38,7 @@ class Proposal:
             weight_update = weights.sum()
         else:
             # if there are no possible next units, kill the particle
-            unit = '💀'
+            unit = self.eos
             weight_update = 0
 
         return (unit, p, np.log(weight_update))
