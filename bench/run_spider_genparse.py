@@ -30,7 +30,8 @@ from bench.spider.prompt_formatter import SpiderPromptFormatter
 logger = logging.getLogger(__name__)
 
 
-UNSUPPORTED_SCHEMAS = set("""chinook_1
+UNSUPPORTED_SCHEMAS = set(
+    """chinook_1
 flight_4
 baseball_1
 tracking_share_transactions
@@ -48,7 +49,8 @@ formula_1
 bike_1
 cre_Drama_Workshop_Groups
 cre_Doc_Tracking_DB
-cre_Theme_park""".split())
+cre_Theme_park""".split()
+)
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -73,7 +75,9 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument('--verbosity', type=int, default=0)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--K', type=int, default=20)
-    parser.add_argument("--schema-grammar", action="store_true", help="use schema-specific grammar")
+    parser.add_argument(
+        '--schema-grammar', action='store_true', help='use schema-specific grammar'
+    )
 
     return parser
 
@@ -129,20 +133,20 @@ def main():
 
     guides = {}  # schema_name -> guide
     if not args.schema_grammar:  # use the permissive general sql grammar
-        grammar_file = "benchmark/grammars/sql_case_insensitive.lark"
-        print(f"using grammar from: {grammar_file}")
-        with open(grammar_file, "r") as f:
+        grammar_file = 'benchmark/grammars/sql_case_insensitive.lark'
+        print(f'using grammar from: {grammar_file}')
+        with open(grammar_file, 'r') as f:
             grammar = f.read()
         guide = BoolCFGLM(LarkStuff(grammar).char_cfg())
         for schema_name in spider_schemas:
             if schema_name not in UNSUPPORTED_SCHEMAS:
                 guides[schema_name] = guide
     else:  # schema specific grammars
-        grammar_file = "spider_schema_grammar.json"
-        print(f"using schema-specific grammar file from: {grammar_file}")
-        with open(grammar_file, "r") as f:
+        grammar_file = 'spider_schema_grammar.json'
+        print(f'using schema-specific grammar file from: {grammar_file}')
+        with open(grammar_file, 'r') as f:
             all_grammars = json.load(f)
-        for schema_name, grammar in tqdm(all_grammars.items(), desc="grammar"):
+        for schema_name, grammar in tqdm(all_grammars.items(), desc='grammar'):
             if schema_name not in UNSUPPORTED_SCHEMAS:
                 grammar = reformat_grammar(grammar)
                 character_cfg = LarkStuff(grammar).char_cfg()
@@ -166,22 +170,22 @@ def main():
                 continue
             samplers[schema_name] = (sampler, proposal)
     else:
-        for schema_name, guide in tqdm(guides.items(), desc="proposal"):
+        for schema_name, guide in tqdm(guides.items(), desc='proposal'):
             sampler = VLLMSampler(llm=genparse_llm, guide=guide)
             proposal = CharacterProposal(llm=genparse_llm, guide=guide)
             samplers[schema_name] = (sampler, proposal)
 
-    logger.info("Model(s) initialized.")
+    logger.info('Model(s) initialized.')
 
     # Setup saving.
     n_query = args.n_query
 
-    outpath = f"llama-3-{args.inference}-p{args.particles}-b{args.n_beam}-{n_query}"
+    outpath = f'llama-3-{args.inference}-p{args.particles}-b{args.n_beam}-{n_query}'
     if args.schema_grammar:
-        outpath += "-schema"
-    outpath += ".jsonl"
-    outfile = open(outpath, "w+")
-    logger.info(f"writing to {outpath} ... ")
+        outpath += '-schema'
+    outpath += '.jsonl'
+    outfile = open(outpath, 'w+')
+    logger.info(f'writing to {outpath} ... ')
 
     n_correct, n_invalid, n_mismatch = 0, 0, 0
     n_skipped = 0
@@ -202,8 +206,9 @@ def main():
                 print('-' * 100)
             print('=' * 30 + '  End of prompt ' + '=' * 30)
 
-        prompt = tokenizer.decode(tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True))
+        prompt = tokenizer.decode(
+            tokenizer.apply_chat_template(messages, add_generation_prompt=True)
+        )
 
         sampler, proposal = samplers[dev_datum.schema_name]
         particles = sampler.run_inference(
@@ -221,45 +226,52 @@ def main():
             if p.finished and p.weight > pmax.weight:
                 pmax = p
 
-        particles_json = [{
-            "tokens": p.context,
-            "token_ids": p.context_ids,
-            "weight": p.weight,
-            "finished": p.finished,
-        } for p in particles]
+        particles_json = [
+            {
+                'tokens': p.context,
+                'token_ids': p.context_ids,
+                'weight': p.weight,
+                'finished': p.finished,
+            }
+            for p in particles
+        ]
 
-        pred = "".join(pmax.context[:-1])
+        pred = ''.join(pmax.context[:-1])
         gold = dev_datum.query
         db = dev_datum.schema_name
         result = evaluator.evaluate(gold, pred, db)
 
-        result_s = json.dumps({
-            "pred": pred,
-            "gold": gold,
-            "db_name": db,
-            "question": dev_datum.utterance,
-            "result": result,
-            "finished": pmax.finished,
-            "tokens": pmax.context,
-            "token_ids": pmax.context_ids,
-            "particles": particles_json,
-        })
+        result_s = json.dumps(
+            {
+                'pred': pred,
+                'gold': gold,
+                'db_name': db,
+                'question': dev_datum.utterance,
+                'result': result,
+                'finished': pmax.finished,
+                'tokens': pmax.context,
+                'token_ids': pmax.context_ids,
+                'particles': particles_json,
+            }
+        )
         print(pred)
         print(result)
         print(result_s, file=outfile)
 
         if result[0]:
             n_correct += 1
-        elif result[1] == "invalid":
+        elif result[1] == 'invalid':
             n_invalid += 1
-        elif result[1] == "mismatch":
+        elif result[1] == 'mismatch':
             n_mismatch += 1
 
         n_total = sum((n_correct, n_invalid, n_mismatch))
-        print(f"correct: {n_correct / n_total:.2f} ({n_correct}), "
-              f"invalid: {n_invalid / n_total:.2f} ({n_invalid}), "
-              f"mismatch: {n_mismatch / n_total:.2f} ({n_mismatch})"
-              f" --- [{n_skipped} unsupported]")
+        print(
+            f'correct: {n_correct / n_total:.2f} ({n_correct}), '
+            f'invalid: {n_invalid / n_total:.2f} ({n_invalid}), '
+            f'mismatch: {n_mismatch / n_total:.2f} ({n_mismatch})'
+            f' --- [{n_skipped} unsupported]'
+        )
 
 
 if __name__ == '__main__':
