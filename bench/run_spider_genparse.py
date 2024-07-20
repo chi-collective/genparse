@@ -20,7 +20,7 @@ from genparse.util import lark_guide
 
 # from genparse.experimental.steer_local import LocalPOESampler
 from genparse.backends.vllm import vllmpplLLM, VLLMSampler
-from genparse.proposal import CharacterProposal
+from genparse.proposal import CharacterProposal, TokenProposal
 from genparse.util import set_seed
 from bench.spider.dialogue import load_spider_data
 from bench.spider.evaluator import Evaluator
@@ -75,11 +75,22 @@ def get_parser() -> argparse.ArgumentParser:
         default='smc-standard',
     )
     parser.add_argument('--particles', type=int, default=1)
-    # parser.add_argument('--n-beam', type=int, default=1)
+    parser.add_argument('--n-beam', type=int, default=1)  # XXX: no longer used.
     parser.add_argument('--max-tokens', type=int, default=100)
+    parser.add_argument(
+        '--proposal',
+        choices=['character', 'token'],
+        default='character',
+        help='Specify which proposal distribution to use in SMC inference.',
+    )
     parser.add_argument('--verbosity', type=int, default=0)
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--K', type=int, default=20)
+    parser.add_argument(
+        '--K',
+        type=int,
+        default=20,
+        help='parameter for token proposal distribution',
+    )
     parser.add_argument(
         '--schema-grammar', action='store_true', help='use schema-specific grammar'
     )
@@ -168,15 +179,28 @@ def main():
     if not args.schema_grammar:
         guide = next(iter(guides.values()))  # all the same; pick arbitrary one
         sampler = VLLMSampler(llm=genparse_llm, guide=guide)
-        proposal = CharacterProposal(llm=genparse_llm, guide=guide)
+
+        if args.proposal == 'character':
+            proposal = CharacterProposal(llm=genparse_llm, guide=guide)
+        else:
+            assert args.proposal == 'token'
+            proposal = TokenProposal(llm=genparse_llm, guide=guide, K=args.K)
+
         for schema_name in spider_schemas:
             if schema_name in UNSUPPORTED_SCHEMAS:
                 continue
             samplers[schema_name] = (sampler, proposal)
+
     else:
         for schema_name, guide in tqdm(guides.items(), desc='proposal'):
             sampler = VLLMSampler(llm=genparse_llm, guide=guide)
-            proposal = CharacterProposal(llm=genparse_llm, guide=guide)
+
+            if args.proposal == 'character':
+                proposal = CharacterProposal(llm=genparse_llm, guide=guide)
+            else:
+                assert args.proposal == 'token'
+                proposal = TokenProposal(llm=genparse_llm, guide=guide, K=args.K)
+
             samplers[schema_name] = (sampler, proposal)
 
     logger.info('Model(s) initialized.')
