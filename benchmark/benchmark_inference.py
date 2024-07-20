@@ -8,7 +8,7 @@ from hfppl import CachedCausalLM
 
 from genparse import Float
 from genparse.proposal import CharacterProposal, TokenProposal
-from genparse.steer import HFPPLSampler
+from genparse.steer import Sampler
 from genparse.util import lark_guide, load_model_by_name, set_seed
 
 import torch
@@ -90,7 +90,7 @@ def main():
 
     llm = load_model_by_name(args.model, batch_size=BATCH_SIZE)
 
-    sampler = HFPPLSampler(llm=llm, guide=guide)
+    sampler = Sampler(llm=llm, guide=guide)
     if args.proposal == 'character':
         proposal = CharacterProposal(llm=llm, guide=guide)
     elif args.proposal == 'token':

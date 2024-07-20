@@ -1,15 +1,13 @@
-import asyncio
-from arsenal import colors
-
 from arsenal.datastructures import LocatorMaxHeap
 from arsenal.iterextras import take
 from arsenal.maths import sample_dict
 
-from genparse.proposal.trie import TokenCharacterTrie
+from genparse.proposal.trie_numba import TokenCharacterTrie
 from genparse.semiring import Float
+from genparse.proposal.base import Proposal
 
 
-class TokenProposal(TokenCharacterTrie):
+class TokenProposal(Proposal):
     """Proposal distribution that combines an `llm` and `guide`.  Let Y be the set
     of tokens and ∑ the set of characters.  We assume that llm is a distrbution
     over Y* and guide is a distribution over ∑*.
@@ -26,14 +24,14 @@ class TokenProposal(TokenCharacterTrie):
     def __init__(self, *, llm, guide, K=None):
         self.llm = llm
         self.guide = guide
-        self._prompt = None
-        self._p_guide = None
         self.K = K
 
         # Filter LLM tokens that are illegal under the cfg
         words = {word for word in llm.V if set(word) <= self.guide.V or word == llm.eos}
 
-        super().__init__(words, old_eos=llm.eos, new_eos=guide.eos)
+        self.trie = TokenCharacterTrie(
+            words, encode=llm._encode, old_eos=llm.eos, new_eos=guide.eos
+        )
 
     async def sample_next_token(
         self,
@@ -45,14 +43,17 @@ class TokenProposal(TokenCharacterTrie):
         r"""
         Proposes a token and incremental weight update.
 
-        The following procedure, justified using RAVI, gives the way we sample a token and compute the incremental SMC weight update.
+        The following procedure, justified using RAVI, gives the way we sample a
+        token and compute the incremental SMC weight update.
 
         1. Sample a subset S of size K (+ 1) of the token vocabulary by
             a. enumerating the top K tokens
-            b. if there are remaining tokens with non-zero probability, sampling a wilcard token from the remainder of the vocabulary proportional to p_llm(x)
+            b. if there are remaining tokens with non-zero probability, sampling a
+               wilcard token from the remainder of the vocabulary proportional to p_llm(x)
                 * this step ensures absoluate continuity
         2. Compute *unnormalized target* p(x) of each x \in S according to p_llm(x)p_cfg(x).
-        3. Compute (local) weight w(x) of each token as p(x)/Pr(x \in S) where Pr(x \in S) is the *inclusion probability*.
+        3. Compute (local) weight w(x) of each token as p(x)/Pr(x \in S) where Pr(x \in S)
+           is the *inclusion probability*.
             * Pr(x \in S) = 1 if x in top K
             * Pr(x \in S) \propto p_llm(x) for the wilcard token, if applicable
         4. Renormalize the weights of the tokens in S and sample one of them.
@@ -66,6 +67,7 @@ class TokenProposal(TokenCharacterTrie):
                 the proposal of each particle.
         Returns:
             token : Proposed LLM token.
+            proposal_p : The probability of the proposed token (not properly weighted)
             weight_update : Incremental SMC weight update.
 
         """
@@ -92,7 +94,7 @@ class TokenProposal(TokenCharacterTrie):
                 p_cfg_wc = self.guide.p_next_seq(''.join(context), wildcard)
 
                 Ws[wildcard] = (
-                    p_llm[self.old_eos if wildcard == self.new_eos else wildcard]
+                    p_llm[self.llm.eos if wildcard == self.guide.eos else wildcard]
                     * p_cfg_wc
                     / P_wc[wildcard]
                 )
@@ -112,39 +114,6 @@ class TokenProposal(TokenCharacterTrie):
 
         return (token, proposal_p, weight_update)
 
-    def _update_internal(self):
-        # overrides base method.  Takes max rather than sum of internal nodes
-        jump = self.jump
-        mass = self.mass
-        for node in self.ordering:
-            m = 0
-            for child in jump[node]:
-                m = max(m, mass[child])
-            mass[node] = m
-
-    def __deepcopy__(self, memo):
-        cpy = type(self).__new__(type(self))
-
-        # the only thing that needs a real copy is the mass array
-        cpy.mass = self.mass.copy()
-        cpy._p_guide = self._p_guide if self._p_guide is None else self._p_guide.copy()
-
-        # pass the other member variables thru
-        cpy.root = self.root
-        cpy.children = self.children
-        cpy.word2leaf = self.word2leaf
-        cpy.jump = self.jump
-        cpy.ordering = self.ordering
-        # cpy.token_id_to_leaf = self.token_id_to_leaf    # TODO: when we switch to the numba version
-        cpy.llm = self.llm
-        cpy.guide = self.guide
-        cpy.old_eos = self.old_eos
-        cpy.new_eos = self.new_eos
-        cpy._prompt = self._prompt
-        cpy.K = self.K
-
-        return cpy
-
     def traverse_trie(self, context, p_llm):
         """
         This method will lazily enumerate the nodes in the intersection of `p_llm` and
@@ -159,30 +128,18 @@ class TokenProposal(TokenCharacterTrie):
         assert set(context) <= self.llm.V, f'OOV detected {set(context) - self.llm.V}'
 
         # update the trie with the llm's distribution of next token `p_llm`.
-        self.mass[:] = 0  # reset the mass
-        self._update_leaves(p_llm)
-
-        h = self.mass.copy()
-
-        # Update internal nodes of our A* heuristic
-        jump = self.jump
-        for node in self.ordering:
-            m = 0
-            for child in jump[node]:
-                m = max(m, h[child])
-            h[node] = m
+        h = self.trie.mass_max(p_llm)
 
         agenda = LocatorMaxHeap()
 
         P = Float.chart()
 
         # initial conditions
-        (token, node) = ('', self.root)
+        (token, node) = ('', self.trie.root)
         agenda[token, node, False] = 1
         P[node] = 1
 
-        self._p_guide = {}
-        children = self.children
+        children = self.trie.children
 
         curr_priority = 1
         prev_best = 1
@@ -197,7 +154,6 @@ class TokenProposal(TokenCharacterTrie):
                 value = P[node] * h[node]
                 assert prev_best >= value
                 prev_best = value
-                self._p_guide[token] = P[node]
                 yield (token, value)
                 continue
 
@@ -217,40 +173,3 @@ class TokenProposal(TokenCharacterTrie):
                         continue
                     P[y] = P_y
                     agenda[token + x, y, False] = P_y * h[y]
-
-    # TODO: unifty with `CharacterProposal.sample`.
-    def sample(
-        self,
-        prompt=(),
-        draw=sample_dict,
-        chunked=False,
-        max_tokens=float('inf'),
-        verbosity=False,
-    ):
-        self._prompt = prompt
-        context = ()
-        chunks = []
-        P = 1
-        t = 0
-        while True:
-            t += 1
-            if t <= max_tokens:
-                (y, p, _) = asyncio.run(
-                    self.sample_next_token(prompt=prompt, context=context, draw=draw)
-                )
-                P *= p
-            else:
-                y = self.guide.eos
-                P *= 1  # deterministic
-            if y == self.guide.eos:
-                break
-            chunks.append(y)
-            context = context + (y,)
-            if verbosity > 0:
-                print(colors.cyan % y, end=colors.magenta % '|')
-        value = context
-        if chunked:
-            value = tuple(chunks)
-        if verbosity > 0:
-            print()
-        return (value, P)

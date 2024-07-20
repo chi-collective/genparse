@@ -1,11 +1,11 @@
 import numpy as np
-from arsenal import colors
+from arsenal import colors, timeit
 from arsenal.maths.combinatorics import permute
 
-from genparse import locally_normalize, BoolCFGLM, EarleyLM, MockLLM, Float
+from genparse import BoolCFGLM, EarleyLM, MockLLM, Float
 from genparse.segmentation import prefixes
 from genparse.proposal import TokenProposal
-from genparse.util import set_seed, LarkStuff, load_model_by_name
+from genparse.util import set_seed, lark_guide, load_model_by_name
 from genparse.proposal.util import (
     mock_token_proposal,
     assert_proper_weighting,
@@ -20,81 +20,91 @@ from genparse.proposal.util import (
 #        yield (context + x, p_x)
 
 
+def test_timothy():
+    set_seed(0)
+
+    guide = lark_guide(
+        r"""
+        start: /[ ]*Tim(othy)?[ ](Fabbri[ ])?Vieira\./
+        """
+    )
+
+    llm = load_model_by_name('gpt2')
+    prompt = llm.encode_prompt('Hello my name is')
+
+    guide.V |= {w for word in llm.V for w in word}
+
+    proposal = TokenProposal(llm=llm, guide=guide, K=10)
+    with timeit('sample'):
+        for _ in range(10):
+            print(colors.line(80))
+            x, q, w = proposal.sample(prompt, max_tokens=50)
+            print(
+                f'{np.log(q):.2f}\t{np.log(w):.2f}',
+                (colors.light.cyan % '[')
+                + (colors.light.cyan % '|').join(x)
+                + (colors.light.cyan % ']'),
+            )
+
+
+def test_top_K():
+    set_seed(0)
+
+    guide = lark_guide(
+        r"""
+        start: /[ ]*Tim(othy)?[ ](Fabbri[ ])?Vieira\./
+        """
+    )
+
+    llm = load_model_by_name('gpt2')
+
+    guide.V |= {w for word in llm.V for w in word}
+
+    proposal = TokenProposal(llm=llm, guide=guide, K=None)
+
+    context = ('Tim',)
+    p_llm = llm.p_next(context)
+
+    # Test that `traverse_trie`'s token's are returned in order of largest to
+    # smallest probability
+    prev = 1
+    for y, p_y in proposal.traverse_trie(context, p_llm):
+        assert p_y <= prev
+        prev = p_y
+        assert np.allclose(p_y, p_llm[y] * guide.p_next_seq(''.join(context), y))
+        print(prev, '\t', repr(y))
+
+
 def test_basic_aligned_model_iql_small():
     set_seed(0)
 
     llm = load_model_by_name('mock-gpt2')
 
     # the base character-level CFG language model
-    guide = EarleyLM(
-        locally_normalize(
-            LarkStuff(
-                r"""
-                start: "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
-                EOS: "</s>"
-                select_expr: STAR | select_list
-                bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
-                bool_expr: var "=" value | var ">" value | var "<" value
-                from_expr: "data"
-                orderby_expr: var_list WS "ASC" | var_list WS "DESC"
-                select_list: select_var ("," WS select_var)*
-                var_list: var ("," WS var)*
-                select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
-                var: "age" | "gender" | "year" | "state_color" | "zipcode" | "vote" | "race_ethnicity"
-                value: NUMBER | "red" | "blue" | "white" | "black" | "latino" | "republican" | "democrat" | "male" | "female"
-                STAR: "*"
-                NUMBER: /\d+/
-                //WS: /[ \t\f\r\n]/
-                WS: " "
-                """
-            ).char_cfg(),
-            tol=1e-100,
-        ).trim()
+    guide = lark_guide(
+        r"""
+        start: "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
+        EOS: "</s>"
+        select_expr: STAR | select_list
+        bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
+        bool_expr: var "=" value | var ">" value | var "<" value
+        from_expr: "data"
+        orderby_expr: var_list WS "ASC" | var_list WS "DESC"
+        select_list: select_var ("," WS select_var)*
+        var_list: var ("," WS var)*
+        select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
+        var: "age" | "gender" | "year" | "state_color" | "zipcode" | "vote" | "race_ethnicity"
+        value: NUMBER | "red" | "blue" | "white" | "black" | "latino" | "republican" | "democrat" | "male" | "female"
+        STAR: "*"
+        NUMBER: /\d+/
+        //WS: /[ \t\f\r\n]/
+        WS: " "
+        """
     )
 
     proposal = TokenProposal(guide=guide, llm=llm)
 
-    #    proposal._prompt = ()
-
-    #   p = proposal._p_next(())
-    #   print(p)
-    #   assert p.keys() == {'S', 'SE', 'SELECT'}
-
-    #    p = proposal._p_next(('SELECT', ' *', ' FROM', ' data'))
-    #    print(p)
-    #    assert p.keys() == {
-    #        ' ',
-    #        ' <',
-    #        ' </',
-    #        ' G',
-    #        ' W',
-    #        ' O',
-    #        ' GR',
-    #        ' WH',
-    #        ' OR',
-    #        ' GROUP',
-    #        ' WHERE',
-    #        ' ORDER',
-    #    }
-    #
-    #    p = proposal._p_next(('SELECT', ' age', ' FROM', ' data'))
-    #    print(p)
-    #    assert p.keys() == {
-    #        ' ',
-    #        ' <',
-    #        ' </',
-    #        ' G',
-    #        ' W',
-    #        ' O',
-    #        ' GR',
-    #        ' WH',
-    #        ' OR',
-    #        ' GROUP',
-    #        ' WHERE',
-    #        ' ORDER',
-    #    }
-
-    print(proposal.sample())
+    print(proposal.sample(max_tokens=50))
 
 
 def test_normalizing_constant_unbiased():
@@ -132,22 +142,22 @@ def test_normalizing_constant_unbiased():
     }
 
     grammar = r"""
-            start: WS? "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
-            EOS: "▪"
-            select_expr: STAR | select_list
-            bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
-            bool_expr: var "=" value | var ">" value | var "<" value
-            from_expr: "data"
-            orderby_expr: var_list WS "ASC" | var_list WS "DESC"
-            select_list: select_var ("," WS select_var)*
-            var_list: var ("," WS var)*
-            select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
-            var: "state" | "stadium"
-            value: NUMBER | "'red'"
-            STAR: "*"
-            NUMBER: /\d+/
-            WS: /[ ]/
-     """
+        start: WS? "SELECT" WS select_expr WS "FROM" WS from_expr [WS "WHERE" WS bool_condition] [WS "GROUP BY" WS var_list] [WS "ORDER BY" WS orderby_expr] WS EOS
+        EOS: "▪"
+        select_expr: STAR | select_list
+        bool_condition: bool_expr | "(" bool_condition WS "AND" WS bool_condition ")" | "(" bool_condition WS "OR" WS bool_condition ")"
+        bool_expr: var "=" value | var ">" value | var "<" value
+        from_expr: "data"
+        orderby_expr: var_list WS "ASC" | var_list WS "DESC"
+        select_list: select_var ("," WS select_var)*
+        var_list: var ("," WS var)*
+        select_var: var | "AVG(" var ")" | "MEDIAN(" var ")" | "COUNT(" var ")"
+        var: "state" | "stadium"
+        value: NUMBER | "'red'"
+        STAR: "*"
+        NUMBER: /\d+/
+        WS: /[ ]/
+        """
 
     proposal = mock_token_proposal(V=V, guide_spec=grammar, K=10, uniform=True)
 
@@ -262,7 +272,7 @@ def test_proper_weighting():
     # Probabilistic guide #
     #######################
 
-    pcfg = EarleyLM.from_string(
+    guide = EarleyLM.from_string(
         """
 
         1: S -> a
@@ -274,7 +284,7 @@ def test_proper_weighting():
 
     V = {'a', 'aa', 'aaa', '▪'}
 
-    proposal = mock_token_proposal(V=V, guide_spec=pcfg, K=2, uniform=True)
+    proposal = mock_token_proposal(V=V, guide_spec=guide, K=2, uniform=True)
 
     prompt = ()
     context = ()

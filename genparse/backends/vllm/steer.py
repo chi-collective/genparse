@@ -3,20 +3,14 @@ Language model steering methods (VLLM compatible)
 """
 
 from arsenal import timers
-import warnings
 import asyncio
 import copy
+import numpy as np
 from collections import defaultdict
 
-import numpy as np
+from arsenal.maths import logsumexp
 
-from genparse.backends.vllm.inference import (
-    importance_sampling,
-    smc_standard,
-    smc_standard_record,
-    smc_steer,
-    VLLMParticle,
-)
+from genparse.record import SMCRecord
 from genparse.util import set_seed
 from genparse.steer import ParticleApproximation
 from genparse.tokenization import decode_tokenizer_vocab
@@ -79,7 +73,6 @@ class VLLMWrapper:
                 VLLMParticle(
                     prompt=prompt,
                     max_tokens=self.max_tokens,
-                    proposal=copy.deepcopy(self.proposal),
                 )
                 for _ in range(self.n_particles)
             ]
@@ -182,7 +175,7 @@ class VLLMWrapper:
                     particle_key = particle.context_ids_tuple()
                     if particle_key not in output_ids_to_seq_ids:
                         # this sequence is finished, but particle is still alive
-                        particle.finish()
+                        particle.finished = True
                         continue
 
                     particle.parent_id = output_ids_to_seq_ids[particle_key]
@@ -190,14 +183,14 @@ class VLLMWrapper:
 
                     if parent_id not in seq_group_ids or particle.finished:
                         # this sequence is finished, but particle is still alive
-                        particle.finish()
+                        particle.finished = True
                         continue
                     result_id = parent_id_to_result_id[parent_id]
                     logp = seq_group_next_logprob[result_id]
 
-                (token, _, weight_update) = await particle.proposal.sample_next_token(
+                (token, _, weight_update) = await self.proposal.sample_next_token(
                     prompt=self.prompt,
-                    context=''.join(particle.context),
+                    context=tuple(particle.context),
                     p_llm=await self.llm.p_next_async(context=None, _logp=logp),
                 )
                 token_id = self.token_to_id.get(token, self.llm._model.eos_token_id)
@@ -349,6 +342,7 @@ class VLLMSampler:
         max_tokens=float('inf'),
         verbosity=0,
         return_record=False,
+        ess_threshold=0.5,
         seed=None,
     ):
         """
@@ -370,33 +364,160 @@ class VLLMSampler:
         )
 
         record = None
-        if method == 'smc-steer':
-            assert n_beam is not None
-            if return_record:
-                warnings.warn('Record not yet implemented for smc-steer')
-            particles = asyncio.run(
-                smc_steer(model, n_particles=n_particles, n_beam=n_beam)
-            )
 
-        elif method == 'smc-standard':
-            if n_beam is not None:
-                warnings.warn('`n_beam` is set, but will be ignored by smc-standard')
-            if return_record:
-                particles, record = asyncio.run(
-                    smc_standard_record(
-                        model, n_particles=n_particles, return_record=return_record
-                    )
+        if method == 'smc-standard':
+            particles, record = asyncio.run(
+                smc_standard(
+                    model,
+                    n_particles=n_particles,
+                    return_record=return_record,
+                    ess_threshold=ess_threshold,
                 )
-            else:
-                particles = asyncio.run(smc_standard(model, n_particles=n_particles))
-
+            )
         elif method == 'importance-sampling':
-            particles = asyncio.run(importance_sampling(model, n_particles=n_particles))
-
+            particles, record = asyncio.run(
+                smc_standard(
+                    model,
+                    n_particles=n_particles,
+                    return_record=return_record,
+                    ess_threshold=0,
+                )
+            )
         else:
-            raise ValueError(f'Unknown inference method: {method}.')
+            raise ValueError(f'unrecognized method name {method!r}')
 
         self.llm.clear_cache()
         self.guide.clear_cache()
 
         return ParticleApproximation(particles, record=record)
+
+
+class VLLMParticle:
+    def __init__(self, prompt, max_tokens):
+        self.context = []
+        self.context_ids = []
+        self.prompt = prompt
+        self.max_tokens = max_tokens
+        self.request_id = None
+        self.parent_id = None
+        self.finished = False
+        self.weight = 0
+
+    def context_ids_tuple(self):
+        return tuple(self.context_ids)
+
+    def __str__(self):
+        return f'{" ".join(self.context)}'
+
+
+# TODO: we should be able to use a single SMC implementation!
+async def smc_standard(model, n_particles, ess_threshold=0.5, return_record=True):
+    """
+    Standard sequential Monte Carlo algorithm with multinomial resampling.
+
+    Args:
+        model (Model): The model to perform inference on.
+        n_particles (int): Number of particles to execute concurrently.
+        ess_threshold (float): Effective sample size below which resampling is triggered, given as a fraction of `n_particles`.
+
+    Returns:
+        particles: The completed particles after inference.
+        record (SMCRecord): Information about inference run history.
+    """
+    verbosity = model.verbosity if hasattr(model, 'verbosity') else 0
+
+    # Create n_particles copies of the model
+
+    request_id = model.add_prompt(model.prompt)
+    particles = model.particles[request_id]
+
+    # Initialize record dict
+    record = (
+        SMCRecord(
+            {
+                'n_particles': n_particles,
+                'ess_threshold': ess_threshold,
+                'algorithm': 'smc_standard_record',
+                'history': [],
+            }
+        )
+        if return_record
+        else None
+    )
+
+    if return_record or verbosity > 0:
+        step_num = 1
+
+    while model.llm._model.llm_engine.has_unfinished_requests():
+        if return_record:
+            step = {'step': step_num}
+
+        # Step each particle
+
+        await model.step()
+
+        # Normalize weights
+        weights = [p.weight for p in particles]
+        total_weight = logsumexp(np.array(weights))
+        weights_normalized = weights - total_weight
+
+        # Compute log average weight (used if resampling, else only for record)
+        avg_weight = total_weight - np.log(n_particles)
+        if verbosity > 0:
+            for i, p in enumerate(particles):
+                print(
+                    f'├ Particle {i:3d} (weight {p.weight:.4f}). `{p.context[-1]}` : {p}'
+                )
+            print(f'│ Step {step_num:3d} average weight: {avg_weight:.4f}')
+
+        if return_record:
+            step['particles'] = [
+                {'context': p.context.copy(), 'weight': p.weight} for p in particles
+            ]
+            step['average_weight'] = avg_weight
+
+        # Resample if necessary
+        if -logsumexp(weights_normalized * 2) < np.log(ess_threshold) + np.log(
+            n_particles
+        ):
+            # Alternative implementation uses a multinomial distribution and only makes n-1 copies, reusing existing one, but fine for now
+            probs = np.exp(weights_normalized)
+
+            if return_record or verbosity > 0:
+                # resampling: sample indices to copy
+                resampled_indices = [
+                    np.random.choice(range(len(particles)), p=probs)
+                    for _ in range(n_particles)
+                ]
+                # resampled_indices.sort()  # removed. sorting should be done in post if necessary
+                model.particles[request_id] = [
+                    copy.deepcopy(particles[i]) for i in resampled_indices
+                ]
+                particles = model.particles[request_id]
+                step['resample_indices'] = resampled_indices
+            else:
+                model.particles[request_id] = [
+                    copy.deepcopy(
+                        particles[np.random.choice(range(len(particles)), p=probs)]
+                    )
+                    for _ in range(n_particles)
+                ]
+                particles = model.particles[request_id]
+
+            for p in particles:
+                p.weight = avg_weight
+
+            if verbosity > 0:
+                print(
+                    f'└╼  Resampling! {resampled_indices}. Weights all set to = {avg_weight:.4f}.'
+                )
+        else:
+            if verbosity > 0:
+                print('└╼')
+
+        if return_record or verbosity > 0:
+            step_num += 1
+            if return_record:
+                record['history'].append(step)
+
+    return particles, record
