@@ -15,13 +15,13 @@ from pathlib import Path
 import transformers
 from tqdm import tqdm
 
-from genparse.cfglm import BoolCFGLM
 from genparse.lm import TokenizedLLM
 from genparse.util import lark_guide
-from genparse.experimental.steer_local import LocalPOESampler
+
+# from genparse.experimental.steer_local import LocalPOESampler
 from genparse.backends.vllm import vllmpplLLM, VLLMSampler
 from genparse.proposal import CharacterProposal
-from genparse.util import LarkStuff, set_seed
+from genparse.util import set_seed
 from bench.spider.dialogue import load_spider_data
 from bench.spider.evaluator import Evaluator
 from bench.spider.schema import load_schemas
@@ -66,11 +66,16 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument('--exp-name', type=str, default='llama3-8b-100')
     parser.add_argument(
         '--inference',
-        choices=['smc-standard', 'smc-steer', 'importance-sampling', 'local-poe'],
+        choices=[
+            'smc-standard',
+            #'smc-steer',
+            'importance-sampling',
+            'local-poe',
+        ],
         default='smc-standard',
     )
     parser.add_argument('--particles', type=int, default=1)
-    parser.add_argument('--n-beam', type=int, default=1)
+    # parser.add_argument('--n-beam', type=int, default=1)
     parser.add_argument('--max-tokens', type=int, default=100)
     parser.add_argument('--verbosity', type=int, default=0)
     parser.add_argument('--seed', type=int, default=0)
@@ -137,7 +142,7 @@ def main():
         print(f'using grammar from: {grammar_file}')
         with open(grammar_file, 'r') as f:
             grammar = f.read()
-        guide = BoolCFGLM(LarkStuff(grammar).char_cfg())
+        guide = lark_guide(grammar)
         for schema_name in spider_schemas:
             if schema_name not in UNSUPPORTED_SCHEMAS:
                 guides[schema_name] = guide
@@ -149,8 +154,7 @@ def main():
         for schema_name, grammar in tqdm(all_grammars.items(), desc='grammar'):
             if schema_name not in UNSUPPORTED_SCHEMAS:
                 grammar = reformat_grammar(grammar)
-                character_cfg = LarkStuff(grammar).char_cfg()
-                guide = BoolCFGLM(character_cfg)
+                guide = lark_guide(grammar)
                 guides[schema_name] = guide
 
     BATCH_SIZE = 80
