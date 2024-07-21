@@ -26,18 +26,20 @@ class Evaluator:
         """
         db = self.db_path / db_name / (db_name + '.sqlite')
         schema = E.Schema(E.get_schema(db))
-        g_sql = E.get_sql(schema, gold)
 
         try:
+            g_sql = E.get_sql(schema, gold)
             p_sql = E.get_sql(schema, pred)
         except Exception:
             # sql is ill-formed (can't be parsed by sqlite engine)
             return False, 'invalid'
 
         kmap = self.kmaps[db_name]
+
         g_valid_col_units = build_valid_col_units(g_sql['from']['table_units'], schema)
         g_sql = rebuild_sql_val(g_sql)
         g_sql = rebuild_sql_col(g_valid_col_units, g_sql, kmap)
+
         p_valid_col_units = build_valid_col_units(p_sql['from']['table_units'], schema)
         p_sql = rebuild_sql_val(p_sql)
         p_sql = rebuild_sql_col(p_valid_col_units, p_sql, kmap)

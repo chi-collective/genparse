@@ -83,6 +83,12 @@ def get_parser() -> argparse.ArgumentParser:
         default='character',
         help='Specify which proposal distribution to use in SMC inference.',
     )
+    parser.add_argument(
+        '--decision-rule',
+        choices=['mbr', 'viterbi'],
+        default='mbr',
+        help='Specify a decision rule for selecting a query from posterior estimate',
+    )
     parser.add_argument('--verbosity', type=int, default=0)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument(
@@ -157,7 +163,7 @@ def main():
         for schema_name in spider_schemas:
             if schema_name not in UNSUPPORTED_SCHEMAS:
                 guides[schema_name] = guide
-    else:  # schema specific grammars
+    else:  # schema-specific grammars
         grammar_file = 'spider_schema_grammar.json'
         print(f'using schema-specific grammar file from: {grammar_file}')
         with open(grammar_file, 'r') as f:
@@ -249,10 +255,33 @@ def main():
             verbosity=args.verbosity,
         )
 
-        pmax = particles.particles[0]
-        for p in particles.particles[1:]:
-            if p.finished and p.weight > pmax.weight:
-                pmax = p
+        if args.decision_rule == 'mbr':
+            # Minimum Bayes risk decision picks the particle with the highest
+            # expected `match` under the posterior approximation.
+
+            def match(x, y):
+                x = x.rstrip(guide.eos)
+                y = y.rstrip(guide.eos)
+                (exec_match, _) = evaluator.evaluate(x, y, db_name=dev_datum.schema_name)
+                return exec_match
+
+            # from arsenal import timeit
+            # with timeit('mbr'):
+            pmax = max(
+                particles,
+                key=lambda candidate: particles.risk(match, ''.join(candidate.context)),
+            )
+
+        else:
+            assert args.decision_rule == 'viterbi'
+
+            # Viterbi decision picks the highest-weight particle under the
+            # posterior approximation.
+
+            pmax = particles.particles[0]
+            for p in particles.particles[1:]:
+                if p.finished and p.weight > pmax.weight:
+                    pmax = p
 
         particles_json = [
             {
