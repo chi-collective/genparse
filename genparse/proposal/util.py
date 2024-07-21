@@ -1,3 +1,4 @@
+import numpy as np
 import asyncio
 from arsenal.maths import random_dist, assert_equal
 
@@ -55,12 +56,14 @@ def enumerate_traces(proposal, prompt, context):
                 proposal.sample_next_token(draw=tracer, prompt=prompt, context=context)
             )
             P[s] += w * q
+            assert np.allclose(q, tracer.cur.mass)
     return (P, tracer)
 
 
 def enumerate_target(proposal, prompt, context):
     """
-    This function exactly computes the unnormalized local POE target over next tokens given a prompt and context.
+    Computes the unnormalized local product of experts target over next tokens
+    given a `prompt` and `context`.
     """
     p_next = Float.chart()
     p_next_llm = proposal.llm.p_next(prompt + context)
