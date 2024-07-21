@@ -9,6 +9,7 @@ import numpy as np
 from collections import defaultdict
 
 from arsenal.maths import logsumexp
+from arsenal import colors
 
 from genparse.record import SMCRecord
 from genparse.util import set_seed
@@ -403,11 +404,22 @@ class VLLMParticle:
         self.finished = False
         self.weight = 0
 
+    def __lt__(self, other):
+        return self.weight < other.weight
+
     def context_ids_tuple(self):
         return tuple(self.context_ids)
 
-    def __str__(self):
-        return f'{" ".join(self.context)}'
+    #    def __str__(self):
+    #        return f'{" ".join(self.context)}'
+
+    def __repr__(self):
+        return (
+            f'{self.weight:.2f}:\t'
+            + colors.light.cyan % '['
+            + (colors.light.cyan % '|').join(repr(y)[1:-1] for y in self.context)
+            + colors.light.cyan % ']'
+        )
 
 
 # TODO: we should be able to use a single SMC implementation!
