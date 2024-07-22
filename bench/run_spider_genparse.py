@@ -258,7 +258,10 @@ def main():
             def match(x, y):
                 x = x.rstrip(guide.eos)
                 y = y.rstrip(guide.eos)
-                (exec_match, _) = evaluator.evaluate(x, y, db_name=dev_datum.schema_name)
+                try:
+                    (exec_match, _) = evaluator.evaluate(x, y, db_name=dev_datum.schema_name)
+                except Exception:
+                    exec_match = False
                 return exec_match
 
             # from arsenal import timeit
