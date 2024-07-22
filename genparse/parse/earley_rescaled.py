@@ -219,6 +219,8 @@ class Earley:
         else:
             next_col.rescale = num / den * prev_col.rescale
 
+        next_col.Q = None  # optional: free up some memory
+
         return next_col
 
     def PREDICT(self, col):

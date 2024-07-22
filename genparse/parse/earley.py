@@ -188,6 +188,8 @@ class Earley:
 
         self.PREDICT(next_col)
 
+        next_col.Q = None  # optional: free up some memory
+
         return next_col
 
     def PREDICT(self, col):

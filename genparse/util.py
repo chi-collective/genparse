@@ -75,7 +75,7 @@ def load_model_by_name(model_name, batch_size=None, temperature=1, top_p=None):
 
     if model_name == 'gpt2':
         MODEL_ID = 'gpt2'
-        tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_ID)
+        tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_ID, use_fast=False)
         model = transformers.AutoModelForCausalLM.from_pretrained(MODEL_ID)
         return TokenizedLLM(
             model=LLM(
@@ -88,7 +88,7 @@ def load_model_by_name(model_name, batch_size=None, temperature=1, top_p=None):
         )
 
     elif model_name == 'mock-gpt2':
-        tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2')
+        tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2', use_fast=False)
         return TokenizedLLM(
             model=MockLLM(
                 V=decode_tokenizer_vocab(tokenizer),
@@ -102,7 +102,8 @@ def load_model_by_name(model_name, batch_size=None, temperature=1, top_p=None):
 
     elif model_name == 'mock-codellama':
         tokenizer = transformers.AutoTokenizer.from_pretrained(
-            'codellama/CodeLlama-7b-Instruct-hf'
+            'codellama/CodeLlama-7b-Instruct-hf',
+            use_fast=False,
         )
         return TokenizedLLM(
             model=MockLLM(
@@ -123,7 +124,7 @@ def load_model_by_name(model_name, batch_size=None, temperature=1, top_p=None):
             model=hfppl.CachedCausalLM.from_pretrained(MODEL_ID, load_in_8bit=False),
             tokenizer=transformers.AutoTokenizer.from_pretrained(
                 MODEL_ID,
-                use_fast=True,
+                use_fast=False,
                 eot_token=None,
                 fill_token=None,
                 prefix_token=None,
