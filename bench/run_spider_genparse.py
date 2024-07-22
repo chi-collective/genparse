@@ -9,6 +9,7 @@ CUDA_VISIBLE_DEVICES=0 python benchmark/run_spider_genparse.py --particles 20 --
 import argparse
 import json
 import logging
+import multiprocessing as mp
 import os
 from pathlib import Path
 
@@ -30,29 +31,6 @@ from bench.spider.prompt_formatter import SpiderPromptFormatter
 logger = logging.getLogger(__name__)
 
 
-UNSUPPORTED_SCHEMAS = set(
-    """chinook_1
-flight_4
-baseball_1
-tracking_share_transactions
-student_transcripts_tracking
-products_gen_characteristics
-cre_Doc_Template_Mgt
-world_1
-tracking_grants_for_research
-college_1
-hr_1
-sakila_1
-wta_1
-store_1
-formula_1
-bike_1
-cre_Drama_Workshop_Groups
-cre_Doc_Tracking_DB
-cre_Theme_park""".split()
-)
-
-
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
 
@@ -63,7 +41,7 @@ def get_parser() -> argparse.ArgumentParser:
         default='meta-llama/Meta-Llama-3-8B-Instruct',
         choices=['meta-llama/Meta-Llama-3-8B-Instruct'],
     )
-    parser.add_argument('--exp-name', type=str, default='llama3-8b-100')
+    parser.add_argument('--exp-name', type=str, default='llama3-8b')
     parser.add_argument(
         '--inference',
         choices=[
@@ -153,27 +131,6 @@ def main():
     hfppl_llm = vllmpplLLM(args.model_name, max_model_len=4096, seed=args.seed)
     tokenizer = transformers.AutoTokenizer.from_pretrained(args.model_name)
 
-    guides = {}  # schema_name -> guide
-    if not args.schema_grammar:  # use the permissive general sql grammar
-        grammar_file = 'benchmark/grammars/sql_case_insensitive.lark'
-        print(f'using grammar from: {grammar_file}')
-        with open(grammar_file, 'r') as f:
-            grammar = f.read()
-        guide = lark_guide(grammar)
-        for schema_name in spider_schemas:
-            if schema_name not in UNSUPPORTED_SCHEMAS:
-                guides[schema_name] = guide
-    else:  # schema-specific grammars
-        grammar_file = 'spider_schema_grammar.json'
-        print(f'using schema-specific grammar file from: {grammar_file}')
-        with open(grammar_file, 'r') as f:
-            all_grammars = json.load(f)
-        for schema_name, grammar in tqdm(all_grammars.items(), desc='grammar'):
-            if schema_name not in UNSUPPORTED_SCHEMAS:
-                grammar = reformat_grammar(grammar)
-                guide = lark_guide(grammar)
-                guides[schema_name] = guide
-
     BATCH_SIZE = 80
 
     hfppl_llm.batch_size = BATCH_SIZE
@@ -181,11 +138,20 @@ def main():
         model=hfppl_llm, tokenizer=tokenizer, batch_size=BATCH_SIZE
     )
 
+    guides = {}  # schema_name -> guide,
+    # `guides` is only used in schema-specific to store asynchronously constructed
+    # parsers to save time
     samplers = {}  # schema_name -> (sampler, proposal)
-    if not args.schema_grammar:
-        guide = next(iter(guides.values()))  # all the same; pick arbitrary one
-        sampler = VLLMSampler(llm=genparse_llm, guide=guide)
 
+    pool = mp.Pool(os.cpu_count() // 2 - 1)  # half cpus per gpu and leave one for main process
+
+    if not args.schema_grammar:  # use the permissive general sql grammar
+        grammar_file = 'benchmark/grammars/sql_case_insensitive.lark'
+        print(f'using grammar from: {grammar_file}')
+        with open(grammar_file, 'r') as f:
+            grammar = f.read()
+        guide = lark_guide(grammar)
+        sampler = VLLMSampler(llm=genparse_llm, guide=guide)
         if args.proposal == 'character':
             proposal = CharacterProposal(llm=genparse_llm, guide=guide)
         else:
@@ -193,28 +159,34 @@ def main():
             proposal = TokenProposal(llm=genparse_llm, guide=guide, K=args.K)
 
         for schema_name in spider_schemas:
-            if schema_name in UNSUPPORTED_SCHEMAS:
-                continue
             samplers[schema_name] = (sampler, proposal)
 
-    else:
-        for schema_name, guide in tqdm(guides.items(), desc='proposal'):
-            sampler = VLLMSampler(llm=genparse_llm, guide=guide)
+    else:  # schema-specific grammars
+        grammar_file = 'spider_schema_grammar.json'
+        print(f'using schema-specific grammar file from: {grammar_file}')
+        with open(grammar_file, 'r') as f:
+            all_grammars = json.load(f)
 
-            if args.proposal == 'character':
-                proposal = CharacterProposal(llm=genparse_llm, guide=guide)
-            else:
-                assert args.proposal == 'token'
-                proposal = TokenProposal(llm=genparse_llm, guide=guide, K=args.K)
+        # re-order the list of the grammars so that they're in the order they appear
+        # in the dataset. Use dict over set because python guarantees insertion order in
+        # dict, not in set.
+        reordered_grammar_names = {}
+        for dev_datum in spider_dev_data:
+            if dev_datum.schema_name not in reordered_grammar_names:
+                reordered_grammar_names[dev_datum.schema_name] = None
 
-            samplers[schema_name] = (sampler, proposal)
+        for schema_name in reordered_grammar_names:
+            grammar = all_grammars[schema_name]
+            grammar = reformat_grammar(grammar)
+            # guide = lark_guide(grammar)
+            guides[schema_name] = pool.apply_async(lark_guide, (grammar,))
 
-    logger.info('Model(s) initialized.')
+    logger.info('Model(s) initialized (asynchronously when schema specific).')
 
     # Setup saving.
     n_query = args.n_query
 
-    outpath = f'llama-3-{args.inference}-p{args.particles}-b{args.n_beam}-{n_query}'
+    outpath = f'{args.exp_name}-{args.inference}-p{args.particles}-b{args.n_beam}-{n_query}'
     if args.schema_grammar:
         outpath += '-schema'
     outpath += '.jsonl'
@@ -222,12 +194,8 @@ def main():
     logger.info(f'writing to {outpath} ... ')
 
     n_correct, n_invalid, n_mismatch = 0, 0, 0
-    n_skipped = 0
 
     for i, dev_datum in tqdm(enumerate(spider_dev_data[:n_query]), total=n_query):
-        if dev_datum.schema_name in UNSUPPORTED_SCHEMAS:
-            n_skipped += 1
-            continue
 
         messages = prompt_formatter.format_openai(dev_datum)
 
@@ -244,7 +212,20 @@ def main():
             tokenizer.apply_chat_template(messages, add_generation_prompt=True)
         )
 
-        sampler, proposal = samplers[dev_datum.schema_name]
+        if dev_datum.schema_name in samplers:
+            # if not schema specific, these are ready by default
+            # if schema specific, the parser is async parser has been used and is ready
+            sampler, proposal = samplers[dev_datum.schema_name]
+        else:
+            guide = guides[dev_datum.schema_name].get()
+            sampler = VLLMSampler(llm=genparse_llm, guide=guide)
+            if args.proposal == 'character':
+                proposal = CharacterProposal(llm=genparse_llm, guide=guide)
+            else:
+                assert args.proposal == 'token'
+                proposal = TokenProposal(llm=genparse_llm, guide=guide, K=args.K)
+            samplers[dev_datum.schema_name] = (sampler, proposal)
+
         particles = sampler.run_inference(
             prompt=prompt,
             proposal=proposal,
@@ -321,14 +302,18 @@ def main():
             n_invalid += 1
         elif result[1] == 'mismatch':
             n_mismatch += 1
+        else:
+            raise ValueError
 
         n_total = sum((n_correct, n_invalid, n_mismatch))
         print(
             f'correct: {n_correct / n_total:.2f} ({n_correct}), '
             f'invalid: {n_invalid / n_total:.2f} ({n_invalid}), '
             f'mismatch: {n_mismatch / n_total:.2f} ({n_mismatch})'
-            f' --- [{n_skipped} unsupported]'
         )
+
+    pool.close()
+    pool.join()
 
 
 if __name__ == '__main__':
