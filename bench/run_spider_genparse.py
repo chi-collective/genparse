@@ -15,6 +15,7 @@ from pathlib import Path
 
 import transformers
 from tqdm import tqdm
+from arsenal.datastructures.heap import LocatorMaxHeap
 
 from genparse.lm import TokenizedLLM
 from genparse.util import lark_guide
@@ -95,6 +96,15 @@ def reformat_grammar(grammar):
             new_grammar += line + '\n'
 
     return new_grammar
+
+def lark_guide_async(grammar):
+    guide = lark_guide(grammar)
+    # this Q is a cython heap from arsenal that's not serializable.
+    # it is guaranteed to be empty, so we delete it before sending
+    # across processes and re-initialize it upon receiving.
+    assert len(guide.model._initial_column.Q) == 0
+    guide.model._initial_column.Q = None
+    return guide
 
 
 def main():
@@ -179,7 +189,7 @@ def main():
             grammar = all_grammars[schema_name]
             grammar = reformat_grammar(grammar)
             # guide = lark_guide(grammar)
-            guides[schema_name] = pool.apply_async(lark_guide, (grammar,))
+            guides[schema_name] = pool.apply_async(lark_guide_async, (grammar,))
 
     logger.info('Model(s) initialized (asynchronously when schema specific).')
 
@@ -218,6 +228,7 @@ def main():
             sampler, proposal = samplers[dev_datum.schema_name]
         else:
             guide = guides[dev_datum.schema_name].get()
+            guide.model._initial_column.Q = LocatorMaxHeap()
             sampler = VLLMSampler(llm=genparse_llm, guide=guide)
             if args.proposal == 'character':
                 proposal = CharacterProposal(llm=genparse_llm, guide=guide)
