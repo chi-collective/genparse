@@ -80,9 +80,8 @@ class NextTokenLogProbServer(vllm.LLM):
         """Associate the scheduled sequence ids with particle ids"""
         context_ids_to_particle_ids = defaultdict(lambda: [])
         for particle_id, particle in enumerate(particles):
-            if particle.done:
-                continue
-            context_ids_to_particle_ids[particle.context_ids].append(particle_id)
+            if not particle.done:
+                context_ids_to_particle_ids[particle.context_ids].append(particle_id)
 
         sequence_id_to_particle_ids = {}
         for seq_id, seq_data in seq_group_metadata.seq_data.items():
@@ -91,6 +90,8 @@ class NextTokenLogProbServer(vllm.LLM):
             ]
 
         self.particle_metadata.sequence_id_to_particle_ids = sequence_id_to_particle_ids
+
+        # TODO: check that all particles have been assigned a sequence id
 
     def execute_request(self, particles, is_initial=False):
         """Take a single VLLM step to compute logprobs for the next token"""
@@ -223,4 +224,5 @@ class NextTokenLogProbServer(vllm.LLM):
         self.prompt = None
         self.request_counter = Counter()
         self.particle_metadata = VLLMParticleMetadata()
+        self.prompt = None
         self.free_unfinished_requests()

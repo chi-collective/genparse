@@ -275,19 +275,17 @@ from vllm import LLMEngine, EngineArgs
 
 
 class VirtualTokenizedLLM(TokenizedLLM):
-    def __init__(self, vllm_engine, max_tokens):
+    def __init__(self, vllm_engine):
         self.llm_engine = vllm_engine
         self.tokenizer = self.llm_engine.get_tokenizer()
-        self.max_tokens = max_tokens
         super().__init__(tokenizer=self.tokenizer, model=vllm_engine, batch_size=None)
 
     @classmethod
-    def from_name(cls, model_name, seed, max_tokens):
+    def from_name(cls, model_name, seed):
         return cls(
             LLMEngine.from_engine_args(
                 EngineArgs(model=model_name, tokenizer=model_name, seed=seed)
-            ),
-            max_tokens=max_tokens,
+            )
         )
 
     def __call__(self, **kwargs):

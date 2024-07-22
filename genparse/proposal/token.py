@@ -25,7 +25,7 @@ class TokenProposal(Proposal):
         self.K = K
         super().__init__(llm=llm, guide=guide)
 
-    async def sample_set(self, context, p_llm, draw=sample_dict):
+    def sample_set(self, context, p_llm, draw=sample_dict):
         proposal_p = 1
 
         # enumerate top K tokens

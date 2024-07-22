@@ -1,14 +1,17 @@
 from collections import namedtuple
 from arsenal import colors
 import warnings
+import numpy as np
+from arsenal.timer import Benchmark
+from genparse.experimental.inference.proposal_server import Error
 
 
 class Particle(
-    namedtuple('Particle', 'prompt, weight, context, context_ids, parent, done')
+    namedtuple('Particle', 'prompt, log_weight, context, context_ids, parent, done')
 ):
     def __repr__(self):
         return (
-            f'{self.weight:.2f}:\t'
+            f'{self.log_weight:.2f}:\t'
             + colors.light.cyan % '['
             + (colors.light.cyan % '|').join(repr(y)[1:-1] for y in self.context)
             + colors.light.cyan % ']'
@@ -37,7 +40,7 @@ class BatchProposalBaseline:
 
         return Particle(
             prompt=particle.prompt,
-            weight=particle.weight + w,
+            weight=particle.log_weight + w,
             context=particle.context + (token,),
             context_ids=particle.context_ids + (token_id,),
             done=(token == self.eos or len(particle.context) + 1 >= max_tokens),
@@ -55,17 +58,23 @@ class BatchProposalBaseline:
 
 
 class BatchProposal:
-    def __init__(self, proposal_server, next_token_logprob_server):
+    def __init__(self, proposal_server, next_token_logprob_server, max_tokens):
         self.proposal_server = proposal_server
         self.next_token_logprob_server = next_token_logprob_server
         self.eos = proposal_server.eos
+        self.max_tokens = max_tokens
+        self.timer = Benchmark('VLLM vs CFG+trie+weight')
+
+        print(
+            f'Initialized batch proposal with eos={self.eos} and max_tokens={self.max_tokens}'
+        )
 
     def batch_next_token_probs(self, particles, is_initial):
         return self.next_token_logprob_server.execute_request(
             particles=particles, is_initial=is_initial
         )
 
-    def batch_step(self, particles, max_tokens, is_initial=False):
+    def batch_extend_particles(self, particles, logprobs, particle_id_to_logprob_id):
         to_serve = len(particles)
 
         if to_serve > self.proposal_server.max_n_particles:
@@ -76,10 +85,6 @@ class BatchProposal:
             )
             self.proposal_server.max_n_particles = to_serve
             self.proposal_server.restart()
-
-        logprobs, particle_id_to_logprob_id = self.batch_next_token_probs(
-            particles, is_initial
-        )
 
         for i, lps in enumerate(logprobs):
             self.proposal_server.shared_array[i] = lps
@@ -95,14 +100,19 @@ class BatchProposal:
         while to_serve > 0:
             result = self.proposal_server.result_queue.get()
 
+            if isinstance(result, Error):
+                self.cleanup()
+                raise result.exception
+
             particle = particles[result.id]
             particles[result.id] = Particle(
                 prompt=particle.prompt,
-                weight=particle.weight + result.weight,
+                log_weight=particle.log_weight + result.weight,
                 context=particle.context + (result.token,),
                 context_ids=particle.context_ids + (result.token_id,),
                 done=(
-                    result.token == self.eos or len(particle.context) + 1 >= max_tokens
+                    result.token == self.eos
+                    or len(particle.context) + 1 >= self.max_tokens
                 ),
                 parent=particle.parent,
             )
@@ -113,6 +123,79 @@ class BatchProposal:
 
         return particles
 
+    def batch_step(self, particles, is_initial=False):
+        if not self.proposal_server.is_running:
+            raise ValueError(
+                'Proposal server is not running (no subprocesses are initialized). Please start the server.'
+            )
+
+        with self.timer['vllm']:
+            logprobs, particle_id_to_logprob_id = self.batch_next_token_probs(
+                particles, is_initial
+            )
+
+        with self.timer['parser']:
+            particles = self.batch_extend_particles(
+                particles, logprobs, particle_id_to_logprob_id
+            )
+
+        return particles
+
     def cleanup(self):
         self.proposal_server.cleanup()
         self.next_token_logprob_server.cleanup()
+
+
+def init_particles(n_particles):
+    return [Particle((), 0, (), (), None, False) for _ in range(n_particles)]
+
+
+def do_resample(particles, ess_threshold):
+    weights = [np.exp(p.log_weight) for p in particles]
+    ess = sum(w**2 for w in weights) ** -1
+    return ess < ess_threshold
+
+
+def multinomial_resample(particles):
+    weights = [np.exp(p.log_weight) for p in particles]
+    probs = weights / sum(weights)
+    new_particles_idxs = np.random.choice(particles, size=len(particles), p=probs)
+    return [Particle(*particles[i]) for i in new_particles_idxs]
+
+
+def importance_sampling(prompt, batch_proposal, n_particles, max_tokens):
+    particles = init_particles(n_particles)
+
+    batch_proposal.next_token_logprob_server.add_prompt(prompt)
+
+    try:
+        particles = batch_proposal.batch_step(
+            particles, max_tokens=max_tokens, is_initial=True
+        )
+        while not all(p.done for p in particles):
+            particles = batch_proposal.batch_step(particles, max_tokens=max_tokens)
+    except Exception as e:
+        batch_proposal.cleanup()
+        raise e
+
+    return particles
+
+
+def smc(prompt, batch_proposal, n_particles, max_tokens, ess_threshold=0.5):
+    particles = init_particles(n_particles)
+
+    batch_proposal.next_token_logprob_server.add_prompt(prompt)
+
+    try:
+        particles = batch_proposal.batch_step(
+            particles, max_tokens=max_tokens, is_initial=True
+        )
+        while not all(p.done for p in particles):
+            particles = batch_proposal.batch_step(particles, max_tokens=max_tokens)
+            if do_resample(particles, ess_threshold):
+                particles = multinomial_resample(particles)
+    except Exception as e:
+        batch_proposal.cleanup()
+        raise e
+
+    return particles
