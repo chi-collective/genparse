@@ -97,6 +97,7 @@ def reformat_grammar(grammar):
 
     return new_grammar
 
+
 def lark_guide_async(grammar):
     guide = lark_guide(grammar)
     # this Q is a cython heap from arsenal that's not serializable.
@@ -153,7 +154,9 @@ def main():
     # parsers to save time
     samplers = {}  # schema_name -> (sampler, proposal)
 
-    pool = mp.Pool(os.cpu_count() // 2 - 1)  # half cpus per gpu and leave one for main process
+    pool = mp.Pool(
+        os.cpu_count() // 2 - 1
+    )  # half cpus per gpu and leave one for main process
 
     if not args.schema_grammar:  # use the permissive general sql grammar
         grammar_file = 'benchmark/grammars/sql_case_insensitive.lark'
@@ -196,7 +199,8 @@ def main():
     # Setup saving.
     n_query = args.n_query
 
-    outpath = f'{args.exp_name}-{args.inference}-p{args.particles}-b{args.n_beam}-{n_query}'
+    outpath = (f'{args.exp_name}-{args.inference}-'
+               f'p{args.particles}-b{args.n_beam}-{n_query}')
     if args.schema_grammar:
         outpath += '-schema'
     outpath += '.jsonl'
@@ -206,7 +210,6 @@ def main():
     n_correct, n_invalid, n_mismatch = 0, 0, 0
 
     for i, dev_datum in tqdm(enumerate(spider_dev_data[:n_query]), total=n_query):
-
         messages = prompt_formatter.format_openai(dev_datum)
 
         if i == 0:  # print an example for demonstration
