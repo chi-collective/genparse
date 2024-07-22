@@ -48,9 +48,6 @@ def main():
     # Load data.
     logger.info('loading spider dev data...')
     raw_spider_dir = Path('bench/spider/data/spider')
-    spider_schemas = load_schemas(
-        schemas_path=raw_spider_dir / 'tables.json', db_path=raw_spider_dir / 'database'
-    )  # Dict[str, DbSchema], schema_name -> schema
 
     spider_dev_data = load_spider_data(raw_spider_dir / 'dev.json')
     logger.info('spider dev data loaded.')
