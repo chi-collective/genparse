@@ -39,7 +39,7 @@ class LM:
 
     def __call__(self, context):
         "Compute the probability of a complete string."
-        #        return np.exp(self.logp(ys))
+        # return np.exp(self.logp(ys))
         assert context[-1] == self.eos
         P = 1
         for i, y in enumerate(context):

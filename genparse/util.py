@@ -74,9 +74,22 @@ def load_model_by_name(model_name, batch_size=None, temperature=1, top_p=None):
     from genparse.tokenization import decode_tokenizer_vocab
 
     if model_name == 'gpt2':
-        MODEL_ID = 'gpt2'
-        tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_ID, use_fast=False)
-        model = transformers.AutoModelForCausalLM.from_pretrained(MODEL_ID)
+        tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, use_fast=False)
+        model = transformers.AutoModelForCausalLM.from_pretrained(model_name)
+        return TokenizedLLM(
+            model=LLM(
+                model, V=set(range(tokenizer.vocab_size)), eos=tokenizer.eos_token_id
+            ),
+            tokenizer=tokenizer,
+            batch_size=batch_size,
+            temperature=temperature,
+            top_p=top_p,
+        )
+
+    if model_name == 'gpt2-large':
+        model = transformers.GPT2LMHeadModel.from_pretrained(model_name)
+        tokenizer = transformers.GPT2Tokenizer.from_pretrained(model_name, use_fast=False)
+
         return TokenizedLLM(
             model=LLM(
                 model, V=set(range(tokenizer.vocab_size)), eos=tokenizer.eos_token_id

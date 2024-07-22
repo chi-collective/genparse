@@ -126,6 +126,7 @@ class Earley:
         col = Column(0)
         self.PREDICT(col)
         col.rescale = self.cfg.R.one
+        col.Q = None
         self._initial_column = col
 
     def clear_cache(self):
@@ -187,14 +188,17 @@ class Earley:
         next_col_c_chart = next_col.c_chart
         prev_col_i_chart = prev_col.i_chart
 
+        rest_Ys = self.rest_Ys
+        _update = self._update
+
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         for item in prev_col.waiting_for[token]:
             (I, X, Ys) = item
-            self._update(
+            _update(
                 next_col,
                 I,
                 X,
-                self.rest_Ys[Ys],
+                rest_Ys[Ys],
                 prev_col_i_chart[item] * prev_col.rescale,
             )
 
@@ -207,7 +211,7 @@ class Earley:
             y = next_col_c_chart[item]
             for item in col_J.waiting_for[Y]:
                 (I, X, Ys) = item
-                self._update(next_col, I, X, self.rest_Ys[Ys], col_J_i_chart[item] * y)
+                _update(next_col, I, X, rest_Ys[Ys], col_J_i_chart[item] * y)
 
         self.PREDICT(next_col)
 

@@ -93,10 +93,7 @@ class LarkStuff:
             cfg.add(1 / lhs_count[r.head], r.head, *r.body)
         return cfg.renumber()
 
-    def char_cfg(self, decay=None, delimiter='', charset='core'):
-        if decay is not None:
-            warnings.warn('Option `decay` is deprecated')
-
+    def char_cfg(self, decay=1, delimiter='', charset='core'):
         if delimiter:
             warnings.warn(
                 'Use of delimiter enforced between terminals. If delimiter is not a strict subset of `%ignore`, generated strings will deviate from original grammar.'
@@ -109,7 +106,7 @@ class LarkStuff:
 
         foo = CFG(Float, S=f(cfg.S), V=set())
         for r in cfg:
-            foo.add(r.w, f(r.head), *(f(y) for y in r.body))
+            foo.add(r.w * decay, f(r.head), *(f(y) for y in r.body))
 
         for token_class in self.terminals:
             if token_class.name in self.ignore_terms:
@@ -121,16 +118,15 @@ class LarkStuff:
                 name=lambda x, t=token_class.name: f((t, x)),
                 charset=charset,
             )
-            # display(fsa)
             G = fsa.to_cfg(S=f(token_class.name))
 
             foo.V |= G.V
             for r in G:
-                foo.add(r.w, r.head, *r.body)
+                foo.add(r.w * decay, r.head, *r.body)
 
         assert len(foo.N & foo.V) == 0
 
-        return foo
+        return foo.trim()
 
 
 def interegular_to_wfsa(pattern, name=lambda x: x, charset='core'):
