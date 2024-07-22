@@ -199,8 +199,9 @@ def main():
     # Setup saving.
     n_query = args.n_query
 
-    outpath = (f'{args.exp_name}-{args.inference}-'
-               f'p{args.particles}-b{args.n_beam}-{n_query}')
+    outpath = (
+        f'{args.exp_name}-{args.inference}-' f'p{args.particles}-b{args.n_beam}-{n_query}'
+    )
     if args.schema_grammar:
         outpath += '-schema'
     outpath += '.jsonl'
