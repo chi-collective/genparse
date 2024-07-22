@@ -210,7 +210,7 @@ def main():
 
     n_correct, n_invalid, n_mismatch = 0, 0, 0
 
-    for i, dev_datum in tqdm(enumerate(spider_dev_data[:n_query]), total=n_query):
+    for i, dev_datum in tqdm(enumerate(spider_dev_data[:n_query]), total=n_query, smoothing=0.0):
         messages = prompt_formatter.format_openai(dev_datum)
 
         if i == 0:  # print an example for demonstration
