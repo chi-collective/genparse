@@ -18,7 +18,6 @@ from tqdm import tqdm
 
 from genparse.util import lark_guide
 from bench.spider.dialogue import load_spider_data
-from bench.spider.schema import load_schemas
 
 logger = logging.getLogger(__name__)
 
