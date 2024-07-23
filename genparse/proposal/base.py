@@ -4,6 +4,7 @@ import numpy as np
 from genparse.semiring import Float
 from genparse.trace import TraceSWOR
 from arsenal import colors
+import warnings
 
 
 class Proposal:
@@ -66,6 +67,7 @@ class Proposal:
             else:
                 log_weight_update = 0
         else:
+            warnings.warn('No possible next units found. Killing particle.')
             # if there are no possible next units, kill the particle
             unit = self.eos
             log_weight_update = -np.inf

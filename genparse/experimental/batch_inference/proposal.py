@@ -94,7 +94,9 @@ class ParallelProposal:
                     encode=self.llm._encode,
                     decode=self.llm._decode,
                 )
-                token, _, w = proposal.sample(context=task.context, p_llm=p_llm)
+                token, _, w = proposal.sample_next_token(
+                    context=task.context, p_llm=p_llm
+                )
                 token_id = (
                     self.llm._encode[token]
                     if not token == self.eos
@@ -229,7 +231,9 @@ class SequentialBatchProposal:
                     encode=self.llm._encode,
                     decode=self.llm._decode,
                 )
-                token, _, w = self.proposal.sample(context=p.context, p_llm=p_llm)
+                token, _, w = self.proposal.sample_next_token(
+                    context=p.context, p_llm=p_llm
+                )
                 token_id = (
                     self.proposal.llm._encode[token]
                     if not token == self.eos
