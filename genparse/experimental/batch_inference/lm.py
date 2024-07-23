@@ -51,7 +51,7 @@ class VLLMParticleMetadata:
 
 
 class BatchVLLM(vllm.LLM):
-    def __init__(self, llm):
+    def __init__(self, llm, prompt=None):
         self.llm = llm
         self.llm_engine = self.llm.llm_engine
         self.llm_engine.model_executor.driver_worker.model_runner.model.sampler = (
@@ -59,10 +59,9 @@ class BatchVLLM(vllm.LLM):
         )
         self.request_counter = Counter()
         self.particle_metadata = VLLMParticleMetadata()
-        self.prompt = None
+        self.prompt = prompt
 
-    def add_prompt(self, prompt):
-        # TODO: this feels wrong; the prompt should maybe be a property of the particles
+    def set_prompt(self, prompt):
         self.prompt = prompt
 
     def _make_initial_request(self, prompt):

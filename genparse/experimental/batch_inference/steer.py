@@ -102,7 +102,7 @@ def multinomial_resample(particles):
 def importance_sampling(prompt, batch_proposal, n_particles, max_tokens):
     particles = init_particles(n_particles)
 
-    batch_proposal.batch_llm.add_prompt(prompt)
+    batch_proposal.batch_llm.set_prompt(prompt)
 
     try:
         particles = batch_proposal.batch_step(
@@ -120,7 +120,7 @@ def importance_sampling(prompt, batch_proposal, n_particles, max_tokens):
 def smc(prompt, batch_proposal, n_particles, max_tokens, ess_threshold=0.5):
     particles = init_particles(n_particles)
 
-    batch_proposal.batch_llm.add_prompt(prompt)
+    batch_proposal.batch_llm.set_prompt(prompt)
 
     try:
         particles = batch_proposal.batch_step(
