@@ -7,6 +7,18 @@ from arsenal import colors
 
 
 class Proposal:
+    r"""
+    Abstract class for proposal distributions which sample a set of tokens S and proposes a token by sampling one from S.
+
+    For properly weighted inference, a token x should be sampled from S proportionally to the *local weight* of x.
+
+    The local weight of x ∈ S corresponds to:
+
+        $p_\text{LLM}(x | prompt, context)p_\text{WCFG}(x | context) / \Pr(x ∈ S)$
+
+    where $\Pr(x ∈ S)$ is the inclusion probability of x in S.
+    """
+
     def __init__(self, llm, guide):
         self.llm = llm
         self.guide = guide
@@ -22,6 +34,9 @@ class Proposal:
         )
 
         self.eos = self.trie.new_eos
+
+    def sample_set(self, context, prompt=None, p_next_llm=None, **kwargs):
+        raise NotImplementedError('Subclasses must implement the sample_set method')
 
     def sample_next_token(
         self,
@@ -58,6 +73,7 @@ class Proposal:
         return (unit, p, log_weight_update)
 
     def sample(self, prompt=(), max_tokens=float('inf'), verbosity=0, draw=sample_dict):
+        """Performs sequential importance sampling by sequentially sampling tokens from the proposal distribution."""
         context = ()
         log_W = 0
         P = 1

@@ -50,7 +50,7 @@ class VLLMParticleMetadata:
         self.sequence_ids_by_seq_group = None
 
 
-class NextTokenLogProbServer(vllm.LLM):
+class BatchVLLM(vllm.LLM):
     def __init__(self, llm):
         self.llm = llm
         self.llm_engine = self.llm.llm_engine
@@ -62,6 +62,7 @@ class NextTokenLogProbServer(vllm.LLM):
         self.prompt = None
 
     def add_prompt(self, prompt):
+        # TODO: this feels wrong; the prompt should maybe be a property of the particles
         self.prompt = prompt
 
     def _make_initial_request(self, prompt):
@@ -223,3 +224,27 @@ class NextTokenLogProbServer(vllm.LLM):
         self.particle_metadata = VLLMParticleMetadata()
         self.prompt = None
         self.free_unfinished_requests()
+
+
+class BatchLLM:
+    """Simple class used for testing. Next token logprobs are sampled sequentially from the llm."""
+
+    def __init__(self, llm, prompt):
+        self.llm = llm
+        self.prompt = prompt
+
+    def set_prompt(self, prompt):
+        self.prompt = prompt
+
+    def execute_request(self, particles, **kwargs):
+        logprobs = []
+        particle_id_to_logprob_idx = {}
+        for p in particles:
+            logprob = self.llm.logp_next(self.prompt + p.context)
+            logprobs.append(logprob)
+            particle_id_to_logprob_idx[p.id] = len(logprobs) - 1
+
+        return logprobs, particle_id_to_logprob_idx
+
+    def cleanup(self):
+        pass

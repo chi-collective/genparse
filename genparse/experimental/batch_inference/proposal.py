@@ -28,7 +28,7 @@ class Error:
     worker_id: int
 
 
-class ProposalServer:
+class ParallelProposal:
     def __init__(self, llm, guide, num_processes, max_n_particles, seed):
         self.llm = llm
         self.guide = guide
@@ -188,15 +188,76 @@ class ProposalServer:
         self._start()
 
     def create_instance(self):
-        raise NotImplementedError('Subclasses must implement this method')
+        raise NotImplementedError('Subclasses must implement the create_instance method')
 
 
-class CharacterProposalServer(ProposalServer):
+class ParallelCharacterProposal(ParallelProposal):
     def create_instance(self):
-        return CharacterProposal(self.llm, self.guide)
+        return CharacterProposal(llm=self.llm, guide=self.guide)
 
 
-class TokenProposalServer(ProposalServer):
+class ParallelTokenProposal(ParallelProposal):
+    def __init__(self, K, **kwargs):
+        self.K = K
+        super().__init__(**kwargs)
+
+    def create_instance(self):
+        return TokenProposal(llm=self.llm, guide=self.guide, K=self.K)
+
+
+#######################
+# Sequential baseline #
+#######################
+
+
+class SequentialBatchProposal:
+    def __init__(self, llm, guide):
+        self.llm = llm
+        self.guide = guide
+        self.proposal = self.create_instance()
+        self.eos = self.proposal.eos
+
+    def execute_request(self, particles, logprobs, particle_id_to_logprob_id):
+        # sequential implementation
+        num_extensions = 0
+        extensions = []
+        extension_id_to_particle_id = {}
+        for particle_id, p in enumerate(particles):
+            if not p.done:
+                p_llm = LazyProb(
+                    _p=np.exp(logprobs[particle_id_to_logprob_id[particle_id]]),
+                    encode=self.llm._encode,
+                    decode=self.llm._decode,
+                )
+                token, _, w = self.proposal.sample(context=p.context, p_llm=p_llm)
+                token_id = (
+                    self.proposal.llm._encode[token]
+                    if not token == self.eos
+                    else self.proposal.llm.tokenizer.eos_token_id
+                )
+                extensions.append(
+                    Result(
+                        particle_id=particle_id,
+                        token=token,
+                        log_weight=w,
+                        token_id=token_id,
+                    )
+                )
+                extension_id_to_particle_id[num_extensions] = particle_id
+                num_extensions += 1
+
+        return (extensions, extension_id_to_particle_id)
+
+    def create_instance(self):
+        raise NotImplementedError('Subclasses must implement the create_instance method')
+
+
+class SequentialCharBatchProposal(SequentialBatchProposal):
+    def create_instance(self):
+        return CharacterProposal(llm=self.llm, guide=self.guide)
+
+
+class SequentialTokenBatchProposal(SequentialBatchProposal):
     def __init__(self, K, **kwargs):
         self.K = K
         super().__init__(**kwargs)
