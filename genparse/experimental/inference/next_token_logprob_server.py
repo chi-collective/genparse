@@ -13,6 +13,7 @@ from vllm.sequence import (
 
 import warnings
 from collections import defaultdict
+import numpy as np
 
 
 class LogitsGrouper(torch.nn.Module):
@@ -49,10 +50,6 @@ class VLLMParticleMetadata:
         self.sequence_ids_by_seq_group = None
 
 
-# each sequence seems to be associated with all particles
-# I am assuming that we are dispatching too many sequences
-
-
 class NextTokenLogProbServer(vllm.LLM):
     def __init__(self, llm):
         self.llm = llm
@@ -70,9 +67,7 @@ class NextTokenLogProbServer(vllm.LLM):
     def _make_initial_request(self, prompt):
         self._validate_and_add_requests(
             inputs=self._convert_v1_inputs(prompts=prompt, prompt_token_ids=None),
-            params=SamplingParams(
-                max_tokens=self.llm.max_tokens, stop_token_ids=[self.llm.eos]
-            ),
+            params=SamplingParams(max_tokens=np.inf),
             lora_request=None,
         )
 
@@ -97,7 +92,9 @@ class NextTokenLogProbServer(vllm.LLM):
         """Take a single VLLM step to compute logprobs for the next token"""
         if is_initial:
             if self.llm_engine.has_unfinished_requests():
-                warnings.warn('Engine has unfinished requests from previous runs.')
+                warnings.warn(
+                    'Engine has unfinished requests from previous runs. Freeing leftover requests.'
+                )
                 self.free_unfinished_requests()
 
             if self.prompt is None:

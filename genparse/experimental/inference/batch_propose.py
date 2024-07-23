@@ -1,9 +1,9 @@
 from collections import namedtuple
 from arsenal import colors
-import warnings
 import numpy as np
 from arsenal.timer import Benchmark
-from genparse.experimental.inference.proposal_server import Error
+from genparse.experimental.inference.proposal_server import Result
+from genparse.lm import LazyProb
 
 
 class Particle(
@@ -19,41 +19,81 @@ class Particle(
 
 
 class BatchProposalBaseline:
-    def __init__(self, proposal, clear_cache=False):
-        self.proposal = proposal
+    def __init__(self, proposal_server, next_token_logprob_server, max_tokens):
+        self.proposal = proposal_server.create_instance()
+        self.next_token_logprob_server = next_token_logprob_server
         self.eos = self.proposal.eos
-        self.clear_cache = clear_cache
+        self.max_tokens = max_tokens
+        self.timer = Benchmark('VLLM vs CFG+trie+weight')
 
-    def batch_next_token_probs(self, particles):
-        # default sequential implementation
-        return [
-            self.proposal.llm.p_next(p.prompt + p.context) if not p.done else None
-            for p in particles
-        ]
-
-    def individual_step(self, particle, p_llm, max_tokens):
-        if self.clear_cache:
-            self.proposal.guide.model._chart.clear()
-
-        token, _, w = self.proposal.sample(context=particle.context, p_llm=p_llm)
-        token_id = self.proposal.llm._encode[token]
-
-        return Particle(
-            prompt=particle.prompt,
-            weight=particle.log_weight + w,
-            context=particle.context + (token,),
-            context_ids=particle.context_ids + (token_id,),
-            done=(token == self.eos or len(particle.context) + 1 >= max_tokens),
-            parent=particle.parent,
+    def batch_next_token_probs(self, particles, is_initial):
+        return self.next_token_logprob_server.execute_request(
+            particles=particles, is_initial=is_initial
         )
 
-    def batch_step(self, particles, max_tokens):
-        p_llms = self.batch_next_token_probs(particles)
-        # default sequential implementation
-        particles = [
-            self.individual_step(p, p_llm, max_tokens) if not p.done else p
-            for p, p_llm in zip(particles, p_llms)
-        ]
+    def batch_particle_extensions(self, particles, logprobs, particle_id_to_logprob_id):
+        # sequential implementation
+        num_extensions = 0
+        extensions = []
+        extension_id_to_particle_id = {}
+        for particle_id, p in enumerate(particles):
+            if not p.done:
+                p_llm = LazyProb(
+                    _p=np.exp(logprobs[particle_id_to_logprob_id[particle_id]]),
+                    encode=self.proposal.llm._encode,
+                    decode=self.proposal.llm._decode,
+                )
+                token, _, w = self.proposal.sample(context=p.context, p_llm=p_llm)
+                token_id = (
+                    self.proposal.llm._encode[token]
+                    if not token == self.eos
+                    else self.proposal.llm.tokenizer.eos_token_id
+                )
+                extensions.append(
+                    Result(
+                        particle_id=particle_id,
+                        token=token,
+                        log_weight=w,
+                        token_id=token_id,
+                    )
+                )
+                extension_id_to_particle_id[num_extensions] = particle_id
+                num_extensions += 1
+
+        return (extensions, extension_id_to_particle_id)
+
+    def batch_step(self, particles, is_initial=False):
+        with self.timer['vllm']:
+            logprobs, particle_id_to_logprob_id = self.batch_next_token_probs(
+                particles, is_initial
+            )
+
+        with self.timer['parser']:
+            extensions, extension_id_to_particle_id = self.batch_particle_extensions(
+                particles, logprobs, particle_id_to_logprob_id
+            )
+
+        assert all(
+            p.done
+            for i, p in enumerate(particles)
+            if i not in extension_id_to_particle_id.values()
+        ), 'There are uncompleted particles which do not have an extension'
+
+        for extension_id, particle_id in extension_id_to_particle_id.items():
+            particle = particles[particle_id]
+            extension = extensions[extension_id]
+            particles[particle_id] = Particle(
+                prompt=particle.prompt,
+                log_weight=particle.log_weight + extension.log_weight,
+                context=particle.context + (extension.token,),
+                context_ids=particle.context_ids + (extension.token_id,),
+                done=(
+                    extension.token == self.eos
+                    or len(particle.context) + 1 >= self.max_tokens
+                ),
+                parent=particle.parent,
+            )
+
         return particles
 
 
@@ -74,69 +114,43 @@ class BatchProposal:
             particles=particles, is_initial=is_initial
         )
 
-    def batch_extend_particles(self, particles, logprobs, particle_id_to_logprob_id):
-        to_serve = len(particles)
-
-        if to_serve > self.proposal_server.max_n_particles:
-            warnings.warn(
-                'Num particles to serve > proposal_server.max_n_particles.'
-                ' Increasing proposal_server.max_n_particles; allocating more shared memory'
-                ' and restarting the proposal server.'
-            )
-            self.proposal_server.max_n_particles = to_serve
-            self.proposal_server.restart()
-
-        for i, lps in enumerate(logprobs):
-            self.proposal_server.shared_array[i] = lps
-
-        for i, p in enumerate(particles):
-            if not p.done:
-                self.proposal_server.queue_task(
-                    id=i, context=p.context, logprob_idx=particle_id_to_logprob_id[i]
-                )
-            else:
-                to_serve -= 1
-
-        while to_serve > 0:
-            result = self.proposal_server.result_queue.get()
-
-            if isinstance(result, Error):
-                self.cleanup()
-                raise result.exception
-
-            particle = particles[result.id]
-            particles[result.id] = Particle(
-                prompt=particle.prompt,
-                log_weight=particle.log_weight + result.weight,
-                context=particle.context + (result.token,),
-                context_ids=particle.context_ids + (result.token_id,),
-                done=(
-                    result.token == self.eos
-                    or len(particle.context) + 1 >= self.max_tokens
-                ),
-                parent=particle.parent,
-            )
-
-            to_serve -= 1
-
-        assert self.proposal_server.result_queue.empty(), 'Finished serving particle requests, but result queue is non-empty. Something went wrong :('
-
-        return particles
+    def batch_particle_extensions(self, particles, logprobs, particle_id_to_logprob_id):
+        return self.proposal_server.execute_request(
+            particles=particles,
+            logprobs=logprobs,
+            particle_id_to_logprob_id=particle_id_to_logprob_id,
+        )
 
     def batch_step(self, particles, is_initial=False):
-        if not self.proposal_server.is_running:
-            raise ValueError(
-                'Proposal server is not running (no subprocesses are initialized). Please start the server.'
-            )
-
         with self.timer['vllm']:
             logprobs, particle_id_to_logprob_id = self.batch_next_token_probs(
                 particles, is_initial
             )
 
         with self.timer['parser']:
-            particles = self.batch_extend_particles(
+            extensions, extension_id_to_particle_id = self.batch_particle_extensions(
                 particles, logprobs, particle_id_to_logprob_id
+            )
+
+        assert all(
+            p.done
+            for i, p in enumerate(particles)
+            if i not in extension_id_to_particle_id.values()
+        ), 'There are uncompleted particles which do not have an extension'
+
+        for extension_id, particle_id in extension_id_to_particle_id.items():
+            particle = particles[particle_id]
+            extension = extensions[extension_id]
+            particles[particle_id] = Particle(
+                prompt=particle.prompt,
+                log_weight=particle.log_weight + extension.log_weight,
+                context=particle.context + (extension.token,),
+                context_ids=particle.context_ids + (extension.token_id,),
+                done=(
+                    extension.token == self.eos
+                    or len(particle.context) + 1 >= self.max_tokens
+                ),
+                parent=particle.parent,
             )
 
         return particles

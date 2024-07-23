@@ -9,27 +9,27 @@ import warnings
 
 @dataclass
 class Task:
-    id: int
+    particle_id: int
     context: str
     logprob_idx: int
 
 
 @dataclass
 class Result:
-    id: int
+    particle_id: int
     token: str
     token_id: int
-    weight: float
+    log_weight: float
 
 
 @dataclass
 class Error:
     exception: Exception
-    id: int
+    worker_id: int
 
 
 class ProposalServer:
-    def __init__(self, llm, guide, num_processes, max_n_particles, seed=0):
+    def __init__(self, llm, guide, num_processes, max_n_particles, seed):
         self.llm = llm
         self.guide = guide
         self.seed = seed
@@ -41,13 +41,13 @@ class ProposalServer:
         self.eos = self.guide.eos
         self.is_running = False
 
-        self.start()
+        self._start()
 
         print(
             f'Initialized proposal server with num_processes={num_processes}, max_n_particles={max_n_particles}, seed={seed}'
         )
 
-    def start(self):
+    def _start(self):
         # create shared memory
         self.shared_mem = mp.shared_memory.SharedMemory(
             create=True,
@@ -62,18 +62,15 @@ class ProposalServer:
 
         self.processes = []
         for i in range(self.num_processes):
-            p = mp.Process(target=self.worker, args=(i,))
+            p = mp.Process(target=self._worker, args=(i,))
             p.start()
             self.processes.append(p)
 
         self.is_running = True
 
-    def queue_task(self, id, context, logprob_idx):
-        self.task_queue.put(Task(id=id, context=context, logprob_idx=logprob_idx))
-
-    def worker(self, id):
+    def _worker(self, worker_id):
         try:
-            set_seed(self.seed + id)
+            set_seed(self.seed + worker_id)
 
             local_array = np.ndarray(
                 (self.max_n_particles, self.llm_vocab_size),
@@ -84,15 +81,14 @@ class ProposalServer:
             proposal = self.create_instance()
         except Exception as e:
             warnings.warn(
-                f'Proposal server worker {id} failed during initialization with exception: {e}'
+                f'Proposal server worker {worker_id} failed during initialization with exception: {e}'
             )
             raise e
 
         try:
             while True:
+                # TODO race conditions on get and put from queues?
                 task = self.task_queue.get()
-                if task is None:
-                    break
                 p_llm = LazyProb(
                     _p=np.exp(local_array[task.logprob_idx]),
                     encode=self.llm._encode,
@@ -105,14 +101,70 @@ class ProposalServer:
                     else self.llm.tokenizer.eos_token_id
                 )
                 self.result_queue.put(
-                    Result(id=task.id, token=token, weight=w, token_id=token_id)
+                    Result(
+                        particle_id=task.particle_id,
+                        token=token,
+                        log_weight=w,
+                        token_id=token_id,
+                    )
                 )
 
         except Exception as e:
             warnings.warn(
-                f'Proposal server worker {id} failed while processing a request. Raising error in main process.'
+                f'Proposal server worker {worker_id} failed while processing a request. Raising error in main process.'
             )
-            self.result_queue.put(Error(exception=e, id=id))
+            self.result_queue.put(Error(exception=e, worker_id=worker_id))
+
+    def execute_request(self, particles, logprobs, particle_id_to_logprob_id):
+        if not self.is_running:
+            warnings.warn(
+                'Proposal server is not running (no subprocesses are initialized).'
+                ' Attempting to start the server...'
+            )
+            self.restart()
+
+        to_serve = len([p for p in particles if not p.done])
+
+        if to_serve > self.max_n_particles:
+            warnings.warn(
+                'Num particles to serve > proposal_server.max_n_particles.'
+                ' Increasing proposal_server.max_n_particles; allocating more shared memory'
+                ' and restarting the proposal server.'
+            )
+            self.max_n_particles = to_serve
+            self.restart()
+
+        for i, lps in enumerate(logprobs):
+            self.shared_array[i] = lps
+
+        for particle_id, p in enumerate(particles):
+            if not p.done:
+                self.task_queue.put(
+                    Task(
+                        particle_id=particle_id,
+                        context=p.context,
+                        logprob_idx=particle_id_to_logprob_id[particle_id],
+                    )
+                )
+
+        num_results = 0
+        results = []
+        result_id_to_particle_id = {}
+        while to_serve > 0:
+            result = self.result_queue.get()
+
+            if isinstance(result, Error):
+                self.cleanup()
+                raise result.exception
+
+            results.append(result)
+            result_id_to_particle_id[num_results] = result.particle_id
+            num_results += 1
+            to_serve -= 1
+
+        assert self.result_queue.empty(), 'Finished serving particle requests, but result queue is non-empty. Something went wrong :('
+
+        return (results, result_id_to_particle_id)
 
     def cleanup(self):
         # kill processes
@@ -133,7 +185,10 @@ class ProposalServer:
         self.cleanup()
         self.task_queue = mp.Queue()
         self.result_queue = mp.Queue()
-        self.start()
+        self._start()
+
+    def create_instance(self):
+        raise NotImplementedError('Subclasses must implement this method')
 
 
 class CharacterProposalServer(ProposalServer):
