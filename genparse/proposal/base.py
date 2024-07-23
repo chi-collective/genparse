@@ -1,6 +1,9 @@
 from genparse.proposal.trie_numba import TokenCharacterTrie
 from arsenal.maths import sample_dict
 import numpy as np
+from genparse.semiring import Float
+from genparse.trace import TraceSWOR
+from arsenal import colors
 
 
 class Proposal:
@@ -20,7 +23,15 @@ class Proposal:
 
         self.eos = self.trie.new_eos
 
-    def sample(self, context, p_llm=None, prompt=None, draw=sample_dict, **kwargs):
+    def sample_next_token(
+        self,
+        context,
+        p_llm=None,
+        prompt=None,
+        draw=sample_dict,
+        properly_weight=True,
+        **kwargs,
+    ):
         """Proposes a token and compute its RAVI incremental weight update."""
         if p_llm is None:
             assert prompt is not None, (
@@ -35,10 +46,63 @@ class Proposal:
             probs = weights.normalize()
             unit = draw(probs)
             p *= probs[unit]
-            weight_update = weights.sum()
+            if properly_weight:
+                log_weight_update = np.log(weights.sum())
+            else:
+                log_weight_update = 0
         else:
             # if there are no possible next units, kill the particle
             unit = self.eos
-            weight_update = 0
+            log_weight_update = -np.inf
 
-        return (unit, p, np.log(weight_update))
+        return (unit, p, log_weight_update)
+
+    def sample(self, prompt=(), max_tokens=float('inf'), verbosity=0, draw=sample_dict):
+        context = ()
+        log_W = 0
+        P = 1
+        t = 0
+        while True:
+            t += 1
+            if t <= max_tokens:
+                (token, proposal_p, weight_update) = self.sample_next_token(
+                    prompt=prompt,
+                    context=context,
+                    draw=draw,
+                )
+            else:
+                token = self.guide.eos
+                weight_update = 0
+                proposal_p = 1
+            log_W += weight_update
+            P *= proposal_p
+            if self.guide.eos == token:
+                break
+            if verbosity > 0:
+                print(colors.cyan % token, end=colors.magenta % '|')
+            context = context + (token,)
+        if verbosity > 0:
+            print()
+        return (context, P, np.exp(log_W))
+
+    def enumerate_traces(self, prompt, context):
+        """
+        This function uses program tracing and sampling without replacement to compute
+
+            E_{(x,w) ~ q'}[ δ(x, x') * w ] = E_{(x,S) ~ q}[ δ(x, x') * w(x,S) ]
+                                        = Σ_{x,S} δ(x, x') * q(x,S) * w(x,S)
+
+        for each x' in V.
+
+        Its use is to check whether our proposal satisfies properties like proper weighting through exact enumeration.
+        """
+        tracer = TraceSWOR()
+        P = Float.chart()
+        # sample without replacement until all traces have been exhausted
+        while tracer.root.mass > 0:
+            with tracer:
+                (s, q, w) = self.sample_next_token(
+                    draw=tracer, prompt=prompt, context=context
+                )
+                P[s] += np.exp(w) * q
+        return (P, tracer)
