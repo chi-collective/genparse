@@ -19,6 +19,7 @@ class MinimalLM(LM):
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
         self._decode = decode_tokenizer_vocab(self.tokenizer)
+        self._encode = {x: i for i, x in enumerate(self._decode)}
         self.eos_token_id = self.tokenizer.eos_token_id
         super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
 
