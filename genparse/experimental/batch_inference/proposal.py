@@ -44,7 +44,7 @@ class ParallelProposal:
         self._start()
 
         print(
-            f'Initialized proposal server with num_processes={num_processes}, max_n_particles={max_n_particles}, seed={seed}'
+            f'Initialized parallel batch proposal with {num_processes=}, {max_n_particles=}, {seed=}'
         )
 
     def _start(self):
@@ -181,12 +181,13 @@ class ParallelProposal:
         except FileNotFoundError:
             pass
 
+        self.task_queue = mp.Queue()
+        self.result_queue = mp.Queue()
+
         self.is_running = False
 
     def restart(self):
         self.cleanup()
-        self.task_queue = mp.Queue()
-        self.result_queue = mp.Queue()
         self._start()
 
     def create_instance(self):

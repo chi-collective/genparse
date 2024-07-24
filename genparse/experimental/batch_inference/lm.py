@@ -15,6 +15,32 @@ import warnings
 from collections import defaultdict
 import numpy as np
 
+from genparse.lm import VirtualTokenizedLLM
+
+
+class BatchLLM:
+    """Simple baseline class which wraps LMs. Next token logprobs are sampled sequentially from the llm."""
+
+    def __init__(self, llm, prompt):
+        self.llm = llm
+        self.prompt = prompt
+
+    def set_prompt(self, prompt):
+        self.prompt = prompt
+
+    def execute_request(self, particles, **kwargs):
+        logprobs = []
+        particle_id_to_logprob_idx = {}
+        for p in particles:
+            logprob = self.llm.logp_next(self.prompt + p.context)
+            logprobs.append(logprob)
+            particle_id_to_logprob_idx[p.id] = len(logprobs) - 1
+
+        return logprobs, particle_id_to_logprob_idx
+
+    def cleanup(self):
+        pass
+
 
 class LogitsGrouper(torch.nn.Module):
     def __init__(self):
@@ -51,7 +77,11 @@ class VLLMParticleMetadata:
 
 
 class BatchVLLM(vllm.LLM):
+    """Batch LM sampling with VLLM."""
+
     def __init__(self, llm, prompt=None):
+        if not isinstance(llm, VirtualTokenizedLLM):
+            raise ValueError('BatchVLLM requires a VirtualTokenizedLLM instance.')
         self.llm = llm
         self.llm_engine = self.llm.llm_engine
         self.llm_engine.model_executor.driver_worker.model_runner.model.sampler = (
@@ -71,30 +101,11 @@ class BatchVLLM(vllm.LLM):
             lora_request=None,
         )
 
-    def _update_particle_metadata(self, particles, seq_group_metadata):
-        """Associate the scheduled sequence ids with particle ids"""
-        context_ids_to_particle_ids = defaultdict(lambda: [])
-        for particle_id, particle in enumerate(particles):
-            if not particle.done:
-                context_ids_to_particle_ids[particle.context_ids].append(particle_id)
-
-        sequence_id_to_particle_ids = {}
-        for seq_id, seq_data in seq_group_metadata.seq_data.items():
-            sequence_id_to_particle_ids[seq_id] = context_ids_to_particle_ids[
-                tuple(seq_data.output_token_ids)
-            ]
-
-        self.particle_metadata.sequence_id_to_particle_ids = sequence_id_to_particle_ids
-
-        # TODO: check that all particles have been assigned a sequence id
-
     def execute_request(self, particles, is_initial=False):
         """Take a single VLLM step to compute logprobs for the next token"""
         if is_initial:
             if self.llm_engine.has_unfinished_requests():
-                warnings.warn(
-                    'Engine has unfinished requests from previous runs. Freeing leftover requests.'
-                )
+                # 'Engine has unfinished requests from previous runs. Freeing leftover requests.'
                 self.free_unfinished_requests()
 
             if self.prompt is None:
@@ -102,7 +113,7 @@ class BatchVLLM(vllm.LLM):
 
             self._make_initial_request(prompt=self.prompt)
         else:
-            # TODO: handle finished particles
+            self._map_sequence_id_to_particle_ids(particles, from_resampling=True)
             # register particle state with the VLLM Engine
             self._register_particle_extensions(particles)
 
@@ -114,8 +125,8 @@ class BatchVLLM(vllm.LLM):
 
         # update particle metadata with scheduler metadata and output
         self.particle_metadata.scheduler_outputs = scheduler_outputs
-        self._update_particle_metadata(particles, seq_group_metadata_list[0])
         self.particle_metadata.seq_group_metadata_list = seq_group_metadata_list
+        self._map_sequence_id_to_particle_ids(particles, from_resampling=False)
 
         execute_model_req = ExecuteModelRequest(
             seq_group_metadata_list=seq_group_metadata_list,
@@ -142,10 +153,18 @@ class BatchVLLM(vllm.LLM):
 
         self.particle_metadata.sequence_ids_by_seq_group = sequence_ids_by_seq_group
 
-        assert len(logprobs_by_seq_group) == 1
-        assert len(logprobs_by_seq_group[0]) == 1
-        assert len(sequence_ids_by_seq_group) == 1
-        assert len(sequence_ids_by_seq_group[0]) == 1
+        assert (
+            len(logprobs_by_seq_group) == 1
+        ), 'There should only be one sequence group (logprobs)'
+        assert (
+            len(logprobs_by_seq_group[0]) == 1
+        ), 'We should only be decoding a single step (logprobs)'
+        assert (
+            len(sequence_ids_by_seq_group) == 1
+        ), 'There should only be one sequence group (sequence ids)'
+        assert (
+            len(sequence_ids_by_seq_group[0]) == 1
+        ), 'We should only be decoding a single step (sequence ids)'
 
         logprobs = logprobs_by_seq_group[0][0]
         sequence_ids = sequence_ids_by_seq_group[0][0]
@@ -158,9 +177,41 @@ class BatchVLLM(vllm.LLM):
 
         return logprobs.numpy(), particle_id_to_logprob_idx
 
+    def _map_sequence_id_to_particle_ids(self, particles, from_resampling=False):
+        """Associate the scheduled sequence ids with particle ids"""
+
+        # TODO: this can be optimized; the from_resampling = True case is a hack to remap sequence ids to particle ids
+        # in case there was a resampling step
+
+        seq_group_metadata = self.particle_metadata.seq_group_metadata_list[0]
+
+        context_ids_to_particle_ids = {
+            tuple(seq_data.output_token_ids): []
+            for seq_data in seq_group_metadata.seq_data.values()
+        }
+        for particle_id, particle in enumerate(particles):
+            if not particle.done:
+                context_ids = (
+                    particle.context_ids[:-1] if from_resampling else particle.context_ids
+                )
+                try:
+                    context_ids_to_particle_ids[context_ids].append(particle_id)
+                except KeyError:
+                    raise KeyError('Particle context ids not found in seq group metadata')
+
+        sequence_id_to_particle_ids = {}
+        for seq_id, seq_data in seq_group_metadata.seq_data.items():
+            particles_ids = context_ids_to_particle_ids[tuple(seq_data.output_token_ids)]
+            sequence_id_to_particle_ids[seq_id] = particles_ids
+
+        self.particle_metadata.sequence_id_to_particle_ids = sequence_id_to_particle_ids
+
     def _register_particle_extensions(self, particles):
-        """Update the VLLM Engine with the sampled particle extensions"""
-        # TODO: detect particle extensions that are inconsistent with current state
+        """
+        Update the VLLM Engine with the sampled particle extensions.
+
+        This function updates the sequence outputs for each sequence id with the sample particle extensions.
+        """
 
         sequence_outputs = []
         for (
@@ -201,7 +252,7 @@ class BatchVLLM(vllm.LLM):
             seq_group_metadata_list,
         )
 
-        self.llm_engine.do_log_stats(scheduler_outputs, sampler_outputs)
+        # self.llm_engine.do_log_stats(scheduler_outputs, sampler_outputs)
 
     def free_unfinished_requests(self):
         for group in list(self.llm_engine.scheduler.running):
@@ -223,27 +274,3 @@ class BatchVLLM(vllm.LLM):
         self.particle_metadata = VLLMParticleMetadata()
         self.prompt = None
         self.free_unfinished_requests()
-
-
-class BatchLLM:
-    """Simple class used for testing. Next token logprobs are sampled sequentially from the llm."""
-
-    def __init__(self, llm, prompt):
-        self.llm = llm
-        self.prompt = prompt
-
-    def set_prompt(self, prompt):
-        self.prompt = prompt
-
-    def execute_request(self, particles, **kwargs):
-        logprobs = []
-        particle_id_to_logprob_idx = {}
-        for p in particles:
-            logprob = self.llm.logp_next(self.prompt + p.context)
-            logprobs.append(logprob)
-            particle_id_to_logprob_idx[p.id] = len(logprobs) - 1
-
-        return logprobs, particle_id_to_logprob_idx
-
-    def cleanup(self):
-        pass
