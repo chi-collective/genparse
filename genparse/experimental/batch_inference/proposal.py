@@ -5,6 +5,7 @@ from genparse.util import set_seed
 from genparse.lm import LazyProb
 from genparse.proposal import CharacterProposal, TokenProposal
 import warnings
+import os
 
 
 @dataclass
@@ -172,6 +173,15 @@ class ParallelProposal:
         # kill processes
         for p in self.processes:
             p.terminate()
+
+        for p in self.processes:
+            try:
+                pid, status = os.waitpid(p.pid, 0)
+                # Optionally handle status or log termination
+            except OSError:
+                # Handle OSError if waitpid fails
+                pass
+
         self.processes = []
 
         # clean up shared memory
