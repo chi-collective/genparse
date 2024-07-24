@@ -35,8 +35,9 @@ def get_parser() -> argparse.ArgumentParser:
         default='meta-llama/Meta-Llama-3-8B-Instruct',
         choices=['meta-llama/Meta-Llama-3-8B-Instruct'],
     )
-    parser.add_argument("--method", type=str, choices=["sampling", "greedy"],
-                        default="sampling")
+    parser.add_argument(
+        '--method', type=str, choices=['sampling', 'greedy'], default='sampling'
+    )
     parser.add_argument('--exp-name', type=str, default='llama3-8b')
     parser.add_argument('--particles', type=int, default=1)
     parser.add_argument('--max-tokens', type=int, default=100)
@@ -82,31 +83,34 @@ def main():
     # Prepare prompts.
     n_query = args.n_query
     prompts = []
-    for dev_datum in tqdm(spider_dev_data[:n_query], desc="prompt"):
+    for dev_datum in tqdm(spider_dev_data[:n_query], desc='prompt'):
         messages = prompt_formatter.format_openai(dev_datum)
         # decode and later re-encode so that the prompt tokens are exactly the same as in
         # genparse.
-        prompt = tokenizer.decode(tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True))
+        prompt = tokenizer.decode(
+            tokenizer.apply_chat_template(messages, add_generation_prompt=True)
+        )
         prompts.append(prompt)
 
     # Batch sampling.
-    if args.method == "sampling":
+    if args.method == 'sampling':
         sampling_params = vllm.SamplingParams(
-            n=args.particles, temperature=1.0, max_tokens=args.max_tokens, seed=args.seed)
+            n=args.particles, temperature=1.0, max_tokens=args.max_tokens, seed=args.seed
+        )
     else:
-        assert args.method == "greedy"
+        assert args.method == 'greedy'
         sampling_params = vllm.SamplingParams(
-            best_of=1, temperature=0.0, max_tokens=args.max_tokens)
+            best_of=1, temperature=0.0, max_tokens=args.max_tokens
+        )
     llm_outputs = llm.generate(prompts, sampling_params)
 
     # Process and write outputs.
-    outpath = f"{args.exp_name}-{args.method}-p{args.particles}-{n_query}.jsonl"
-    outfile = open(outpath, "w+")
-    logger.info(f"writing to {outpath} ...")
+    outpath = f'{args.exp_name}-{args.method}-p{args.particles}-{n_query}.jsonl'
+    outfile = open(outpath, 'w+')
+    logger.info(f'writing to {outpath} ...')
 
     n_correct, n_invalid, n_mismatch = 0, 0, 0
-    for dev_datum, output in zip(spider_dev_data, tqdm(llm_outputs, desc="output")):
+    for dev_datum, output in zip(spider_dev_data, tqdm(llm_outputs, desc='output')):
         best = max(output.outputs, key=lambda x: x.cumulative_logprob)
         pred = best.text
         gold = dev_datum.query
@@ -115,27 +119,30 @@ def main():
 
         if result[0]:
             n_correct += 1
-        elif result[1] == "invalid":
+        elif result[1] == 'invalid':
             n_invalid += 1
-        elif result[1] == "mismatch":
+        elif result[1] == 'mismatch':
             n_mismatch += 1
 
         particles = [vars(o) for o in output.outputs]
         for p in particles:
-            p["result"] = evaluator.evaluate(
-                dev_datum.query, p["text"], dev_datum.schema_name)
+            p['result'] = evaluator.evaluate(
+                dev_datum.query, p['text'], dev_datum.schema_name
+            )
 
-        result_str = json.dumps({
-            "pred": pred,
-            "gold": gold,
-            "db_name": db,
-            "question": dev_datum.utterance,
-            "result": result,
-            "finished": best.finished(),
-            "tokens": [tokenizer.decode(t) for t in best.token_ids],
-            "token_ids": best.token_ids,
-            "particles": [vars(o) for o in output.outputs],
-        })
+        result_str = json.dumps(
+            {
+                'pred': pred,
+                'gold': gold,
+                'db_name': db,
+                'question': dev_datum.utterance,
+                'result': result,
+                'finished': best.finished(),
+                'tokens': [tokenizer.decode(t) for t in best.token_ids],
+                'token_ids': best.token_ids,
+                'particles': [vars(o) for o in output.outputs],
+            }
+        )
 
         print(result_str, file=outfile)
 
