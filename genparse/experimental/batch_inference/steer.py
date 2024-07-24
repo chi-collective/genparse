@@ -14,7 +14,6 @@ class BatchStepper:
         self.batch_llm = batch_llm
         self.eos = batch_proposal.eos
         self.max_tokens = max_tokens
-        self.timer = Benchmark('VLLM vs CFG+trie+weight')
 
         print(
             f'Initialized batch stepper with eos={self.eos} and max_tokens={self.max_tokens}'
@@ -33,27 +32,13 @@ class BatchStepper:
         )
 
     def batch_step(self, particles, is_initial=False):
-        with self.timer['vllm']:
-            logprobs, particle_id_to_logprob_id = self.batch_next_token_probs(
-                particles, is_initial
-            )
+        logprobs, particle_id_to_logprob_id = self.batch_next_token_probs(
+            particles, is_initial
+        )
 
-        assert all(
-            p.done
-            for i, p in enumerate(particles)
-            if i not in particle_id_to_logprob_id.keys()
-        ), 'There are uncompleted particles which do not have a logprob'
-
-        with self.timer['parser']:
-            extensions, extension_id_to_particle_id = self.batch_particle_extensions(
-                particles, logprobs, particle_id_to_logprob_id
-            )
-
-        assert all(
-            p.done
-            for i, p in enumerate(particles)
-            if i not in extension_id_to_particle_id.values()
-        ), 'There are uncompleted particles which do not have an extension'
+        extensions, extension_id_to_particle_id = self.batch_particle_extensions(
+            particles, logprobs, particle_id_to_logprob_id
+        )
 
         for extension_id, particle_id in extension_id_to_particle_id.items():
             particle = particles[particle_id]
@@ -199,7 +184,7 @@ def importance_sampling(batch_model, n_particles, verbosity=0):
       - `verbosity` (`int`): Verbosity level. When > 0, particles are printed at each step.
 
     Returns:
-      - `particles` (`list[Particles]`): The completed particles after inference.
+      - `particle_approximation` (`ParticleApproximation`): The completed particle approximation.
 
     TODO: Add record
     """
@@ -233,7 +218,7 @@ def smc(batch_model, n_particles, ess_threshold=0.5, verbosity=0):
       - `verbosity` (`int`): Verbosity level. When > 0, particles are printed at each step.
 
     Returns:
-      - `particles` (`list[Particles]`): The completed particles after inference.
+      - `particle_approximation` (`ParticleApproximation`): The completed particle approximation.
 
     TODO: Add record
     """

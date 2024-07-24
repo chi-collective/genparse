@@ -5,4 +5,8 @@ from genparse.experimental.batch_inference.proposal import (
     SequentialCharBatchProposal,
     SequentialTokenBatchProposal,
 )
-from genparse.experimental.batch_inference.steer import BatchStepper
+from genparse.experimental.batch_inference.steer import (
+    BatchStepper,
+    smc,
+    importance_sampling,
+)
