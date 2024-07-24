@@ -177,9 +177,7 @@ class ParallelProposal:
         for p in self.processes:
             try:
                 pid, status = os.waitpid(p.pid, 0)
-                # Optionally handle status or log termination
             except OSError:
-                # Handle OSError if waitpid fails
                 pass
 
         self.processes = []
