@@ -161,17 +161,23 @@ def pretty_print_particles(particles, step_info):
     )
 
 
-def maybe_resample(particles, ess_threshold, step_info, verbosity):
+def maybe_resample(particles, ess_threshold, return_record, step_info, verbosity):
+    if return_record:
+        step_info['particles'] = [
+            {'context': p.context, 'weight': p.log_weight} for p in particles
+        ]
+
     n_particles = len(particles)
     log_weights = [p.log_weight for p in particles]
     log_total = logsumexp(log_weights)
     avg_log_weight = log_total - np.log(n_particles)
 
+    if return_record or verbosity > 0:
+        step_info['average_weight'] = avg_log_weight
+
     log_normalized_weights = log_weights - log_total
     log_ess = -logsumexp(2 * log_normalized_weights)
     ess = np.exp(log_ess)
-
-    step_info['average_weight'] = avg_log_weight
 
     if ess < n_particles * ess_threshold:
         indices = log_sample(log_normalized_weights, size=n_particles)
@@ -179,7 +185,8 @@ def maybe_resample(particles, ess_threshold, step_info, verbosity):
             particles[i]._replace(log_weight=avg_log_weight, parent=i) for i in indices
         ]
 
-        step_info['resample_indices'] = indices
+        if return_record:
+            step_info['resample_indices'] = indices
 
         if verbosity > 0:
             print(
@@ -192,7 +199,7 @@ def maybe_resample(particles, ess_threshold, step_info, verbosity):
     return particles
 
 
-def smc(batch_model, n_particles, ess_threshold=0.5, verbosity=0):
+def smc(batch_model, n_particles, ess_threshold=0.5, verbosity=0, return_record=False):
     """Standard sequential Monte Carlo algorithm with multinomial resampling.
 
     Args:
@@ -206,13 +213,17 @@ def smc(batch_model, n_particles, ess_threshold=0.5, verbosity=0):
       - `particle_approximation` (`ParticleApproximation`): The completed particle approximation.
     """
 
-    record = SMCRecord(
-        {
-            'n_particles': n_particles,
-            'ess_threshold': ess_threshold,
-            'algorithm': 'smc_standard_record',
-            'history': [],
-        }
+    record = (
+        SMCRecord(
+            {
+                'n_particles': n_particles,
+                'ess_threshold': ess_threshold,
+                'algorithm': 'smc_standard_record',
+                'history': [],
+            }
+        )
+        if return_record
+        else None
     )
 
     particles = init_particles(n_particles)
@@ -221,19 +232,22 @@ def smc(batch_model, n_particles, ess_threshold=0.5, verbosity=0):
         step_info = {'step': step_num}
 
         particles = batch_model.batch_step(particles, is_initial=step_num == 1)
-        particles = maybe_resample(particles, ess_threshold, step_info, verbosity)
+        particles = maybe_resample(
+            particles, ess_threshold, return_record, step_info, verbosity
+        )
 
         if verbosity > 0:
             pretty_print_particles(particles, step_info)
 
-        record['history'].append(step_info)
+        if return_record:
+            record['history'].append(step_info)
 
         step_num += 1
 
     return ParticleApproximation(particles, record)
 
 
-def importance_sampling(batch_model, n_particles, verbosity=0):
+def importance_sampling(batch_model, n_particles, verbosity=0, return_record=False):
     """Standard sequential importance sampling.
 
     Args:
@@ -249,4 +263,5 @@ def importance_sampling(batch_model, n_particles, verbosity=0):
         n_particles=n_particles,
         ess_threshold=0,
         verbosity=verbosity,
+        return_record=return_record,
     )
