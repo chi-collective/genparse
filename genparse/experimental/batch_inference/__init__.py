@@ -2,11 +2,11 @@ from genparse.experimental.batch_inference.lm import BatchVLLM, BatchLLM
 from genparse.experimental.batch_inference.proposal import (
     ParallelCharacterProposal,
     ParallelTokenProposal,
-    SequentialCharBatchProposal,
-    SequentialTokenBatchProposal,
+    CharacterBatchProposal,
+    TokenBatchProposal,
 )
 from genparse.experimental.batch_inference.steer import (
-    BatchStepper,
+    BatchStepModel,
     smc,
     importance_sampling,
 )

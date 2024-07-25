@@ -271,9 +271,6 @@ class TokenizedLLM(LM):
             return LazyProb(_p, self._encode, self._decode)
 
 
-from vllm import LLMEngine, EngineArgs
-
-
 class VirtualTokenizedLLM(TokenizedLLM):
     def __init__(self, vllm_engine):
         self.llm_engine = vllm_engine
@@ -281,12 +278,16 @@ class VirtualTokenizedLLM(TokenizedLLM):
         super().__init__(tokenizer=self.tokenizer, model=vllm_engine, batch_size=None)
 
     @classmethod
-    def from_name(cls, model_name, seed):
+    def from_name(cls, model_name):
+        from vllm import LLMEngine, EngineArgs
+
         return cls(
-            LLMEngine.from_engine_args(
-                EngineArgs(model=model_name, tokenizer=model_name, seed=seed)
+            LLMEngine.from_engine_args(  # seed not used since we are not sampling with vllm
+                EngineArgs(model=model_name, tokenizer=model_name, seed=0)
             )
         )
+
+    # TODO: support the following methods, for easier debugging
 
     def __call__(self, **kwargs):
         raise NotImplementedError('Cannot call VirtualTokenizedLLM directly')

@@ -1,25 +1,30 @@
 from collections import namedtuple
 from arsenal import colors
 import numpy as np
-from arsenal.timer import Benchmark
 from arsenal.maths import logsumexp, log_sample, sample_dict
 import atexit
 import warnings
 from genparse import Float
 
 
-class BatchStepper:
-    def __init__(self, batch_proposal, batch_llm, max_tokens):
+class BatchStepModel:
+    def __init__(self, batch_proposal, batch_llm, max_tokens, prompt=None):
         self.batch_proposal = batch_proposal
         self.batch_llm = batch_llm
         self.eos = batch_proposal.eos
         self.max_tokens = max_tokens
+
+        if prompt is not None:
+            self.set_prompt(prompt)
 
         print(
             f'Initialized batch stepper with eos={self.eos} and max_tokens={self.max_tokens}'
         )
 
         atexit.register(self.cleanup)
+
+    def set_prompt(self, prompt):
+        self.batch_llm.set_prompt(prompt)
 
     def batch_next_token_probs(self, particles, is_initial):
         return self.batch_llm.execute_request(particles=particles, is_initial=is_initial)
@@ -57,8 +62,11 @@ class BatchStepper:
 
         return particles
 
-    def cleanup(self):
-        warnings.warn('Cleaning up batch stepper. All subprocess will be terminated.')
+    def cleanup(self, warn=False):
+        if warn:
+            warnings.warn(
+                'Cleaning up batch step model. All subprocesses will be terminated.'
+            )
         self.batch_proposal.cleanup()
         self.batch_llm.cleanup()
 

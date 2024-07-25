@@ -264,13 +264,16 @@ class SequentialBatchProposal:
     def create_instance(self):
         raise NotImplementedError('Subclasses must implement the create_instance method')
 
+    def cleanup(self):
+        self.guide.clear_cache()
 
-class SequentialCharBatchProposal(SequentialBatchProposal):
+
+class CharacterBatchProposal(SequentialBatchProposal):
     def create_instance(self):
         return CharacterProposal(llm=self.llm, guide=self.guide)
 
 
-class SequentialTokenBatchProposal(SequentialBatchProposal):
+class TokenBatchProposal(SequentialBatchProposal):
     def __init__(self, K, **kwargs):
         self.K = K
         super().__init__(**kwargs)

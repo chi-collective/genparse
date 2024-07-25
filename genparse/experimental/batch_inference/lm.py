@@ -16,6 +16,7 @@ from collections import defaultdict
 import numpy as np
 
 from genparse.lm import VirtualTokenizedLLM
+from genparse.util import load_model_by_name
 
 
 class BatchLLM:
@@ -23,6 +24,10 @@ class BatchLLM:
 
     def __init__(self, llm):
         self.llm = llm
+
+    @classmethod
+    def from_name(cls, model_name):
+        return cls(llm=load_model_by_name(model_name))
 
     def set_prompt(self, prompt):
         self.prompt = self.llm.encode_prompt(prompt)
@@ -79,7 +84,7 @@ class VLLMParticleMetadata:
 class BatchVLLM(vllm.LLM):
     """Batch LM sampling with VLLM."""
 
-    def __init__(self, llm, prompt=None):
+    def __init__(self, llm):
         if not isinstance(llm, VirtualTokenizedLLM):
             raise ValueError('BatchVLLM requires a VirtualTokenizedLLM instance.')
         self.llm = llm
@@ -89,7 +94,11 @@ class BatchVLLM(vllm.LLM):
         )
         self.request_counter = Counter()
         self.particle_metadata = VLLMParticleMetadata()
-        self.prompt = prompt
+        self.prompt = None
+
+    @classmethod
+    def from_name(cls, model_name):
+        return cls(llm=VirtualTokenizedLLM.from_name(model_name))
 
     def set_prompt(self, prompt):
         self.prompt = prompt
