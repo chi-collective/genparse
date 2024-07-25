@@ -21,20 +21,20 @@ from genparse.lm import VirtualTokenizedLLM
 class BatchLLM:
     """Simple baseline class which wraps LMs. Next token logprobs are sampled sequentially from the llm."""
 
-    def __init__(self, llm, prompt):
+    def __init__(self, llm):
         self.llm = llm
-        self.prompt = prompt
 
     def set_prompt(self, prompt):
-        self.prompt = prompt
+        self.prompt = self.llm.encode_prompt(prompt)
 
     def execute_request(self, particles, **kwargs):
         logprobs = []
         particle_id_to_logprob_idx = {}
-        for p in particles:
-            logprob = self.llm.logp_next(self.prompt + p.context)
-            logprobs.append(logprob)
-            particle_id_to_logprob_idx[p.id] = len(logprobs) - 1
+        for i, p in enumerate(particles):
+            if not p.done:
+                logprob = self.llm.logp_next(self.prompt + p.context)
+                logprobs.append(logprob._p)
+                particle_id_to_logprob_idx[i] = len(logprobs) - 1
 
         return logprobs, particle_id_to_logprob_idx
 
