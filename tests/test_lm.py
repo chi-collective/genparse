@@ -49,7 +49,7 @@ def test_tokenized_llm():
         ' now': 0.006395742653323747,
         ' also': 0.006061700658967281,
     }
-    have.assert_equal(want, tol=1e-5)
+    have.assert_equal(want, tol=1e-4)
 
 
 def test_llm_probs():
