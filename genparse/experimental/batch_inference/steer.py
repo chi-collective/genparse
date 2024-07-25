@@ -26,23 +26,17 @@ class BatchStepModel:
     def set_prompt(self, prompt):
         self.batch_llm.set_prompt(prompt)
 
-    def batch_next_token_probs(self, particles, is_initial):
-        return self.batch_llm.execute_request(particles=particles, is_initial=is_initial)
-
-    def batch_particle_extensions(self, particles, logprobs, particle_id_to_logprob_id):
-        return self.batch_proposal.execute_request(
-            particles=particles,
-            logprobs=logprobs,
-            particle_id_to_logprob_id=particle_id_to_logprob_id,
-        )
-
     def batch_step(self, particles, is_initial=False):
-        logprobs, particle_id_to_logprob_id = self.batch_next_token_probs(
-            particles, is_initial
+        logprobs, particle_id_to_logprob_id = self.batch_llm.batch_next_token_logprobs(
+            particles=particles, is_initial=is_initial
         )
 
-        extensions, extension_id_to_particle_id = self.batch_particle_extensions(
-            particles, logprobs, particle_id_to_logprob_id
+        extensions, extension_id_to_particle_id = (
+            self.batch_proposal.batch_particle_extensions(
+                particles=particles,
+                logprobs=logprobs,
+                particle_id_to_logprob_id=particle_id_to_logprob_id,
+            )
         )
 
         for extension_id, particle_id in extension_id_to_particle_id.items():

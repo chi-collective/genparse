@@ -32,7 +32,7 @@ class BatchLLM:
     def set_prompt(self, prompt):
         self.prompt = self.llm.encode_prompt(prompt)
 
-    def execute_request(self, particles, **kwargs):
+    def batch_next_token_logprobs(self, particles, *args, **kwargs):
         logprobs = []
         particle_id_to_logprob_idx = {}
         for i, p in enumerate(particles):
@@ -110,7 +110,7 @@ class BatchVLLM(vllm.LLM):
             lora_request=None,
         )
 
-    def execute_request(self, particles, is_initial=False):
+    def batch_next_token_logprobs(self, particles, is_initial=False):
         """Take a single VLLM step to compute logprobs for the next token"""
         if is_initial:
             if self.llm_engine.has_unfinished_requests():

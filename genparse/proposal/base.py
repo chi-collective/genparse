@@ -5,6 +5,7 @@ from genparse.semiring import Float
 from genparse.trace import TraceSWOR
 from arsenal import colors
 import warnings
+import asyncio
 
 
 class Proposal:
@@ -39,7 +40,7 @@ class Proposal:
     def sample_set(self, context, prompt=None, p_next_llm=None, **kwargs):
         raise NotImplementedError('Subclasses must implement the sample_set method')
 
-    def sample_next_token(
+    async def sample_next_token(
         self,
         context,
         p_llm=None,
@@ -54,7 +55,7 @@ class Proposal:
                 'Must provide prompt to obtain LM next token probabilities. '
                 'Alternatively, provide the next token probabilities via the `p_llm` argument.'
             )
-            p_llm = self.llm.p_next(prompt + context)
+            p_llm = await self.llm.p_next_async(prompt + context)
 
         (weights, p) = self.sample_set(context, p_llm=p_llm, draw=draw, **kwargs)
 
@@ -74,6 +75,10 @@ class Proposal:
 
         return (unit, p, log_weight_update)
 
+    def sample_next_token_sync(self, *args, **kwargs):
+        "Synchronous version of `sample_next_token`."
+        return asyncio.run(self.sample_next_token(*args, **kwargs))
+
     def sample(self, prompt=(), max_tokens=float('inf'), verbosity=0, draw=sample_dict):
         """Performs sequential importance sampling by sequentially sampling tokens from the proposal distribution."""
         context = ()
@@ -83,7 +88,7 @@ class Proposal:
         while True:
             t += 1
             if t <= max_tokens:
-                (token, proposal_p, weight_update) = self.sample_next_token(
+                (token, proposal_p, weight_update) = self.sample_next_token_sync(
                     prompt=prompt,
                     context=context,
                     draw=draw,
@@ -119,7 +124,7 @@ class Proposal:
         # sample without replacement until all traces have been exhausted
         while tracer.root.mass > 0:
             with tracer:
-                (s, q, w) = self.sample_next_token(
+                (s, q, w) = self.sample_next_token_sync(
                     draw=tracer, prompt=prompt, context=context
                 )
                 P[s] += np.exp(w) * q

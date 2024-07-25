@@ -95,7 +95,7 @@ class ParallelProposal:
                     encode=self.llm._encode,
                     decode=self.llm._decode,
                 )
-                token, _, w = proposal.sample_next_token(
+                token, _, w = proposal.sample_next_token_sync(
                     context=task.context, p_llm=p_llm
                 )
                 token_id = (
@@ -118,7 +118,7 @@ class ParallelProposal:
             )
             self.result_queue.put(Error(exception=e, worker_id=worker_id))
 
-    def execute_request(self, particles, logprobs, particle_id_to_logprob_id):
+    def batch_particle_extensions(self, particles, logprobs, particle_id_to_logprob_id):
         if not self.is_running:
             warnings.warn(
                 'Proposal server is not running (no subprocesses are initialized).'
@@ -228,7 +228,7 @@ class SequentialBatchProposal:
         self.proposal = self.create_instance()
         self.eos = self.proposal.eos
 
-    def execute_request(self, particles, logprobs, particle_id_to_logprob_id):
+    def batch_particle_extensions(self, particles, logprobs, particle_id_to_logprob_id):
         # sequential implementation
         num_extensions = 0
         extensions = []
@@ -240,7 +240,7 @@ class SequentialBatchProposal:
                     encode=self.llm._encode,
                     decode=self.llm._decode,
                 )
-                token, _, w = self.proposal.sample_next_token(
+                token, _, w = self.proposal.sample_next_token_sync(
                     context=p.context, p_llm=p_llm
                 )
                 token_id = (
