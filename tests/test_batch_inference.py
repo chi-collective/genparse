@@ -1,6 +1,7 @@
 import torch
 import warnings
 import multiprocessing as mp
+from genparse.util import lark_guide, set_seed
 from genparse.experimental.batch_inference import (
     BatchLLM,
     BatchVLLM,
@@ -11,8 +12,6 @@ from genparse.experimental.batch_inference import (
     BatchStepModel,
     smc,
 )
-
-from genparse.util import lark_guide, set_seed
 
 
 def test_character_abc():
@@ -35,10 +34,8 @@ def test_character_abc():
         prompt=prompt,
     )
 
-    approx = smc(step_model, n_particles=n_particles)
-    have = approx.posterior
-
-    have.assert_equal(want)
+    have = smc(step_model, n_particles=n_particles)
+    have.posterior.assert_equal(want)
 
     # parallel proposal
 
@@ -56,10 +53,8 @@ def test_character_abc():
         prompt=prompt,
     )
 
-    approx = smc(step_model, n_particles=n_particles)
-    have = approx.posterior
-
-    have.assert_equal(want)
+    have = smc(step_model, n_particles=n_particles)
+    have.posterior.assert_equal(want)
 
     step_model.cleanup(warn=False)
 
@@ -84,9 +79,8 @@ def test_token_abc():
         prompt=prompt,
     )
 
-    approx = smc(step_model, n_particles=n_particles)
-    have = approx.posterior
-    have.assert_equal(want)
+    have = smc(step_model, n_particles=n_particles)
+    have.posterior.assert_equal(want)
 
     # parallel proposal
 
@@ -105,9 +99,8 @@ def test_token_abc():
         prompt=prompt,
     )
 
-    approx = smc(step_model, n_particles=n_particles)
-    have = approx.posterior
-    have.assert_equal(want)
+    have = smc(step_model, n_particles=n_particles)
+    have.posterior.assert_equal(want)
 
     step_model.cleanup(warn=False)
 
@@ -140,9 +133,8 @@ def test_vllm_abc():
         prompt=prompt,
     )
 
-    approx = smc(step_model, n_particles=n_particles)
-    have = approx.posterior
-    have.assert_equal(want)
+    have = smc(step_model, n_particles=n_particles)
+    have.posterior.assert_equal(want)
 
     step_model.cleanup(warn=False)
 
@@ -161,8 +153,7 @@ def test_vllm_abc():
         prompt=prompt,
     )
 
-    approx = smc(step_model, n_particles=n_particles)
-    have = approx.posterior
-    have.assert_equal(want)
+    have = smc(step_model, n_particles=n_particles)
+    have.posterior.assert_equal(want)
 
     step_model.cleanup(warn=False)
