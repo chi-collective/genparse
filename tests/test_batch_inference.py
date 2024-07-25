@@ -157,3 +157,9 @@ def test_vllm_abc():
     have.posterior.assert_equal(want)
 
     step_model.cleanup(warn=False)
+
+
+if __name__ == '__main__':
+    from arsenal import testing_framework
+
+    testing_framework(globals())

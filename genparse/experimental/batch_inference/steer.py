@@ -192,19 +192,14 @@ def importance_sampling(batch_model, n_particles, verbosity=0):
     """
     particles = init_particles(n_particles)
 
-    try:
-        particles = batch_model.batch_step(particles, is_initial=True)
+    particles = batch_model.batch_step(particles, is_initial=True)
+    if verbosity > 0:
+        pretty_print_particles(particles)
+
+    while not all(p.done for p in particles):
+        particles = batch_model.batch_step(particles)
         if verbosity > 0:
             pretty_print_particles(particles)
-
-        while not all(p.done for p in particles):
-            particles = batch_model.batch_step(particles)
-            if verbosity > 0:
-                pretty_print_particles(particles)
-
-    except Exception as e:
-        batch_model.cleanup()
-        raise e
 
     return ParticleApproximation(particles)
 
@@ -226,20 +221,15 @@ def smc(batch_model, n_particles, ess_threshold=0.5, verbosity=0):
     """
     particles = init_particles(n_particles)
 
-    try:
-        particles = batch_model.batch_step(particles, is_initial=True)
+    particles = batch_model.batch_step(particles, is_initial=True)
+    particles = maybe_resample(particles, n_particles * ess_threshold)
+    if verbosity > 0:
+        pretty_print_particles(particles)
+
+    while not all(p.done for p in particles):
+        particles = batch_model.batch_step(particles)
         particles = maybe_resample(particles, n_particles * ess_threshold)
         if verbosity > 0:
             pretty_print_particles(particles)
-
-        while not all(p.done for p in particles):
-            particles = batch_model.batch_step(particles)
-            particles = maybe_resample(particles, n_particles * ess_threshold)
-            if verbosity > 0:
-                pretty_print_particles(particles)
-
-    except Exception as e:
-        batch_model.cleanup()
-        raise e
 
     return ParticleApproximation(particles)

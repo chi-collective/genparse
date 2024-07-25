@@ -12,7 +12,7 @@ import os
 class Task:
     particle_id: int
     context: str
-    logprob_idx: int
+    logprob_idx: int  # index in `ParallelProposal.shared_array`
 
 
 @dataclass
@@ -38,25 +38,27 @@ class ParallelProposal:
         self.result_queue = mp.Queue()
         self.num_processes = num_processes
         self.max_n_particles = max_n_particles
-        self.llm_vocab_size = len(llm.V)
         self.eos = self.guide.eos
         self.is_running = False
+        self.processes = None
 
         self._start()
 
         print(
-            f'Initialized parallel batch proposal with {num_processes=}, {max_n_particles=}, {seed=}'
+            f'Initialized ParallelProposal with {num_processes=}, {max_n_particles=}, {seed=}'
         )
 
     def _start(self):
+        llm_vocab_size = len(self.llm.V)
+
         # create shared memory
         self.shared_mem = mp.shared_memory.SharedMemory(
             create=True,
-            size=self.max_n_particles * self.llm_vocab_size * np.float32().itemsize,
+            size=self.max_n_particles * llm_vocab_size * np.float32().itemsize,
         )
 
         self.shared_array = np.ndarray(
-            (self.max_n_particles, self.llm_vocab_size),
+            (self.max_n_particles, llm_vocab_size),
             dtype=np.float32,
             buffer=self.shared_mem.buf,
         )
@@ -71,27 +73,14 @@ class ParallelProposal:
 
     def _worker(self, worker_id):
         try:
-            set_seed(self.seed + worker_id)
-
-            local_array = np.ndarray(
-                (self.max_n_particles, self.llm_vocab_size),
-                dtype=np.float32,
-                buffer=self.shared_mem.buf,
-            )
+            set_seed(abs(hash((self.seed, worker_id)) % 2**32))
 
             proposal = self.create_instance()
-        except Exception as e:
-            warnings.warn(
-                f'Proposal server worker {worker_id} failed during initialization with exception: {e}'
-            )
-            raise e
 
-        try:
             while True:
-                # TODO race conditions on get and put from queues?
                 task = self.task_queue.get()
                 p_llm = LazyProb(
-                    _p=np.exp(local_array[task.logprob_idx]),
+                    _p=np.exp(self.shared_array[task.logprob_idx]),
                     encode=self.llm._encode,
                     decode=self.llm._decode,
                 )
@@ -100,7 +89,7 @@ class ParallelProposal:
                 )
                 token_id = (
                     self.llm._encode[token]
-                    if not token == self.eos
+                    if token != self.guide.eos
                     else self.llm.tokenizer.eos_token_id
                 )
                 self.result_queue.put(
@@ -114,7 +103,7 @@ class ParallelProposal:
 
         except Exception as e:
             warnings.warn(
-                f'Proposal server worker {worker_id} failed while processing a request. Raising error in main process.'
+                f'Proposal worker {worker_id} failed while processing a request. Raising error in main process.'
             )
             self.result_queue.put(Error(exception=e, worker_id=worker_id))
 
@@ -157,7 +146,6 @@ class ParallelProposal:
             result = self.result_queue.get()
 
             if isinstance(result, Error):
-                self.cleanup()
                 raise result.exception
 
             results.append(result)
@@ -200,6 +188,9 @@ class ParallelProposal:
 
     def create_instance(self):
         raise NotImplementedError('Subclasses must implement the create_instance method')
+
+    def __del__(self):
+        self.cleanup()
 
 
 class ParallelCharacterProposal(ParallelProposal):
