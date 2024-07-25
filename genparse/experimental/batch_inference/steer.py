@@ -5,6 +5,7 @@ from arsenal.maths import logsumexp, log_sample, sample_dict
 import atexit
 import warnings
 from genparse import Float
+from genparse.record import SMCRecord
 
 
 class BatchStepModel:
@@ -152,56 +153,43 @@ def init_particles(n_particles):
     return [Particle((), 0, (), (), None, False) for _ in range(n_particles)]
 
 
-def maybe_resample(particles, ess_threshold):
+def pretty_print_particles(particles, step_info):
+    for i, p in enumerate(particles):
+        print(f'├ Particle {i:3d} `{p.context[-1]}` : {p}')
+    print(
+        f"│ Step {step_info['step']:3d} average weight: {step_info['average_weight']:.4f}"
+    )
+
+
+def maybe_resample(particles, ess_threshold, step_info, verbosity):
+    n_particles = len(particles)
     log_weights = [p.log_weight for p in particles]
     log_total = logsumexp(log_weights)
+    avg_log_weight = log_total - np.log(n_particles)
 
     log_normalized_weights = log_weights - log_total
-
     log_ess = -logsumexp(2 * log_normalized_weights)
     ess = np.exp(log_ess)
 
-    if ess < ess_threshold:
-        n_particles = len(particles)
+    step_info['average_weight'] = avg_log_weight
+
+    if ess < n_particles * ess_threshold:
         indices = log_sample(log_normalized_weights, size=n_particles)
-        avg_log_weight = log_total - np.log(n_particles)
-        return [
+        particles = [
             particles[i]._replace(log_weight=avg_log_weight, parent=i) for i in indices
         ]
-    else:
-        return particles
 
+        step_info['resample_indices'] = indices
 
-def pretty_print_particles(particles):
-    for i, p in enumerate(particles):
-        print(f'├ Particle {i:3d} `{p.context[-1]}` : {p}')
-
-
-def importance_sampling(batch_model, n_particles, verbosity=0):
-    """Standard sequential importance sampling.
-
-    Args:
-      - `batch_model` (`BatchStepper`): The model to perform inference on.
-      - `n_particles` (`int`): The number of particles to perform inference with.
-      - `verbosity` (`int`): Verbosity level. When > 0, particles are printed at each step.
-
-    Returns:
-      - `particle_approximation` (`ParticleApproximation`): The completed particle approximation.
-
-    TODO: Add record
-    """
-    particles = init_particles(n_particles)
-
-    particles = batch_model.batch_step(particles, is_initial=True)
-    if verbosity > 0:
-        pretty_print_particles(particles)
-
-    while not all(p.done for p in particles):
-        particles = batch_model.batch_step(particles)
         if verbosity > 0:
-            pretty_print_particles(particles)
+            print(
+                f'└╼  Resampling! {indices}. Weights all set to = {avg_log_weight:.4f}.'
+            )
+    else:
+        if verbosity > 0:
+            print('└╼')
 
-    return ParticleApproximation(particles)
+    return particles
 
 
 def smc(batch_model, n_particles, ess_threshold=0.5, verbosity=0):
@@ -216,20 +204,49 @@ def smc(batch_model, n_particles, ess_threshold=0.5, verbosity=0):
 
     Returns:
       - `particle_approximation` (`ParticleApproximation`): The completed particle approximation.
-
-    TODO: Add record
     """
+
+    record = SMCRecord(
+        {
+            'n_particles': n_particles,
+            'ess_threshold': ess_threshold,
+            'algorithm': 'smc_standard_record',
+            'history': [],
+        }
+    )
+
     particles = init_particles(n_particles)
-
-    particles = batch_model.batch_step(particles, is_initial=True)
-    particles = maybe_resample(particles, n_particles * ess_threshold)
-    if verbosity > 0:
-        pretty_print_particles(particles)
-
+    step_num = 1
     while not all(p.done for p in particles):
-        particles = batch_model.batch_step(particles)
-        particles = maybe_resample(particles, n_particles * ess_threshold)
-        if verbosity > 0:
-            pretty_print_particles(particles)
+        step_info = {'step': step_num}
 
-    return ParticleApproximation(particles)
+        particles = batch_model.batch_step(particles, is_initial=step_num == 1)
+        particles = maybe_resample(particles, ess_threshold, step_info, verbosity)
+
+        if verbosity > 0:
+            pretty_print_particles(particles, step_info)
+
+        record['history'].append(step_info)
+
+        step_num += 1
+
+    return ParticleApproximation(particles, record)
+
+
+def importance_sampling(batch_model, n_particles, verbosity=0):
+    """Standard sequential importance sampling.
+
+    Args:
+      - `batch_model` (`BatchStepper`): The model to perform inference on.
+      - `n_particles` (`int`): The number of particles to perform inference with.
+      - `verbosity` (`int`): Verbosity level. When > 0, particles are printed at each step.
+
+    Returns:
+      - `particle_approximation` (`ParticleApproximation`): The completed particle approximation.
+    """
+    return smc(
+        batch_model=batch_model,
+        n_particles=n_particles,
+        ess_threshold=0,
+        verbosity=verbosity,
+    )
