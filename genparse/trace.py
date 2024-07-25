@@ -10,7 +10,6 @@ from graphviz import Digraph
 
 from genparse.semiring import Float
 from genparse.util import format_table
-from genparse.lm import LazyProb
 
 import numpy as np
 
@@ -35,6 +34,8 @@ class generation_tree:
 
 
 def separate_keys_vals(x):
+    from genparse.lm import LazyProb
+
     if isinstance(x, LazyProb):
         return x.keys(), x.values()
     elif isinstance(x, np.ndarray):

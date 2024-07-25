@@ -43,13 +43,13 @@ class Sampler:
         if p.done:
             return p
 
-        (token, _, weight_update) = await self.proposal.sample_next_token(
+        (token, _, log_weight_update) = await self.proposal.sample_next_token(
             prompt=self.prompt,
             context=p.context,
         )
 
         new_particle = Particle(
-            weight=p.weight + np.log(weight_update),
+            weight=p.weight + log_weight_update,
             context=p.context + (token,),
             parent=p,
             done=(

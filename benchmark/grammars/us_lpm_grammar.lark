@@ -1,0 +1,456 @@
+start: " probability of " var [" given " var_list] EOS
+EOS: /\n/
+// var_list: var (", " var)*
+var_list: var | var ", " var
+var: variable | assignment
+assignment: NORMAL0 OPERATOR DIGIT DIGIT? DIGIT?
+	| CATEGORICAL0 OPERATOR CATEGORICAL0_VAL
+	| CATEGORICAL1 OPERATOR CATEGORICAL1_VAL
+	| CATEGORICAL2 OPERATOR CATEGORICAL2_VAL
+	| CATEGORICAL3 OPERATOR CATEGORICAL3_VAL
+	| CATEGORICAL4 OPERATOR CATEGORICAL4_VAL
+	| CATEGORICAL5 OPERATOR CATEGORICAL5_VAL
+	| CATEGORICAL6 OPERATOR CATEGORICAL6_VAL
+	| CATEGORICAL7 OPERATOR CATEGORICAL7_VAL
+	| CATEGORICAL8 OPERATOR CATEGORICAL8_VAL
+	| CATEGORICAL9 OPERATOR CATEGORICAL9_VAL
+	| CATEGORICAL10 OPERATOR CATEGORICAL10_VAL
+	| CATEGORICAL11 OPERATOR CATEGORICAL11_VAL
+	| CATEGORICAL12 OPERATOR CATEGORICAL12_VAL
+	| CATEGORICAL13 OPERATOR CATEGORICAL13_VAL
+	| CATEGORICAL14 OPERATOR CATEGORICAL14_VAL
+	| CATEGORICAL15 OPERATOR CATEGORICAL15_VAL
+	| CATEGORICAL16 OPERATOR CATEGORICAL16_VAL
+	| CATEGORICAL17 OPERATOR CATEGORICAL17_VAL
+	| CATEGORICAL18 OPERATOR CATEGORICAL18_VAL
+	| CATEGORICAL19 OPERATOR CATEGORICAL19_VAL
+	| CATEGORICAL20 OPERATOR CATEGORICAL20_VAL
+	| CATEGORICAL21 OPERATOR CATEGORICAL21_VAL
+	| CATEGORICAL22 OPERATOR CATEGORICAL22_VAL
+	| CATEGORICAL23 OPERATOR CATEGORICAL23_VAL
+	| CATEGORICAL24 OPERATOR CATEGORICAL24_VAL
+	| CATEGORICAL25 OPERATOR CATEGORICAL25_VAL
+	| CATEGORICAL26 OPERATOR CATEGORICAL26_VAL
+	| CATEGORICAL27 OPERATOR CATEGORICAL27_VAL
+	| CATEGORICAL28 OPERATOR CATEGORICAL28_VAL
+	| CATEGORICAL29 OPERATOR CATEGORICAL29_VAL
+	| CATEGORICAL30 OPERATOR CATEGORICAL30_VAL
+	| CATEGORICAL31 OPERATOR CATEGORICAL31_VAL
+	| CATEGORICAL32 OPERATOR CATEGORICAL32_VAL
+	| CATEGORICAL33 OPERATOR CATEGORICAL33_VAL
+	| CATEGORICAL34 OPERATOR CATEGORICAL34_VAL
+	| CATEGORICAL35 OPERATOR CATEGORICAL35_VAL
+	| CATEGORICAL36 OPERATOR CATEGORICAL36_VAL
+	| CATEGORICAL37 OPERATOR CATEGORICAL37_VAL
+	| CATEGORICAL38 OPERATOR CATEGORICAL38_VAL
+	| CATEGORICAL39 OPERATOR CATEGORICAL39_VAL
+	| CATEGORICAL40 OPERATOR CATEGORICAL40_VAL
+	| CATEGORICAL41 OPERATOR CATEGORICAL41_VAL
+	| CATEGORICAL42 OPERATOR CATEGORICAL42_VAL
+	| CATEGORICAL43 OPERATOR CATEGORICAL43_VAL
+	| CATEGORICAL44 OPERATOR CATEGORICAL44_VAL
+	| CATEGORICAL45 OPERATOR CATEGORICAL45_VAL
+	| CATEGORICAL46 OPERATOR CATEGORICAL46_VAL
+	| CATEGORICAL47 OPERATOR CATEGORICAL47_VAL
+	| CATEGORICAL48 OPERATOR CATEGORICAL48_VAL
+	| CATEGORICAL49 OPERATOR CATEGORICAL49_VAL
+	| CATEGORICAL50 OPERATOR CATEGORICAL50_VAL
+	| CATEGORICAL51 OPERATOR CATEGORICAL51_VAL
+	| CATEGORICAL52 OPERATOR CATEGORICAL52_VAL
+	| CATEGORICAL53 OPERATOR CATEGORICAL53_VAL
+	| CATEGORICAL54 OPERATOR CATEGORICAL54_VAL
+	| CATEGORICAL55 OPERATOR CATEGORICAL55_VAL
+	| CATEGORICAL56 OPERATOR CATEGORICAL56_VAL
+	| CATEGORICAL57 OPERATOR CATEGORICAL57_VAL
+	| CATEGORICAL58 OPERATOR CATEGORICAL58_VAL
+	| CATEGORICAL59 OPERATOR CATEGORICAL59_VAL
+	| CATEGORICAL60 OPERATOR CATEGORICAL60_VAL
+	| CATEGORICAL61 OPERATOR CATEGORICAL61_VAL
+	| CATEGORICAL62 OPERATOR CATEGORICAL62_VAL
+	| CATEGORICAL63 OPERATOR CATEGORICAL63_VAL
+	| CATEGORICAL64 OPERATOR CATEGORICAL64_VAL
+	| CATEGORICAL65 OPERATOR CATEGORICAL65_VAL
+	| CATEGORICAL66 OPERATOR CATEGORICAL66_VAL
+	| CATEGORICAL67 OPERATOR CATEGORICAL67_VAL
+	| CATEGORICAL68 OPERATOR CATEGORICAL68_VAL
+	| CATEGORICAL69 OPERATOR CATEGORICAL69_VAL
+	| CATEGORICAL70 OPERATOR CATEGORICAL70_VAL
+	| CATEGORICAL71 OPERATOR CATEGORICAL71_VAL
+	| CATEGORICAL72 OPERATOR CATEGORICAL72_VAL
+
+variable: NORMAL0
+	| CATEGORICAL0
+	| CATEGORICAL1
+	| CATEGORICAL2
+	| CATEGORICAL3
+	| CATEGORICAL4
+	| CATEGORICAL5
+	| CATEGORICAL6
+	| CATEGORICAL7
+	| CATEGORICAL8
+	| CATEGORICAL9
+	| CATEGORICAL10
+	| CATEGORICAL11
+	| CATEGORICAL12
+	| CATEGORICAL13
+	| CATEGORICAL14
+	| CATEGORICAL15
+	| CATEGORICAL16
+	| CATEGORICAL17
+	| CATEGORICAL18
+	| CATEGORICAL19
+	| CATEGORICAL20
+	| CATEGORICAL21
+	| CATEGORICAL22
+	| CATEGORICAL23
+	| CATEGORICAL24
+	| CATEGORICAL25
+	| CATEGORICAL26
+	| CATEGORICAL27
+	| CATEGORICAL28
+	| CATEGORICAL29
+	| CATEGORICAL30
+	| CATEGORICAL31
+	| CATEGORICAL32
+	| CATEGORICAL33
+	| CATEGORICAL34
+	| CATEGORICAL35
+	| CATEGORICAL36
+	| CATEGORICAL37
+	| CATEGORICAL38
+	| CATEGORICAL39
+	| CATEGORICAL40
+	| CATEGORICAL41
+	| CATEGORICAL42
+	| CATEGORICAL43
+	| CATEGORICAL44
+	| CATEGORICAL45
+	| CATEGORICAL46
+	| CATEGORICAL47
+	| CATEGORICAL48
+	| CATEGORICAL49
+	| CATEGORICAL50
+	| CATEGORICAL51
+	| CATEGORICAL52
+	| CATEGORICAL53
+	| CATEGORICAL54
+	| CATEGORICAL55
+	| CATEGORICAL56
+	| CATEGORICAL57
+	| CATEGORICAL58
+	| CATEGORICAL59
+	| CATEGORICAL60
+	| CATEGORICAL61
+	| CATEGORICAL62
+	| CATEGORICAL63
+	| CATEGORICAL64
+	| CATEGORICAL65
+	| CATEGORICAL66
+	| CATEGORICAL67
+	| CATEGORICAL68
+	| CATEGORICAL69
+	| CATEGORICAL70
+	| CATEGORICAL71
+	| CATEGORICAL72
+NORMAL0: "Age"
+CATEGORICAL0: "Sex"
+CATEGORICAL1: "Marital_status"
+CATEGORICAL2: "Total_income"
+CATEGORICAL3: "Grandparents_living_with_grandchildren"
+CATEGORICAL4: "Occupation"
+CATEGORICAL5: "Education"
+CATEGORICAL6: "Race"
+CATEGORICAL7: "World_region_of_birth"
+CATEGORICAL8: "Citizen_status"
+CATEGORICAL9: "Political_ideology"
+CATEGORICAL10: "Registered_to_vote"
+CATEGORICAL11: "Dwelling_type"
+CATEGORICAL12: "Owns_credit_card"
+CATEGORICAL13: "Credit_rating"
+CATEGORICAL14: "Home_mortgage_amount"
+CATEGORICAL15: "Home_owner"
+CATEGORICAL16: "Career_improvement"
+CATEGORICAL17: "Childrens_general"
+CATEGORICAL18: "Consumer_electronics"
+CATEGORICAL19: "Electronics_computers"
+CATEGORICAL20: "Home_and_garden"
+CATEGORICAL21: "Home_improvement"
+CATEGORICAL22: "Donor_animal_welfare"
+CATEGORICAL23: "Apparel_childrens"
+CATEGORICAL24: "Apparel_infant_toddlers"
+CATEGORICAL25: "Apparel_mens"
+CATEGORICAL26: "Apparel_womens"
+CATEGORICAL27: "Auto_work"
+CATEGORICAL28: "Book_buyer"
+CATEGORICAL29: "Camping_hiking"
+CATEGORICAL30: "Childrens_babycare"
+CATEGORICAL31: "Childrens_learning_toys"
+CATEGORICAL32: "Collectibles_antiques"
+CATEGORICAL33: "Collectibles_arts"
+CATEGORICAL34: "Collectibles_coins"
+CATEGORICAL35: "Cooking_general"
+CATEGORICAL36: "Cosmetics_beauty"
+CATEGORICAL37: "Dieting_weightloss"
+CATEGORICAL38: "Exercise_enthusiast"
+CATEGORICAL39: "Food_wines"
+CATEGORICAL40: "Health_and_beauty"
+CATEGORICAL41: "Woodwork"
+CATEGORICAL42: "Investments"
+CATEGORICAL43: "Jewelry_buyer"
+CATEGORICAL44: "Online_buyer"
+CATEGORICAL45: "Outdoor_enthusiast"
+CATEGORICAL46: "Pets_cats"
+CATEGORICAL47: "Pets_dogs"
+CATEGORICAL48: "Religious_inspiration"
+CATEGORICAL49: "Smoking"
+CATEGORICAL50: "Active_nascar"
+CATEGORICAL51: "Active_snow_skiing"
+CATEGORICAL52: "Sports_grouping"
+CATEGORICAL53: "Travel_grouping"
+CATEGORICAL54: "Political_contributor"
+CATEGORICAL55: "Religious_contributor"
+CATEGORICAL56: "Difficulty_hearing"
+CATEGORICAL57: "Difficulty_vision"
+CATEGORICAL58: "Difficulty_cognitive"
+CATEGORICAL59: "English_fluency"
+CATEGORICAL60: "Health_insurance_coverage"
+CATEGORICAL61: "Insurance_health_private"
+CATEGORICAL62: "Insurance_health_public"
+CATEGORICAL63: "Insurance_via_employer"
+CATEGORICAL64: "Insurance_purchased_directly"
+CATEGORICAL65: "Means_of_transportation"
+CATEGORICAL66: "Military_served_Vietnam_era"
+CATEGORICAL67: "Work_looking"
+CATEGORICAL68: "School_enrollment"
+CATEGORICAL69: "Employment_status"
+CATEGORICAL70: "Disability"
+CATEGORICAL71: "Commute_minutes"
+CATEGORICAL72: "Insurance_Medicare"
+CATEGORICAL0_VAL: "'Female'"
+	| "'Male'"
+CATEGORICAL1_VAL: "'Single'"
+	| "'Married'"
+CATEGORICAL2_VAL: "'(n) $75,000 - $99,999'"
+	| "'(k) $55,000 - $59,999'"
+	| "'(g) $35,000 - $39,999'"
+	| "'(s) $250,000 Plus'"
+	| "'(o) $100,000 - $149,999'"
+	| "'(m) $65,000 - $74,999'"
+	| "'(a) Under $10,000'"
+	| "'(i) $45,000 - $49,999'"
+	| "'(l) $60,000 - $64,999'"
+	| "'(e) $25,000 - $29,999'"
+	| "'(j) $50,000 - $54,999'"
+	| "'(d) $20,000 - $24,999'"
+	| "'(r) $200,000 - $249,999'"
+	| "'(c) $15,000 - $19,999'"
+	| "'(b) $10,000 - $14,999'"
+	| "'(q) $175,000 - $199,999'"
+	| "'(h) $40,000 - $44,999'"
+	| "'(f) $30,000 - $34,999'"
+	| "'(p) $150,000 - $174,999'"
+CATEGORICAL3_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL4_VAL: "'Other'"
+	| "'Clerical / White Collar'"
+	| "'Homemaker'"
+	| "'Financial Professional'"
+	| "'Self Employed - Other'"
+	| "'Medical Professional'"
+	| "'Retired'"
+	| "'Sales / Service'"
+	| "'Self Employed - Professional/Technical'"
+	| "'Farmer'"
+	| "'Craftsman / Blue Collar'"
+	| "'Student'"
+	| "'Administration / Managerial'"
+	| "'Legal Professional'"
+	| "'Transportation'"
+	| "'Educator'"
+	| "'Self Employed'"
+	| "'Religious'"
+	| "'Military'"
+	| "'Self Employed - Administration/Managerial'"
+CATEGORICAL5_VAL: "'(b) Attended high-School - not completed'"
+	| "'(c) High-School degree'"
+	| "'(d) Associates degree'"
+	| "'(g) Graduate degree'"
+	| "'(f) College degree'"
+	| "'(e) Attended college - not completed'"
+	| "'(a) None (less than 3 years old)'"
+CATEGORICAL6_VAL: "'White'"
+	| "'Two or more'"
+	| "'Black or African American'"
+	| "'Asian'"
+	| "'Other'"
+	| "'American Indian alone'"
+	| "'Alaska Native alone'"
+	| "'American Indian and Alaska Native tribes specified'"
+	| "'Native Hawaiian and Other Pacific Islander'"
+CATEGORICAL7_VAL: "'US state'"
+	| "'Asia'"
+	| "'Latin America'"
+	| "'Africa'"
+	| "'Europe'"
+	| "'PR and US Island Areas'"
+	| "'Northern America'"
+	| "'Oceania and at Sea'"
+CATEGORICAL8_VAL: "'Born in USA'"
+	| "'Not a US Citizen'"
+	| "'US Citizen via naturalization'"
+	| "'Born abroad to US parents'"
+	| "'Born in US territory'"
+CATEGORICAL9_VAL: "'Likely Liberal'"
+	| "'Likely Conservative'"
+CATEGORICAL10_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL11_VAL: "'Single Family Dwelling Unit'"
+	| "'Multiple Family Dwelling Unit'"
+CATEGORICAL12_VAL: "'Yes'"
+	| "'No'"
+CATEGORICAL13_VAL: "'650-699'"
+	| "'750-799'"
+	| "'Under 499'"
+	| "'550-599'"
+	| "'800+'"
+	| "'600-649'"
+	| "'700-749'"
+	| "'500-549'"
+CATEGORICAL14_VAL: "'(b) mortgage less than 100k'"
+	| "'(a) no mortgage known'"
+	| "'(d) mortgage between 300k - 500k'"
+	| "'(c) mortgage between 100k - 300k'"
+	| "'(e) mortgage more than 500k'"
+CATEGORICAL15_VAL: "'Yes'"
+	| "'No'"
+CATEGORICAL16_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL17_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL18_VAL: "'Yes'"
+	| "'No'"
+CATEGORICAL19_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL20_VAL: "'Yes'"
+	| "'No'"
+CATEGORICAL21_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL22_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL23_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL24_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL25_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL26_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL27_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL28_VAL: "'Yes'"
+	| "'No'"
+CATEGORICAL29_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL30_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL31_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL32_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL33_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL34_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL35_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL36_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL37_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL38_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL39_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL40_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL41_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL42_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL43_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL44_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL45_VAL: "'Yes'"
+	| "'No'"
+CATEGORICAL46_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL47_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL48_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL49_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL50_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL51_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL52_VAL: "'Yes'"
+	| "'No'"
+CATEGORICAL53_VAL: "'Yes'"
+	| "'No'"
+CATEGORICAL54_VAL: "'Yes, But Party Unknown'"
+	| "'Republican Contributor'"
+	| "'Democtratic Contributor'"
+CATEGORICAL55_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL56_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL57_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL58_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL59_VAL: "'(a) Native speaker'"
+	| "'(b) Very well'"
+	| "'(c) Well'"
+	| "'(d) Not well'"
+	| "'(e) Not at all'"
+CATEGORICAL60_VAL: "'Yes'"
+	| "'No'"
+CATEGORICAL61_VAL: "'Yes'"
+	| "'No'"
+CATEGORICAL62_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL63_VAL: "'Yes'"
+	| "'No'"
+CATEGORICAL64_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL65_VAL: "'Drove alone'"
+	| "'Carpool'"
+CATEGORICAL66_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL67_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL68_VAL: "'Yes, private school'"
+	| "'No'"
+	| "'Yes, public school'"
+CATEGORICAL69_VAL: "'Not -employed less than 16 years old'"
+	| "'Civilian employed, at work'"
+	| "'Not in labor force'"
+	| "'Unemployed'"
+	| "'Civilian employed, with a job but not at work'"
+	| "'Armed forces, at work'"
+CATEGORICAL70_VAL: "'No'"
+	| "'Yes'"
+CATEGORICAL71_VAL: "'(a) no commute'"
+	| "'(c) 30-60 minutes'"
+	| "'(b) less than 30 minutes'"
+	| "'(d) more than 60 minutes'"
+CATEGORICAL72_VAL: "'No'"
+	| "'Yes'"
+
+OPERATOR: "=" | " = "
+DIGIT: "0".."9"
+INT: DIGIT+
+FLOAT: INT "." INT? | "." INT
+NUMBER: FLOAT | INT  

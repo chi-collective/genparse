@@ -271,6 +271,43 @@ class TokenizedLLM(LM):
             return LazyProb(_p, self._encode, self._decode)
 
 
+class VirtualTokenizedLLM(TokenizedLLM):
+    def __init__(self, vllm_engine):
+        self.llm_engine = vllm_engine
+        self.tokenizer = self.llm_engine.get_tokenizer()
+        super().__init__(tokenizer=self.tokenizer, model=vllm_engine, batch_size=None)
+
+    @classmethod
+    def from_name(cls, model_name):
+        from vllm import LLMEngine, EngineArgs
+
+        return cls(
+            LLMEngine.from_engine_args(  # seed not used since we are not sampling with vllm
+                EngineArgs(model=model_name, tokenizer=model_name, seed=0)
+            )
+        )
+
+    # TODO: support the following methods, for easier debugging
+
+    def __call__(self, **kwargs):
+        raise NotImplementedError('Cannot call VirtualTokenizedLLM directly')
+
+    def clear_cache(self):
+        pass
+
+    async def next_token_logprobs(self, **kwargs):
+        raise NotImplementedError()
+
+    def p_next(self, **kwargs):
+        raise NotImplementedError()
+
+    def logp_next(self, **kwargs):
+        raise NotImplementedError()
+
+    async def p_next_async(self, **kwargs):
+        raise NotImplementedError()
+
+
 #    def p_next_healing(self, context, top=10):
 #        # TODO: support token healing and/or hindsight sampling to get a valid token sequence
 #        assert isinstance(context, str)

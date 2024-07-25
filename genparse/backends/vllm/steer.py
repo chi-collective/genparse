@@ -197,7 +197,7 @@ class VLLMWrapper:
                 token_id = self.token_to_id.get(token, self.llm._model.eos_token_id)
                 particle.context.append(token)
                 particle.context_ids.append(token_id)
-                particle.weight += np.log(weight_update)
+                particle.weight += weight_update
                 particle.max_tokens -= 1
 
                 group_results.append((token_id, weight_update, parent_id, par_id))

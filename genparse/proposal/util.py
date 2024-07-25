@@ -36,30 +36,6 @@ def mock_token_proposal(V, guide_spec, K, uniform=False):
     return TokenProposal(llm=llm, guide=guide, K=K)
 
 
-def enumerate_traces(proposal, prompt, context):
-    """
-    This function uses program tracing and sampling without replacement to compute
-
-        E_{(x,w) ~ q'}[ δ(x, x') * w ] = E_{(x,S) ~ q}[ δ(x, x') * w(x,S) ]
-                                       = Σ_{x,S} δ(x, x') * q(x,S) * w(x,S)
-
-    for each x' in V.
-
-    Its use is to check whether our proposal satisfies properties like proper weighting through exact enumeration.
-    """
-    tracer = TraceSWOR()
-    P = Float.chart()
-    # sample without replacement until all traces have been exhausted
-    while tracer.root.mass > 0:
-        with tracer:
-            (s, q, w) = asyncio.run(
-                proposal.sample_next_token(draw=tracer, prompt=prompt, context=context)
-            )
-            P[s] += w * q
-            assert np.allclose(q, tracer.cur.mass)
-    return (P, tracer)
-
-
 def enumerate_target(proposal, prompt, context):
     """
     Computes the unnormalized local product of experts target over next tokens
@@ -75,7 +51,7 @@ def enumerate_target(proposal, prompt, context):
 
 
 def assert_proper_weighting(prompt, context, proposal, tol=1e-8):
-    pi_q, _ = enumerate_traces(proposal, prompt, context)
+    pi_q, _ = proposal.enumerate_traces(prompt, context)
     pi_true = enumerate_target(proposal, prompt, context)
 
     for x in proposal.llm.V:
@@ -85,7 +61,7 @@ def assert_proper_weighting(prompt, context, proposal, tol=1e-8):
 
 
 def assert_unbiased_Z(prompt, context, proposal, tol=1e-8):
-    pi_q, _ = enumerate_traces(proposal, prompt, context)
+    pi_q, _ = proposal.enumerate_traces(prompt, context)
     pi_true = enumerate_target(proposal, prompt, context)
 
     have = pi_q.sum()

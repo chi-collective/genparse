@@ -22,62 +22,11 @@ class TokenProposal(Proposal):
     """
 
     def __init__(self, *, llm, guide, K=None):
-        self.llm = llm
-        self.guide = guide
         self.K = K
+        super().__init__(llm=llm, guide=guide)
 
-        # Filter LLM tokens that are illegal under the cfg
-        words = {word for word in llm.V if set(word) <= self.guide.V or word == llm.eos}
-
-        # Augment the guide's character vocabulary to avoid to avoid OOV issues
-        self.guide.V |= {w for word in llm.V for w in word}
-
-        self.trie = TokenCharacterTrie(
-            words, encode=llm._encode, old_eos=llm.eos, new_eos=guide.eos
-        )
-
-    async def sample_next_token(
-        self,
-        prompt,
-        context,
-        draw=sample_dict,
-        p_llm=None,
-    ):
-        r"""
-        Proposes a token and incremental weight update.
-
-        The following procedure, justified using RAVI, gives the way we sample a
-        token and compute the incremental SMC weight update.
-
-        1. Sample a subset S of size K (+ 1) of the token vocabulary by
-            a. enumerating the top K tokens
-            b. if there are remaining tokens with non-zero probability, sampling a
-               wilcard token from the remainder of the vocabulary proportional to p_llm(x)
-                * this step ensures absoluate continuity
-        2. Compute *unnormalized target* p(x) of each x \in S according to p_llm(x)p_cfg(x).
-        3. Compute (local) weight w(x) of each token as p(x)/Pr(x \in S) where Pr(x \in S)
-           is the *inclusion probability*.
-            * Pr(x \in S) = 1 if x in top K
-            * Pr(x \in S) \propto p_llm(x) for the wilcard token, if applicable
-        4. Renormalize the weights of the tokens in S and sample one of them.
-        5. Set the incremental SMC weight update w'(x) = \sum_{x \in S} w(x)
-
-        Args:
-            prompt : The LLM prompt.
-            context : The previous generated tokens.
-            p_llm: Provide the model with pre-computed p_llm. Since for VLLM, p_llm is computed
-                for all particles altogether. We directly pass the corresponding p_llm to
-                the proposal of each particle.
-        Returns:
-            token : Proposed LLM token.
-            proposal_p : The probability of the proposed token (not properly weighted)
-            weight_update : Incremental SMC weight update.
-
-        """
+    def sample_set(self, context, p_llm, draw=sample_dict):
         proposal_p = 1
-
-        if p_llm is None:
-            p_llm = await self.llm.p_next_async(prompt + context)
 
         # enumerate top K tokens
         Ws = Float.chart(take(self.K, self.traverse_trie(context, p_llm)))
@@ -102,20 +51,7 @@ class TokenProposal(Proposal):
                     / P_wc[wildcard]
                 )
 
-        Ws = Ws.trim()
-
-        if Ws:
-            # sample token from weights and compute update
-            Ws_norm = Ws.normalize()
-            token = draw(Ws_norm)
-            proposal_p *= Ws_norm[token]
-            weight_update = Ws.sum()
-        else:
-            # if there are no possible next tokens, kill the particle
-            token = '💀'
-            weight_update = 0
-
-        return (token, proposal_p, weight_update)
+        return (Ws, proposal_p)
 
     def traverse_trie(self, context, p_llm):
         """

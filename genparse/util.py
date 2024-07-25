@@ -4,6 +4,7 @@ import random
 import torch
 import transformers
 from IPython.display import HTML, display
+import os
 
 
 def set_seed(seed):
@@ -13,6 +14,7 @@ def set_seed(seed):
     transformers.set_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
 
 
 def top_p_filter(p, top_p):
