@@ -281,11 +281,26 @@ class VirtualTokenizedLLM(TokenizedLLM):
     def from_name(cls, model_name):
         from vllm import LLMEngine, EngineArgs
 
-        return cls(
-            LLMEngine.from_engine_args(  # seed not used since we are not sampling with vllm
-                EngineArgs(model=model_name, tokenizer=model_name, seed=0)
+        if 'Llama-3.1' in model_name:
+            # rope_scaling is a hack to make our version of VLLM work with Llama 3.1
+            # max_model_len needs to be reduced to fit the quantized 70B model an 80Gb GPU
+            return cls(
+                LLMEngine.from_engine_args(  # seed not used since we are not sampling with vllm
+                    EngineArgs(
+                        model=model_name,
+                        tokenizer=model_name,
+                        seed=0,
+                        rope_scaling={'type': 'dynamic', 'factor': 1.0},
+                        max_model_len=7760,
+                    )
+                )
             )
-        )
+        else:
+            return cls(
+                LLMEngine.from_engine_args(  # seed not used since we are not sampling with vllm
+                    EngineArgs(model=model_name, tokenizer=model_name, seed=0)
+                )
+            )
 
     # TODO: support the following methods, for easier debugging
 
