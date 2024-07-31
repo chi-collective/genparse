@@ -32,7 +32,6 @@ class InferenceSetupVLLM:
             set_seed(seed)
 
         torch.backends.cuda.matmul.allow_tf32 = True
-
         if model_name == 'gpt2':
             MODEL_ID = 'gpt2'
             llm = TokenizedLLM(
@@ -46,6 +45,33 @@ class InferenceSetupVLLM:
             MODEL_ID = 'codellama/CodeLlama-7b-Instruct-hf'
             llm = TokenizedLLM(
                 model=vllmpplLLM(MODEL_ID, dtype=torch.float32, max_model_len=4096),
+                tokenizer=transformers.AutoTokenizer.from_pretrained(MODEL_ID),
+                batch_size=batch_size,
+                **llm_opts,
+            )
+
+        elif model_name == 'llama3.1':
+            # rope_scaling is a hack to make our version of VLLM work with Llama 3.1
+            # max_model_len needs to be reduced to fit the quantized 70B model an 80Gb GPU
+            MODEL_ID = 'meta-llama/Meta-Llama-3.1-8B-Instruct'
+            # llm = TokenizedLLM(
+            #    LLMEngine.from_engine_args(  # seed not used since we are not sampling with vllm
+            #        EngineArgs(
+            #            model=model_name,
+            #            tokenizer=model_name,
+            #            seed=0,
+            #            rope_scaling={'type': 'dynamic', 'factor': 1.0},
+            #            max_model_len=7760,
+            #        )
+            #    )
+            # )
+            llm = TokenizedLLM(
+                model=vllmpplLLM(
+                    MODEL_ID,
+                    dtype=torch.float32,
+                    max_model_len=7760,
+                    rope_scaling={'type': 'dynamic', 'factor': 1.0},
+                ),
                 tokenizer=transformers.AutoTokenizer.from_pretrained(MODEL_ID),
                 batch_size=batch_size,
                 **llm_opts,
