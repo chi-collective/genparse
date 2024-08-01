@@ -83,7 +83,14 @@ def main():
     json.dump(vars(args), open(f'{outpath}-args.json', 'w'), indent=4)
 
     outpath += '.jsonl'
-    outfile = open(outpath, 'w+')
+
+    if os.path.exists(outpath):
+        with open(outpath, 'r') as f:
+            num_processed = len(f.readlines())
+        outfile = open(outpath, 'a+')
+    else:
+        num_processed = 0
+        outfile = open(outpath, 'w+')
 
     set_seed(args.seed)
 
@@ -108,6 +115,10 @@ def main():
         enumerate(spider_dev_data), total=len(spider_dev_data), smoothing=0.0
     ):
         if dev_datum.schema_name not in schema:
+            continue
+
+        if i < num_processed:
+            print(f'Skipping {i}')
             continue
 
         messages = prompt_formatter.format_openai(dev_datum)
@@ -135,7 +146,11 @@ def main():
 
         start_time = time.time()
 
-        particles = smc(step_model, n_particles=args.particles)
+        try:
+            particles = smc(step_model, n_particles=args.particles)
+        except Exception as e:
+            print(f'Error: {e}')
+            particles = smc(step_model, n_particles=args.particles)
 
         end_time = time.time()
 
