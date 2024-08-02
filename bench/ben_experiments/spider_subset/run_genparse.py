@@ -117,7 +117,9 @@ def main():
         if dev_datum.schema_name not in schema:
             continue
 
-        if i < num_processed:
+        num_processed -= 1
+
+        if num_processed > 0:
             print(f'Skipping {i}')
             continue
 
