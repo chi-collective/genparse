@@ -18,10 +18,6 @@ class BatchStepModel:
         if prompt is not None:
             self.set_prompt(prompt)
 
-        print(
-            f'Initialized batch stepper with eos={self.eos} and max_tokens={self.max_tokens}'
-        )
-
         atexit.register(self.cleanup)
 
     def set_prompt(self, prompt):
@@ -49,7 +45,8 @@ class BatchStepModel:
                 context=particle.context + (extension.token,),
                 context_ids=particle.context_ids + (extension.token_id,),
                 done=(
-                    extension.token == self.eos
+                    extension.token == self.batch_proposal.eos
+                    or extension.token == self.batch_llm.eos
                     or len(particle.context) + 1 >= self.max_tokens
                 ),
                 parent=particle.parent,

@@ -92,9 +92,16 @@ class BatchVLLM(vllm.LLM):
         self.llm_engine.model_executor.driver_worker.model_runner.model.sampler = (
             LogitsGrouper()
         )
+        self.eos = self.llm.eos
+        self.eos_token_id = self.llm._encode[self.eos]
         self.request_counter = Counter()
         self.particle_metadata = VLLMParticleMetadata()
         self.prompt = None
+
+        assert self.eos_token_id == self.llm_engine.tokenizer.tokenizer.eos_token_id, (
+            f'BatchVLLM eos_token misalignment; eos_token_id ({self.eos_token_id}) != vllm engine eos_token_id ({self.llm_engine.tokenizer.tokenizer.eos_token_id})'
+            'This will cause issues with particle termination conditions.'
+        )
 
     @classmethod
     def from_name(cls, model_name):
@@ -206,7 +213,12 @@ class BatchVLLM(vllm.LLM):
                 try:
                     context_ids_to_particle_ids[context_ids].append(particle_id)
                 except KeyError:
-                    raise KeyError('Particle context ids not found in seq group metadata')
+                    # This KeyError may arise if context_ids[-1] == self.llm_engine.tokenizer.tokenizer.eos_token_id,
+                    # but particle.done != False. In those cases, the VLLM scheduler will not schedule sequences which
+                    # end in the EOS token.
+                    raise KeyError(
+                        'Particle context ids not found in seq group metadata.'
+                    )
 
         sequence_id_to_particle_ids = {}
         for seq_id, seq_data in seq_group_metadata.seq_data.items():
