@@ -12,7 +12,7 @@ import warnings
 
 
 class ProposalCache:
-    def __init__(self, guide_cache_path, maxsize=10, memory_thresh=50):
+    def __init__(self, guide_cache_path, maxsize=10, memory_thresh=80):
         self.maxsize = maxsize
         self.cache = {}
         self.guide_cache = PersistentGuideCache(guide_cache_path)
@@ -37,19 +37,12 @@ class ProposalCache:
         proposal_args={},
         max_n_particles=250,
     ):
-        current_mem_usage = psutil.virtual_memory().percent
-        if current_mem_usage > self.memory_thresh:
-            mem_usage = current_mem_usage
-            while mem_usage > self.memory_thresh and len(self.cache) > 0:
-                self.evict_object(self.recent_keys[-1])
-                mem_usage = psutil.virtual_memory().percent
-
-            warnings.warn(
-                f'Detected high memory usage: {current_mem_usage}%.\n'
-                f'Attempted to evict objects from cache to bring memory usage below {self.memory_thresh}%.\n'
-                f'Current memory usage: {psutil.virtual_memory().percent}%. '
-                f'Consider adjusting self.maxlen or self.memory_thresh.'
-            )
+        # current_mem_usage = psutil.virtual_memory().percent
+        # if current_mem_usage > self.memory_thresh:
+        #    mem_usage = current_mem_usage
+        #    while mem_usage > self.memory_thresh and len(self.cache) > 0:
+        #        self.evict_object(self.recent_keys[-1])
+        #        mem_usage = psutil.virtual_memory().percent
 
         key = self.make_cache_key(grammar, proposal_name, proposal_args)
         if key in self.cache:
@@ -93,7 +86,6 @@ class ProposalCache:
 
     def evict_object(self, key):
         self.cache[key].__del__()
-        del self.cache[key]
 
         # XXX test this
         # used in case we need to evict objects to avoid exceed the memory threshold

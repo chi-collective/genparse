@@ -152,26 +152,18 @@ def main():
         pred = pmax
         gold = dev_datum.query
         db = dev_datum.schema_name
-        result = evaluator.evaluate(dev_datum.query, best.text, dev_datum.schema_name)
+        viterbi_result = evaluator.evaluate(
+            dev_datum.query, best.text, dev_datum.schema_name
+        )
+        mbr_result = evaluator.evaluate(
+            dev_datum.query, pmax.context, dev_datum.schema_name
+        )
 
-        result_json = {
-            'pred': pred,
-            'gold': gold,
-            'db_name': db,
-            'question': dev_datum.utterance,
-            'result': result,
-            'finished': best.finished(),
-            'tokens': [tokenizer.decode(t) for t in best.token_ids],
-            'token_ids': best.token_ids,
-            'particles': [vars(o) for o in output.outputs],
-            'mbr': result,
-        }
-
-        if result[0]:
+        if mbr_result[0]:
             n_correct += 1
-        elif result[1] == 'invalid':
+        elif mbr_result[1] == 'invalid':
             n_invalid += 1
-        elif result[1] == 'mismatch':
+        elif mbr_result[1] == 'mismatch':
             n_mismatch += 1
 
         particles = [vars(o) for o in output.outputs]
@@ -179,6 +171,19 @@ def main():
             p['result'] = evaluator.evaluate(
                 dev_datum.query, p['text'], dev_datum.schema_name
             )
+
+        result_json = {
+            'pred': pred,
+            'gold': gold,
+            'db_name': db,
+            'question': dev_datum.utterance,
+            'viterbi': viterbi_result,
+            'finished': best.finished(),
+            'tokens': [tokenizer.decode(t) for t in best.token_ids],
+            'token_ids': best.token_ids,
+            'particles': particles,
+            'mbr': mbr_result,
+        }
 
         result_str = json.dumps(result_json)
 

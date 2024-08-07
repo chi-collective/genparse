@@ -89,7 +89,7 @@ class ParticleApproximation:
 
         # log-marginal likelihood estimate (Note: need to exponentiate to have
         # an unbiased estimate of the true marginal likelihood).
-        self.log_ml = self.log_total - np.log(self.size)
+        self.log_ml = np.log(np.mean(np.exp(self.log_weights)))
 
         # log-normalized weights
         self.log_normalized_weights = self.log_weights - self.log_total

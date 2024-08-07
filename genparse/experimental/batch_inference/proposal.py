@@ -44,9 +44,9 @@ class ParallelProposal:
 
         self._start()
 
-        print(
-            f'Initialized ParallelProposal with {num_processes=}, {max_n_particles=}, {seed=}'
-        )
+        # print(
+        #    f'Initialized ParallelProposal with {num_processes=}, {max_n_particles=}, {seed=}'
+        # )
 
     def _start(self):
         llm_vocab_size = len(self.llm.V)
