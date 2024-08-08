@@ -4,6 +4,7 @@
 import os
 import time
 import json
+import psutil
 import logging
 import argparse
 from tqdm import tqdm
@@ -189,6 +190,9 @@ def main():
     evaluator = Evaluator(raw_spider_dir)
     prompt_formatter = load_prompt_formatter(raw_spider_dir)
 
+    if len(already_processed) >= len(spider_dev_data):
+        return
+
     with open('../../benchmark/grammars/spider_schema_grammar.json', 'r') as f:
         all_grammars = json.load(f)
 
@@ -244,6 +248,15 @@ def main():
 
         grammar = reformat_grammar(all_grammars[dev_datum.schema_name])
 
+        current_mem_usage = psutil.virtual_memory().percent
+        if current_mem_usage > 80:
+            proposal_cache.evict_objects()
+            print(
+                'Evicted proposals from cache:'
+                f' prev_mem_usage={current_mem_usage=}% -->'
+                f' curr_mem_usage={psutil.virtual_memory().percent}%'
+            )
+
         parallel_proposal = proposal_cache.fetch_or_create_proposal(
             llm=batch_llm.llm,
             grammar=grammar,
@@ -286,6 +299,8 @@ def main():
 
         end_time = time.time()
 
+        del step_model
+
         particles_json = [
             {
                 'tokens': p.context,
@@ -326,6 +341,9 @@ def main():
         print(json.dumps(json_result), file=outfile)
 
         if args.verbosity > 0:
+            print(f"MBR: {json_result['results']['mbr']['pred']}")
+            print(f"Viterbi: {json_result['results']['viterbi']['pred']}")
+
             if args.decision_rule == 'mbr':
                 result = json_result['results']['mbr']['result']
             else:

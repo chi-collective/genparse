@@ -29,24 +29,49 @@ class Error:
     worker_id: int
 
 
+class ProposalWorker:
+    def __init__(self, proposal, shared_array):
+        self.proposal = proposal
+        self.shared_array = shared_array
+
+        self._decode = self.proposal.llm._decode
+        self._encode = self.proposal.llm._encode
+        self._encode[self.proposal.guide.eos] = self.proposal.llm.tokenizer.eos_token_id
+
+
+def sample_extension(task):
+    try:
+        p_llm = LazyProb(
+            _p=np.exp(proposal_worker.shared_array[task.logprob_idx]),
+            encode=proposal_worker._encode,
+            decode=proposal_worker._decode,
+        )
+        token, _, w = proposal_worker.proposal.sample_next_token_sync(
+            context=task.context, p_llm=p_llm
+        )
+        token_id = proposal_worker._encode[token]
+        return Result(
+            particle_id=task.particle_id,
+            token=token,
+            log_weight=w,
+            token_id=token_id,
+        )
+    except Exception as e:
+        return Error(exception=e, worker_id=worker_id)
+
+
 class ParallelProposal:
     def __init__(self, llm, guide, num_processes, max_n_particles, seed):
         self.llm = llm
         self.guide = guide
         self.seed = seed
-        self.task_queue = mp.Queue()
-        self.result_queue = mp.Queue()
         self.num_processes = num_processes
         self.max_n_particles = max_n_particles
         self.eos = self.guide.eos
         self.is_running = False
-        self.processes = None
+        self.pool = None
 
         self._start()
-
-        # print(
-        #    f'Initialized ParallelProposal with {num_processes=}, {max_n_particles=}, {seed=}'
-        # )
 
     def _start(self):
         llm_vocab_size = len(self.llm.V)
@@ -63,60 +88,36 @@ class ParallelProposal:
             buffer=self.shared_mem.buf,
         )
 
-        self.processes = []
+        manager = mp.Manager()
+        id_queue = manager.Queue()
         for i in range(self.num_processes):
-            p = mp.Process(target=self._worker, args=(i,))
-            p.start()
-            self.processes.append(p)
+            id_queue.put(i)
+
+        self.pool = mp.Pool(
+            processes=self.num_processes,
+            initializer=self._init_worker,
+            initargs=(id_queue,),
+        )
 
         self.is_running = True
 
-    def _worker(self, worker_id):
-        try:
-            set_seed(abs(hash((self.seed, worker_id)) % 2**32))
+    def _init_worker(self, id_queue):
+        global worker_id
+        worker_id = id_queue.get()
+        set_seed(abs(hash((self.seed, worker_id)) % 2**32))
 
-            proposal = self.create_instance()
-
-            while True:
-                task = self.task_queue.get()
-                p_llm = LazyProb(
-                    _p=np.exp(self.shared_array[task.logprob_idx]),
-                    encode=self.llm._encode,
-                    decode=self.llm._decode,
-                )
-                token, _, w = proposal.sample_next_token_sync(
-                    context=task.context, p_llm=p_llm
-                )
-                token_id = (
-                    self.llm._encode[token]
-                    if token != self.guide.eos
-                    else self.llm.tokenizer.eos_token_id
-                )
-                self.result_queue.put(
-                    Result(
-                        particle_id=task.particle_id,
-                        token=token,
-                        log_weight=w,
-                        token_id=token_id,
-                    )
-                )
-
-        except Exception as e:
-            warnings.warn(
-                f'Proposal worker {worker_id} failed while processing a request. Raising error in main process.'
-            )
-            self.result_queue.put(Error(exception=e, worker_id=worker_id))
+        global proposal_worker
+        proposal_worker = ProposalWorker(self.create_instance(), self.shared_array)
 
     def batch_particle_extensions(self, particles, logprobs, particle_id_to_logprob_id):
         if not self.is_running:
             warnings.warn(
-                'Proposal server is not running (no subprocesses are initialized).'
+                'Proposal server is not running (pool is not initialized).'
                 ' Attempting to start the server...'
             )
             self.restart()
 
         to_serve = len([p for p in particles if not p.done])
-
         if to_serve > self.max_n_particles:
             warnings.warn(
                 'Num particles to serve > proposal_server.max_n_particles.'
@@ -129,56 +130,39 @@ class ParallelProposal:
         for i, lps in enumerate(logprobs):
             self.shared_array[i] = lps
 
-        for particle_id, p in enumerate(particles):
-            if not p.done:
-                self.task_queue.put(
-                    Task(
-                        particle_id=particle_id,
-                        context=p.context,
-                        logprob_idx=particle_id_to_logprob_id[particle_id],
-                    )
-                )
+        tasks = [
+            Task(
+                particle_id=p_id,
+                context=p.context,
+                logprob_idx=particle_id_to_logprob_id[p_id],
+            )
+            for p_id, p in enumerate(particles)
+            if not p.done
+        ]
 
-        num_results = 0
-        results = []
+        results = self.pool.map(sample_extension, tasks)
+
         result_id_to_particle_id = {}
-        while to_serve > 0:
-            result = self.result_queue.get()
-
+        for i, result in enumerate(results):
             if isinstance(result, Error):
                 raise result.exception
-
-            results.append(result)
-            result_id_to_particle_id[num_results] = result.particle_id
-            num_results += 1
-            to_serve -= 1
-
-        assert self.result_queue.empty(), 'Finished serving particle requests, but result queue is non-empty. Something went wrong :('
+            result_id_to_particle_id[i] = result.particle_id
 
         return (results, result_id_to_particle_id)
 
     def cleanup(self):
-        # kill processes
-        for p in self.processes:
-            p.terminate()
+        try:
+            self.pool.close()
+            self.pool.join()
+        except KeyboardInterrupt:
+            self.pool.terminate()
+            self.pool.join()
 
-        for p in self.processes:
-            try:
-                pid, status = os.waitpid(p.pid, 0)
-            except OSError:
-                pass
-
-        self.processes = []
-
-        # clean up shared memory
         self.shared_mem.close()
         try:
             self.shared_mem.unlink()
         except FileNotFoundError:
             pass
-
-        self.task_queue = mp.Queue()
-        self.result_queue = mp.Queue()
 
         self.is_running = False
 

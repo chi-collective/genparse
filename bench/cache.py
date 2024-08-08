@@ -2,6 +2,7 @@ from collections import deque
 import logging
 import pickle
 import os
+import gc
 from genparse.util import lark_guide
 from genparse.experimental.batch_inference import (
     ParallelCharacterProposal,
@@ -85,7 +86,10 @@ class ProposalCache:
             self.evict_object(key)
 
     def evict_object(self, key):
+        print('Evicting proposal')
+        self.cache[key].cleanup()
         self.cache[key].__del__()
+        gc.collect()
 
         # XXX test this
         # used in case we need to evict objects to avoid exceed the memory threshold
