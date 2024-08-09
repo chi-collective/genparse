@@ -6,6 +6,7 @@ from genparse.lm import LazyProb
 from genparse.proposal import CharacterProposal, TokenProposal
 import warnings
 import os
+import psutil
 
 
 @dataclass
@@ -58,6 +59,10 @@ def sample_extension(task):
         )
     except Exception as e:
         return Error(exception=e, worker_id=worker_id)
+
+
+def clear_cache(x):
+    proposal_worker.proposal.guide.clear_cache()
 
 
 class ParallelProposal:
@@ -132,31 +137,34 @@ class ParallelProposal:
 
         tasks = [
             Task(
-                particle_id=p_id,
+                particle_id=p_idx,
                 context=p.context,
-                logprob_idx=particle_id_to_logprob_id[p_id],
+                logprob_idx=particle_id_to_logprob_id[p_idx],
             )
-            for p_id, p in enumerate(particles)
+            for p_idx, p in enumerate(particles)
             if not p.done
         ]
 
         results = self.pool.map(sample_extension, tasks)
 
-        result_id_to_particle_id = {}
+        result_id_to_particle_idx = {}
         for i, result in enumerate(results):
             if isinstance(result, Error):
                 raise result.exception
-            result_id_to_particle_id[i] = result.particle_id
+            result_id_to_particle_idx[i] = result.particle_id
 
-        return (results, result_id_to_particle_id)
+        return (results, result_id_to_particle_idx)
 
     def cleanup(self):
-        try:
-            self.pool.close()
-            self.pool.join()
-        except KeyboardInterrupt:
-            self.pool.terminate()
-            self.pool.join()
+        if self.pool is not None:
+            try:
+                self.pool.map(clear_cache, [None] * self.num_processes)
+                self.pool.close()
+                self.pool.join()
+            except KeyboardInterrupt:
+                self.pool.terminate()
+                self.pool.join()
+            self.pool = None
 
         self.shared_mem.close()
         try:
