@@ -2,6 +2,7 @@ from collections import deque
 import logging
 import pickle
 import os
+import gc
 from genparse.util import lark_guide
 from genparse.experimental.batch_inference import (
     ParallelCharacterProposal,
@@ -16,7 +17,7 @@ class ProposalCache:
         self.maxsize = maxsize
         self.cache = {}
         self.guide_cache = PersistentGuideCache(guide_cache_path)
-        self.recent_keys = deque(maxlen=10)
+        self.recent_keys = deque(maxlen=maxsize)
         self.base_usage = psutil.virtual_memory().percent
         self.memory_thresh = memory_thresh
 
@@ -37,13 +38,6 @@ class ProposalCache:
         proposal_args={},
         max_n_particles=250,
     ):
-        # current_mem_usage = psutil.virtual_memory().percent
-        # if current_mem_usage > self.memory_thresh:
-        #    mem_usage = current_mem_usage
-        #    while mem_usage > self.memory_thresh and len(self.cache) > 0:
-        #        self.evict_object(self.recent_keys[-1])
-        #        mem_usage = psutil.virtual_memory().percent
-
         key = self.make_cache_key(grammar, proposal_name, proposal_args)
         if key in self.cache:
             self.recent_keys.append(key)
@@ -84,19 +78,16 @@ class ProposalCache:
         for key in keys_to_remove:
             self.evict_object(key)
 
-    def evict_object(self, key):
-        self.cache[key].__del__()
-
-        # XXX test this
-        # used in case we need to evict objects to avoid exceed the memory threshold
-        self.recent_keys = [k for k in self.recent_keys if k != key]
-
     def clear_cache(self):
-        for key in self.cache.keys():
-            self.evict_object(self, key)
+        objects_to_remove = list(self.cache.keys())
+        for key in objects_to_remove:
+            self.evict_object(key)
 
-        self.recent_keys.clear()
-        self.cache = {}
+    def evict_object(self, key):
+        print('Evicting proposal')
+        self.cache[key].cleanup()
+        del self.cache[key]
+        gc.collect()
 
     def __repr__(self):
         return f'ProposalCache(maxsize={self.maxsize}, current_size={len(self.cache)})'

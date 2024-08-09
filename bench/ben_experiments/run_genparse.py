@@ -4,6 +4,7 @@
 import os
 import time
 import json
+import psutil
 import logging
 import argparse
 from tqdm import tqdm
@@ -17,6 +18,9 @@ from utils import (
     load_prompt_formatter,
     reformat_grammar,
     HF_ACCESS_TOKEN,
+    mbr_eval,
+    posterior_weighted_eval,
+    viterbi_eval,
 )
 
 from genparse.util import set_seed
@@ -85,62 +89,6 @@ def get_argparser():
     return parser
 
 
-def mbr_eval(particles, evaluator, gold, db, eos):
-    def match(x, y):
-        x = x.rstrip(eos)
-        y = y.rstrip(eos)
-        try:
-            (exec_match, _) = evaluator.evaluate(x, y, db_name=db)
-        except Exception:
-            exec_match = False
-        return exec_match
-
-    pmax = max(
-        particles,
-        key=lambda candidate: particles.risk(match, ''.join(candidate.context)),
-    )
-
-    pred = ''.join(pmax.context[:-1])
-
-    return {
-        'result': evaluator.evaluate(gold, pred, db),
-        'pred': pred,
-        'finished': pmax.done,
-        'tokens': pmax.context,
-        'token_ids': pmax.context_ids,
-    }
-
-
-def viterbi_eval(particles, evaluator, gold, db, eos):
-    pmax = particles.particles[0]
-    for p in particles.particles[1:]:
-        if p.done and p.log_weight > pmax.log_weight:
-            pmax = p
-
-    pred = ''.join(pmax.context).rstrip(eos)
-
-    return {
-        'result': evaluator.evaluate(gold, pred, db),
-        'pred': pred,
-        'finished': pmax.done,
-        'tokens': pmax.context,
-        'token_ids': pmax.context_ids,
-    }
-
-
-def posterior_weighted_eval(particles, evaluator, gold, db, eos):
-    weighted_acc = 0
-    particle_results = {}
-    for pred, p in particles.posterior.items():
-        pred = pred.rstrip(eos)
-        acc = evaluator.evaluate(gold, pred, db)
-        assert pred not in particle_results, pred
-        particle_results[pred] = acc
-        weighted_acc += p * acc[0]
-
-    return {'result': weighted_acc, 'particle_results': particle_results}
-
-
 def make_example_key(schema_name, question):
     return (schema_name, question)
 
@@ -188,6 +136,9 @@ def main():
     spider_dev_data = load_spider_data(raw_spider_dir, split='dev')
     evaluator = Evaluator(raw_spider_dir)
     prompt_formatter = load_prompt_formatter(raw_spider_dir)
+
+    if len(already_processed) >= len(spider_dev_data):
+        return
 
     with open('../../benchmark/grammars/spider_schema_grammar.json', 'r') as f:
         all_grammars = json.load(f)
@@ -244,6 +195,15 @@ def main():
 
         grammar = reformat_grammar(all_grammars[dev_datum.schema_name])
 
+        mem_usage = psutil.virtual_memory().percent
+        if mem_usage > 70:
+            proposal_cache.clear_cache()
+            print(
+                '\nEvicted proposals from cache:'
+                f' prev_mem_usage={mem_usage}% -->'
+                f' curr_mem_usage={psutil.virtual_memory().percent}%\n'
+            )
+
         parallel_proposal = proposal_cache.fetch_or_create_proposal(
             llm=batch_llm.llm,
             grammar=grammar,
@@ -282,7 +242,7 @@ def main():
                 ]
             )
         else:
-            particles = smc(step_model, n_particles=args.particles)
+            particles = smc(step_model, n_particles=args.particles, verbosity=1)
 
         end_time = time.time()
 
@@ -299,13 +259,15 @@ def main():
         gold = dev_datum.query
         db = dev_datum.schema_name
 
+        inference_runtime = end_time - start_time
+
         json_result = {
             'gold': gold,
             'db_name': db,
             'question': dev_datum.utterance,
             'particles': particles_json,
             'log_ml': particles.log_ml,
-            'time': end_time - start_time,
+            'time': inference_runtime,
             'results': {},
         }
 
@@ -326,6 +288,9 @@ def main():
         print(json.dumps(json_result), file=outfile)
 
         if args.verbosity > 0:
+            print(f"MBR: {json_result['results']['mbr']['pred']}")
+            print(f"Viterbi: {json_result['results']['viterbi']['pred']}")
+
             if args.decision_rule == 'mbr':
                 result = json_result['results']['mbr']['result']
             else:
@@ -345,7 +310,8 @@ def main():
             print(
                 f'correct: {n_correct / n_total:.2f} ({n_correct}), '
                 f'invalid: {n_invalid / n_total:.2f} ({n_invalid}), '
-                f'mismatch: {n_mismatch / n_total:.2f} ({n_mismatch})'
+                f'mismatch: {n_mismatch / n_total:.2f} ({n_mismatch}), '
+                f'inference run time: {inference_runtime} secs'
             )
 
 
