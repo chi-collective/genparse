@@ -1,23 +1,42 @@
 #!/bin/bash
 
-# List of model names
 model_names=("Meta-Llama-3.1-8B-Instruct" "Meta-Llama-3-8B-Instruct")
 
-# List of particles
-particles=(1 10 20 50 100)
+particles=(1 5 10)
 
-schema=concert_singer,pets_1,museum_visit,employee_hire_evaluation,tvshow
+start=1
+
+end=1
+
+schema=all
+
+DEVICE=0
+
+if [ ! -z "$1" ]; then
+    DEVICE=$1
+fi
+
 
 for model_name in "${model_names[@]}"; do
-    for n_particles in "${particles[@]}"; do
-        CUDA_VISIBLE_DEVICES=1 python run_baseline.py \
-            --method sampling \
-            --exp-name "${model_name}-baseline" \
-            --particles "$n_particles" \
-            --model-name "meta-llama/$model_name" \
-            --out-dir "results" \
-            --schema $schema
+    out_dir="full_results/character/$model_name/greedy-baseline"
 
-        echo "baseline done for ${model_name} with ${n_particles} particles"
+    if [ ! -d "$out_dir" ]; then
+        mkdir -p "$out_dir"
+    fi
+
+    for n_particles in "${particles[@]}"; do
+        for run in $(seq $start $end); do
+            exp_name="${model_name}-baseline-${run}"
+
+            CUDA_VISIBLE_DEVICES=$DEVICE python run_baseline.py \
+                --method greedy \
+                --exp-name "${model_name}-baseline" \
+                --particles "$n_particles" \
+                --model-name "meta-llama/$model_name" \
+                --out-dir "results" \
+                --schema $schema
+
+            echo "done for ${exp_name} with ${n_particles} particles"
+        done
     done
 done

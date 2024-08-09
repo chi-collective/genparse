@@ -19,7 +19,13 @@ from tqdm import tqdm
 from genparse.experimental.batch_inference.steer import Particle, ParticleApproximation
 
 from bench.spider.evaluator import Evaluator
-from utils import load_spider_data, load_prompt_formatter, HF_ACCESS_TOKEN
+from utils import (
+    load_spider_data,
+    load_prompt_formatter,
+    HF_ACCESS_TOKEN,
+    posterior_weighted_eval,
+    mbr_eval,
+)
 from genparse.util import set_seed
 
 logger = logging.getLogger(__name__)
@@ -41,7 +47,10 @@ def get_parser():
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--out-dir', type=str, default='')
     parser.add_argument(
-        '--schema', type=str, help='Schema to evaluat, seperated by comma'
+        '--schema',
+        type=str,
+        help='Schema to evaluate, seperated by comma. Defaults to `all` for all schema.',
+        default='all',
     )
 
     return parser
@@ -67,7 +76,7 @@ def main():
 
     set_seed(args.seed)
 
-    raw_spider_dir = Path('../../spider/data/spider')
+    raw_spider_dir = Path('../spider/data/spider')
     spider_dev_data = load_spider_data(raw_spider_dir, split='dev')
     evaluator = Evaluator(raw_spider_dir)
     prompt_formatter = load_prompt_formatter(raw_spider_dir)
@@ -87,7 +96,11 @@ def main():
     tokenizer = transformers.AutoTokenizer.from_pretrained(args.model_name)
     logger.info('Model(s) initialized.')
 
-    schema = args.schema.split(',')
+    if args.schema == 'all':
+        schema = list(set([d.schema_name for d in spider_dev_data]))
+        print(f'Using schema {",".join(schema)}')
+    else:
+        schema = args.schema.split(',')
 
     # Prepare prompts.
     prompts = []
@@ -121,15 +134,6 @@ def main():
 
     n_correct, n_invalid, n_mismatch = 0, 0, 0
     for dev_datum, output in zip(dev_data, tqdm(llm_outputs, desc='output')):
-        best = max(output.outputs, key=lambda x: x.cumulative_logprob)
-
-        def match(x, y):
-            try:
-                (exec_match, _) = evaluator.evaluate(x, y, db_name=dev_datum.schema_name)
-            except Exception:
-                exec_match = False
-            return exec_match
-
         particles = ParticleApproximation(
             [
                 Particle(
@@ -144,48 +148,52 @@ def main():
             ]
         )
 
-        pmax = max(
-            particles,
-            key=lambda candidate: particles.risk(match, candidate.context),
-        )
+        particles_json = [
+            {
+                'tokens': p.context,
+                'token_ids': p.context_ids,
+                'weight': p.log_weight,
+                'finished': p.done,
+            }
+            for p in particles
+        ]
 
-        pred = pmax
         gold = dev_datum.query
         db = dev_datum.schema_name
-        viterbi_result = evaluator.evaluate(
-            dev_datum.query, best.text, dev_datum.schema_name
-        )
-        mbr_result = evaluator.evaluate(
-            dev_datum.query, pmax.context, dev_datum.schema_name
-        )
 
-        if mbr_result[0]:
-            n_correct += 1
-        elif mbr_result[1] == 'invalid':
-            n_invalid += 1
-        elif mbr_result[1] == 'mismatch':
-            n_mismatch += 1
-
-        particles = [vars(o) for o in output.outputs]
-        for p in particles:
-            p['result'] = evaluator.evaluate(
-                dev_datum.query, p['text'], dev_datum.schema_name
-            )
-
-        result_json = {
-            'pred': pred,
+        json_result = {
             'gold': gold,
             'db_name': db,
             'question': dev_datum.utterance,
-            'viterbi': viterbi_result,
-            'finished': best.finished(),
-            'tokens': [tokenizer.decode(t) for t in best.token_ids],
-            'token_ids': best.token_ids,
-            'particles': particles,
-            'mbr': mbr_result,
+            'particles': particles_json,
+            'log_ml': None,
+            'results': {},
         }
 
-        result_str = json.dumps(result_json)
+        json_result['results']['mbr'] = mbr_eval(particles, evaluator, gold, db, '')
+        json_result['results']['posterior_weighted_acc'] = posterior_weighted_eval(
+            particles, evaluator, gold, db, ''
+        )
+
+        viterbi_best = max(output.outputs, key=lambda x: x.cumulative_logprob)
+        pred = viterbi_best.text
+        json_result['results']['viterbi'] = {
+            'result': evaluator.evaluate(gold, pred, db),
+            'pred': pred,
+            'finished': viterbi_best.finish_reason == 'stop',
+            'token_ids': viterbi_best.token_ids,
+        }
+
+        result = json_result['results']['mbr']['result']
+
+        if result[0]:
+            n_correct += 1
+        elif result[1] == 'invalid':
+            n_invalid += 1
+        elif result[1] == 'mismatch':
+            n_mismatch += 1
+
+        result_str = json.dumps(json_result)
 
         print(result_str, file=outfile)
 
@@ -194,18 +202,6 @@ def main():
         f'correct: {n_correct / n_total:.2f} ({n_correct}), '
         f'invalid: {n_invalid / n_total:.2f} ({n_invalid}), '
         f'mismatch: {n_mismatch / n_total:.2f} ({n_mismatch})'
-    )
-
-    print(
-        json.dumps(
-            {
-                'correct': n_correct,
-                'invalid': n_invalid,
-                'mismatch': n_mismatch,
-                'n_total': n_total,
-            }
-        ),
-        file=outfile,
     )
 
 

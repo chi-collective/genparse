@@ -1,6 +1,6 @@
 #!/bin/bash
 
-model_names=("Meta-Llama-3.1-8B-Instruct" "Meta-Llama-3-8B-Instruct")
+model_names=("Meta-Llama-3-8B-Instruct" "Meta-Llama-3.1-8B-Instruct")
 
 particles=(1 5 10)
 
@@ -9,6 +9,12 @@ start=1
 end=1
 
 schema=all
+
+DEVICE=0
+
+if [ ! -z "$1" ]; then
+    DEVICE=$1
+fi
 
 for model_name in "${model_names[@]}"; do
     out_dir="full_results/character/$model_name"
@@ -21,13 +27,14 @@ for model_name in "${model_names[@]}"; do
         for run in $(seq $start $end); do
             exp_name="${model_name}-smc-${run}"
 
-            CUDA_VISIBLE_DEVICES=1 python run_genparse.py \
-                --particles "$n_particles" \
+            CUDA_VISIBLE_DEVICES=$DEVICE python run_genparse.py \
+                --particles $n_particles \
                 --proposal character \
                 --exp-name $exp_name \
                 --model-name "meta-llama/$model_name" \
                 --out-dir $out_dir \
-                --schema $schema 
+                --schema $schema \
+                --verbosity 1
 
             echo "done for ${exp_name} with ${n_particles} particles"
         done
