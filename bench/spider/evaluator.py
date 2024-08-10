@@ -15,8 +15,9 @@ class Evaluator:
         self.tables_path = spider_dir / 'tables.json'
         self.db_path = spider_dir / 'database'
         self.kmaps = build_foreign_key_map_from_json(self.tables_path)
+        self.official_evaluator = E.Evaluator()  # the official Spider Evaluator
 
-    def evaluate(self, gold: str, pred: str, db_name: str):
+    def evaluate(self, gold: str, pred: str, db_name: str, return_level: bool = False):
         """Returns: bool, Optional[str]
 
         On success (i.e., predicted execution result is the same as gold), returns `(True, None)`
@@ -47,4 +48,8 @@ class Evaluator:
         exec_match = eval_exec_match(db, pred, gold, p_sql, g_sql)
         reason = None if exec_match else 'mismatch'
 
-        return exec_match, reason
+        if not return_level:
+            return exec_match, reason
+
+        difficulty_level = self.official_evaluator.eval_hardness(g_sql)
+        return exec_match, reason, difficulty_level
