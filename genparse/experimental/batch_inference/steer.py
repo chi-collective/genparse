@@ -46,7 +46,7 @@ class BatchStepModel:
                 context_ids=particle.context_ids + (extension.token_id,),
                 done=(
                     extension.token == self.batch_proposal.eos
-                    or extension.token == self.batch_llm.eos
+                    or extension.token_id == self.batch_llm.eos_token_id
                     or len(particle.context) + 1 >= self.max_tokens
                 ),
                 parent=particle.parent,

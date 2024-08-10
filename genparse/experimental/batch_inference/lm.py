@@ -129,7 +129,9 @@ class BatchVLLM(vllm.LLM):
 
             self._make_initial_request(prompt=self.prompt)
         else:
-            self._map_sequence_id_to_particle_ids(particles, from_resampling=True)
+            self._map_sequence_id_to_particle_ids(
+                particles, from_possible_resampling=True
+            )
             # register particle state with the VLLM Engine
             self._register_particle_extensions(particles)
 
@@ -142,7 +144,7 @@ class BatchVLLM(vllm.LLM):
         # update particle metadata with scheduler metadata and output
         self.particle_metadata.scheduler_outputs = scheduler_outputs
         self.particle_metadata.seq_group_metadata_list = seq_group_metadata_list
-        self._map_sequence_id_to_particle_ids(particles, from_resampling=False)
+        self._map_sequence_id_to_particle_ids(particles, from_possible_resampling=False)
 
         execute_model_req = ExecuteModelRequest(
             seq_group_metadata_list=seq_group_metadata_list,
@@ -193,10 +195,10 @@ class BatchVLLM(vllm.LLM):
 
         return logprobs.numpy(), particle_id_to_logprob_idx
 
-    def _map_sequence_id_to_particle_ids(self, particles, from_resampling=False):
+    def _map_sequence_id_to_particle_ids(self, particles, from_possible_resampling=False):
         """Associate the scheduled sequence ids with particle ids"""
 
-        # TODO: this can be optimized; the from_resampling = True case is a hack to remap sequence ids to particle ids
+        # TODO: this can be optimized; the from_possible_resampling = True case is a hack to remap sequence ids to particle ids
         # in case there was a resampling step
 
         seq_group_metadata = self.particle_metadata.seq_group_metadata_list[0]
@@ -208,13 +210,15 @@ class BatchVLLM(vllm.LLM):
         for particle_id, particle in enumerate(particles):
             if not particle.done:
                 context_ids = (
-                    particle.context_ids[:-1] if from_resampling else particle.context_ids
+                    particle.context_ids[:-1]
+                    if from_possible_resampling
+                    else particle.context_ids
                 )
                 try:
                     context_ids_to_particle_ids[context_ids].append(particle_id)
                 except KeyError:
                     # This KeyError may arise if context_ids[-1] == self.llm_engine.tokenizer.tokenizer.eos_token_id,
-                    # but particle.done != False. In those cases, the VLLM scheduler will not schedule sequences which
+                    # but particle.done = False. In those cases, the VLLM scheduler will not schedule sequences which
                     # end in the EOS token.
                     raise KeyError(
                         'Particle context ids not found in seq group metadata.'
@@ -293,5 +297,4 @@ class BatchVLLM(vllm.LLM):
         self.prompt = None
         self.request_counter = Counter()
         self.particle_metadata = VLLMParticleMetadata()
-        self.prompt = None
         self.free_unfinished_requests()
