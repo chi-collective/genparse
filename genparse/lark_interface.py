@@ -93,7 +93,7 @@ class LarkStuff:
             cfg.add(1 / lhs_count[r.head], r.head, *r.body)
         return cfg.renumber()
 
-    def char_cfg(self, decay=1, delimiter='', charset='core'):
+    def char_cfg(self, decay=1, delimiter='', charset='core', recursion='right'):
         if delimiter:
             warnings.warn(
                 'Use of delimiter enforced between terminals. If delimiter is not a strict subset of `%ignore`, generated strings will deviate from original grammar.'
@@ -118,7 +118,7 @@ class LarkStuff:
                 name=lambda x, t=token_class.name: f((t, x)),
                 charset=charset,
             )
-            G = fsa.to_cfg(S=f(token_class.name))
+            G = fsa.to_cfg(S=f(token_class.name), recursion=recursion)
 
             foo.V |= G.V
             for r in G:
@@ -132,6 +132,8 @@ class LarkStuff:
 def interegular_to_wfsa(pattern, name=lambda x: x, charset='core'):
     if charset == 'core':
         charset = set(string.printable)
+    elif isinstance(charset, set):
+        pass
     else:
         # TODO: implement other charsets
         raise NotImplementedError(f'charset {charset} not implemented')

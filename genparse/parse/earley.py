@@ -6,9 +6,7 @@ from collections import defaultdict
 from arsenal.datastructures.heap import LocatorMaxHeap
 
 from genparse.cfglm import EOS, add_EOS, locally_normalize, CFG
-from genparse.linear import WeightedGraph
 from genparse.lm import LM
-from genparse.semiring import Boolean
 from genparse import Float
 
 
@@ -44,9 +42,6 @@ class Column:
         #   Y => {(I, X, Ys) | phrase(I,X/[Y],J) ≠ 0}
         self.waiting_for = defaultdict(list)
 
-        # priority queue used when first filling the column
-        self.Q = LocatorMaxHeap()
-
 
 class Earley:
     """
@@ -62,7 +57,7 @@ class Earley:
         'V',
         'eos',
         '_initial_column',
-        'R',
+        'R_outgoing',
         'rhs',
         'ORDER_MAX',
         'intern_Ys',
@@ -82,17 +77,19 @@ class Earley:
         # rules in a topological order.
         self.order = cfg._unary_graph_transpose().buckets
 
-        self.ORDER_MAX = max(self.order.values())
+        self.ORDER_MAX = 1 + max(self.order.values())
 
         # left-corner graph
-        R = WeightedGraph(Boolean)
+        R_outgoing = defaultdict(set)
         for r in cfg:
             if len(r.body) == 0:
                 continue
             A = r.head
             B = r.body[0]
-            R[A, B] += Boolean.one
-        self.R = R
+            if cfg.is_terminal(B):
+                continue
+            R_outgoing[A].add(B)
+        self.R_outgoing = R_outgoing
 
         # Integerize rule right-hand side states
         intern_Ys = Integerizer()
@@ -124,7 +121,6 @@ class Earley:
 
         col = Column(0)
         self.PREDICT(col)
-        col.Q = None
         self._initial_column = col
 
     def clear_cache(self):
@@ -162,9 +158,6 @@ class Earley:
                 last_chart
             ]  # TODO: avoid list addition here as it is not constant time!
 
-    #    def p_next(self, prefix):
-    #        return self.next_token_weights(self.chart(prefix))
-
     def next_column(self, prev_cols, token):
         prev_col = prev_cols[-1]
         next_col = Column(prev_cols[-1].k + 1)
@@ -174,25 +167,26 @@ class Earley:
         rest_Ys = self.rest_Ys
         _update = self._update
 
+        Q = LocatorMaxHeap()
+
         # SCAN: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * word(J, Y, K)
         for item in prev_col.waiting_for[token]:
             (I, X, Ys) = item
-            _update(next_col, I, X, rest_Ys[Ys], prev_col_i_chart[item])
+            _update(next_col, Q, I, X, rest_Ys[Ys], prev_col_i_chart[item])
 
         # ATTACH: phrase(I, X/Ys, K) += phrase(I, X/[Y|Ys], J) * phrase(J, Y/[], K)
-        Q = next_col.Q
         while Q:
-            (J, Y) = item = Q.pop()[0]
+            jy = Q.pop()[0]
+            (J, Y) = jy
+
             col_J = prev_cols[J]
             col_J_i_chart = col_J.i_chart
-            y = next_col_c_chart[item]
-            for item in col_J.waiting_for[Y]:
-                (I, X, Ys) = item
-                _update(next_col, I, X, rest_Ys[Ys], col_J_i_chart[item] * y)
+            y = next_col_c_chart[jy]
+            for customer in col_J.waiting_for[Y]:
+                (I, X, Ys) = customer
+                _update(next_col, Q, I, X, rest_Ys[Ys], col_J_i_chart[customer] * y)
 
         self.PREDICT(next_col)
-
-        next_col.Q = None  # optional: free up some memory
 
         return next_col
 
@@ -210,27 +204,31 @@ class Earley:
         else:
             agenda = list(col.waiting_for)
 
+        outgoing = self.R_outgoing
+
         reachable = set(agenda)
+
         while agenda:
             X = agenda.pop()
-            for Y in self.R.outgoing[X]:
+            for Y in outgoing[X]:
                 if Y not in reachable:
                     reachable.add(Y)
                     agenda.append(Y)
 
         rhs = self.rhs
+        _update = self._update
         for X in reachable:
             for w, Ys in rhs.get(X, ()):
-                self._update(col, k, X, Ys, w)
+                _update(col, None, k, X, Ys, w)
 
-    def _update(self, col, I, X, Ys, value):
+    def _update(self, col, Q, I, X, Ys, value):
         K = col.k
         if Ys == 0:
             # Items of the form phrase(I, X/[], K)
             item = (I, X)
             was = col.c_chart.get(item)
             if was is None:
-                col.Q[item] = -((K - I) * self.ORDER_MAX + self.order[X])
+                Q[item] = -((K - I) * self.ORDER_MAX + self.order[X])
                 col.c_chart[item] = value
             else:
                 col.c_chart[item] = was + value

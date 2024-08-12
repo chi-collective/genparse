@@ -7,7 +7,7 @@ from arsenal import iterview, timers, timeit, colors
 from arsenal.iterextras import unique
 from genparse.segmentation import prefixes
 
-from genparse.util import LarkStuff
+from genparse.lark_interface import LarkStuff
 
 from genparse import EarleyLM
 from genparse.cfglm import BoolCFGLM
@@ -51,7 +51,7 @@ def main():
     T = timers()
 
     start = time()
-    for i, example in iterview(list(enumerate(load_examples(args.examples)))[:10]):
+    for i, example in iterview(list(enumerate(load_examples(args.examples)))[:20]):
         print(example)
 
         for name in guide:

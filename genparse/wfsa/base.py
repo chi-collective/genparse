@@ -477,27 +477,52 @@ class WFSA:
 
         return D
 
-    def to_cfg(self, S=None):
-        "Convert the WFSA to a WCFG with the same weighted language."
+    def to_cfg(self, S=None, recursion='right'):
+        """
+        Convert the WFSA to a WCFG with the same weighted language.
+
+        The option `recursion` in {"left", "right"} specifies whether the WCFG
+        should be left or right recursive.
+
+        """
         from genparse.cfg import CFG, _gen_nt
 
         if S is None:
             S = _gen_nt()
         cfg = CFG(R=self.R, V=self.alphabet - {EPSILON}, S=S)
 
-        # add production rule for initial states
-        for i, w in self.I:
-            cfg.add(w, S, i)
+        if recursion == 'right':
+            # add production rule for initial states
+            for i, w in self.I:
+                cfg.add(w, S, i)
 
-        # add production rule for final states
-        for i, w in self.F:
-            cfg.add(w, i)
+            # add production rule for final states
+            for i, w in self.F:
+                cfg.add(w, i)
 
-        # add other production rules
-        for i, a, j, w in self.arcs():
-            if a == EPSILON:
-                cfg.add(w, i, j)
-            else:
-                cfg.add(w, i, a, j)
+            # add other production rules
+            for i, a, j, w in self.arcs():
+                if a == EPSILON:
+                    cfg.add(w, i, j)
+                else:
+                    cfg.add(w, i, a, j)
+
+        else:
+            assert recursion == 'left'
+
+            # add production rule for final states
+            for i, w in self.F:
+                cfg.add(w, S, i)
+
+            # add production rule for initial states
+            for i, w in self.I:
+                cfg.add(w, i)
+
+            # add other production rules
+            for i, a, j, w in self.arcs():
+                if a == EPSILON:
+                    cfg.add(w, j, i)
+                else:
+                    cfg.add(w, j, i, a)
 
         return cfg
