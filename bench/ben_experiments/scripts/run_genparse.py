@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+###################################
+# Runs genparse on spider dataset #
+###################################
+
 import os
 import time
 import json
@@ -61,30 +65,33 @@ def get_argparser():
         default='character',
         help='Specify which proposal distribution to use in SMC inference.',
     )
-    parser.add_argument(
-        '--decision-rule',
-        choices=['mbr', 'viterbi'],
-        default='mbr',
-        help='Specify a decision rule for selecting a query from posterior estimate',
-    )
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument(
         '--K',
         type=int_or_none,
         default=0,
-        help='parameter for token proposal distribution',
+        help='Parameter for token proposal.',
     )
     parser.add_argument('--n-processes', type=int_or_none, default=None)
     parser.add_argument('--out-dir', default='', type=str)
     parser.add_argument(
-        '--schema', type=str, help='Schema to evaluate, seperated by comma', default='all'
+        '--schema',
+        type=str,
+        help='Schema to evaluate, seperated by commas. Defaults to `all` for all schema.',
+        default='all',
     )
     parser.add_argument(
-        '--improper-weights',
+        '--local-poe',
         action='store_true',
-        help='IS + improper importance weights when used',
+        help='Perform IS with uniform weights (local product of experts).',
     )
     parser.add_argument('--verbosity', type=int, default=0)
+    parser.add_argument(
+        '--max-mem-usage',
+        type=int,
+        default=70,
+        help='Memory usage (as percentage of total memory) at which to trigger memory management strategies.',
+    )
 
     return parser
 
@@ -103,7 +110,7 @@ def main():
     parser = get_argparser()
     args = parser.parse_args()
 
-    if args.improper_weights:
+    if args.local_poe:
         print('Evaluating with improper weights')
 
     outpath = os.path.join(
@@ -121,7 +128,10 @@ def main():
     if os.path.exists(outpath):
         with open(outpath, 'r') as lines:
             for line in lines:
-                line = json.loads(line)
+                try:
+                    line = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
                 already_processed.append(
                     make_example_key(line['db_name'], line['question'])
                 )
@@ -149,7 +159,9 @@ def main():
     else:
         schema = args.schema.split(',')
 
-    proposal_cache = ProposalCache(guide_cache_path='guide_cache.pkl', maxsize=1)
+    proposal_cache = ProposalCache(
+        guide_cache_path='guide_cache.pkl', maxsize=1, max_mem_usage=args.max_mem_usage
+    )
 
     print(f'Initialized {proposal_cache}')
 
@@ -161,7 +173,8 @@ def main():
         raise ValueError(f'Invalid K {args.K}')
 
     if args.n_processes is None:
-        n_processes = min(args.particles, mp.cpu_count() - 2)
+        n_processes = min(min(args.particles, 10), mp.cpu_count() - 1)
+        print(f'Using {n_processes=} for parallel inference')
     elif isinstance(args.n_processes, int):
         n_processes = args.n_processes
     else:
@@ -196,7 +209,7 @@ def main():
         grammar = reformat_grammar(all_grammars[dev_datum.schema_name])
 
         mem_usage = psutil.virtual_memory().percent
-        if mem_usage > 70:
+        if mem_usage > args.max_mem_usage:
             proposal_cache.clear_cache()
             print(
                 '\nEvicted proposals from cache:'
@@ -226,7 +239,7 @@ def main():
 
         start_time = time.time()
 
-        if args.improper_weights:
+        if args.local_poe:
             particles = importance_sampling(step_model, n_particles=args.particles)
             particles = ParticleApproximation(
                 [
@@ -242,7 +255,9 @@ def main():
                 ]
             )
         else:
-            particles = smc(step_model, n_particles=args.particles, verbosity=1)
+            particles = smc(
+                step_model, n_particles=args.particles, verbosity=args.verbosity
+            )
 
         end_time = time.time()
 
@@ -281,21 +296,18 @@ def main():
 
         json_result['results']['viterbi'] = (
             viterbi_eval(particles, evaluator, gold, db, parallel_proposal.eos)
-            if not args.improper_weights
+            if not args.local_poe
             else None
         )
 
         print(json.dumps(json_result), file=outfile)
 
         if args.verbosity > 0:
-            print(f"MBR: {json_result['results']['mbr']['pred']}")
-            print(f"Viterbi: {json_result['results']['viterbi']['pred']}")
+            print(f"\nMBR: {json_result['results']['mbr']['pred']}")
+            if not args.local_poe:
+                print(f"Viterbi: {json_result['results']['viterbi']['pred']}")
 
-            if args.decision_rule == 'mbr':
-                result = json_result['results']['mbr']['result']
-            else:
-                assert args.decision_rule == 'viterbi'
-                result = json_result['results']['viterbi']['result']
+            result = json_result['results']['mbr']['result']
 
             if result[0]:
                 n_correct += 1
@@ -308,10 +320,11 @@ def main():
 
             n_total = sum((n_correct, n_invalid, n_mismatch))
             print(
+                f'MBR results - '
                 f'correct: {n_correct / n_total:.2f} ({n_correct}), '
                 f'invalid: {n_invalid / n_total:.2f} ({n_invalid}), '
                 f'mismatch: {n_mismatch / n_total:.2f} ({n_mismatch}), '
-                f'inference run time: {inference_runtime} secs'
+                f'inference run time: {inference_runtime:.2f} secs'
             )
 
 

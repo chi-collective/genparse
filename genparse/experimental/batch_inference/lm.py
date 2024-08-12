@@ -99,7 +99,8 @@ class BatchVLLM(vllm.LLM):
         self.prompt = None
 
         assert self.eos_token_id == self.llm_engine.tokenizer.tokenizer.eos_token_id, (
-            f'BatchVLLM eos_token misalignment; eos_token_id ({self.eos_token_id}) != vllm engine eos_token_id ({self.llm_engine.tokenizer.tokenizer.eos_token_id})'
+            'BatchVLLM eos_token misalignment; '
+            f'eos_token_id ({self.eos_token_id}) != vllm engine eos_token_id ({self.llm_engine.tokenizer.tokenizer.eos_token_id})'
             'This will cause issues with particle termination conditions.'
         )
 
@@ -136,6 +137,11 @@ class BatchVLLM(vllm.LLM):
             self._register_particle_extensions(particles)
 
         seq_group_metadata_list, scheduler_outputs = self.llm_engine.scheduler.schedule()
+
+        if len(seq_group_metadata_list) != 1:
+            import ipdb
+
+            ipdb.set_trace()
 
         assert (
             len(seq_group_metadata_list) == 1

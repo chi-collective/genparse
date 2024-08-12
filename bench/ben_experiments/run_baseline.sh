@@ -16,9 +16,14 @@ if [ ! -z "$1" ]; then
     DEVICE=$1
 fi
 
+METHOD="sampling"
+
+if [ ! -z "$2" ]; then
+    METHOD=$2
+fi
 
 for model_name in "${model_names[@]}"; do
-    out_dir="full_results/character/$model_name/greedy-baseline"
+    out_dir="full_results/character/$model_name/$METHOD-baseline"
 
     if [ ! -d "$out_dir" ]; then
         mkdir -p "$out_dir"
@@ -29,7 +34,7 @@ for model_name in "${model_names[@]}"; do
             exp_name="${model_name}-baseline-${run}"
 
             CUDA_VISIBLE_DEVICES=$DEVICE python run_baseline.py \
-                --method greedy \
+                --method $METHOD \
                 --exp-name "${model_name}-baseline" \
                 --particles "$n_particles" \
                 --model-name "meta-llama/$model_name" \

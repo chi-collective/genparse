@@ -1,25 +1,21 @@
-from collections import deque
-import logging
-import pickle
 import os
 import gc
+import pickle
+from collections import deque
 from genparse.util import lark_guide
 from genparse.experimental.batch_inference import (
     ParallelCharacterProposal,
     ParallelTokenProposal,
 )
-import psutil
-import warnings
 
 
 class ProposalCache:
-    def __init__(self, guide_cache_path, maxsize=10, memory_thresh=80):
+    def __init__(self, guide_cache_path, maxsize=10, max_mem_usage=70):
         self.maxsize = maxsize
         self.cache = {}
         self.guide_cache = PersistentGuideCache(guide_cache_path)
         self.recent_keys = deque(maxlen=maxsize)
-        self.base_usage = psutil.virtual_memory().percent
-        self.memory_thresh = memory_thresh
+        self.max_mem_usage = max_mem_usage
 
     def make_cache_key(self, grammar, proposal_name, proposal_args):
         key = [grammar, proposal_name]
@@ -52,6 +48,7 @@ class ProposalCache:
                     num_processes=n_processes,
                     max_n_particles=max_n_particles,
                     seed=0,
+                    memory_threshold=self.max_mem_usage,
                 )
             elif proposal_name == 'token':
                 parallel_proposal = ParallelTokenProposal(
@@ -61,6 +58,7 @@ class ProposalCache:
                     num_processes=n_processes,
                     max_n_particles=max_n_particles,
                     seed=0,
+                    memory_threshold=self.max_mem_usage,
                 )
             else:
                 raise ValueError(f'{proposal_name} is an invalid proposal name')
