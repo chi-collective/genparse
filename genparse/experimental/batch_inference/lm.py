@@ -114,7 +114,9 @@ class BatchVLLM(vllm.LLM):
     def _make_initial_request(self, prompt):
         self._validate_and_add_requests(
             inputs=self._convert_v1_inputs(prompts=prompt, prompt_token_ids=None),
-            params=SamplingParams(max_tokens=np.inf),
+            params=SamplingParams(
+                max_tokens=np.inf, stop_token_ids=[self.eos_token_id], stop=None
+            ),
             lora_request=None,
         )
 
@@ -137,11 +139,6 @@ class BatchVLLM(vllm.LLM):
             self._register_particle_extensions(particles)
 
         seq_group_metadata_list, scheduler_outputs = self.llm_engine.scheduler.schedule()
-
-        if len(seq_group_metadata_list) != 1:
-            import ipdb
-
-            ipdb.set_trace()
 
         assert (
             len(seq_group_metadata_list) == 1
