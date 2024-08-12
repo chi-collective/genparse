@@ -206,12 +206,11 @@ class Earley:
         # useful there must be an item of the form (I, X', [X, ...], K) in this
         # column for which lc(X', X) is true.
         if col.k == 0:
-            targets = {self.cfg.S}
+            agenda = [self.cfg.S]
         else:
-            targets = set(col.waiting_for)
+            agenda = list(col.waiting_for)
 
-        reachable = set(targets)
-        agenda = list(targets)
+        reachable = set(agenda)
         while agenda:
             X = agenda.pop()
             for Y in self.R.outgoing[X]:
