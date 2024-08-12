@@ -37,6 +37,7 @@ from genparse.experimental.batch_inference import (
 from genparse.experimental.batch_inference.steer import ParticleApproximation, Particle
 
 os.environ['TOKENIZERS_PARALLELISM'] = '(true | false)'
+os.environ['HF_TOKEN'] = HF_ACCESS_TOKEN
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,85 @@ def make_example_key(schema_name, question):
     return (schema_name, question)
 
 
+def initialize_output_path(args):
+    """Constructs the output path and saves arguments."""
+    outpath = os.path.join(
+        args.out_dir, f'{args.exp_name}-p{args.particles}-{args.proposal}'
+    )
+
+    if args.K != 0:
+        outpath += f'-K{args.K}'
+
+    json.dump(vars(args), open(f'{outpath}-args.json', 'w'), indent=4)
+
+    return f'{outpath}.jsonl'
+
+
+def load_processed_examples(outpath):
+    """
+    Loads already processed examples if the output file exists.
+    Handles JSON decoding errors for existing output file.
+    """
+    already_processed = []
+    valid_lines = []
+    do_rewrite = False
+    if os.path.exists(outpath):
+        with open(outpath, 'r') as file:
+            for line in file:
+                try:
+                    example = json.loads(line)
+                    valid_lines.append(example)
+                    already_processed.append(
+                        make_example_key(example['db_name'], example['question'])
+                    )
+                except json.JSONDecodeError:
+                    do_rewrite = True
+                    continue
+
+        if do_rewrite:
+            # exclude offending lines
+            with open(outpath, 'w') as file:
+                for line in valid_lines:
+                    print(json.dumps(line), file=file)
+
+        print(f'Found {len(already_processed)} already complete at {outpath}')
+
+    return already_processed
+
+
+def prepare_schema(args, spider_dev_data):
+    """Prepares the schema list for evaluation."""
+    if args.schema == 'all':
+        schema = list(set([d.schema_name for d in spider_dev_data]))
+    else:
+        schema = args.schema.split(',')
+    print(f'Using schema {",".join(schema)}')
+
+    return schema
+
+
+def get_proposal_args(K):
+    """Returns proposal arguments based on K."""
+    if K is None:
+        return {'K': K}
+    elif isinstance(K, int) and K > 0:
+        return {'K': K}
+    elif isinstance(K, int) and K == 0:
+        return {}
+    else:
+        raise ValueError(f'Invalid K value: {K}')
+
+
+def get_n_processes(particles, n_processes):
+    """Determines the number of processes to use."""
+    if n_processes is None:
+        return min(particles, 10, mp.cpu_count() - 1)
+    elif isinstance(n_processes, int):
+        return n_processes
+    else:
+        raise ValueError(f'Invalid n_processes value: {n_processes}')
+
+
 def main():
     logging.basicConfig(
         format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
@@ -113,34 +193,9 @@ def main():
     if args.local_poe:
         print('Evaluating with improper weights')
 
-    outpath = os.path.join(
-        args.out_dir, f'{args.exp_name}-p{args.particles}-{args.proposal}'
-    )
-
-    if args.K != 0:
-        outpath += f'-K{args.K}'
-
-    json.dump(vars(args), open(f'{outpath}-args.json', 'w'), indent=4)
-
-    outpath += '.jsonl'
-
-    already_processed = []
-    if os.path.exists(outpath):
-        with open(outpath, 'r') as lines:
-            for line in lines:
-                try:
-                    line = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                already_processed.append(
-                    make_example_key(line['db_name'], line['question'])
-                )
-        outfile = open(outpath, 'a+')
-        print(f'Found {len(already_processed)} already done at {outpath}')
-    else:
-        outfile = open(outpath, 'w+')
-
-    set_seed(args.seed)
+    outpath = initialize_output_path(args)
+    already_processed = load_processed_examples(outpath)
+    outfile = open(outpath, 'a+')
 
     raw_spider_dir = Path('../spider/data/spider')
     spider_dev_data = load_spider_data(raw_spider_dir, split='dev')
@@ -150,44 +205,29 @@ def main():
     if len(already_processed) >= len(spider_dev_data):
         return
 
-    with open('../../benchmark/grammars/spider_schema_grammar.json', 'r') as f:
-        all_grammars = json.load(f)
+    all_grammars = json.load(
+        open('../../benchmark/grammars/spider_schema_grammar.json', 'r')
+    )
 
-    if args.schema == 'all':
-        schema = list(set([d.schema_name for d in spider_dev_data]))
-        print(f'Using schema {",".join(schema)}')
-    else:
-        schema = args.schema.split(',')
+    schema = prepare_schema(args, spider_dev_data)
+
+    set_seed(args.seed)
 
     proposal_cache = ProposalCache(
         guide_cache_path='guide_cache.pkl', maxsize=1, max_mem_usage=args.max_mem_usage
     )
-
     print(f'Initialized {proposal_cache}')
 
-    if isinstance(args.K, int):
-        proposal_args = {'K': args.K} if args.K > 0 else {}
-    elif args.K is None:
-        proposal_args = {'K': args.K}
-    else:
-        raise ValueError(f'Invalid K {args.K}')
+    n_processes = get_n_processes(args.particles, args.n_processes)
+    print(f'Using {n_processes=} for parallel inference')
 
-    if args.n_processes is None:
-        n_processes = min(min(args.particles, 10), mp.cpu_count() - 1)
-        print(f'Using {n_processes=} for parallel inference')
-    elif isinstance(args.n_processes, int):
-        n_processes = args.n_processes
-    else:
-        raise ValueError(f'Invalid n_processes {args.n_processes}')
+    proposal_args = get_proposal_args(args.K)
 
-    os.environ['HF_TOKEN'] = HF_ACCESS_TOKEN
     batch_llm = BatchVLLM.from_name(args.model_name)
     tokenizer = batch_llm.get_tokenizer()
 
-    n_correct, n_invalid, n_mismatch = 0, 0, 0
-
     skipped_schema = []
-
+    n_correct, n_invalid, n_mismatch = 0, 0, 0
     for i, dev_datum in tqdm(
         enumerate(spider_dev_data), total=len(spider_dev_data), smoothing=0.0
     ):
@@ -211,11 +251,12 @@ def main():
         mem_usage = psutil.virtual_memory().percent
         if mem_usage > args.max_mem_usage:
             proposal_cache.clear_cache()
-            print(
-                '\nEvicted proposals from cache:'
-                f' prev_mem_usage={mem_usage}% -->'
-                f' curr_mem_usage={psutil.virtual_memory().percent}%\n'
-            )
+            print()
+            print(f'Memory usage greater than max_mem_usage ({args.max_mem_usage}%).')
+            print('Evicted proposals from cache:')
+            print(f'\t prev_mem_usage={mem_usage}%')
+            print(f'\t curr_mem_usage={psutil.virtual_memory().percent}%')
+            print()
 
         parallel_proposal = proposal_cache.fetch_or_create_proposal(
             llm=batch_llm.llm,
@@ -237,29 +278,25 @@ def main():
 
         step_model.set_prompt(prompt)
 
-        start_time = time.time()
+        try:
+            start_time = time.time()
 
-        if args.local_poe:
-            particles = importance_sampling(step_model, n_particles=args.particles)
-            particles = ParticleApproximation(
-                [
-                    Particle(
-                        prompt=None,
-                        context=p.context,
-                        context_ids=p.context_ids,
-                        done=p.done,
-                        log_weight=0,
-                        parent=None,
-                    )
-                    for p in particles.particles
-                ]
-            )
-        else:
-            particles = smc(
-                step_model, n_particles=args.particles, verbosity=args.verbosity
-            )
+            method = importance_sampling if args.local_poe else smc
+            particles = method(step_model, n_particles=args.particles)
 
-        end_time = time.time()
+            end_time = time.time()
+
+            if args.local_poe:
+                particles = ParticleApproximation(
+                    [p._replace(log_weight=0) for p in particles.particles]
+                )
+
+        except Exception as e:
+            print()
+            print(f'Error while running inference on example {i}')
+            print(e)
+            print()
+            continue
 
         particles_json = [
             {
@@ -303,7 +340,8 @@ def main():
         print(json.dumps(json_result), file=outfile)
 
         if args.verbosity > 0:
-            print(f"\nMBR: {json_result['results']['mbr']['pred']}")
+            print()
+            print(f"MBR: {json_result['results']['mbr']['pred']}")
             if not args.local_poe:
                 print(f"Viterbi: {json_result['results']['viterbi']['pred']}")
 
