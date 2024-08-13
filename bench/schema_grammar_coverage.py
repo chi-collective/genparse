@@ -24,9 +24,19 @@ logger = logging.getLogger(__name__)
 
 def reformat_grammar(grammar):
     """move start rule and remove zero-width rules"""
+
+    permissive_lines = [
+        "|/[^']/ non_single_quote_star",
+        '|/[^"]/ non_double_quote_star',
+        '|/[^`]/ non_back_tick_star',
+        '|/[^\]]/ non_bracket_star',
+    ]
+
     lines = grammar.split('\n')
     new_grammar = ''
     for line in lines:
+        if line in permissive_lines:
+            continue
         if line == '|""i':
             continue
         if line.startswith('start'):
@@ -74,6 +84,8 @@ def main():
 
     guides = {}
 
+    num_invalid = 0
+
     for dev_datum in tqdm(spider_dev_data, desc='parse', smoothing=0.0):
         if dev_datum.schema_name not in guides:
             guide = async_guides[dev_datum.schema_name].get()
@@ -82,7 +94,9 @@ def main():
         else:
             guide = guides[dev_datum.schema_name]
 
-        assert guide.p_next(dev_datum.query)['▪'] == 1
+        if guide.p_next(dev_datum.query)['▪'] != 1:
+            num_invalid += 1
+            print(num_invalid, dev_datum.query, dev_datum.db)
 
     pool.close()
     pool.join()
