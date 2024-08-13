@@ -96,7 +96,7 @@ if [ "$PROPOSAL" == "character" ] && [ "$K" -ne 0 ]; then
 fi
 
 for model_name in "${model_names[@]}"; do
-    out_dir="full_results/$model_name/$PROPOSAL/$METHOD"
+    out_dir="results/$model_name/$PROPOSAL/$METHOD"
 
     if [ ! -d "$out_dir" ]; then
         mkdir -p "$out_dir"

@@ -205,10 +205,7 @@ def main():
     if len(already_processed) >= len(spider_dev_data):
         return
 
-    all_grammars = json.load(
-        open('../../benchmark/grammars/spider_schema_grammar.json', 'r')
-    )
-
+    grammar_dir = 'spider_grammars'
     schema = prepare_schema(args, spider_dev_data)
 
     set_seed(args.seed)
@@ -246,7 +243,9 @@ def main():
 
         messages = prompt_formatter.format_openai(dev_datum)
 
-        grammar = reformat_grammar(all_grammars[dev_datum.schema_name])
+        grammar = open(
+            os.path.join(grammar_dir, f'{dev_datum.schema_name}.lark'), 'r'
+        ).read()
 
         mem_usage = psutil.virtual_memory().percent
         if mem_usage > args.max_mem_usage:

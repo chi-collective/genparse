@@ -63,10 +63,10 @@ def main():
 
     pool = mp.Pool(os.cpu_count())
 
-    grammar_file = 'bench/spider/grammar/spider_schema_grammar.json'
-    print(f'using schema-specific grammar file from: {grammar_file}')
-    with open(grammar_file, 'r') as f:
-        all_grammars = json.load(f)
+    # grammar_file = 'bench/spider/grammar/spider_schema_grammar.json'
+    # print(f'using schema-specific grammar file from: {grammar_file}')
+    # with open(grammar_file, 'r') as f:
+    #    all_grammars = json.load(f)
 
     # re-order the list of the grammars so that they're in the order they appear
     # in the dataset. Use dict over set because python guarantees insertion order in
@@ -78,8 +78,9 @@ def main():
 
     async_guides = {}
     for schema_name in reordered_grammar_names:
-        grammar = all_grammars[schema_name]
-        grammar = reformat_grammar(grammar)
+        grammar = open(
+            f'bench/ben_experiments/spider_grammars/{schema_name}.lark', 'r'
+        ).read()
         async_guides[schema_name] = pool.apply_async(lark_guide, (grammar,))
 
     guides = {}
@@ -96,7 +97,7 @@ def main():
 
         if guide.p_next(dev_datum.query)['▪'] != 1:
             num_invalid += 1
-            print(num_invalid, dev_datum.query, dev_datum.db)
+            print(num_invalid, dev_datum.query, dev_datum.schema_name)
 
     pool.close()
     pool.join()
