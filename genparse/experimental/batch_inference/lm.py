@@ -24,6 +24,8 @@ class BatchLLM:
 
     def __init__(self, llm):
         self.llm = llm
+        self.eos = self.llm.eos
+        self.eos_token_id = self.llm._encode[self.eos]
 
     @classmethod
     def from_name(cls, model_name):
@@ -92,9 +94,17 @@ class BatchVLLM(vllm.LLM):
         self.llm_engine.model_executor.driver_worker.model_runner.model.sampler = (
             LogitsGrouper()
         )
+        self.eos = self.llm.eos
+        self.eos_token_id = self.llm._encode[self.eos]
         self.request_counter = Counter()
         self.particle_metadata = VLLMParticleMetadata()
         self.prompt = None
+
+        assert self.eos_token_id == self.llm_engine.tokenizer.tokenizer.eos_token_id, (
+            'BatchVLLM eos_token misalignment; '
+            f'eos_token_id ({self.eos_token_id}) != vllm engine eos_token_id ({self.llm_engine.tokenizer.tokenizer.eos_token_id})'
+            'This will cause issues with particle termination conditions.'
+        )
 
     @classmethod
     def from_name(cls, model_name):
@@ -106,7 +116,9 @@ class BatchVLLM(vllm.LLM):
     def _make_initial_request(self, prompt):
         self._validate_and_add_requests(
             inputs=self._convert_v1_inputs(prompts=prompt, prompt_token_ids=None),
-            params=SamplingParams(max_tokens=np.inf),
+            params=SamplingParams(
+                max_tokens=np.inf, stop_token_ids=[self.eos_token_id], stop=None
+            ),
             lora_request=None,
         )
 
@@ -122,7 +134,9 @@ class BatchVLLM(vllm.LLM):
 
             self._make_initial_request(prompt=self.prompt)
         else:
-            self._map_sequence_id_to_particle_ids(particles, from_resampling=True)
+            self._map_sequence_id_to_particle_ids(
+                particles, from_possible_resampling=True
+            )
             # register particle state with the VLLM Engine
             self._register_particle_extensions(particles)
 
@@ -135,7 +149,7 @@ class BatchVLLM(vllm.LLM):
         # update particle metadata with scheduler metadata and output
         self.particle_metadata.scheduler_outputs = scheduler_outputs
         self.particle_metadata.seq_group_metadata_list = seq_group_metadata_list
-        self._map_sequence_id_to_particle_ids(particles, from_resampling=False)
+        self._map_sequence_id_to_particle_ids(particles, from_possible_resampling=False)
 
         execute_model_req = ExecuteModelRequest(
             seq_group_metadata_list=seq_group_metadata_list,
@@ -186,10 +200,10 @@ class BatchVLLM(vllm.LLM):
 
         return logprobs.numpy(), particle_id_to_logprob_idx
 
-    def _map_sequence_id_to_particle_ids(self, particles, from_resampling=False):
+    def _map_sequence_id_to_particle_ids(self, particles, from_possible_resampling=False):
         """Associate the scheduled sequence ids with particle ids"""
 
-        # TODO: this can be optimized; the from_resampling = True case is a hack to remap sequence ids to particle ids
+        # TODO: this can be optimized; the from_possible_resampling = True case is a hack to remap sequence ids to particle ids
         # in case there was a resampling step
 
         seq_group_metadata = self.particle_metadata.seq_group_metadata_list[0]
@@ -201,12 +215,19 @@ class BatchVLLM(vllm.LLM):
         for particle_id, particle in enumerate(particles):
             if not particle.done:
                 context_ids = (
-                    particle.context_ids[:-1] if from_resampling else particle.context_ids
+                    particle.context_ids[:-1]
+                    if from_possible_resampling
+                    else particle.context_ids
                 )
                 try:
                     context_ids_to_particle_ids[context_ids].append(particle_id)
                 except KeyError:
-                    raise KeyError('Particle context ids not found in seq group metadata')
+                    # This KeyError may arise if context_ids[-1] == self.llm_engine.tokenizer.tokenizer.eos_token_id,
+                    # but particle.done = False. In those cases, the VLLM scheduler will not schedule sequences which
+                    # end in the EOS token.
+                    raise KeyError(
+                        'Particle context ids not found in seq group metadata.'
+                    )
 
         sequence_id_to_particle_ids = {}
         for seq_id, seq_data in seq_group_metadata.seq_data.items():
@@ -281,5 +302,4 @@ class BatchVLLM(vllm.LLM):
         self.prompt = None
         self.request_counter = Counter()
         self.particle_metadata = VLLMParticleMetadata()
-        self.prompt = None
         self.free_unfinished_requests()

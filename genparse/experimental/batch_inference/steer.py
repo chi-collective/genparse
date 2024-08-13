@@ -18,10 +18,6 @@ class BatchStepModel:
         if prompt is not None:
             self.set_prompt(prompt)
 
-        print(
-            f'Initialized batch stepper with eos={self.eos} and max_tokens={self.max_tokens}'
-        )
-
         atexit.register(self.cleanup)
 
     def set_prompt(self, prompt):
@@ -46,10 +42,12 @@ class BatchStepModel:
             particles[particle_id] = Particle(
                 prompt=particle.prompt,
                 log_weight=particle.log_weight + extension.log_weight,
+                log_weight_updates=particle.log_weight_updates + (extension.log_weight,),
                 context=particle.context + (extension.token,),
                 context_ids=particle.context_ids + (extension.token_id,),
                 done=(
-                    extension.token == self.eos
+                    extension.token == self.batch_proposal.eos
+                    or extension.token_id == self.batch_llm.eos_token_id
                     or len(particle.context) + 1 >= self.max_tokens
                 ),
                 parent=particle.parent,
@@ -72,7 +70,10 @@ class BatchStepModel:
 
 
 class Particle(
-    namedtuple('Particle', 'prompt, log_weight, context, context_ids, parent, done')
+    namedtuple(
+        'Particle',
+        'prompt, log_weight, log_weight_updates, context, context_ids, parent, done',
+    )
 ):
     def __repr__(self):
         return (
@@ -92,7 +93,7 @@ class ParticleApproximation:
 
         # log-marginal likelihood estimate (Note: need to exponentiate to have
         # an unbiased estimate of the true marginal likelihood).
-        self.log_ml = self.log_total - np.log(self.size)
+        self.log_ml = np.log(np.mean(np.exp(self.log_weights)))
 
         # log-normalized weights
         self.log_normalized_weights = self.log_weights - self.log_total
@@ -150,7 +151,7 @@ class ParticleApproximation:
 
 
 def init_particles(n_particles):
-    return [Particle((), 0, (), (), None, False) for _ in range(n_particles)]
+    return [Particle((), 0, (), (), (), None, False) for _ in range(n_particles)]
 
 
 def pretty_print_particles(particles, step_info):
@@ -164,7 +165,13 @@ def pretty_print_particles(particles, step_info):
 def maybe_resample(particles, ess_threshold, return_record, step_info, verbosity):
     if return_record:
         step_info['particles'] = [
-            {'context': p.context, 'weight': p.log_weight} for p in particles
+            {
+                'context': p.context,
+                'weight': p.log_weight,
+                'weight_update': p.log_weight_updates[-1],
+                'context_ids': p.context_ids,
+            }
+            for p in particles
         ]
 
     n_particles = len(particles)

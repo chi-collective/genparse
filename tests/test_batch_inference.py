@@ -27,7 +27,7 @@ def test_character_abc():
     # sequential proposal
 
     sequential_proposal = CharacterBatchProposal(llm=sequential_llm.llm, guide=guide)
-    step_model = step_model = BatchStepModel(
+    step_model = BatchStepModel(
         batch_proposal=sequential_proposal,
         batch_llm=sequential_llm,
         max_tokens=max_tokens,

@@ -1,11 +1,12 @@
-from dataclasses import dataclass
-import multiprocessing as mp
-import numpy as np
-from genparse.util import set_seed
-from genparse.lm import LazyProb
-from genparse.proposal import CharacterProposal, TokenProposal
-import warnings
 import os
+import psutil
+import warnings
+import numpy as np
+import multiprocessing as mp
+from genparse.lm import LazyProb
+from dataclasses import dataclass
+from genparse.util import set_seed
+from genparse.proposal import CharacterProposal, TokenProposal
 
 
 @dataclass
@@ -29,29 +30,88 @@ class Error:
     worker_id: int
 
 
+class ProposalWorker:
+    def __init__(self, proposal, shared_array, worker_id, memory_threshold):
+        self.proposal = proposal
+        self.shared_array = shared_array
+        self.worker_id = worker_id
+
+        self._decode = self.proposal.llm._decode
+        self._encode = self.proposal.llm._encode
+        self._encode[self.proposal.guide.eos] = self.proposal.llm.tokenizer.eos_token_id
+
+        self.pid = os.getpid()
+        self.total_memory = psutil.virtual_memory().total
+        self.memory_threshold = memory_threshold
+
+    def get_memory_usage(self):
+        process = psutil.Process(self.pid)
+        process_memory = process.memory_info().rss
+        memory_percentage = (process_memory / self.total_memory) * 100
+        return memory_percentage
+
+    def maybe_clear_cache(self):
+        if (self.memory_threshold is not None) and (
+            self.get_memory_usage() > self.memory_threshold
+        ):
+            self.proposal.guide.clear_cache()
+
+
+def _process_proposal_task(task):
+    try:
+        p_llm = LazyProb(
+            _p=np.exp(proposal_worker.shared_array[task.logprob_idx]),
+            encode=proposal_worker._encode,
+            decode=proposal_worker._decode,
+        )
+        token, _, w = proposal_worker.proposal.sample_next_token_sync(
+            context=task.context, p_llm=p_llm
+        )
+        token_id = proposal_worker._encode[token]
+
+        proposal_worker.maybe_clear_cache()
+
+        return Result(
+            particle_id=task.particle_id,
+            token=token,
+            log_weight=w,
+            token_id=token_id,
+        )
+    except Exception as e:
+        return Error(exception=e, worker_id=proposal_worker.worker_id)
+
+
 class ParallelProposal:
-    def __init__(self, llm, guide, num_processes, max_n_particles, seed):
+    def __init__(
+        self, llm, guide, num_processes, seed, max_n_particles=250, memory_threshold=80
+    ):
+        """
+        Args:
+            llm: Language model.
+            guide (BoolCFGLM): Guide.
+            num_processes (int): The number of parallel processes to use during batch inference.
+            max_n_particles (int): The maximum number of particles.
+            seed (int): The seed value.
+            memory_threshold (int, optional): The memory usage threshold (as a percentage of total memory) at which
+                to trigger memory management actions. Default is 80%.
+
+        Initializes the multiprocessing pool and shared array of logprobs.
+        """
         self.llm = llm
         self.guide = guide
         self.seed = seed
-        self.task_queue = mp.Queue()
-        self.result_queue = mp.Queue()
         self.num_processes = num_processes
         self.max_n_particles = max_n_particles
         self.eos = self.guide.eos
         self.is_running = False
-        self.processes = None
+        self.pool = None
+        self.memory_threshold = memory_threshold
 
         self._start()
-
-        print(
-            f'Initialized ParallelProposal with {num_processes=}, {max_n_particles=}, {seed=}'
-        )
 
     def _start(self):
         llm_vocab_size = len(self.llm.V)
 
-        # create shared memory
         self.shared_mem = mp.shared_memory.SharedMemory(
             create=True,
             size=self.max_n_particles * llm_vocab_size * np.float32().itemsize,
@@ -63,60 +123,37 @@ class ParallelProposal:
             buffer=self.shared_mem.buf,
         )
 
-        self.processes = []
+        manager = mp.Manager()
+        id_queue = manager.Queue()
         for i in range(self.num_processes):
-            p = mp.Process(target=self._worker, args=(i,))
-            p.start()
-            self.processes.append(p)
+            id_queue.put(i)
+
+        self.pool = mp.Pool(
+            processes=self.num_processes,
+            initializer=self._init_worker,
+            initargs=(id_queue, self.memory_threshold / self.num_processes),
+        )
 
         self.is_running = True
 
-    def _worker(self, worker_id):
-        try:
-            set_seed(abs(hash((self.seed, worker_id)) % 2**32))
+    def _init_worker(self, id_queue, memory_threshold):
+        worker_id = id_queue.get()
+        set_seed(abs(hash((self.seed, worker_id)) % 2**32))
 
-            proposal = self.create_instance()
-
-            while True:
-                task = self.task_queue.get()
-                p_llm = LazyProb(
-                    _p=np.exp(self.shared_array[task.logprob_idx]),
-                    encode=self.llm._encode,
-                    decode=self.llm._decode,
-                )
-                token, _, w = proposal.sample_next_token_sync(
-                    context=task.context, p_llm=p_llm
-                )
-                token_id = (
-                    self.llm._encode[token]
-                    if token != self.guide.eos
-                    else self.llm.tokenizer.eos_token_id
-                )
-                self.result_queue.put(
-                    Result(
-                        particle_id=task.particle_id,
-                        token=token,
-                        log_weight=w,
-                        token_id=token_id,
-                    )
-                )
-
-        except Exception as e:
-            warnings.warn(
-                f'Proposal worker {worker_id} failed while processing a request. Raising error in main process.'
-            )
-            self.result_queue.put(Error(exception=e, worker_id=worker_id))
+        global proposal_worker
+        proposal_worker = ProposalWorker(
+            self.create_instance(), self.shared_array, worker_id, memory_threshold
+        )
 
     def batch_particle_extensions(self, particles, logprobs, particle_id_to_logprob_id):
         if not self.is_running:
             warnings.warn(
-                'Proposal server is not running (no subprocesses are initialized).'
-                ' Attempting to start the server...'
+                'Proposal server is not running (pool is not initialized).'
+                ' Attempting to initialize the pool...'
             )
             self.restart()
 
         to_serve = len([p for p in particles if not p.done])
-
         if to_serve > self.max_n_particles:
             warnings.warn(
                 'Num particles to serve > proposal_server.max_n_particles.'
@@ -129,56 +166,41 @@ class ParallelProposal:
         for i, lps in enumerate(logprobs):
             self.shared_array[i] = lps
 
-        for particle_id, p in enumerate(particles):
-            if not p.done:
-                self.task_queue.put(
-                    Task(
-                        particle_id=particle_id,
-                        context=p.context,
-                        logprob_idx=particle_id_to_logprob_id[particle_id],
-                    )
-                )
+        tasks = [
+            Task(
+                particle_id=p_idx,
+                context=p.context,
+                logprob_idx=particle_id_to_logprob_id[p_idx],
+            )
+            for p_idx, p in enumerate(particles)
+            if not p.done
+        ]
 
-        num_results = 0
-        results = []
-        result_id_to_particle_id = {}
-        while to_serve > 0:
-            result = self.result_queue.get()
+        results = self.pool.map(_process_proposal_task, tasks)
 
+        result_id_to_particle_idx = {}
+        for i, result in enumerate(results):
             if isinstance(result, Error):
                 raise result.exception
+            result_id_to_particle_idx[i] = result.particle_id
 
-            results.append(result)
-            result_id_to_particle_id[num_results] = result.particle_id
-            num_results += 1
-            to_serve -= 1
-
-        assert self.result_queue.empty(), 'Finished serving particle requests, but result queue is non-empty. Something went wrong :('
-
-        return (results, result_id_to_particle_id)
+        return (results, result_id_to_particle_idx)
 
     def cleanup(self):
-        # kill processes
-        for p in self.processes:
-            p.terminate()
-
-        for p in self.processes:
+        if self.pool is not None:
             try:
-                pid, status = os.waitpid(p.pid, 0)
-            except OSError:
-                pass
+                self.pool.close()
+                self.pool.join()
+            except KeyboardInterrupt:
+                self.pool.terminate()
+                self.pool.join()
+            self.pool = None
 
-        self.processes = []
-
-        # clean up shared memory
         self.shared_mem.close()
         try:
             self.shared_mem.unlink()
         except FileNotFoundError:
             pass
-
-        self.task_queue = mp.Queue()
-        self.result_queue = mp.Queue()
 
         self.is_running = False
 
