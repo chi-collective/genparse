@@ -281,7 +281,7 @@ def main():
             start_time = time.time()
 
             method = importance_sampling if args.local_poe else smc
-            particles = method(step_model, n_particles=args.particles)
+            particles = method(step_model, n_particles=args.particles, return_record=True)
 
             end_time = time.time()
 
@@ -297,16 +297,6 @@ def main():
             print()
             continue
 
-        particles_json = [
-            {
-                'tokens': p.context,
-                'token_ids': p.context_ids,
-                'weight': p.log_weight,
-                'finished': p.done,
-            }
-            for p in particles
-        ]
-
         gold = dev_datum.query
         db = dev_datum.schema_name
 
@@ -316,7 +306,7 @@ def main():
             'gold': gold,
             'db_name': db,
             'question': dev_datum.utterance,
-            'particles': particles_json,
+            'record': particles.record,
             'log_ml': particles.log_ml,
             'time': inference_runtime,
             'results': {},
