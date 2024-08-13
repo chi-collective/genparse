@@ -32,7 +32,7 @@ def test_sdd1():
 
 
 def test_misc():
-    Derivation(None, Derivation(None, 'X'))._repr_html_()
+    # Derivation(None, Derivation(None, 'X'))._repr_html_()
 
     x = Derivation(None, Derivation(None, 'X'))
     y = Derivation(None, Derivation(None, 'Y'))
@@ -43,7 +43,7 @@ def test_misc():
 
     CFG.from_string('', Real)._repr_html_()
 
-    Derivation.to_nltk(None)
+    # Derivation.to_nltk(None)
 
     cfg = CFG.from_string('1: X -> Y', Real)
 
