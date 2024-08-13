@@ -165,7 +165,13 @@ def pretty_print_particles(particles, step_info):
 def maybe_resample(particles, ess_threshold, return_record, step_info, verbosity):
     if return_record:
         step_info['particles'] = [
-            {'context': p.context, 'weight': p.log_weight} for p in particles
+            {
+                'context': p.context,
+                'weight': p.log_weight,
+                'weight_update': p.log_weight_updates[-1],
+                'context_ids': p.context_ids,
+            }
+            for p in particles
         ]
 
     n_particles = len(particles)

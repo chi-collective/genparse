@@ -87,8 +87,8 @@ class ParallelProposal:
     ):
         """
         Args:
-            llm: .
-            guide (BoolCFGLM): .
+            llm: Language model.
+            guide (BoolCFGLM): Guide.
             num_processes (int): The number of parallel processes to use during batch inference.
             max_n_particles (int): The maximum number of particles.
             seed (int): The seed value.
