@@ -42,10 +42,12 @@ def main():
 
     guide = {}
     with timeit('lark'):
-        cfg = LarkStuff(open(args.grammar).read()).char_cfg()
+        left = LarkStuff(open(args.grammar).read()).char_cfg(recursion='left')
+        right = LarkStuff(open(args.grammar).read()).char_cfg(recursion='right')
     with timeit('preprocessing'):
         # guide['earley'] = EarleyLM(cfg)
-        guide['bool-earley'] = BoolCFGLM(cfg)
+        guide['bool-earley-left'] = BoolCFGLM(left)
+        guide['bool-earley-right'] = BoolCFGLM(right)
         # guide['cfglm'] = CFGLM(cfg)
 
     T = timers()

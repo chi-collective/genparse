@@ -42,6 +42,13 @@ class LarkStuff:
 
     """
 
+    __slots__ = (
+        'raw_grammar',
+        'terminals',
+        'ignore_terms',
+        'rules',
+    )
+
     def __init__(self, grammar, cnf=False):
         self.raw_grammar = grammar
 
@@ -59,10 +66,10 @@ class LarkStuff:
         terminals, rules, ignores = lark_grammar.compile(['start'], set())
 
         if cnf:
-            self.parser = lark.parsers.cyk.Parser(rules)
+            parser = lark.parsers.cyk.Parser(rules)
             # self.instance = lark.Lark(grammar, lexer='basic', parser='cyk')
             # self.lex = self.instance.lex
-            self.rules = self.parser.grammar.rules
+            self.rules = parser.grammar.rules
 
         else:
             # self.parser = lark.parsers.earley.Parser(rules)
@@ -72,7 +79,6 @@ class LarkStuff:
 
         self.terminals = terminals
         self.ignore_terms = ignores
-        self.ignore_regex = f'(?:{"|".join([t.pattern.to_regexp() for t in self.terminals if t.name in ignores])})?'
 
     def convert(self):
         "Convert the lark grammar into a `genparse.CFG` grammar."
@@ -94,10 +100,8 @@ class LarkStuff:
         return cfg.renumber()
 
     def char_cfg(self, decay=1, delimiter='', charset='core', recursion='right'):
-        if delimiter:
-            warnings.warn(
-                'Use of delimiter enforced between terminals. If delimiter is not a strict subset of `%ignore`, generated strings will deviate from original grammar.'
-            )
+        if delimiter != '':
+            raise NotImplementedError(f'{delimiter = !r} is not supported.')
 
         cfg = self.convert()
 
@@ -107,26 +111,96 @@ class LarkStuff:
         foo = CFG(Float, S=f(cfg.S), V=set())
         for r in cfg:
             foo.add(r.w * decay, f(r.head), *(f(y) for y in r.body))
+        del r
+
+        if self.ignore_terms:
+            # union of ignore patterns
+            IGNORE = '$IGNORE'
+            assert IGNORE not in cfg.V
+            ignore = f(IGNORE)
+            foo.add(decay, ignore)
+            for token_class in self.terminals:
+                if token_class.name not in self.ignore_terms:
+                    continue
+                foo.add(decay, ignore, f(token_class.name))
 
         for token_class in self.terminals:
-            if token_class.name in self.ignore_terms:
-                continue
-            regex = self.ignore_regex + token_class.pattern.to_regexp() + delimiter
+            regex = token_class.pattern.to_regexp()
 
             fsa = interegular_to_wfsa(
                 regex,
                 name=lambda x, t=token_class.name: f((t, x)),
                 charset=charset,
             )
-            G = fsa.to_cfg(S=f(token_class.name), recursion=recursion)
 
-            foo.V |= G.V
-            for r in G:
-                foo.add(r.w * decay, r.head, *r.body)
+            if token_class.name in self.ignore_terms or not self.ignore_terms:
+                G = fsa.to_cfg(S=f(token_class.name), recursion=recursion)
+
+                foo.V |= G.V
+                for r in G:
+                    foo.add(r.w * decay, r.head, *r.body)
+
+            else:
+                tmp = f(('tmp', token_class.name))
+                G = fsa.to_cfg(S=tmp, recursion=recursion)
+
+                foo.V |= G.V
+                for r in G:
+                    foo.add(r.w * decay, r.head, *r.body)
+
+                foo.add(decay, f(token_class.name), ignore, tmp)
 
         assert len(foo.N & foo.V) == 0
 
-        return foo.trim()
+        # assert len(foo) == len(foo.trim())
+
+        #        if self.ignore_terms:
+        #            old = self.char_cfg_old(decay=decay, delimiter=delimiter, charset=charset, recursion=recursion)
+        #            print('old -> new:')
+        #            print('  rules:', len(old), '->', len(foo))
+        #            print('  size: ', old.size, '->', foo.size)
+        #            print('  nts:  ', len(old.N), '->', len(foo.N))
+        #            print('n terminal categories:', len(self.terminals))
+
+        return foo
+
+
+#    def char_cfg_old(self, decay=1, delimiter='', charset='core', recursion='right'):
+#        if delimiter:
+#            warnings.warn(
+#                'Use of delimiter enforced between terminals. If delimiter is not a strict subset of `%ignore`, generated strings will deviate from original grammar.'
+#            )
+#
+#        ignore_regex = f'(?:{"|".join([t.pattern.to_regexp() for t in self.terminals if t.name in self.ignore_terms])})?'
+#
+#        cfg = self.convert()
+#
+#        # rename all of the internals to avoid naming conflicts.
+#        f = arsenal.Integerizer()
+#
+#        foo = CFG(Float, S=f(cfg.S), V=set())
+#        for r in cfg:
+#            foo.add(r.w * decay, f(r.head), *(f(y) for y in r.body))
+#
+#        for token_class in self.terminals:
+#            if token_class.name in self.ignore_terms:
+#                continue
+#            regex = ignore_regex + token_class.pattern.to_regexp() + delimiter
+#
+#            fsa = interegular_to_wfsa(
+#                regex,
+#                name=lambda x, t=token_class.name: f((t, x)),
+#                charset=charset,
+#            )
+#            G = fsa.to_cfg(S=f(token_class.name), recursion=recursion)
+#
+#            foo.V |= G.V
+#            for r in G:
+#                foo.add(r.w * decay, r.head, *r.body)
+#
+#        assert len(foo.N & foo.V) == 0
+#
+#        return foo
 
 
 def interegular_to_wfsa(pattern, name=lambda x: x, charset='core'):
@@ -141,10 +215,6 @@ def interegular_to_wfsa(pattern, name=lambda x: x, charset='core'):
     # Compile the regex pattern to an FSM
     fsm = interegular.parse_pattern(pattern).to_fsm()
 
-    # if anything_else in fsm.alphabet:
-    #    print(arsenal.colors.orange % 'ALPHABET:', set(fsm.alphabet))
-    #    print(arsenal.colors.orange % 'ANYTHING ELSE:', charset - set(fsm.alphabet))
-
     def expand_alphabet(a):
         if anything_else in fsm.alphabet.by_transition[a]:
             assert fsm.alphabet.by_transition[a] == [anything_else]
@@ -152,35 +222,73 @@ def interegular_to_wfsa(pattern, name=lambda x: x, charset='core'):
         else:
             return fsm.alphabet.by_transition[a]
 
-    m = WFSA(Float)
-    m.add_I(name(fsm.initial), 1)
+    if 0:
+        from fsa import FSA
 
-    rejection_states = [e for e in fsm.states if not fsm.islive(e)]
-    for i in fsm.states:
-        # determine this state's fan out
-        K = 0
-        for a, j in fsm.map[i].items():
-            # print(f'{i} --{a}/{fsm.alphabet.by_transition[a]}--> {j}')
-            if j in rejection_states:
-                continue
-            for A in expand_alphabet(a):
-                assert isinstance(A, str)
-                if len(A) != 1:
-                    warnings.warn(
-                        f'Excluding multi-character arc {A!r} in pattern {pattern!r} (possibly a result of case insensitivity of arcs {expand_alphabet(a)})'
-                    )
+        m = FSA()
+        m.add_start(name(fsm.initial))
+
+        rejection_states = [e for e in fsm.states if not fsm.islive(e)]
+        for i in fsm.states:
+            if i in fsm.finals:
+                m.add_stop(name(i))
+            for a, j in fsm.map[i].items():
+                if j in rejection_states:
                     continue
-                K += 1
-        if i in fsm.finals:
-            K += 1
-        if K == 0:
-            continue
-        if i in fsm.finals:
-            m.add_F(name(i), 1 / K)
-        for a, j in fsm.map[i].items():
-            if j in rejection_states:
-                continue
-            for A in expand_alphabet(a):
-                m.add_arc(name(i), A, name(j), 1 / K)
+                for A in expand_alphabet(a):
+                    if len(A) != 1:
+                        warnings.warn(
+                            f'Excluding multi-character arc {A!r} in pattern {pattern!r} (possibly a result of case insensitivity of arcs {expand_alphabet(a)})'
+                        )
+                    m.add(name(i), A, name(j))
 
-    return m
+        # DFA minimization
+        M = m.min()
+
+        del m
+        del fsm
+
+        m = WFSA(Float)
+        for i in M.nodes:
+            K = len(list(M.arcs(i))) + (i in M.stop)
+            if i in M.start:
+                m.add_I(name(i), 1)
+            if i in M.stop:
+                m.add_F(name(i), 1 / K)
+            for a, j in M.arcs(i):
+                m.add_arc(name(i), a, name(j), 1 / K)
+        return m
+
+    else:
+        m = WFSA(Float)
+        m.add_I(name(fsm.initial), 1)
+
+        rejection_states = [e for e in fsm.states if not fsm.islive(e)]
+        for i in fsm.states:
+            # determine this state's fan out
+            K = 0
+            for a, j in fsm.map[i].items():
+                # print(f'{i} --{a}/{fsm.alphabet.by_transition[a]}--> {j}')
+                if j in rejection_states:
+                    continue
+                for A in expand_alphabet(a):
+                    assert isinstance(A, str)
+                    if len(A) != 1:
+                        warnings.warn(
+                            f'Excluding multi-character arc {A!r} in pattern {pattern!r} (possibly a result of case insensitivity of arcs {expand_alphabet(a)})'
+                        )
+                        continue
+                    K += 1
+            if i in fsm.finals:
+                K += 1
+            if K == 0:
+                continue
+            if i in fsm.finals:
+                m.add_F(name(i), 1 / K)
+            for a, j in fsm.map[i].items():
+                if j in rejection_states:
+                    continue
+                for A in expand_alphabet(a):
+                    m.add_arc(name(i), A, name(j), 1 / K)
+
+        return m
