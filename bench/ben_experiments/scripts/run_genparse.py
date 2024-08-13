@@ -256,7 +256,6 @@ def main():
             print('Evicted proposals from cache:')
             print(f'\t prev_mem_usage={mem_usage}%')
             print(f'\t curr_mem_usage={psutil.virtual_memory().percent}%')
-            print()
 
         parallel_proposal = proposal_cache.fetch_or_create_proposal(
             llm=batch_llm.llm,

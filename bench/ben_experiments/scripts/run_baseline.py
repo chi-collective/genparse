@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Evaluate spider on vLLM Llama-3 (baseline).
 
-Example usage:
-python bench/run_spider_baseline.py --n-query 1000 --method greedy --exp-name llama-3-baseline
-"""
+########################################
+# Runs VLLM baseline on spider dataset #
+########################################
 
-import argparse
+import os
 import json
 import logging
-import os
+import argparse
 from pathlib import Path
 
-import transformers
 import vllm
+import transformers
 from tqdm import tqdm
 
 from genparse.experimental.batch_inference.steer import Particle, ParticleApproximation
@@ -49,7 +48,7 @@ def get_parser():
     parser.add_argument(
         '--schema',
         type=str,
-        help='Schema to evaluate, seperated by comma. Defaults to `all` for all schema.',
+        help='Schema to evaluate, seperated by commas. Defaults to `all` for all schema.',
         default='all',
     )
 

@@ -42,6 +42,7 @@ class BatchStepModel:
             particles[particle_id] = Particle(
                 prompt=particle.prompt,
                 log_weight=particle.log_weight + extension.log_weight,
+                log_weight_updates=particle.log_weight_updates + (extension.log_weight,),
                 context=particle.context + (extension.token,),
                 context_ids=particle.context_ids + (extension.token_id,),
                 done=(
@@ -69,7 +70,10 @@ class BatchStepModel:
 
 
 class Particle(
-    namedtuple('Particle', 'prompt, log_weight, context, context_ids, parent, done')
+    namedtuple(
+        'Particle',
+        'prompt, log_weight, log_weight_updates, context, context_ids, parent, done',
+    )
 ):
     def __repr__(self):
         return (
@@ -147,7 +151,7 @@ class ParticleApproximation:
 
 
 def init_particles(n_particles):
-    return [Particle((), 0, (), (), None, False) for _ in range(n_particles)]
+    return [Particle((), 0, (), (), (), None, False) for _ in range(n_particles)]
 
 
 def pretty_print_particles(particles, step_info):

@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
 """
-Example usage: pyprof-callgraph scripts/benchmark_inference.py --particles 10
+Example usage: CUDA_VISIBLE_DEVICES=1 pyprof-callgraph scripts/benchmark_inference.py --particles 10 --idx 451
 """
 
 import os
 import time
 import json
 import psutil
+import pickle
 import logging
 import argparse
 from tqdm import tqdm
@@ -57,6 +58,7 @@ def get_argparser():
         '--model-name', type=str, default='meta-llama/Meta-Llama-3-8B-Instruct'
     )
     parser.add_argument('--particles', type=int, default=1)
+    parser.add_argument('--idx', type=int, default=451)
     parser.add_argument('--max-tokens', type=int, default=100)
     parser.add_argument(
         '--proposal',
@@ -99,7 +101,7 @@ def main():
     batch_llm = BatchVLLM.from_name(args.model_name)
     tokenizer = batch_llm.get_tokenizer()
 
-    dev_datum = spider_dev_data[451]
+    dev_datum = spider_dev_data[args.idx]
 
     messages = prompt_formatter.format_openai(dev_datum)
 
@@ -121,7 +123,12 @@ def main():
 
     step_model.set_prompt(prompt)
 
-    smc(step_model, n_particles=args.particles, verbosity=1)
+    particles = smc(
+        step_model, n_particles=args.particles, verbosity=1, return_record=True
+    )
+
+    with open(f'record-{args.idx}.pkl', 'wb') as f:
+        pickle.dump(particles.record, f)
 
 
 if __name__ == '__main__':
