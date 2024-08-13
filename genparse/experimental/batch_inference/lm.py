@@ -24,6 +24,8 @@ class BatchLLM:
 
     def __init__(self, llm):
         self.llm = llm
+        self.eos = self.llm.eos
+        self.eos_token_id = self.llm._encode[self.eos]
 
     @classmethod
     def from_name(cls, model_name):
