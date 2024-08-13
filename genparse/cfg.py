@@ -4,7 +4,7 @@ from collections import Counter, defaultdict, namedtuple
 from functools import cached_property
 from itertools import product
 
-import nltk
+# import nltk
 from arsenal import Integerizer, colors
 
 from genparse.fst import FST
@@ -86,11 +86,11 @@ class Derivation:
         else:
             return (self,)
 
-    def to_nltk(self):
-        "Convert this derivation inot an `nltk.Tree`."
-        if not isinstance(self, Derivation):
-            return self
-        return nltk.Tree(str(self.x), [Derivation.to_nltk(y) for y in self.ys])
+    #    def to_nltk(self):
+    #        "Convert this derivation inot an `nltk.Tree`."
+    #        if not isinstance(self, Derivation):
+    #            return self
+    #        return nltk.Tree(str(self.x), [Derivation.to_nltk(y) for y in self.ys])
 
     def _repr_html_(self):
         # return f'<div style="text-align: center;"><span style="color: magenta;">{self.weight()}</span></br>{self.to_nltk()._repr_svg_()}</div>'

@@ -6,17 +6,17 @@ requirements = [
     'graphviz',  # for notebook visualizations
     #'greenery>=4.2.1',
     'interegular',
-    'hfppl @ git+https://github.com/probcomp/hfppl',
+    #'hfppl @ git+https://github.com/probcomp/hfppl',
     'IPython',
     'jsons',  # for spider benchmarking
     'lark',
-    'nltk',
+    #'nltk',
+    #'svgling',  # nltk uses svgling to draw derivations
     'numpy',
     'pandas',
     'path',
     'rich',
     'numba',
-    'svgling',  # nltk uses svgling to draw derivations
     'torch',
     'transformers',
     'plotly',
