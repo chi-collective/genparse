@@ -205,10 +205,7 @@ def main():
     if len(already_processed) >= len(spider_dev_data):
         return
 
-    all_grammars = json.load(
-        open('../../benchmark/grammars/spider_schema_grammar.json', 'r')
-    )
-
+    grammar_dir = 'spider_grammars'
     schema = prepare_schema(args, spider_dev_data)
 
     set_seed(args.seed)
@@ -246,7 +243,9 @@ def main():
 
         messages = prompt_formatter.format_openai(dev_datum)
 
-        grammar = reformat_grammar(all_grammars[dev_datum.schema_name])
+        grammar = open(
+            os.path.join(grammar_dir, f'{dev_datum.schema_name}.lark'), 'r'
+        ).read()
 
         mem_usage = psutil.virtual_memory().percent
         if mem_usage > args.max_mem_usage:
@@ -281,7 +280,7 @@ def main():
             start_time = time.time()
 
             method = importance_sampling if args.local_poe else smc
-            particles = method(step_model, n_particles=args.particles)
+            particles = method(step_model, n_particles=args.particles, return_record=True)
 
             end_time = time.time()
 
@@ -297,16 +296,6 @@ def main():
             print()
             continue
 
-        particles_json = [
-            {
-                'tokens': p.context,
-                'token_ids': p.context_ids,
-                'weight': p.log_weight,
-                'finished': p.done,
-            }
-            for p in particles
-        ]
-
         gold = dev_datum.query
         db = dev_datum.schema_name
 
@@ -316,7 +305,7 @@ def main():
             'gold': gold,
             'db_name': db,
             'question': dev_datum.utterance,
-            'particles': particles_json,
+            'record': particles.record,
             'log_ml': particles.log_ml,
             'time': inference_runtime,
             'results': {},

@@ -193,7 +193,7 @@ def maybe_resample(particles, ess_threshold, return_record, step_info, verbosity
         ]
 
         if return_record:
-            step_info['resample_indices'] = indices
+            step_info['resample_indices'] = indices.tolist()
 
         if verbosity > 0:
             print(

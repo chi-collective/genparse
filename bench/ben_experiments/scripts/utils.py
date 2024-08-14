@@ -58,10 +58,20 @@ def posterior_weighted_eval(particles, evaluator, gold, db, eos):
 
 
 def reformat_grammar(grammar):
-    """move start rule and remove zero-width rules"""
+    """move start rule, remove zero-width rules and very permissive rewrites"""
+
+    permissive_lines = [
+        "|/[^']/ non_single_quote_star",
+        '|/[^"]/ non_double_quote_star',
+        '|/[^`]/ non_back_tick_star',
+        '|/[^\]]/ non_bracket_star',
+    ]
+
     lines = grammar.split('\n')
     new_grammar = ''
     for line in lines:
+        if line in permissive_lines:
+            continue
         if line == '|""i':
             continue
         if line.startswith('start'):
