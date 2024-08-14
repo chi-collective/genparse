@@ -93,6 +93,17 @@ def get_argparser():
         default=70,
         help='Memory usage (as percentage of total memory) at which to trigger memory management strategies.',
     )
+    parser.add_argument(
+        '--ess-threshold',
+        type=float,
+        default=0.5,
+        help='Effective sample size below which resampling triggered, given as a fraction of `n_particles`.',
+    )
+    parser.add_argument(
+        '--evaluate',
+        action='store_true',
+        help='Whether to run the evaluations.',
+    )
 
     return parser
 
@@ -191,7 +202,12 @@ def main():
     args = parser.parse_args()
 
     if args.local_poe:
-        print('Evaluating with improper weights')
+        print(
+            'Evaluating with improper weights and no resampling: Ignoring ess_threshold argument'
+        )
+
+    if args.proposal == 'character':
+        print('Using character proposal: Ignoring K argument')
 
     outpath = initialize_output_path(args)
     already_processed = load_processed_examples(outpath)
@@ -279,8 +295,17 @@ def main():
         try:
             start_time = time.time()
 
-            method = importance_sampling if args.local_poe else smc
-            particles = method(step_model, n_particles=args.particles, return_record=True)
+            if args.local_poe:
+                particles = importance_sampling(
+                    batch_model=step_model, n_particles=args.particles, return_record=True
+                )
+            else:
+                particles = smc(
+                    batch_model=step_model,
+                    ess_threshold=args.ess_threshold,
+                    n_particles=args.particles,
+                    return_record=True,
+                )
 
             end_time = time.time()
 
@@ -311,47 +336,48 @@ def main():
             'results': {},
         }
 
-        json_result['results']['mbr'] = mbr_eval(
-            particles, evaluator, gold, db, parallel_proposal.eos
-        )
+        if args.evaluate:
+            json_result['results']['mbr'] = mbr_eval(
+                particles, evaluator, gold, db, parallel_proposal.eos
+            )
 
-        json_result['results']['posterior_weighted_acc'] = posterior_weighted_eval(
-            particles, evaluator, gold, db, parallel_proposal.eos
-        )
+            json_result['results']['posterior_weighted_acc'] = posterior_weighted_eval(
+                particles, evaluator, gold, db, parallel_proposal.eos
+            )
 
-        json_result['results']['viterbi'] = (
-            viterbi_eval(particles, evaluator, gold, db, parallel_proposal.eos)
-            if not args.local_poe
-            else None
-        )
+            json_result['results']['viterbi'] = (
+                viterbi_eval(particles, evaluator, gold, db, parallel_proposal.eos)
+                if not args.local_poe
+                else None
+            )
+
+            if args.verbosity > 0:
+                print()
+                print(f"MBR: {json_result['results']['mbr']['pred']}")
+                if not args.local_poe:
+                    print(f"Viterbi: {json_result['results']['viterbi']['pred']}")
+
+                result = json_result['results']['mbr']['result']
+
+                if result[0]:
+                    n_correct += 1
+                elif result[1] == 'invalid':
+                    n_invalid += 1
+                elif result[1] == 'mismatch':
+                    n_mismatch += 1
+                else:
+                    raise ValueError()
+
+                n_total = sum((n_correct, n_invalid, n_mismatch))
+                print(
+                    f'MBR results - '
+                    f'correct: {n_correct / n_total:.2f} ({n_correct}), '
+                    f'invalid: {n_invalid / n_total:.2f} ({n_invalid}), '
+                    f'mismatch: {n_mismatch / n_total:.2f} ({n_mismatch}), '
+                    f'inference run time: {inference_runtime:.2f} secs'
+                )
 
         print(json.dumps(json_result), file=outfile)
-
-        if args.verbosity > 0:
-            print()
-            print(f"MBR: {json_result['results']['mbr']['pred']}")
-            if not args.local_poe:
-                print(f"Viterbi: {json_result['results']['viterbi']['pred']}")
-
-            result = json_result['results']['mbr']['result']
-
-            if result[0]:
-                n_correct += 1
-            elif result[1] == 'invalid':
-                n_invalid += 1
-            elif result[1] == 'mismatch':
-                n_mismatch += 1
-            else:
-                raise ValueError()
-
-            n_total = sum((n_correct, n_invalid, n_mismatch))
-            print(
-                f'MBR results - '
-                f'correct: {n_correct / n_total:.2f} ({n_correct}), '
-                f'invalid: {n_invalid / n_total:.2f} ({n_invalid}), '
-                f'mismatch: {n_mismatch / n_total:.2f} ({n_mismatch}), '
-                f'inference run time: {inference_runtime:.2f} secs'
-            )
 
 
 if __name__ == '__main__':

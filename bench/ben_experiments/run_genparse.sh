@@ -8,23 +8,25 @@ schema=all
 DEVICE=0
 METHOD=smc
 PROPOSAL=character
+ess_thresholds=(0.5)
 K=0
 
 function show_help() {
-    echo "Usage: $0 [--device DEVICE] [--method METHOD] [--particles PARTICLES] [--models MODELS] [--proposal PROPOSAL] [--K K]"
+    echo "Usage: $0 [--device DEVICE] [--method METHOD] [--particles PARTICLES] [--models MODELS] [--proposal PROPOSAL] [--K K] [--ess-thresholds ESS_THRESHOLDS]"
     echo ""
     echo "Arguments:"
-    echo "  --device DEVICE      The CUDA device ID to use (default: 0)"
-    echo "  --method METHOD      The method to use, either 'smc' or 'local-poe' (default: 'smc')"
-    echo "  --particles PARTICLES A comma-separated list of particle numbers (default: '10,5,1')"
-    echo "  --models MODELS      A comma-separated list of model names (default: 'Meta-Llama-3.1-8B-Instruct')"
-    echo "  --proposal PROPOSAL  Proposal distribution to use, either 'token' or 'character' (default: 'character')"
-    echo "  --K K                Parameter for token proposal (default: 0). Must be 0 if PROPOSAL is 'character'."
+    echo "  --device DEVICE          The CUDA device ID to use (default: 0)"
+    echo "  --method METHOD          The method to use, either 'smc' or 'local-poe' (default: 'smc')"
+    echo "  --particles PARTICLES    A comma-separated list of particle numbers (default: '10,5,1')"
+    echo "  --models MODELS          A comma-separated list of model names (default: 'Meta-Llama-3.1-8B-Instruct')"
+    echo "  --proposal PROPOSAL      Proposal distribution to use, either 'token' or 'character' (default: 'character')"
+    echo "  --K K                    Parameter for token proposal (default: 0). Must be 0 if PROPOSAL is 'character'."
+    echo "  --ess-thresholds ESS_THRESHOLDS  A comma-separated list of ESS threshold values (default: '0.5')."
     exit 1
 }
 
 function is_numeric() {
-    [[ "$1" =~ ^[0-9]+$ ]]
+    [[ "$1" =~ ^[0-9]+([.][0-9]+)?$ ]]
 }
 
 while [[ $# -gt 0 ]]; do
@@ -83,6 +85,16 @@ while [[ $# -gt 0 ]]; do
             K="$2"
             shift 2
             ;;
+        --ess-thresholds)
+            IFS=',' read -r -a ess_thresholds <<< "$2"
+            for ess in "${ess_thresholds[@]}"; do
+                if ! is_numeric "$ess"; then
+                    echo "Error: ESS_THRESHOLD must be a comma-separated list of numeric values."
+                    show_help
+                fi
+            done
+            shift 2
+            ;;
         *)
             echo "Unknown argument: $1"
             show_help
@@ -103,21 +115,24 @@ for model_name in "${model_names[@]}"; do
     fi
 
     for n_particles in "${particles[@]}"; do
-        for run in $(seq $start $end); do
-            exp_name="${model_name}-$METHOD-${run}"
+        for ess_threshold in "${ess_thresholds[@]}"; do
+            for run in $(seq $start $end); do
+                exp_name="${model_name}-$METHOD-${run}-${ess_threshold}"
 
-            CUDA_VISIBLE_DEVICES=$DEVICE python scripts/run_genparse.py \
-                --particles $n_particles \
-                --proposal $PROPOSAL \
-                --K $K \
-                --exp-name $exp_name \
-                --model-name "meta-llama/$model_name" \
-                --out-dir $out_dir \
-                --schema $schema \
-                --verbosity 0 \
-                $( [ "$METHOD" == "local-poe" ] && echo "--local-poe" )
+                CUDA_VISIBLE_DEVICES=$DEVICE python scripts/run_genparse.py \
+                    --particles $n_particles \
+                    --proposal $PROPOSAL \
+                    --K $K \
+                    --exp-name $exp_name \
+                    --model-name "meta-llama/$model_name" \
+                    --out-dir $out_dir \
+                    --schema $schema \
+                    --verbosity 0 \
+                    --ess-threshold $ess_threshold \
+                    $( [ "$METHOD" == "local-poe" ] && echo "--local-poe" )
 
-            echo "Done ${exp_name} with ${n_particles} particles"
+                echo "Done ${exp_name} with ${n_particles} particles and ESS threshold ${ess_threshold}"
+            done
         done
     done
 done
