@@ -1,0 +1,24 @@
+start: WS* "(define" WS+ problem_clause WS+ domain_clause WS+ requirements_clause WS+ objects_clause WS+ init_clause WS+ goal_clause WS* ")"
+problem_clause: "(problem" WS+ pname WS* ")"
+domain_clause: "(:domain" WS+ "blocksworld)"
+requirements_clause: "(:requirements" WS+ ":strips)"
+objects_clause: "(:objects" WS+ obj_list WS? ")"
+obj_list: obj_list WS+ obj | obj
+
+init_clause: "(:init" WS+ pred_list WS* ")"
+goal_clause: "(:goal" WS+ goal WS* ")"
+pred_list: pred_list WS+ pred | pred
+pred: "(clear" WS+ obj WS? ")" 
+    | "(on" WS+ obj WS+ obj WS? ")" 
+    | "(arm-empty" WS? ")"
+    | "(holding" WS+ obj WS? ")"
+    | "(on-table" WS+ obj WS? ")"
+
+goal: "(and" WS+ pred_list WS? ")" | pred
+
+pname: str
+obj: str
+str: char+
+char: /[a-zA-Z0-9]/ | "_" 
+
+WS: " " | "\t" | "\n"
