@@ -15,12 +15,12 @@ function show_help() {
     echo "Usage: $0 [--device DEVICE] [--method METHOD] [--particles PARTICLES] [--models MODELS] [--proposal PROPOSAL] [--K K] [--ess-thresholds ESS_THRESHOLDS]"
     echo ""
     echo "Arguments:"
-    echo "  --device DEVICE          The CUDA device ID to use (default: 0)"
-    echo "  --method METHOD          The method to use, either 'smc' or 'local-poe' (default: 'smc')"
-    echo "  --particles PARTICLES    A comma-separated list of particle numbers (default: '10,5,1')"
-    echo "  --models MODELS          A comma-separated list of model names (default: 'Meta-Llama-3.1-8B-Instruct')"
-    echo "  --proposal PROPOSAL      Proposal distribution to use, either 'token' or 'character' (default: 'character')"
-    echo "  --K K                    Parameter for token proposal (default: 0). Must be 0 if PROPOSAL is 'character'."
+    echo "  --device DEVICE                  The CUDA device ID to use (default: 0)"
+    echo "  --method METHOD                  The method to use, either 'smc' or 'local' (default: 'smc')"
+    echo "  --particles PARTICLES            A comma-separated list of particle numbers (default: '10,5,1')"
+    echo "  --models MODELS                  A comma-separated list of model names (default: 'Meta-Llama-3.1-8B-Instruct')"
+    echo "  --proposal PROPOSAL              Proposal distribution to use, either 'token' or 'character' (default: 'character')"
+    echo "  --K K                            Parameter for token proposal (default: 0). Must be 0 if PROPOSAL is 'character'."
     echo "  --ess-thresholds ESS_THRESHOLDS  A comma-separated list of ESS threshold values (default: '0.5')."
     exit 1
 }
@@ -41,8 +41,8 @@ while [[ $# -gt 0 ]]; do
             ;;
         --method)
             METHOD="$2"
-            if [ "$METHOD" != "smc" ] && [ "$METHOD" != "local-poe" ]; then
-                echo "Error: METHOD must be 'smc' or 'local-poe'."
+            if [ "$METHOD" != "smc" ] && [ "$METHOD" != "local" ]; then
+                echo "Error: METHOD must be 'smc' or 'local'."
                 show_help
             fi
             shift 2
@@ -129,7 +129,7 @@ for model_name in "${model_names[@]}"; do
                     --schema $schema \
                     --verbosity 0 \
                     --ess-threshold $ess_threshold \
-                    $( [ "$METHOD" == "local-poe" ] && echo "--local-poe" )
+                    $( [ "$METHOD" == "local" ] && echo "--local-poe" )
 
                 echo "Done ${exp_name} with ${n_particles} particles and ESS threshold ${ess_threshold}"
             done
