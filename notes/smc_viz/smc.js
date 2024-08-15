@@ -2,13 +2,14 @@ import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 
 const stroke_width = 2;
 const arrow_width = stroke_width * 2;
-const char_width = 8;
 const url_params = new URLSearchParams(window.location.search);
 const frame_background = d3.select("#frame-background");
 const frame_foreground = d3.select("#frame-foreground");
 const zoom_control = d3.zoom().on("zoom", (e) => frame_foreground.attr("transform", e.transform));
 const yspace_slider = document.getElementById('yspace_slider');
 const yspace_value = document.getElementById('yspace_value');
+const charWidth_slider = document.getElementById('charWidth_slider');
+const charWidth_value = document.getElementById('charWidth_value');
 const untangle_button = document.getElementById("untangle_button");
 const toggle_collapsed_button = document.getElementById("toggle_collapsed_button");
 
@@ -17,6 +18,7 @@ let current_data = null;
 let leftInfoChoiceCollapsed = null;
 let leftInfoChoiceExpanded = null;
 let particle_yspace = 15;
+let particle_charWidth = 8;
 
 if (url_params.has("path")) {
   document.getElementById("load-path").value = url_params.get("path");
@@ -27,6 +29,7 @@ frame_background.call(zoom_control);
 document.getElementById("fileInput").addEventListener("change", () => loadFile(fileInput.files[0]));
 window.loadByPath = loadByPath;
 yspace_slider.addEventListener('input', updateYSpace);
+charWidth_slider.addEventListener('input', update_charWidth);
 untangle_button.addEventListener("click", setUntangle);
 toggle_collapsed_button.addEventListener("click", setToggleCollapsed);
 document.getElementById('left-info-select').addEventListener('change', updateLeftInfo);
@@ -107,6 +110,14 @@ function resetUntangleButton() {
 function updateYSpace() {
   particle_yspace = parseInt(yspace_slider.value);
   yspace_value.textContent = particle_yspace;
+  if (current_data) {
+    showData(current_data, {collapsed});
+  }
+}
+
+function update_charWidth() {
+  particle_charWidth = parseFloat(charWidth_slider.value);
+  charWidth_value.textContent = particle_charWidth;
   if (current_data) {
     showData(current_data, {collapsed});
   }
@@ -223,7 +234,7 @@ function showData(data, options = {}) {
   });
 
   const longest_token_length = Math.max(2, ...history.flatMap(step => step.particles.map(particle => particle.token.length)));
-  const particle_xspace = collapsed ? char_width * longest_token_length : particle_yspace;
+  const particle_xspace = collapsed ? particle_charWidth * longest_token_length : particle_yspace;
   const left_space = 100;
   const x_offset = (left_info ? left_space : 0) + particle_xspace;
   const y_offset = particle_yspace;
