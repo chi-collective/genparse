@@ -311,7 +311,8 @@ def main():
 
             if args.local_poe:
                 particles = ParticleApproximation(
-                    [p._replace(log_weight=0) for p in particles.particles]
+                    particles=[p._replace(log_weight=0) for p in particles.particles],
+                    record=particles.record,
                 )
 
         except Exception as e:
