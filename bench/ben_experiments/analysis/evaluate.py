@@ -7,13 +7,12 @@ import numpy as np
 from tqdm import tqdm
 from pathlib import Path
 import concurrent.futures
-from functools import lru_cache
+from functools import lru_cache, wraps
 from bench.spider.evaluator import Evaluator
 from genparse.experimental.batch_inference.steer import ParticleApproximation, Particle
 
 from genparse import EOS
 
-EOS
 eos = EOS
 spider_dir = Path('../../spider/data/spider')
 
@@ -113,31 +112,14 @@ def spider_eval(particles, gold, db, run_mbr):
     }
 
 
-def timeout(seconds):
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(func, *args, **kwargs)
-                try:
-                    return future.result(timeout=seconds)
-                except concurrent.futures.TimeoutError:
-                    print(f'Function {func.__name__} timed out after {seconds} seconds')
-                    return (False, 'invalid')
-
-        return wrapper
-
-    return decorator
-
-
 @lru_cache
-@timeout(10)
 def cached_eval(x, y, db):
     return evaluator.evaluate(x, y, db_name=db)
 
 
-def initialize_worker():
+def initialize_worker(timeout=None):
     global evaluator
-    evaluator = Evaluator(spider_dir)
+    evaluator = Evaluator(spider_dir, timeout=timeout)
 
 
 def process_datum_wrapper(args):
@@ -155,14 +137,17 @@ def process_datum(datum, run_mbr, overwrite):
     return datum
 
 
-def run_and_add_evaluation(data, n_workers, run_mbr=True, overwrite=False):
+def run_and_add_evaluation(data, n_workers, run_mbr=True, overwrite=False, timeout=None):
     with concurrent.futures.ProcessPoolExecutor(
-        initializer=initialize_worker, max_workers=n_workers
+        initializer=initialize_worker, initargs=(timeout,), max_workers=n_workers
     ) as executor:
         with tqdm(total=len(data)) as progress_bar:
             results = []
             args = [(datum, run_mbr, overwrite) for datum in data]
-            for result in executor.map(process_datum_wrapper, args):
+            futures = [executor.submit(process_datum_wrapper, arg) for arg in args]
+
+            for future in concurrent.futures.as_completed(futures):
+                result = future.result()
                 results.append(result)
                 progress_bar.update(1)
 
