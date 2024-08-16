@@ -1,139 +1,100 @@
 # %%
+# %load_ext autoreload
+# %autoreload 2
+# %%
+import os
 import pandas as pd
+import vllm
+import polars as pl
+import transformers
+from benchmark.make_planetarium_prompt import make_system_prompt
+
+HF_ACCESS_TOKEN = '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'
+os.environ['HF_TOKEN'] = HF_ACCESS_TOKEN
+
 
 df = pd.read_parquet(
     'hf://datasets/BatsResearch/planetarium/data/train-00000-of-00001.parquet'
 )
 # %%
 df.to_parquet('planetarium_train.parquet', index=False)
-from benchmark.make_planetarium_prompt import make_prompt
-
-
-# %%
-import polars as pl
-
 df = pl.DataFrame(df)
-message = [
+# %%
+
+seed = 0
+n_particles = 10
+n_shots = 5
+n_examples = 5
+max_n_objects = 5
+rows = df.filter(
+    (pl.col('domain') == 'blocksworld') & (pl.col('num_objects') <= max_n_objects)
+).sample(n=n_shots + n_examples, seed=seed)
+
+messages = [
     {
-        'role': 'user',
-        'content': make_prompt(
-            df.filter(pl.col('id') == 77237)['natural_language'], 'blocksworld'
-        ),
+        'role': 'system',
+        'content': make_system_prompt('blocksworld'),
     }
-] + ([])
+]
 
-# %%
-import os
+for row in rows.to_dicts()[:n_shots]:
+    messages += [
+        {
+            'role': 'user',
+            'content': row['natural_language'],
+        },
+        {
+            'role': 'assistant',
+            'content': row['problem_pddl'],
+        },
+    ]
 
-HF_ACCESS_TOKEN = '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'
-os.environ['HF_TOKEN'] = HF_ACCESS_TOKEN
-
-
-# %%
-import vllm
-import transformers
-import torch
-
-torch.cuda.empty_cache()
 
 model_name = 'meta-llama/Meta-Llama-3.1-8B-Instruct'
-# llm = vllm.LLM(
-#     model=model_name,
-#     rope_scaling={'type': 'dynamic', 'factor': 8.0},
-#     max_model_len=7760,
-# )
 tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
 
-# %%
-# prompt = tokenizer.decode(
-#     tokenizer.apply_chat_template(message, add_generation_prompt=True)
-# )
+prompts = []
+for row in rows.to_dicts()[n_shots:]:
+    prompt_message = messages + [
+        {
+            'role': 'user',
+            'content': row['natural_language'],
+        }
+    ]
+    prompt = tokenizer.apply_chat_template(
+        messages, add_generation_prompt=False, tokenize=False
+    )
+    prompts.append(prompt)
 
-# %%
-# n = 10
-# sampling_params = vllm.SamplingParams(
-#     n=10, temperature=1.0, max_tokens=1000, seed=0
-# )
 
-# %%
-prompt = tokenizer.apply_chat_template(
-    message, add_generation_prompt=False, tokenize=False
-)
-# %%
-# llm_outputs = llm.generate(prompt, sampling_params)
+from genparse.experimental.batch_inference import BatchVLLM
+from genparse.lm import VirtualTokenizedLLM
+from bench.run_inference import run_lm_inference, run_smc_inference
 
-# %%
-import multiprocessing as mp
-from bench.cache import ProposalCache
-from genparse.experimental.batch_inference import (
-    BatchVLLM,
-    BatchStepModel,
-    smc,
-    importance_sampling,
+llm = vllm.LLM(
+    model=model_name,
+    rope_scaling={'type': 'dynamic', 'factor': 8.0},
+    max_model_len=7760,
 )
 
+lm_outputs = run_lm_inference(prompts, llm, n_particles=n_particles, seed=seed)
 
-def get_n_processes(particles, n_processes):
-    """Determines the number of processes to use."""
-    if n_processes is None:
-        return min(particles, 10, mp.cpu_count() - 1)
-    elif isinstance(n_processes, int):
-        return n_processes
-    else:
-        raise ValueError(f'Invalid n_processes value: {n_processes}')
-
-
-n_particles = 10
-
-proposal_cache = ProposalCache(
-    guide_cache_path='guide_cache.pkl', maxsize=1, max_mem_usage=0.7
+grammar = open('benchmark/grammars/blocksworld_whitespace.lark').read()
+batch_llm = BatchVLLM(VirtualTokenizedLLM(llm.llm_engine))
+smc_outputs = run_smc_inference(
+    grammar, prompts, batch_llm, n_particles=10, ess_threshold=0.9
 )
-print(f'Initialized {proposal_cache}')
-
-n_processes = get_n_processes(n_particles, n_particles)
-
-batch_llm = BatchVLLM.from_name(model_name)
-
-# %%
-parallel_proposal = proposal_cache.fetch_or_create_proposal(
-    llm=batch_llm.llm,
-    grammar=open('benchmark/grammars/blocksworld_whitespace.lark').read(),
-    proposal_name='character',
-    n_processes=n_processes,
+is_outputs = run_smc_inference(
+    grammar, prompts, batch_llm, n_particles=10, ess_threshold=0.0
 )
 
-step_model = BatchStepModel(
-    batch_proposal=parallel_proposal,
-    batch_llm=batch_llm,
-    max_tokens=1000,
-)
+import ipdb
 
-# %%
-step_model.set_prompt(prompt)
-# %%
-method = smc
-particles = smc(
-    step_model, ess_threshold=0.9, n_particles=n_particles, return_record=True
-)
-# %%
+ipdb.set_trace()
+
+results = {'lm': lm_outputs, 'smc': smc_outputs, 'is': is_outputs}
+
 import json
 
-json.dump(particles.record, open('notes/smc_viz/Example.json', 'w'))
-# %%
-output = ''.join(particles[0].context[:-1])
-
-# %%
-import planetarium
-
-planetarium.evaluate(
-    df.filter(pl.col('id') == 77237).item(row=0, column='problem_pddl'), output
-)
-# %%
-
-# %%
-print(df.filter(pl.col('id') == 77237).item(row=0, column='problem_pddl'))
-# %%
-print(output)
-# %%
-particles
-# %%
+json.dump(results, open('planetarium_results.json', 'w'))
+json.dump(rows.to_dicts()[n_shots:], open('planetarium_test.json', 'w'))
