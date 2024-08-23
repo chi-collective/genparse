@@ -1,0 +1,1126 @@
+angle: weatherquantifier " "i lambda_weathertable_angle_ " for "i weathertable empty
+attendanceresponse: "respond "i responsestatustype " with comment "i respondcomment " to "i event empty
+|"respond "i event " "i responsestatustype " with send response "i respondshouldsend empty
+|"respond "i responsestatustype " to "i event empty
+|"respond "i event " "i responsestatustype " with comment "i respondcomment " with send response "i respondshouldsend empty
+attendee: recipient " from "i event empty
+boolean: "isOneOnOne of "i event empty
+|date " is "i date empty
+|temperature " is less than "i temperature empty
+|constraint_datetime_ " is "i constraint_datetime_ empty
+|list_attendee_ " satisfies "i constraint_list_attendee__ empty
+|constraint_list_recipient__ " is "i constraint_list_recipient__ empty
+|dayofweek " satisfies "i constraint_dayofweek_ empty
+|string " satisfies "i constraint_string_ empty
+|"not "i boolean empty
+|boolean " or "i boolean empty
+|"whether "i datetime " is less than or equal to "i datetime empty
+|recipient " is "i recipient empty
+|weathertable " will sleet"i empty
+|"isAllDay of "i event empty
+|responsestatus " is "i responsestatustype empty
+|string " is "i string empty
+|time " is "i time empty
+|datetime " satisfies "i constraint_datetime_ empty
+|month " satisfies "i constraint_month_ empty
+|showasstatus " is "i showasstatus empty
+|weathertable " is windy"i empty
+|weathertable " will snow"i empty
+|"Did "i attendee " respond with "i responsestatustype empty
+|"whether "i velocity " is greater than "i velocity empty
+|dayofweek " is "i dayofweek empty
+|weathertable " is rainy"i empty
+|boolean " satisfies "i constraint_boolean_ empty
+|responsestatustype " is "i responsestatustype empty
+|"whether "i temperature " is greater than or equal to "i temperature empty
+|"whether "i datetime " is greater than "i datetime empty
+|eventid " satisfies "i constraint_eventid_ empty
+|"that "i constraint_boolean_ empty
+|"whether "i temperature " is greater than "i temperature empty
+|event " is "i event empty
+|weathertable " is sunny"i empty
+|eventspec " satisfies "i constraint_eventspec_ empty
+|weathertable " is stormy"i empty
+|"whether "i duration " is greater than "i duration empty
+|locationkeyphrase " satisfies "i constraint_locationkeyphrase_ empty
+|person " is in "i list_person_ empty
+|duration " is "i duration empty
+|duration " satisfies "i constraint_duration_ empty
+|"whether "i duration " is greater than or equal to "i duration empty
+|event " is teams meeting"i empty
+|weathertable " is cold"i empty
+|constraint_date_ " is "i constraint_date_ empty
+|"false"i
+|eventcandidateswithandwithoutconflicts " is free"i empty
+|"Does "i place " have "i placefeature empty
+|number " is "i number empty
+|"whether "i number " is greater than "i number empty
+|weathertable " is hot"i empty
+|number " satisfies "i constraint_number_ empty
+|time " is less than "i time empty
+|locationkeyphrase " is "i locationkeyphrase empty
+|"does there exist an "i constraint_event_ empty
+|datetime " is less than "i datetime empty
+|weathertable " is cloudy"i empty
+|weathertable " has high UV index"i empty
+|eventcandidateswithandwithoutconflicts " is busy"i empty
+|time " satisfies "i constraint_time_ empty
+|showasstatus " satisfies "i constraint_showasstatus_ empty
+|"true"i
+|number " is less than "i number empty
+|weathertable " is snowy"i empty
+|date " satisfies "i constraint_date_ empty
+|recipient " satisfies "i constraint_recipient_ empty
+|"whether "i number " is greater than or equal to "i number empty
+|weathertable " needs jacket"i empty
+|"will it rain in "i weathertable empty
+calflowintension_constraint_datetime__: constraint_datetime_ empty
+calflowintension_constraint_event__: "the "i constraint_calflowintension_constraint_event___ empty
+calflowintension_constraint_recipient__: constraint_recipient_ empty
+calflowintension_constraint_string__: constraint_string_ empty
+calflowintension_createcommitevent_: "the "i constraint_calflowintension_createcommitevent__ empty
+calflowintension_createeventresponse_: "Looks good, create "i constraint_event_ empty
+calflowintension_date_: "the "i constraint_calflowintension_date__ empty
+calflowintension_datetime_: "the "i constraint_calflowintension_datetime__ empty
+calflowintension_deleteeventresponse_: "Looks good, delete "i constraint_event_ empty
+calflowintension_duration_: "the "i constraint_calflowintension_duration__ empty
+calflowintension_dynamic_: calflowintension_dynamic_ " with "i constraint_calflowintension_constraint_recipient___ " changed to "i calflowintension_constraint_recipient__ empty
+|calflowintension_dynamic_ " with "i constraint_calflowintension_respondcomment__ " changed to "i calflowintension_respondcomment_ empty
+|"the "i constraint_calflowintension_dynamic__ empty
+|"Looks good, update it to "i constraint_event_ empty
+|calflowintension_dynamic_ " with "i constraint_constraint_event__ " revised by "i constraint_event_ empty
+|calflowintension_dynamic_ " with "i constraint_calflowintension_constraint_datetime___ " changed to "i calflowintension_constraint_datetime__ empty
+|constraint_calflowintension_dynamic__ " with "i constraint_constraint_event__ " revised by "i constraint_event_ empty
+|calflowintension_dynamic_ " with "i constraint_calflowintension_responsestatustype__ " changed to "i calflowintension_responsestatustype_ empty
+|calflowintension_dynamic_ " with "i constraint_calflowintension_constraint_event___ " revised by "i constraint_event_ empty
+|"Looks good!"i empty
+|calflowintension_dynamic_ " with "i constraint_calflowintension_constraint_string___ " changed to "i calflowintension_constraint_string__ empty
+|"create "i constraint_event_ " from "i calflowintension_dynamic_ empty
+|calflowintension_dynamic_ " with "i constraint_calflowintension_respondshouldsend__ " changed to "i calflowintension_respondshouldsend_ empty
+|unit " and then "i calflowintension_dynamic_ empty
+|"Yes, create the "i number " one from "i calflowintension_dynamic_ empty
+|constraint_calflowintension_dynamic__ " with "i constraint_calflowintension_constraint_event___ " revised by "i constraint_event_ empty
+calflowintension_event_: "the "i constraint_calflowintension_event__ empty
+calflowintension_eventid_: "the "i constraint_calflowintension_eventid__ empty
+calflowintension_holiday_: "the "i constraint_calflowintension_holiday__ empty
+calflowintension_length_: "the "i constraint_calflowintension_length__ empty
+calflowintension_list_attendee__: "the "i constraint_calflowintension_list_attendee___ empty
+calflowintension_list_person__: "the "i constraint_calflowintension_list_person___ empty
+calflowintension_locationkeyphrase_: "the "i constraint_calflowintension_locationkeyphrase__ empty
+calflowintension_person_: "the "i constraint_calflowintension_person__ empty
+calflowintension_place_: "the "i constraint_calflowintension_place__ empty
+calflowintension_queryeventresponse_: "the "i constraint_calflowintension_queryeventresponse__ empty
+calflowintension_recipient_: "the "i constraint_calflowintension_recipient__ empty
+calflowintension_respondcomment_: respondcomment empty
+calflowintension_respondshouldsend_: respondshouldsend empty
+calflowintension_responsestatustype_: responsestatustype empty
+calflowintension_string_: "the "i constraint_calflowintension_string__ empty
+calflowintension_temperature_: "the "i constraint_calflowintension_temperature__ empty
+calflowintension_time_: "the "i constraint_calflowintension_time__ empty
+calflowintension_updateeventresponse_: "the "i constraint_calflowintension_updateeventresponse__ empty
+|"update to number "i number " from "i calflowintension_updateeventresponse_ empty
+calflowintension_weathertable_: "the "i constraint_calflowintension_weathertable__ empty
+calflowintension_weathertableplaces_: "the "i constraint_calflowintension_weathertableplaces__ empty
+clientcommand: "join "i eventid empty
+constraint_attendee_: constraint_attendee__constraint_attendee__args empty
+constraint_attendee__constraint_attendee__args: 
+|" with recipient set to "i constraint_recipient_ constraint_attendee__constraint_attendee__args empty
+constraint_boolean_: "not "i constraint_boolean_ empty
+|"(call AlwaysTrueConstraint[Boolean]"i ")"i empty
+|boolean empty
+|"thing"i empty
+constraint_calflowintension_constraint_date___: "(call ConstraintTypeIntension"i ")"i empty
+|constraint_calflowintension_constraint_date___ " and "i constraint_calflowintension_constraint_date___ empty
+|"date"i empty
+|list_path_ empty
+|path empty
+constraint_calflowintension_constraint_datetime___: "(call ConstraintTypeIntension"i ")"i empty
+|constraint_calflowintension_constraint_datetime___ " and "i constraint_calflowintension_constraint_datetime___ empty
+|list_path_ empty
+|path empty
+|"date time"i empty
+constraint_calflowintension_constraint_event___: "(call ConstraintTypeIntension"i ")"i empty
+|constraint_constraint_event__ empty
+|"event"i empty
+|"event query"i empty
+|"updated event"i empty
+constraint_calflowintension_constraint_list_attendee____: constraint_constraint_list_attendee___ empty
+constraint_calflowintension_constraint_locationkeyphrase___: constraint_constraint_locationkeyphrase__ empty
+constraint_calflowintension_constraint_point___: list_path_ empty
+|path empty
+constraint_calflowintension_constraint_recipient___: "(call ConstraintTypeIntension"i ")"i empty
+|"recipient constraint"i empty
+constraint_calflowintension_constraint_showasstatus___: constraint_constraint_showasstatus__ empty
+constraint_calflowintension_constraint_string___: constraint_constraint_string__ empty
+|list_path_ empty
+|path empty
+|constraint_calflowintension_constraint_string___ " and "i constraint_calflowintension_constraint_string___ empty
+constraint_calflowintension_constraint_time___: "(call ConstraintTypeIntension"i ")"i empty
+|list_path_ empty
+|constraint_calflowintension_constraint_time___ " and "i constraint_calflowintension_constraint_time___ empty
+|path empty
+|"time"i empty
+constraint_calflowintension_createcommitevent__: path " "i constraint_calflowintension_createcommitevent__ empty
+|list_path_ empty
+|path empty
+|constraint_createcommitevent_ empty
+|constraint_calflowintension_createcommitevent__ " and "i constraint_calflowintension_createcommitevent__ empty
+constraint_calflowintension_date__: constraint_date_ empty
+|list_path_ empty
+|path empty
+|path " "i constraint_calflowintension_date__ empty
+constraint_calflowintension_datetime__: list_path_ empty
+|path empty
+|"thing"i empty
+|path " "i constraint_calflowintension_datetime__ empty
+|constraint_calflowintension_datetime__ " and "i constraint_calflowintension_datetime__ empty
+|constraint_datetime_ empty
+constraint_calflowintension_duration__: constraint_duration_ empty
+constraint_calflowintension_dynamic__: list_path_ empty
+|path empty
+|"thing"i empty
+constraint_calflowintension_event__: constraint_event_ empty
+|"previous "i constraint_calflowintension_event__ empty
+|path " "i constraint_calflowintension_event__ empty
+|"thing"i empty
+|"next "i constraint_calflowintension_event__ empty
+constraint_calflowintension_eventid__: constraint_calflowintension_eventid__ " and "i constraint_calflowintension_eventid__ empty
+|list_path_ empty
+|constraint_eventid_ empty
+|path empty
+constraint_calflowintension_holiday__: constraint_holiday_ empty
+constraint_calflowintension_length__: constraint_length_ empty
+constraint_calflowintension_list_attendee___: constraint_list_attendee__ empty
+constraint_calflowintension_list_person___: "thing"i empty
+constraint_calflowintension_locationkeyphrase__: constraint_locationkeyphrase_ empty
+|list_path_ empty
+|path empty
+|path " "i constraint_calflowintension_locationkeyphrase__ empty
+constraint_calflowintension_number__: constraint_number_ empty
+constraint_calflowintension_person__: "thing"i empty
+constraint_calflowintension_place__: "next "i constraint_calflowintension_place__ empty
+|"thing"i empty
+|constraint_place_ empty
+constraint_calflowintension_queryeventresponse__: constraint_queryeventresponse_ empty
+constraint_calflowintension_recipient__: constraint_recipient_ empty
+|"thing"i empty
+constraint_calflowintension_respondcomment__: constraint_respondcomment_ empty
+constraint_calflowintension_respondshouldsend__: constraint_respondshouldsend_ empty
+constraint_calflowintension_responsestatustype__: constraint_responsestatustype_ empty
+constraint_calflowintension_string__: list_path_ empty
+|path empty
+constraint_calflowintension_temperature__: constraint_temperature_ empty
+constraint_calflowintension_time__: path " "i constraint_calflowintension_time__ empty
+|constraint_time_ empty
+constraint_calflowintension_updateeventresponse__: "thing"i empty
+constraint_calflowintension_weathertable__: constraint_weathertable_ empty
+|"thing"i empty
+constraint_calflowintension_weathertableplaces__: constraint_weathertableplaces_ empty
+constraint_constraint_date__: "date"i empty
+|"thing"i empty
+constraint_constraint_datetime__: "thing"i empty
+|"datetime"i empty
+constraint_constraint_event__: "thing"i empty
+|constraint_event_ empty
+|"event"i empty
+constraint_constraint_list_attendee___: "(call AlwaysTrueConstraint[Constraint[List[Attendee]]"i ")"i empty
+|constraint_list_attendee__ empty
+|"thing"i empty
+constraint_constraint_locationkeyphrase__: constraint_locationkeyphrase_ empty
+constraint_constraint_point__: "point"i empty
+|"thing"i empty
+constraint_constraint_recipient__: "recipient"i empty
+|"thing"i empty
+constraint_constraint_showasstatus__: constraint_showasstatus_ empty
+constraint_constraint_string__: constraint_string_ empty
+constraint_constraint_time__: "time"i empty
+|"thing"i empty
+constraint_createcommitevent_: "(call Constraint.apply"i " with "i "lambda set to "i lambda_createcommitevent_boolean_ ")"i empty
+|createcommitevent empty
+|"(call EmptyStructConstraint"i ")"i empty
+|"tentative event"i constraint_createcommitevent__constraint_createcommitevent__args empty
+constraint_createcommitevent__constraint_createcommitevent__args: 
+|" with data set to "i constraint_eventspec_ constraint_createcommitevent__constraint_createcommitevent__args empty
+constraint_date_: date " to "i date empty
+|"date"i empty
+|number empty
+|"next "i period empty
+|"last weekend of "i month empty
+|month empty
+|"that "i constraint_constraint_date__ empty
+|"week of "i date empty
+|"early "i constraint_date_ empty
+|"before "i date empty
+|"not "i constraint_date_ empty
+|date empty
+|"after "i date empty
+|"fall"i empty
+|constraint_date_ " and "i constraint_date_ empty
+|"thing"i empty
+|"(call EmptyStructConstraint"i ")"i empty
+|"last "i month empty
+|"spring"i empty
+|"summer"i empty
+|"(call Constraint.apply"i " with "i "lambda set to "i lambda_date_boolean_ ")"i empty
+|"next week"i empty
+|number " last week of "i month empty
+|constraint_date__constraint_date__args empty
+|"future"i empty
+|"this week"i empty
+|number " weekend of "i month empty
+|"unspecified"i empty
+|"date"i
+|"last week"i empty
+|number " week of "i month empty
+|"winter"i empty
+|"last month"i empty
+|"last "i period empty
+|"weekend of "i date empty
+|dayofweek " to "i dayofweek " of "i constraint_date_ empty
+|constraint_date_ " or "i constraint_date_ empty
+|"this weekend"i empty
+|month " "i number " to "i number empty
+|month " "i number empty
+|"next weekend"i empty
+|"late "i constraint_date_ empty
+constraint_date__constraint_date__args: 
+|"in month "i constraint_month_ constraint_date__constraint_date__args empty
+|constraint_dayofweek_ constraint_date__constraint_date__args empty
+|"in year "i constraint_number_ constraint_date__constraint_date__args empty
+|"on day "i constraint_number_ constraint_date__constraint_date__args empty
+constraint_datetime_: "datetime"i empty
+|date " "i constraint_time_ empty
+|"(call &"i " with "i "c1 set to "i constraint_datetime_ " and "i "c2 set to "i constraint_datetime_ ")"i empty
+|"before "i constraint_datetime_ empty
+|"next "i periodduration empty
+|"on "i date " after "i time empty
+|datetime empty
+|"before "i datetime empty
+|constraint_dayofweek_ " "i time empty
+|"thing"i empty
+|datetime " to "i datetime empty
+|"(call EmptyStructConstraint"i ")"i empty
+|"after "i datetime empty
+|"on "i date " before "i time empty
+|constraint_datetime_ " or "i constraint_datetime_ empty
+|constraint_datetime__constraint_datetime__args empty
+|"later"i empty
+|"(call Constraint.apply"i " with "i "lambda set to "i lambda_datetime_boolean_ ")"i empty
+|"no earlier than "i datetime empty
+|"that "i constraint_constraint_datetime__ empty
+|"no later than "i datetime empty
+|"last "i periodduration empty
+|constraint_datetime_ " and "i constraint_datetime_ empty
+|"after "i constraint_datetime_ empty
+|"between "i event " to "i event empty
+|"around "i datetime empty
+constraint_datetime__constraint_datetime__args: 
+|constraint_time_ constraint_datetime__constraint_datetime__args empty
+|constraint_date_ constraint_datetime__constraint_datetime__args empty
+constraint_dayofweek_: dayofweek empty
+|"before "i dayofweek empty
+|"(call AlwaysTrueConstraint[DayOfWeek]"i ")"i empty
+|"weekdays"i empty
+|"thing"i empty
+|"weekend"i empty
+|"not "i constraint_dayofweek_ empty
+constraint_duration_: "before "i duration empty
+|constraint_duration_ " and "i constraint_duration_ empty
+|"after "i duration empty
+|" longer than "i duration
+|"duration"i empty
+|"thing"i empty
+|" no shorter than "i duration
+|" no longer than "i duration
+|"no earlier than "i duration empty
+|" shorter than "i duration
+|duration empty
+constraint_dynamic_: "thing"i empty
+constraint_email_: constraint_email__constraint_email__args empty
+constraint_email__constraint_email__args: 
+|" with from set to "i constraint_recipient_ constraint_email__constraint_email__args empty
+|" with sentDateTime set to "i constraint_datetime_ constraint_email__constraint_email__args empty
+|" with toRecipients set to "i constraint_list_recipient__ constraint_email__constraint_email__args empty
+|" with body set to "i constraint_string_ constraint_email__constraint_email__args empty
+|" with ccRecipients set to "i constraint_list_recipient__ constraint_email__constraint_email__args empty
+|" with bccRecipients set to "i constraint_list_recipient__ constraint_email__constraint_email__args empty
+|" with subject set to "i constraint_string_ constraint_email__constraint_email__args empty
+constraint_event_: constraint_event_ " "i datetime empty
+|constraint_event_ " during "i constraint_datetime_ empty
+|constraint_event_ " "i date " after "i time empty
+|constraint_event_ " before "i datetime empty
+|constraint_event_ " rest of today"i empty
+|constraint_event_ " all day "i date " returning "i date empty
+|constraint_event_ " between "i event " and "i event empty
+|constraint_event_ " "i time empty
+|constraint_event_ " "i date " from "i time " to "i time empty
+|constraint_event_ " on "i date empty
+|constraint_event_ " "i constraint_time_ empty
+|constraint_event_ " all day starting "i date " for "i period empty
+|"(call Constraint.apply"i " with "i "lambda set to "i lambda_event_boolean_ ")"i empty
+|constraint_event_ " after "i datetime empty
+|"event"i constraint_event__constraint_event__args empty
+|constraint_event_ " sometime "i date empty
+|constraint_event_ " during "i constraint_time_ empty
+|"thing"i empty
+|"(call &"i " with "i "c1 set to "i constraint_event_ " and "i "c2 set to "i constraint_event_ ")"i empty
+|constraint_event_ " all day "i date empty
+|"(call EmptyStructConstraint"i ")"i empty
+|constraint_event_ " during "i constraint_date_ empty
+|non_empty_base_ " but"i constraint_event__constraint_event__args_a constraint_event__constraint_event__args_b
+|event empty
+|calflowintension_constraint_event__ empty
+|constraint_event_ " "i date " before "i time empty
+|constraint_event_ " rescheduled"i empty
+|constraint_event_ " set other organizer "i recipient empty
+|"that "i constraint_constraint_event__ empty
+|"event"i empty
+|constraint_event_ " on "i dynamic empty
+|constraint_event_ " all day for "i constraint_date_ empty
+|constraint_event_ " and "i constraint_event_ empty
+constraint_event__constraint_event__args: 
+|" "i "with isOneOnOne "i constraint_boolean_ constraint_event__constraint_event__args empty
+|" "i "ending "i constraint_datetime_ constraint_event__constraint_event__args empty
+|" "i "starting "i constraint_datetime_ constraint_event__constraint_event__args empty
+|" "i "for "i constraint_duration_ constraint_event__constraint_event__args empty
+|" "i "called "i constraint_string_ constraint_event__constraint_event__args empty
+|" "i "at "i constraint_locationkeyphrase_ constraint_event__constraint_event__args empty
+|" "i "with isCancelled "i constraint_boolean_ constraint_event__constraint_event__args empty
+|" "i "which is "i constraint_eventid_ constraint_event__constraint_event__args empty
+|" "i "with showAs "i constraint_showasstatus_ constraint_event__constraint_event__args empty
+|" "i "with isAllDay "i constraint_boolean_ constraint_event__constraint_event__args empty
+|" "i "with teamsMeetingLink "i constraint_string_ constraint_event__constraint_event__args empty
+|" with location unspecified"i constraint_event__constraint_event__args
+|" "i constraint_list_attendee__ constraint_event__constraint_event__args empty
+|" "i "with organizer "i constraint_recipient_ constraint_event__constraint_event__args empty
+|" "i "but otherwise the same as "i constraint_event_ constraint_event__constraint_event__args empty
+constraint_event__constraint_event__args_a: constraint_event__constraint_event__args
+constraint_event__constraint_event__args_b: constraint_event__constraint_event__args
+constraint_event_wo_type: constraint_event__constraint_event__args
+constraint_eventid_: "not "i constraint_eventid_ empty
+|eventid empty
+|"event id"i empty
+|"thing"i empty
+|"(call EmptyStructConstraint"i ")"i empty
+constraint_eventspec_: "(call Constraint.apply"i " with "i "lambda set to "i lambda_eventspec_boolean_ ")"i empty
+|"current event"i constraint_eventspec__constraint_eventspec__args empty
+|"(call &"i " with "i "c1 set to "i constraint_eventspec_ " and "i "c2 set to "i constraint_eventspec_ ")"i empty
+constraint_eventspec__constraint_eventspec__args: 
+|" with start set to "i constraint_datetime_ constraint_eventspec__constraint_eventspec__args empty
+constraint_fencescope_: "(call EmptyStructConstraint"i ")"i empty
+constraint_holiday_: "holiday"i empty
+|"thing"i empty
+constraint_length_: "length"i empty
+|"thing"i empty
+constraint_list_attendee__: "with "i personname empty
+|"attendees"i empty
+|"with "i constraint_recipient_ empty
+|list_attendee_ empty
+|"no attendees"i empty
+|"not "i constraint_list_attendee__ empty
+|"Change my request so the "i constraint_calflowintension_constraint_event___ " is an "i constraint_event_ empty
+|constraint_list_attendee__ " or "i constraint_list_attendee__ empty
+|constraint_list_attendee__ " of size "i constraint_number_ empty
+|constraint_list_attendee__ " and "i constraint_list_attendee__ empty
+|" with attendees"i
+|"thing"i empty
+|"with "i recipient empty
+|"unspecified"i empty
+|"that "i constraint_constraint_list_attendee___ empty
+|"includes any of "i list_person_ empty
+|"includes "i list_person_ empty
+|"without "i constraint_recipient_ empty
+constraint_list_event__: "list of events"i empty
+|"thing"i empty
+constraint_list_recipient__: "exists "i constraint_recipient_ empty
+constraint_locationkeyphrase_: "location"i empty
+|locationkeyphrase empty
+|"request a room"i empty
+|constraint_locationkeyphrase_ " and "i constraint_locationkeyphrase_ empty
+|"thing"i empty
+|"not "i constraint_locationkeyphrase_ empty
+|"unspecified"i empty
+constraint_month_: "month"i empty
+|month empty
+|"thing"i empty
+constraint_number_: number empty
+|"number"i empty
+|"thing"i empty
+constraint_person_: constraint_person_ " "i personname empty
+|"Change my request so the "i constraint_calflowintension_constraint_event___ " is an "i constraint_event_ empty
+|"Change my request so "i constraint_calflowintension_constraint_recipient___ " is "i constraint_recipient_ empty
+constraint_personname_: "person"i empty
+|"thing"i empty
+constraint_place_: "place"i constraint_place__constraint_place__args empty
+|place empty
+|"thing"i empty
+|"(call AlwaysTrueConstraint[Place]"i ")"i empty
+|"(call EmptyStructConstraint"i ")"i empty
+constraint_place__constraint_place__args: 
+|" with name set to "i constraint_string_ constraint_place__constraint_place__args empty
+constraint_placesearchresponse_: "place search"i empty
+constraint_pleasantrycalendar_: "(call EmptyStructConstraint"i ")"i empty
+constraint_point_: "at "i place empty
+|"that "i constraint_constraint_point__ empty
+constraint_queryeventresponse_: "(call EmptyStructConstraint"i ")"i empty
+constraint_recipient_: "person"i empty
+|"Change my request so the "i constraint_calflowintension_constraint_event___ " is an "i constraint_event_ empty
+|recipient empty
+|"that "i constraint_constraint_recipient__ empty
+|"recipient"i empty
+|"thing"i empty
+|"Change my request so "i constraint_calflowintension_constraint_recipient___ " is "i constraint_recipient_ empty
+|constraint_recipient_ " "i personname empty
+|"(call EmptyStructConstraint"i ")"i empty
+constraint_respondcomment_: "comment"i empty
+|"thing"i empty
+constraint_respondshouldsend_: "should send"i empty
+|"thing"i empty
+constraint_responsestatus_: constraint_responsestatus_ " and "i constraint_responsestatus_ empty
+|responsestatus empty
+constraint_responsestatustype_: "thing"i empty
+|"response"i empty
+constraint_showasstatus_: "not "i constraint_showasstatus_ empty
+|constraint_showasstatus_ " or "i constraint_showasstatus_ empty
+|"show as status"i empty
+|"thing"i empty
+|"unspecified"i empty
+|showasstatus empty
+constraint_string_: "not "i constraint_string_ empty
+|string empty
+|"text"i empty
+|"thing"i empty
+|"something like "i string empty
+|constraint_string_ " or "i constraint_string_ empty
+constraint_teamschat_: constraint_teamschat__constraint_teamschat__args empty
+constraint_teamschat__constraint_teamschat__args: 
+|" with body set to "i constraint_string_ constraint_teamschat__constraint_teamschat__args empty
+|" with toRecipients set to "i constraint_list_recipient__ constraint_teamschat__constraint_teamschat__args empty
+|" with toEventId set to "i constraint_eventid_ constraint_teamschat__constraint_teamschat__args empty
+constraint_temperature_: "temperature"i empty
+|"thing"i empty
+constraint_time_: "late"i empty
+|constraint_time_ " and "i constraint_time_ empty
+|"early morning"i empty
+|"after "i time empty
+|time " to "i time empty
+|"no earlier than "i time empty
+|time empty
+|"afternoon"i empty
+|"thing"i empty
+|"no later than "i time empty
+|"in late morning"i empty
+|"(call EmptyStructConstraint"i ")"i empty
+|"evening"i empty
+|"late afternoon"i empty
+|"late "i constraint_time_ empty
+|"time"i empty
+|"around "i time empty
+|"morning"i empty
+|"before "i time empty
+|"that "i constraint_constraint_time__ empty
+|"early "i constraint_time_ empty
+|"night"i empty
+constraint_weathertable_: "weather report"i empty
+|"thing"i empty
+constraint_weathertableplaces_: "(call EmptyStructConstraint"i ")"i empty
+createcommitevent: "(call arg"i ")"i empty
+|constraint_list_attendee__ " and then "i createcommitevent empty
+|"create "i constraint_event_ empty
+|calflowintension_createcommitevent_ empty
+createeventresponse: createcommitevent empty
+|calflowintension_createeventresponse_ empty
+date: calflowintension_date_ empty
+|dayofweek " before "i date empty
+|"closest "i number " to "i date empty
+|holiday " "i number empty
+|"today"i empty
+|dayofweek " after "i date empty
+|"next "i holiday empty
+|"date of "i datetime empty
+|"closest "i month " "i number " to "i date empty
+|month " "i number " "i number empty
+|"yesterday"i empty
+|number " after "i date empty
+|month " "i number " before "i date empty
+|"last day of "i month empty
+|month " "i number " after "i date empty
+|"closest "i dayofweek " to "i date empty
+|"next "i dayofweek empty
+|period " after "i dynamic empty
+|"tomorrow"i empty
+|holiday " after "i date empty
+|"(call arg"i ")"i empty
+|"that "i constraint_date_ empty
+|period " before "i date empty
+|holiday " before "i date empty
+|number " before "i date empty
+|period " after "i date empty
+|dayofweek " of "i constraint_date_ empty
+|month " "i number empty
+datetime: calflowintension_datetime_ empty
+|"start time of "i event empty
+|date " "i time empty
+|"next "i time empty
+|periodduration " after "i datetime empty
+|"(call arg"i ")"i empty
+|time " after "i datetime empty
+|weatherquantifier " "i lambda_weathertable_datetime_ " for "i weathertable empty
+|"start of "i eventspec empty
+|time " before "i datetime empty
+|"now"i empty
+|"that "i constraint_datetime_ empty
+|"end of "i event empty
+|periodduration " before "i datetime empty
+dayofweek: "Friday"i
+|"Monday"i
+|"dayOfWeek of "i date empty
+|"Saturday"i
+|"Thursday"i
+|"that "i constraint_dayofweek_ empty
+|"Wednesday"i
+|"Sunday"i
+|"Tuesday"i
+deletecommitevent: "delete "i eventid empty
+deleteeventresponse: calflowintension_deleteeventresponse_ empty
+|deletecommitevent empty
+|"delete "i event empty
+dimensionless: weatherquantifier " "i lambda_weathertable_dimensionless_ " for "i weathertable empty
+duration: duration " plus "i duration empty
+|number " hours"i empty
+|number " minutes"i empty
+|"(call defaulted_"i ")"i empty
+|duration " minus "i duration empty
+|duration " longer"i
+|calflowintension_duration_ empty
+|number " seconds"i empty
+|"duration of "i event empty
+|"that "i constraint_duration_ empty
+dynamic: "that thing"i
+|"Change my request so "i constraint_calflowintension_responsestatustype__ " is "i responsestatustype empty
+|"Change my request so "i constraint_calflowintension_number__ " is "i number empty
+|"Change my request so "i constraint_calflowintension_eventid__ " is "i eventid empty
+|calflowintension_dynamic_ empty
+|"Change my request so "i constraint_calflowintension_constraint_date___ " is "i constraint_date_ empty
+|"Change my request so the "i constraint_calflowintension_constraint_event___ " is an "i constraint_event_ empty
+|"Change my request so "i constraint_calflowintension_recipient__ " is "i recipient empty
+|"Change my request so "i constraint_calflowintension_constraint_locationkeyphrase___ " is "i constraint_locationkeyphrase_ empty
+|"that "i constraint_dynamic_ empty
+|"Yes, update it to the "i constraint_event_ empty
+|"Change my request so "i constraint_calflowintension_constraint_event___ " is "i constraint_event_ empty
+|"Change my request so "i constraint_calflowintension_locationkeyphrase__ " is "i locationkeyphrase empty
+|"Change my request so "i constraint_calflowintension_constraint_string___ " is "i constraint_string_ empty
+|"Yes, create the "i number " one"i empty
+|"Change my request so the "i constraint_calflowintension_constraint_event___ " is"i constraint_event_wo_type
+|"Change my request so "i constraint_calflowintension_constraint_recipient___ " is "i constraint_recipient_ empty
+|"Change my request so "i constraint_calflowintension_respondcomment__ " is "i respondcomment empty
+|"Change my request so "i constraint_calflowintension_respondshouldsend__ " is "i respondshouldsend empty
+|"Change my request so "i constraint_calflowintension_constraint_point___ " is "i constraint_point_ empty
+|"Change my request so "i constraint_calflowintension_constraint_showasstatus___ " is "i constraint_showasstatus_ empty
+|"Yes, the one with "i constraint_recipient_ empty
+|"Change my request so "i constraint_calflowintension_datetime__ " is "i datetime empty
+|"Change my request so "i constraint_calflowintension_constraint_time___ " is "i constraint_time_ empty
+|"Change my request so "i constraint_calflowintension_time__ " is "i time empty
+|"Change my request so "i constraint_calflowintension_date__ " is "i date empty
+|"Change my request so "i constraint_calflowintension_constraint_datetime___ " is "i constraint_datetime_ empty
+|"Yes, update it to the "i number " one"i empty
+|"Change my request so "i constraint_calflowintension_constraint_list_attendee____ " is "i constraint_list_attendee__ empty
+|"Yes, create the "i constraint_event_ empty
+empty: 
+event: "that "i constraint_event_ empty
+|"(call arg"i ")"i empty
+|calflowintension_event_ empty
+|"item of "i dynamic empty
+|"find last "i constraint_event_ empty
+|"the "i number " "i constraint_event_ empty
+|list_event_ empty
+eventcandidateswithandwithoutconflicts: "check availability for "i constraint_event_ " including myself "i boolean empty
+eventid: event empty
+|"that "i constraint_eventid_ empty
+|calflowintension_eventid_ empty
+eventspec: "data of "i createcommitevent empty
+|"(call arg"i ")"i empty
+holiday: holiday_entity
+|calflowintension_holiday_ empty
+holiday_entity: "Christmas"i
+|"Groundhog Day"i
+|"Patriot Day"i
+|"Easter"i
+|"Tax Day"i
+|"Presidents Day"i
+|"Thanksgiving"i
+|"Black Friday"i
+|"Sukkot"i
+|"Fathers Day"i
+|"New Years Day"i
+|"Pesach"i
+|"Mardi Gras"i
+|"Labor Day"i
+|"St Patricks Day"i
+|"Palm Sunday"i
+|"Ash Wednesday"i
+|"Shavuot"i
+|"Hanukkah"i
+|"Kwanzaa"i
+|"Veterans Day"i
+|"Tisha Bav"i
+|"Simchat Torah"i
+|"Columbus Day"i
+|"Yom Kippur"i
+|"Christmas Eve"i
+|"Halloween"i
+|"April Fools Day"i
+|"Memorial Day"i
+|"Independence Day"i
+|"Purim"i
+|"Shemini Atzeret"i
+|"Rosh Hashanah"i
+|"Valentines Day"i
+|"Earth Day"i
+|"Easter Monday"i
+|"Mothers Day"i
+|"Good Friday"i
+|"Election Day"i
+|"Flag Day"i
+|"New Years Eve"i
+|"MLK Day"i
+lambda_createcommitevent_boolean_: "(call Lambda.construct"i " with "i "arg0 set to "i createcommitevent " and "i "body set to "i boolean ")"i empty
+lambda_date_boolean_: "(call Lambda.construct"i " with "i "arg0 set to "i date " and "i "body set to "i boolean ")"i empty
+lambda_datetime_boolean_: "(call Lambda.construct"i " with "i "arg0 set to "i datetime " and "i "body set to "i boolean ")"i empty
+lambda_event_boolean_: "(call Lambda.construct"i " with "i "arg0 set to "i event " and "i "body set to "i boolean ")"i empty
+lambda_eventspec_boolean_: "(call Lambda.construct"i " with "i "arg0 set to "i eventspec " and "i "body set to "i boolean ")"i empty
+lambda_weathertable_angle_: "wind direction"i
+lambda_weathertable_datetime_: "sunset time"i
+|"sunrise time"i
+lambda_weathertable_dimensionless_: "chance of precipitation"i
+|"chance of snow"i
+|"cloud cover"i
+|"humidity"i
+|"chance of rain"i
+lambda_weathertable_length_: "visibility"i
+|"total amount of snow"i
+lambda_weathertable_number_: "UV index"i
+lambda_weathertable_pressure_: "pressure"i
+lambda_weathertable_temperature_: "apparent temperature"i
+|"dew point"i
+|"temperature"i
+lambda_weathertable_velocity_: "amount of snow"i
+|"amount of rain"i
+|"wind speed"i
+length: length " in inches"i empty
+|weatherquantifier " "i lambda_weathertable_length_ " for "i weathertable empty
+|calflowintension_length_ empty
+list_attendee_: list_attendee_ " who have not "i responsestatustype empty
+|list_attendee_ " who have "i responsestatustype empty
+|"attendees of "i event empty
+|calflowintension_list_attendee__ empty
+|"attendees of "i eventspec empty
+list_datetime_: weatherquantifier " "i lambda_weathertable_dimensionless_ " of "i weathertable empty
+|weatherquantifier " "i lambda_weathertable_velocity_ " of "i weathertable empty
+|weatherquantifier " "i lambda_weathertable_temperature_ " of "i weathertable empty
+list_event_: "last "i number " items of "i list_event_ empty
+|queryeventresponse empty
+|"that "i constraint_list_event__ empty
+|"first "i number " items of "i list_event_ empty
+list_openperiod_: "hours of "i place empty
+list_path_: path " appended to "i list_path_ empty
+|path
+|"(empty list)"i
+list_person_: "find team of "i recipient empty
+|calflowintension_list_person__ empty
+|"find reports of "i recipient empty
+list_place_: placesearchresponse empty
+list_recipient_: "empty list"i empty
+|"(empty recipient list)"i
+|recipient
+|recipient " appended to "i list_recipient_ empty
+locationkeyphrase: "(call LocationKeyphrase.apply"i " with "i "inner set to "i string ")"i empty
+|quoted
+|calflowintension_locationkeyphrase_ empty
+|"location of "i event empty
+|"that "i constraint_locationkeyphrase_ empty
+money: "price of "i place empty
+month: "month "i number empty
+|"next month"i empty
+|"January"i
+|"November"i
+|"December"i
+|"June"i
+|"May"i
+|"month of "i date empty
+|"April"i
+|"October"i
+|"July"i
+|"that "i constraint_month_ empty
+|"August"i
+|"February"i
+|"September"i
+|"March"i
+non_empty_base_: constraint_event_
+nonquoteplus: /[^"]/ nonquotestar
+nonquotestar: /[^"]/ nonquotestar
+|empty
+number: "day of "i date empty
+|"ninth"i
+|weatherquantifier " "i lambda_weathertable_number_ " for "i weathertable empty
+|"(call NumberOrdinal"i " with "i "number set to "i number ")"i empty
+|"a couple"i empty
+|"year of "i date empty
+|"first"i
+|"sixth"i
+|"last year"i empty
+|"year "i number empty
+|"latest"i empty
+|"size of "i list_person_ empty
+|"fourth"i
+|"second"i
+|"size of "i list_attendee_ empty
+|"a few"i empty
+|"third"i
+|number_entity
+|"size of "i list_event_ empty
+|"seventh"i
+|"eighth"i
+|"rating of "i place empty
+|"earliest"i empty
+|"top"i empty
+|"fifth"i
+|"tenth"i
+|"next year"i empty
+|number " minus "i number empty
+|"bottom"i empty
+|number " plus "i number empty
+number_entity: "42"i
+|"5.5"i
+|"46"i
+|"6.5"i
+|"90"i
+|"26"i
+|"1.5"i
+|"45"i
+|"19"i
+|"21"i
+|"28"i
+|"3"i
+|"2019"i
+|"8.5"i
+|"39"i
+|"24"i
+|"3.5"i
+|"54"i
+|"13"i
+|"48"i
+|"2030"i
+|"33"i
+|"22"i
+|"9"i
+|"31"i
+|"36"i
+|"12"i
+|"17"i
+|"50"i
+|"38"i
+|"2"i
+|"34"i
+|"9.5"i
+|"32"i
+|"4"i
+|"7.5"i
+|"47"i
+|"15"i
+|"40"i
+|"2023"i
+|"56"i
+|"2022"i
+|"25"i
+|"23"i
+|"53"i
+|"0.5"i
+|"10"i
+|"2018"i
+|"29"i
+|"44"i
+|"27"i
+|"55"i
+|"58"i
+|"20"i
+|"5"i
+|"2024"i
+|"1"i
+|"57"i
+|"52"i
+|"2020"i
+|"60"i
+|"43"i
+|"51"i
+|"14"i
+|"41"i
+|"37"i
+|"7"i
+|"16"i
+|"2.5"i
+|"30"i
+|"49"i
+|"0"i
+|"11"i
+|"2021"i
+|"18"i
+|"35"i
+|"8"i
+|"6"i
+|"4.5"i
+|"59"i
+option_datetime_: "(call defaulted_"i ")"i empty
+option_event_: "(call Some"i " with "i "x set to "i event ")"i empty
+option_number_: "(call Some"i " with "i "x set to "i number ")"i empty
+|"(call defaulted_"i ")"i empty
+option_respondcomment_: "(call Some"i " with "i "x set to "i respondcomment ")"i empty
+|"(call defaulted_"i ")"i empty
+option_respondshouldsend_: "(call Some"i " with "i "x set to "i respondshouldsend ")"i empty
+|"(call defaulted_"i ")"i empty
+option_responsestatustype_: "(call Some"i " with "i "x set to "i responsestatustype ")"i empty
+path: quoted
+|number " to path"i empty
+|"(call Path.apply"i " with "i "inner set to "i string ")"i empty
+period: number " weeks"i empty
+|period " plus "i period empty
+|"(call defaulted_"i ")"i empty
+|number " days"i empty
+|number " years"i empty
+|number " months"i empty
+periodduration: periodduration " plus "i periodduration empty
+|period " "i duration empty
+|"time since "i event empty
+|period empty
+|duration empty
+|"(call PeriodDuration.apply"i " with "i "period set to "i period " and "i "duration set to "i duration ")"i empty
+person: calflowintension_person_ empty
+|"me"i empty
+|recipient empty
+personname: quoted
+|"that "i constraint_personname_ empty
+|"(call PersonName.apply"i " with "i "name set to "i string ")"i empty
+place: locationkeyphrase empty
+|"my location"i empty
+|"where is "i place empty
+|"that "i constraint_place_ empty
+|calflowintension_place_ empty
+|list_place_ empty
+place_feature_entity: "waiter service"i
+|"full bar"i
+|"good for groups"i
+|"outdoor dining"i
+|"takeout"i
+|"family friendly"i
+|"casual"i
+|"happy hour"i
+placefeature: place_feature_entity
+placesearchresponse: locationkeyphrase empty
+|locationkeyphrase " near "i constraint_point_ empty
+pressure: weatherquantifier " "i lambda_weathertable_pressure_ " for "i weathertable empty
+queryeventresponse: calflowintension_queryeventresponse_ empty
+|"find "i constraint_event_ empty
+|"Change my request so the "i constraint_calflowintension_constraint_event___ " is an "i constraint_event_ empty
+quoted: "\""i / / nonquoteplus "\""i
+recipient: "organizer of "i event empty
+|"that "i constraint_recipient_ empty
+|person empty
+|calflowintension_recipient_ empty
+|constraint_recipient_ empty
+|"manager of "i recipient empty
+|personname empty
+respondcomment: quoted
+|"(call RespondComment.apply"i " with "i "inner set to "i string ")"i empty
+respondshouldsend: "(call RespondShouldSend.apply"i " with "i "inner set to "i boolean ")"i empty
+|"should send a response"i
+|"should not send a response"i
+response_entity: "None"i
+|"UnexpectedValue"i
+|"TentativelyAccepted"i
+|"Accepted"i
+|"Declined"i
+|"Organizer"i
+|"NotResponded"i
+responsestatus: "response status of "i attendee empty
+|"my response status of "i event empty
+responsestatustype: response_entity
+|responsestatus empty
+showasstatus: "working elsewhere"i
+|"unknown"i
+|"tentative"i
+|"out of office"i
+|"showAs of "i event empty
+|"free"i
+|"busy"i
+start: " "i unit
+string: "url of "i place empty
+|calflowintension_string_ empty
+|"formattedAddress of "i place empty
+|"subject of "i event empty
+|"that "i constraint_string_ empty
+|quoted
+|"emailAddress of "i person empty
+|"phoneNumber of "i person empty
+|"phoneNumber of "i place empty
+|"officeLocation of "i person empty
+temperature: number " fahrenheit"i empty
+|temperature " in Celsius"i empty
+|calflowintension_temperature_ empty
+|number " degrees"i empty
+|temperature " in Fahrenheit"i empty
+|weatherquantifier " "i lambda_weathertable_temperature_ " for "i weathertable empty
+time: number ":"i number " pm"i empty
+|number ":"i number " am"i empty
+|duration " after "i time empty
+|"brunch"i empty
+|"breakfast"i empty
+|time " changed to PM"i empty
+|time " changed to AM"i empty
+|number ":"i number " military"i empty
+|"at midnight"i empty
+|number " AM"i empty
+|"end of work day"i empty
+|"at noon"i empty
+|"that "i constraint_time_ empty
+|"time of "i datetime empty
+|"dinner"i empty
+|number " PM"i empty
+|number " military"i empty
+|"lunch"i empty
+|calflowintension_time_ empty
+unit: money empty
+|constraint_person_ empty
+|personname " and then "i unit empty
+|constraint_date_ " and then "i unit empty
+|"ERROR: question about directions"i empty
+|queryeventresponse " and then "i unit empty
+|"ERROR: can't answer trivia"i empty
+|calflowintension_constraint_event__ " and then "i unit empty
+|path " and then "i unit empty
+|time empty
+|date empty
+|"I need help with my calendar"i empty
+|updateeventresponse " and then "i unit empty
+|pressure empty
+|"ERROR: out of scope "i empty
+|createcommitevent empty
+|"do not confirm"i empty
+|boolean empty
+|string " and then "i unit empty
+|list_place_ " and then "i unit empty
+|string empty
+|recipient empty
+|deletecommitevent " and then "i unit empty
+|"ERROR: can't do a calculation"i empty
+|queryeventresponse empty
+|dynamic " and then "i unit empty
+|dayofweek empty
+|person empty
+|weathertable empty
+|"I have a question about weather"i empty
+|"repeatagent"i empty
+|updateeventresponse empty
+|person " and then "i unit empty
+|updatecommitevent empty
+|responsestatus empty
+|showasstatus empty
+|temperature empty
+|createeventresponse empty
+|place empty
+|weathertable " and then "i unit empty
+|"ERROR: Can't find a conference room"i empty
+|unit " and then "i unit empty
+|datetime " and then "i unit empty
+|deletecommitevent empty
+|weathertableplaces empty
+|event " and then "i unit empty
+|length empty
+|constraint_recipient_ empty
+|"ERROR: question about qeather"i empty
+|calflowintension_dynamic_ " and then "i unit empty
+|"ERROR: can't schedule a recurring event"i empty
+|eventid empty
+|constraint_datetime_ " and then "i unit empty
+|list_person_ " and then "i unit empty
+|constraint_showasstatus_ " and then "i unit empty
+|recipient " and then "i unit empty
+|constraint_list_attendee__ empty
+|constraint_event_ " and then "i unit empty
+|attendanceresponse empty
+|constraint_responsestatus_ empty
+|angle empty
+|periodduration empty
+|constraint_event_ empty
+|"cancel screen"i empty
+|"ERROR: can't set reminders"i empty
+|clientcommand empty
+|"ERROR: Can't make comparisons"i empty
+|"agent here"i empty
+|"ERROR: can't operate on teams"i empty
+|datetime empty
+|list_datetime_ empty
+|"ERROR: not enough information"i empty
+|dimensionless empty
+|list_event_ empty
+|duration " and then "i unit empty
+|duration empty
+|constraint_boolean_ empty
+|list_openperiod_ empty
+|"forward "i event " to "i list_recipient_ empty
+|deleteeventresponse empty
+|event empty
+|list_person_ empty
+|createeventresponse " and then "i unit empty
+|eventid " and then "i unit empty
+|locationkeyphrase empty
+|"Hello! How are you?"i empty
+|placesearchresponse empty
+|"ERROR: switch tabs"i empty
+|date " and then "i unit empty
+|"ERROR: must reference person by name"i empty
+|time " and then "i unit empty
+|"Thanks for your help!"i empty
+|list_place_ empty
+|calflowintension_weathertable_ " and then "i unit empty
+|unit empty
+|number empty
+|"Yes, do the "i number " one"i
+|list_attendee_ empty
+|velocity empty
+|eventcandidateswithandwithoutconflicts empty
+|"ERROR: multiple requests"i empty
+|"ERROR: can't support conditionals"i empty
+|responsestatustype empty
+|constraint_list_attendee__ " and then "i unit empty
+|velocity " and then "i unit empty
+|updatecommitevent " and then "i unit empty
+|"ERROR: unsupported datetime"i empty
+|"ERROR: question about a person"i empty
+|constraint_recipient_ " and then "i unit empty
+|placesearchresponse " and then "i unit empty
+|"ERROR: gibberish"i empty
+|place " and then "i unit empty
+|"ERROR: unsupported feature"i empty
+|"pause"i empty
+|"ERROR: question about a place"i empty
+|dynamic empty
+updatecommitevent: "update "i eventid " so it is"i constraint_event_wo_type
+|"update "i eventid " so it is an "i constraint_event_ empty
+updateeventresponse: calflowintension_updateeventresponse_ empty
+|"update "i event " so it is an "i constraint_event_ empty
+|updatecommitevent empty
+|"update "i event " so it is"i constraint_event_wo_type
+velocity: velocity " in mph"i empty
+|weatherquantifier " "i lambda_weathertable_velocity_ " for "i weathertable empty
+weather_quantifier_entity: "max"i
+|"sum"i
+|"min"i
+|"summarize"i
+|"average"i
+weatherquantifier: weather_quantifier_entity
+weathertable: "weather for "i event empty
+|"that "i constraint_weathertable_ empty
+|"weather "i constraint_point_ " "i constraint_datetime_ empty
+|calflowintension_weathertable_ empty
+weathertableplaces: calflowintension_weathertableplaces_ empty
+
