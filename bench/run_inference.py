@@ -5,6 +5,7 @@ from genparse.experimental.batch_inference import (
 )
 import multiprocessing as mp
 import vllm
+from tqdm import tqdm
 
 
 def get_n_processes(particles, n_processes):
@@ -64,6 +65,7 @@ def run_smc_inference(
     max_tokens=1000,
     proposal='character',
     proposal_args={},
+    verbosity=0,
 ):
     proposal_cache = ProposalCache(
         guide_cache_path='guide_cache.pkl', maxsize=max_size, max_mem_usage=max_mem_usage
@@ -87,14 +89,19 @@ def run_smc_inference(
     )
 
     return [
-        run_smc(step_model, prompt, n_particles, ess_threshold) for prompt in prompt_list
+        run_smc(step_model, prompt, n_particles, ess_threshold, verbosity=verbosity)
+        for prompt in tqdm(prompt_list)
     ]
 
 
-def run_smc(model, prompt, n_particles=10, ess_threshold=0.5):
+def run_smc(model, prompt, n_particles=10, ess_threshold=0.5, verbosity=0):
     model.set_prompt(prompt)
     particles = smc(
-        model, ess_threshold=ess_threshold, n_particles=n_particles, return_record=True
+        model,
+        ess_threshold=ess_threshold,
+        n_particles=n_particles,
+        return_record=True,
+        verbosity=verbosity,
     )
     generations = [
         ''.join(p['context'][:-1]) for p in particles.record['history'][-1]['particles']
