@@ -89,7 +89,7 @@ impl Earley {
 
         let mut queue: PriorityQueue<(u32, u32), i64> = PriorityQueue::new();
 
-        let token_symbol = Terminal(token.to_string());
+        let token_symbol = Terminal(token.to_string()); // todo: inefficient; look into borrow<T>
         if prev_col_read.waiting_for.contains_key(&token_symbol) {
             for item in prev_col_read.waiting_for[&token_symbol].iter() {
                 let (i, x, ys) = item;
@@ -249,6 +249,10 @@ impl Earley {
             None => 0.0,
             Some(val) => *val,
         }
+    }
+
+    fn clear_cache(&mut self) {
+        self._chart.clear();
     }
 }
 

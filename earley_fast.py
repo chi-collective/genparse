@@ -98,47 +98,8 @@ class Earley:
             empty_weight,
         )
 
+    def __call__(self, x):
+        return self.impl.compute_weight(tuple(x))
 
-def test_cycles():
-    cfg = CFG.from_string(
-        """
-        0.5: S → A1
-        0.5: S → A2
-
-        0.5: A1 → B1
-        0.5: B1 → C1
-        0.5: C1 → A1
-
-        0.5: A2 → B2
-        0.5: B2 → C2
-        0.5: C2 → A2
-
-        1.0: C1 → C
-        1.0: C2 → C
-
-        0.5: C → c
-
-        """,
-        Float,
-    )
-    earley = Earley(cfg)
-    print(earley.impl.compute_weight(tuple('c')))
-
-
-def test_papa():
-    from tests import examples
-
-    cfg = examples.papa
-
-    earley = Earley(cfg)
-
-    x = 'papa ate the caviar'.split()
-    want = cfg(x)
-    have = earley.impl.compute_weight(x)
-    print(want)
-    print(have)
-
-
-if __name__ == '__main__':
-    test_cycles()
-    test_papa()
+    def clear_cache(self):
+        self.impl.clear_cache()
