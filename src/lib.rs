@@ -262,10 +262,9 @@ fn genpa_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Symbol, Earley, Column, RHS};
+    use crate::{Symbol, Earley, RHS};
     use std::collections::{HashMap};
-    use std::sync::{Arc, RwLock};
-    use crate::Symbol::Terminal;
+    use approx::assert_relative_eq;
 
     #[test]
     fn test_simple() {
@@ -324,17 +323,9 @@ mod tests {
         );
 
         // Print to verify
-        println!("{:?}", earley);
+        // println!("{:?}", earley);
         let test_input = vec![String::from("c")];
         let weight = earley.compute_weight(test_input);
-        dbg!(weight);
-    }
-
-    #[test]
-    fn test_contains_key() {
-        let mut waiting_for: HashMap<Symbol, Vec<(u32, u32, u32)>> = HashMap::new();
-        waiting_for.insert(Symbol::Terminal(String::from("c")), vec![(3, 3, 3)]);
-        let key = String::from("c");
-        assert!(waiting_for.contains_key(&Terminal(key)));
+        assert_relative_eq!(weight, 0.14285714285714285, epsilon = f64::EPSILON);
     }
 }

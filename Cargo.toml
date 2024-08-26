@@ -12,3 +12,4 @@ path = "src/lib.rs"
 [dependencies]
 pyo3 = "0.22.0"
 priority-queue = "2.0"
+approx = "0.5.1"
