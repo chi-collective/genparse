@@ -438,7 +438,45 @@ function showData(data, options = {}) {
           .attr("opacity", 0.3)
           .attr("marker-end", "url(#arrow)");
       }
+
     });
+
+    // Add one more step to show resampling
+    if (t === history.length - 1) {
+      const next_step_y = (t + 1) * (collapsed ? 2 * y_offset : particle_yspace * num_particles + y_offset);
+      
+      step.particles.forEach((particle, i) => {
+        const current_location = {
+          x: x_offset + i * particle_xspace,
+          y: y_offset + (collapsed ? 0 : i * particle_yspace) + t * (collapsed ? 2 * y_offset : particle_yspace * num_particles + y_offset),
+        };
+        
+        // Draw a link for each child of the current particle
+        particle.children.forEach(childIndex => {
+          const placeholder_location = {
+            x: x_offset + childIndex * particle_xspace,
+            y: y_offset + (collapsed ? 0 : childIndex * particle_yspace) + next_step_y,
+          };
+          
+          pathGroup
+            .append("path")
+            .attr(
+              "d", link({
+                source: current_location,
+                target: {
+                  x: placeholder_location.x,
+                  y: placeholder_location.y - stroke_width * arrow_width,
+                }})
+            )
+            .attr("id", `link-placeholder-${i}-${childIndex}`)
+            .attr("fill", "none")
+            .attr("stroke-width", stroke_width)
+            .attr("stroke", color_scale(i))
+            .attr("opacity", 0.3)
+            .attr("marker-end", "url(#arrow)");
+        });
+      });
+    }
   });
 
   pathGroup.lower();
