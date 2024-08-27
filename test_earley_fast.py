@@ -3,7 +3,7 @@ from arsenal import colors
 
 from tests import examples
 from genparse import add_EOS, EOS, CFG
-from earley_fast import Earley
+from earley_fast import Earley, EarleyLM
 from genparse.semiring import Float
 
 
@@ -258,6 +258,27 @@ def test_parse_ambiguous_real():
     assert_equal(earley('a'), 0.5)
     assert_equal(earley('a+a'), 0.1)
     assert_equal(earley('a+a+a'), 0.04)
+
+
+def test_papa_lm():
+    cfg = examples.papa
+
+    earley = EarleyLM(cfg)
+
+    x = 'papa ate the caviar'.split()
+    want = cfg(x)
+    have = earley(x + [EOS])
+    assert cfg.R.metric(have, want) <= 1e-10
+
+    x = 'papa ate the caviar with the spoon'.split()
+    want = cfg(x)
+    have = earley(x + [EOS])
+    assert cfg.R.metric(have, want) <= 1e-10
+
+    x = 'papa ate'.split()
+    want = cfg(x)
+    have = earley(x + [EOS])
+    assert cfg.R.metric(have, want) <= 1e-10
 
 
 if __name__ == '__main__':

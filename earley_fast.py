@@ -15,6 +15,22 @@ from genparse import Float
 from genpa_rs import Earley as _Earley
 
 
+class EarleyLM(LM):
+    def __init__(self, cfg):
+        if EOS not in cfg.V:
+            cfg = add_EOS(cfg)
+        self.cfg = cfg
+        self.model = Earley(cfg.prefix_grammar)
+        super().__init__(V=cfg.V, eos=EOS)
+
+    def p_next(self, context):
+        assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
+        return Float.chart(self.model.next_token_weights(context)).normalize()
+
+    def clear_cache(self):
+        self.model.clear_cache()
+
+
 class Earley:
     """
     Implements a semiring-weighted version Earley's algorithm that runs in $\mathcal{O}(N^3|G|)$ time.
@@ -95,11 +111,15 @@ class Earley:
             self.first_Ys,
             self.rest_Ys,
             self.unit_Ys,
+            self.cfg.V,
             empty_weight,
         )
 
     def __call__(self, x):
         return self.impl.compute_weight(tuple(x))
+
+    def next_token_weights(self, x):
+        return self.impl.p_next(tuple(x))
 
     def clear_cache(self):
         self.impl.clear_cache()

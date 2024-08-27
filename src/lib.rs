@@ -33,6 +33,25 @@ impl Column {
     }
 }
 
+#[derive(Debug)]
+struct Node {
+    node: (u32, u32),
+    edges: Option<Vec<(u32, u32, u32)>>,
+    value: f64,
+    cursor: usize,
+}
+
+impl Node {
+    fn new(node: (u32, u32)) -> Self {
+        Self {
+            node,
+            edges: None,
+            value: 0.0,
+            cursor: 0,
+        }
+    }
+}
+
 
 #[derive(Debug)]
 #[pyclass]
@@ -45,9 +64,10 @@ struct Earley {
     first_ys: Vec<Symbol>,
     rest_ys: Vec<u32>,
     unit_ys: Vec<bool>,
+    vocab: HashSet<String>,
     initial_column: Arc<RwLock<Column>>,
     empty_weight: f64, // sum(r.w for r in self.cfg.rhs[self.cfg.S] if r.body == ())
-    _chart: HashMap<Box<[String]>, Vec<Arc<RwLock<Column>>>>,
+    _chart: HashMap<Box<[String]>, Vec<Arc<RwLock<Column>>>>, // make sure to call ensure_chart before accessing
 }
 
 impl Earley {
@@ -56,9 +76,7 @@ impl Earley {
         // chart(self, x), but doesnt return the chart itself.
         // otherwise, the chart will have the same lifetime as self, which will trigger
         // a borrow-checker error.
-        // let boxed_input: Box<[String]> = input.into();
-        let c = self._chart.get(input);
-        if c.is_none() {
+        if ! self._chart.contains_key(input) {
             let new_chart = self.compute_chart(input);
             self._chart.insert(input.clone(), new_chart);
         }
@@ -193,6 +211,90 @@ impl Earley {
             }
         }
     }
+
+    fn is_terminal(&self, x: &String) -> bool {
+        self.vocab.contains(x)
+    }
+
+    fn next_token_weights(&self, cols: &Vec<Arc<RwLock<Column>>>) -> HashMap<String, f64> {
+        let mut q: HashMap<(u32, u32), f64> = HashMap::new();
+        q.insert((0, self.start), 1.0);
+
+        let col = cols.last().unwrap().read().unwrap();
+
+        let mut p: HashMap<String, f64> = HashMap::new();
+        for y in col.waiting_for.keys() {
+            match y {
+                Terminal(x) => { if !self.is_terminal(x) { continue; } }
+                Nonterminal(_) => continue,
+            }
+            let x = match y {
+                Terminal(x) => { if self.is_terminal(x) { x } else { continue; } }
+                Nonterminal(_) => continue,
+            };
+            let mut total = 0.0;
+            for &(i, x, ys) in &col.waiting_for[y] {
+                if self.unit_ys[ys as usize] {
+                    let node = (i, x);
+                    let value = self.next_token_weights_helper(node, cols, &mut q);   // todo
+                    total += col.i_chart[&(i, x, ys)] * value;
+                }
+            }
+            p.insert(x.clone(), total);
+        }
+
+        p
+    }
+
+    #[allow(non_snake_case)]
+    fn next_token_weights_helper(
+        &self, top: (u32, u32), cols: &Vec<Arc<RwLock<Column>>>,
+        q: &mut HashMap<(u32, u32), f64>,
+    ) -> f64 {
+        match q.get(&top) {
+            Some(&value) => return value,
+            _ => {},
+        }
+
+        let mut stack = vec![Node::new(top)];
+
+        while !stack.is_empty() {
+            let node = stack.last_mut().unwrap();
+
+            let (j, y) = node.node;
+            
+            if node.edges.is_none() {
+                // todo
+                let mut edges = Vec::new();
+                for x in &cols[j as usize].read().unwrap().waiting_for[&Nonterminal(y)] {
+                    if self.unit_ys[x.2 as usize] {
+                        edges.push(*x);
+                    }
+                }
+                node.edges = Some(edges);
+            } else if node.cursor == node.edges.as_ref().unwrap().len() {
+                q.insert(node.node, node.value);
+                stack.pop();
+            } else {
+                let arc = node.edges.as_ref().unwrap()[node.cursor];
+                let (I, X, _) = arc;
+                let neighbor = (I, X);
+                let neighbor_value = q.get(&neighbor);
+                match neighbor_value {
+                    None => {
+                        stack.push(Node::new(neighbor));
+                    }
+                    Some(value) => {
+                        node.cursor += 1;
+                        node.value += &cols[j as usize].read().unwrap().i_chart[&arc] * value;
+                    }
+                }
+            }
+        }
+
+        q[&top]
+    }
+
 }
 
 
@@ -209,6 +311,7 @@ impl Earley {
         first_ys: Vec<Symbol>,
         rest_ys: Vec<u32>,
         unit_ys: Vec<bool>,
+        vocab: HashSet<String>,
         empty_weight: f64,
     ) -> Self {
         let initial_column = Arc::new(RwLock::new(Column::new(0)));
@@ -221,6 +324,7 @@ impl Earley {
             first_ys,
             rest_ys,
             unit_ys,
+            vocab,
             initial_column,
             empty_weight,
             _chart: HashMap::new(),
@@ -254,6 +358,13 @@ impl Earley {
     fn clear_cache(&mut self) {
         self._chart.clear();
     }
+
+    fn p_next(&mut self, input: Vec<String>) -> HashMap<String, f64> {
+        let boxed_input = input.into_boxed_slice();
+        self.ensure_chart(&boxed_input);
+        let cols = &self._chart[&boxed_input];
+        self.next_token_weights(cols)
+    }
 }
 
 
@@ -267,7 +378,8 @@ fn genpa_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use crate::{Symbol, Earley, RHS};
-    use std::collections::{HashMap};
+    use crate::Symbol::{Nonterminal, Terminal};
+    use std::collections::{HashMap, HashSet};
     use approx::assert_relative_eq;
 
     #[test]
@@ -308,22 +420,24 @@ mod tests {
             .collect();
 
         let first_ys = vec![
-            Symbol::Nonterminal(0),
-            Symbol::Nonterminal(2),
-            Symbol::Nonterminal(4),
-            Symbol::Terminal(String::from("c")),
-            Symbol::Nonterminal(5),
-            Symbol::Nonterminal(1),
-            Symbol::Nonterminal(3),
+            Nonterminal(0),
+            Nonterminal(2),
+            Nonterminal(4),
+            Terminal(String::from("c")),
+            Nonterminal(5),
+            Nonterminal(1),
+            Nonterminal(3),
         ];
 
         let rest_ys = vec![0, 0, 0, 0, 0, 0, 0];
 
         let unit_ys = vec![false, true, true, true, true, true, true];
 
+        let vocab = HashSet::new();
+
         let mut earley = Earley::new(
             rhs, 0, order, 6,
-            outgoing, first_ys, rest_ys, unit_ys, 0.0
+            outgoing, first_ys, rest_ys, unit_ys, vocab, 0.0
         );
 
         // Print to verify
