@@ -4,6 +4,7 @@ from arsenal import colors
 from tests import examples
 from genparse import add_EOS, EOS, CFG
 from earley_fast import Earley, EarleyLM
+from genparse.parse.cky import CKYLM, IncrementalCKY
 from genparse.semiring import Float
 
 
@@ -59,6 +60,27 @@ def test_papa():
     x = 'papa ate'.split()
     want = cfg(x)
     have = earley(x)
+    assert cfg.R.metric(have, want) <= 1e-10
+
+
+def test_papa_lm():
+    cfg = examples.papa
+
+    earley = EarleyLM(cfg)
+
+    x = 'papa ate the caviar'.split()
+    want = cfg(x)
+    have = earley(x + [EOS])
+    assert cfg.R.metric(have, want) <= 1e-10
+
+    x = 'papa ate the caviar with the spoon'.split()
+    want = cfg(x)
+    have = earley(x + [EOS])
+    assert cfg.R.metric(have, want) <= 1e-10
+
+    x = 'papa ate'.split()
+    want = cfg(x)
+    have = earley(x + [EOS])
     assert cfg.R.metric(have, want) <= 1e-10
 
 
@@ -260,25 +282,85 @@ def test_parse_ambiguous_real():
     assert_equal(earley('a+a+a'), 0.04)
 
 
-def test_papa_lm():
-    cfg = examples.papa
+def test_p_next_new_abcdx():
+    cfg = CFG.from_string(
+        """
+        1: S -> a b c d
+        1: S -> a b c x
+        1: S -> a b x x
+        1: S -> a x x x
+        1: S -> x x x x
+        """,
+        Float,
+    )
 
+    # Note: add_EOS used here for code coverage
+    ckylm = CKYLM(add_EOS(cfg))
+    earley = EarleyLM(add_EOS(cfg))
+
+    for prefix in ['', 'a', 'ab', 'abc', 'abcd', 'acbd']:
+        print()
+        print(colors.light.blue % prefix)
+        want = ckylm.p_next(prefix)
+        print(want)
+        have = earley.p_next(prefix)
+        print(have)
+        err = have.metric(want)
+        print(colors.mark(err <= 1e-5))
+        assert err <= 1e-5, err
+
+    prefix = 'acbde'
+    print()
+    print(colors.light.blue % prefix)
+    with pytest.raises(AssertionError):
+        ckylm.p_next(prefix)
+    with pytest.raises(AssertionError):
+        earley.p_next(prefix)
+    err = have.metric(want)
+    print(colors.mark(err <= 1e-5))
+    assert err <= 1e-5, err
+
+
+def test_p_next_palindrome():
+    cfg = examples.palindrome_ab
+
+    ckylm = CKYLM(cfg)
     earley = EarleyLM(cfg)
 
-    x = 'papa ate the caviar'.split()
-    want = cfg(x)
-    have = earley(x + [EOS])
-    assert cfg.R.metric(have, want) <= 1e-10
+    for prefix in ['', 'a', 'ab']:
+        print()
+        print(colors.light.blue % prefix)
+        want = ckylm.p_next(prefix)
+        print(want)
+        have = earley.p_next(prefix)
+        print(have)
+        err = have.metric(want)
+        print(colors.mark(err <= 1e-5))
+        assert err <= 1e-5
 
-    x = 'papa ate the caviar with the spoon'.split()
-    want = cfg(x)
-    have = earley(x + [EOS])
-    assert cfg.R.metric(have, want) <= 1e-10
 
-    x = 'papa ate'.split()
-    want = cfg(x)
-    have = earley(x + [EOS])
-    assert cfg.R.metric(have, want) <= 1e-10
+def test_p_next_papa():
+    cfg = examples.papa
+
+    ckylm = CKYLM(cfg)
+    earley = EarleyLM(cfg)
+
+    for prefix in [
+        [],
+        ['papa'],
+        ['papa', 'ate'],
+        ['papa', 'ate', 'the'],
+        ['papa', 'ate', 'the', 'caviar'],
+    ]:
+        prefix = tuple(prefix)
+        print()
+        print(colors.light.blue % (prefix,))
+        want = ckylm.p_next(prefix)
+        print(want)
+        have = earley.p_next(prefix)
+        print(have)
+        print(colors.mark(have.metric(want) <= 1e-5))
+        assert have.metric(want) <= 1e-5
 
 
 if __name__ == '__main__':
