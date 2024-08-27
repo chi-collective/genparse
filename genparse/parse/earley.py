@@ -119,6 +119,8 @@ class Earley:
                 self.first_Ys[code] = Ys[0]
                 self.rest_Ys[code] = intern_Ys(Ys[1:])
 
+        # self.generate_rust_test_case()
+
         col = Column(0)
         self.PREDICT(col)
         self._initial_column = col
@@ -338,6 +340,110 @@ class Earley:
                     node.value += cols[J].i_chart[arc] * neighbor_value
 
         return q[top]
+
+    def generate_rust_test_case(self):
+        # generates a test case in Rust code by exporting the parser state variables
+        # Copy-paste the printout to `mod tests { ... }` in lib.rs to debug.
+
+        print(
+            """
+    #[test]
+    fn test_earley() {{
+        
+        let rhs: HashMap<u32, Vec<RHS>> = [
+            {}
+        ].iter().cloned().collect();
+        """.format(
+                ', '.join(
+                    f'({x}, '
+                    + 'vec![{}])'.format(', '.join(f'({float(u)}, {v})' for u, v in y))
+                    for x, y in self.rhs.items()
+                )
+            )
+        )
+
+        print(
+            """
+        let order: HashMap<u32, u32> = [
+            {}
+        ].iter().cloned().collect();
+        """.format(', '.join(f'({u}, {v})' for u, v in self.order.items()))
+        )
+
+        print(
+            """
+        let outgoing: HashMap<u32, Vec<u32>> = [
+            {}
+        ].iter().cloned().collect();
+        """.format(
+                ', '.join(
+                    '({}, vec![{}])'.format(i, ', '.join(map(str, s)))
+                    for i, s in self.R_outgoing.items()
+                )
+            )
+        )
+
+        print(
+            """
+        let first_ys = vec![
+            {}
+        ].iter().cloned().collect();
+        """.format(
+                ', '.join(
+                    f'Terminal(String::from("{y}"))'
+                    if isinstance(y, str)
+                    else f'Nonterminal({y})'
+                    for y in self.first_Ys
+                )
+            )
+        )
+
+        print(
+            """
+        let rest_ys = vec![
+            {}
+        ];
+        """.format(', '.join(map(str, self.rest_Ys)))
+        )
+
+        print(
+            """
+        let unit_ys = vec![
+            {}
+        ];
+        """.format(', '.join(map(lambda x: str(bool(x)).lower(), self.unit_Ys)))
+        )
+
+        print(
+            """
+        let vocab = [
+            {}
+        ].iter().cloned().collect();
+        """.format(', '.join(f'String::from("{v}")' for v in self.cfg.V))
+        )
+
+        print(
+            """
+        let empty_weight = {};
+        let start = {};
+        let order_max = {};
+        """.format(
+                sum(r.w for r in self.cfg.rhs[self.cfg.S] if r.body == ()),
+                self.cfg.S,
+                self.ORDER_MAX,
+            )
+        )
+
+        print("""
+        let mut earley = Earley::new(
+            rhs, start, order, order_max, outgoing, first_ys, 
+            rest_ys, unit_ys, vocab, empty_weight,
+        );
+        let chart = earley.p_next(vec![]);
+        dbg!(&chart);
+        
+    }}
+        """)
 
 
 class Node:
