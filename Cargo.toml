@@ -10,6 +10,6 @@ crate-type = ["cdylib"]
 path = "src/lib.rs"
 
 [dependencies]
-pyo3 = "0.22.0"
-priority-queue = "2.0"
-approx = "0.5.1"
+pyo3 = "0.22.0"  # for python binding
+priority-queue = "2.0"  # for parser
+approx = "0.5.1"  # for floating point comparison in tests
