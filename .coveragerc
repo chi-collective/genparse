@@ -4,8 +4,6 @@ branch = True
 
 include =
     genparse/*
-omit =
-    genparse/experimental/*
 
 [report]
 # Regexes for lines to exclude from consideration
@@ -29,5 +27,8 @@ exclude_lines =
     if (self\.)?verbos(e|ity).*
     if __name__ == .__main__.:
     def todo_.*
+
+    # Don't complain if rust code is not found
+    genpa_rs
 
 ignore_errors = True
