@@ -22,8 +22,7 @@ update :
 .PHONY : env
 env : $(NAME).egg-info/
 $(NAME).egg-info/ : setup.py
-ifeq ("$(wildcard $(_pyproject.toml))","")
-	# ignore pyproject.toml during build, which is only used for rust
+ifeq ("$(wildcard $(_pyproject.toml))","") # ignore pyproject.toml during build, which is only used for rust
 	@mv pyproject.toml _pyproject.toml
 endif
 ifeq ($(shell uname -s),Darwin)
@@ -31,8 +30,7 @@ ifeq ($(shell uname -s),Darwin)
 else
 	@$(INSTALL) -e ".[test,vllm]" && pre-commit install
 endif
-ifeq ("$(wildcard $(_pyproject.toml))","")
-	# restore so Rust bindings can build later by user separately
+ifeq ("$(wildcard $(_pyproject.toml))","") # restore so Rust bindings can build later by user separately
 	@mv _pyproject.toml pyproject.toml
 endif
 
