@@ -3,7 +3,7 @@ from arsenal import colors
 
 from tests import examples
 from genparse import add_EOS, EOS, CFG
-from earley_fast import Earley, EarleyLM
+from genparse.experimental.earley_fast import Earley, EarleyLM
 from genparse.parse.cky import CKYLM, IncrementalCKY
 from genparse.semiring import Float
 

@@ -11,7 +11,7 @@ def load_guide(grammar_name, use_fast=False):
     cfg = LarkStuff(open(grammar_name).read()).char_cfg()
     if use_fast:
         print('Using earley_fast')
-        from earley_fast import BoolCFGLM
+        from genparse.experimental.earley_fast import BoolCFGLM
     else:
         from genparse.cfglm import BoolCFGLM
     return BoolCFGLM(cfg)
