@@ -5,8 +5,9 @@ import examples
 from genparse import add_EOS, EOS, CFG
 
 try:
+    import genpa_rs
     from genparse.experimental.earley_fast import Earley, EarleyLM
-except Exception:
+except ModuleNotFoundError:
     import warnings
 
     warnings.warn('skipping tests because Rust parser is not built.')
