@@ -4,7 +4,7 @@ NAME = genparse
 TEST = tests
 RUN = python -m
 INSTALL = $(RUN) pip install
-SRC_FILES := $(shell find $(NAME) -name '*.py')
+SRC_FILES := $(shell find $(NAME) -name '*.py' -not -path '*/experimental/*')
 TEST_FILES := $(shell find $(TEST) -name '*.py')
 .DEFAULT_GOAL := help
 
