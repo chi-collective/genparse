@@ -39,15 +39,19 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument('--exp-name', type=str, default='llama3-8b')
     parser.add_argument('--particles', type=int, default=1)
     parser.add_argument('--max-tokens', type=int, default=300)
-    parser.add_argument("--k-shot", type=int, default=20)
+    parser.add_argument('--k-shot', type=int, default=20)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument(
-        "--train-file", type=str, default="train_low_0.jsonl",
-        help="train split file name from bench clamp"
+        '--train-file',
+        type=str,
+        default='train_low_0.jsonl',
+        help='train split file name from bench clamp',
     )
     parser.add_argument(
-        "--dev-file", type=str, default="dev_low.jsonl",
-        help="dev split file name from bench clamp"
+        '--dev-file',
+        type=str,
+        default='dev_low.jsonl',
+        help='dev split file name from bench clamp',
     )
 
     return parser
@@ -63,21 +67,21 @@ def main():
     args = parser.parse_args()
     set_seed(args.seed)
 
-    logger.info("loading data...")
-    calflow_data_root = Path('/home/leodu/semantic_parsing_with_constrained_lm/data/benchclamp/processed/CalFlowV2')
+    logger.info('loading data...')
+    calflow_data_root = Path(
+        '/home/leodu/semantic_parsing_with_constrained_lm/data/benchclamp/processed/CalFlowV2'
+    )
     train_data_file = calflow_data_root / args.train_file
     dev_data_file = calflow_data_root / args.dev_file
 
     train_data = transform_datum(data_from_filename(train_data_file))
     dev_data = transform_datum(data_from_filename(dev_data_file))
-    logger.info("finished loading data.")
+    logger.info('finished loading data.')
 
-    logger.info(f"Example datum:\n {pprint.pformat(train_data[0])}")
+    logger.info(f'Example datum:\n {pprint.pformat(train_data[0])}')
 
     train_retriever = BM25Retriever(
-        train_data=train_data,
-        top_k=args.k_shot,
-        best_first=False
+        train_data=train_data, top_k=args.k_shot, best_first=False
     )
     prompt_builder = PromptBuilder.for_demo(
         do_include_context=False, use_preamble=True
@@ -88,14 +92,16 @@ def main():
 
     if args.method == 'sampling':
         sampling_params = vllm.SamplingParams(
-            n=args.particles, temperature=1.0, max_tokens=args.max_tokens,
-            seed=args.seed, stop="\n"
+            n=args.particles,
+            temperature=1.0,
+            max_tokens=args.max_tokens,
+            seed=args.seed,
+            stop='\n',
         )
     else:
         assert args.method == 'greedy'
         sampling_params = vllm.SamplingParams(
-            best_of=1, temperature=0.0, max_tokens=args.max_tokens,
-            stop="\n"
+            best_of=1, temperature=0.0, max_tokens=args.max_tokens, stop='\n'
         )
 
     # Prepare the prompts and collect them in `samples`
@@ -103,20 +109,20 @@ def main():
     for dev_datum in tqdm(dev_data):
         selected_train_data = train_retriever(dev_datum)
         prompt = prompt_builder.assemble(selected_train_data, dev_datum)
-        samples.append({"datum": dev_datum, "prompt": prompt})
+        samples.append({'datum': dev_datum, 'prompt': prompt})
 
     logger.info(f"Example prompt:\n{samples[0]['prompt']}")
 
     llm = vllm.LLM(model=args.model_name)
-    llm_outputs = llm.generate([s["prompt"] for s in samples], sampling_params)
+    llm_outputs = llm.generate([s['prompt'] for s in samples], sampling_params)
 
     nc = 0
     ntotal = 0
     for llm_output, sample in zip(llm_outputs, tqdm(samples)):
         ntotal += 1
         pred = llm_output.outputs[0].text
-        nc += is_correct(pred, sample["datum"])
-    logger.info(f" {nc} out of {ntotal} is correct, acc={nc / ntotal:.3f}")
+        nc += is_correct(pred, sample['datum'])
+    logger.info(f' {nc} out of {ntotal} is correct, acc={nc / ntotal:.3f}')
 
 
 if __name__ == '__main__':
