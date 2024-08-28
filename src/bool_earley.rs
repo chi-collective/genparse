@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use priority_queue::PriorityQueue;
 use pyo3::{pyclass, pymethods, FromPyObject};
 use Symbol::{Nonterminal, Terminal};
@@ -64,9 +64,9 @@ pub struct EarleyBool {
     rest_ys: Vec<u32>,
     unit_ys: Vec<bool>,
     vocab: HashSet<String>,
-    initial_column: Arc<RwLock<BoolColumn>>,
+    initial_column: Arc<BoolColumn>,  // it won't be none after initialization; but necessary since Arc is immutable
     empty_weight: bool, // sum(r.w for r in self.cfg.rhs[self.cfg.S] if r.body == ())
-    _chart: HashMap<Box<[String]>, Vec<Arc<RwLock<BoolColumn>>>>, // make sure to call ensure_chart before accessing
+    _chart: HashMap<Box<[String]>, Vec<Arc<BoolColumn>>>, // make sure to call ensure_chart before accessing
 }
 
 impl EarleyBool {
@@ -84,7 +84,7 @@ impl EarleyBool {
     // todo: Earley also does have a chart method, which is exposed as an external API...
     //       we will think about that later; probably refactor so that chart is never exposed
 
-    fn compute_chart(&mut self, input: &Box<[String]>) -> Vec<Arc<RwLock<BoolColumn>>> {
+    fn compute_chart(&mut self, input: &Box<[String]>) -> Vec<Arc<BoolColumn>> {
         if input.len() == 0 {
             vec![Arc::clone(&self.initial_column)]
         } else {
@@ -94,14 +94,14 @@ impl EarleyBool {
             let mut new_chart = Vec::new();
             // put all columns in chart into new_chart
             new_chart.extend(chart.iter().cloned());
-            new_chart.push(Arc::new(RwLock::new(last_chart)));
+            new_chart.push(Arc::new(last_chart));
             new_chart
         }
     }
 
-    fn next_column(&self, prev_cols: &Vec<Arc<RwLock<BoolColumn>>>, token: &String) -> BoolColumn {
+    fn next_column(&self, prev_cols: &Vec<Arc<BoolColumn>>, token: &String) -> BoolColumn {
         let prev_col = prev_cols.last().unwrap();
-        let prev_col_read = prev_col.read().unwrap();
+        let prev_col_read = prev_col;
         let mut next_col = BoolColumn::new(prev_col_read.k + 1);
 
         let mut queue: PriorityQueue<(u32, u32), i64> = PriorityQueue::new();
@@ -121,7 +121,7 @@ impl EarleyBool {
         while let Some((jy, _)) = queue.pop() {
             let (j, y) = jy;
 
-            let col_j = &prev_cols[j as usize].read().unwrap();
+            let col_j = &prev_cols[j as usize];
             let val = next_col.c_chart[&jy];
             if !col_j.waiting_for.contains_key(&Nonterminal(y)) { continue; }
             for customer in col_j.waiting_for[&Nonterminal(y)].iter() {
@@ -137,6 +137,12 @@ impl EarleyBool {
         self.predict(&mut next_col);
 
         next_col
+    }
+
+    fn predict_initial_column(&mut self) {
+        let mut initial_column = BoolColumn::new(0);
+        self.predict(&mut initial_column);
+        self.initial_column = Arc::new(initial_column);
     }
 
     fn predict(&self, col: &mut BoolColumn) {
@@ -215,11 +221,11 @@ impl EarleyBool {
         self.vocab.contains(x)
     }
 
-    fn next_token_weights(&self, cols: &Vec<Arc<RwLock<BoolColumn>>>) -> HashMap<String, bool> {
+    fn next_token_weights(&self, cols: &Vec<Arc<BoolColumn>>) -> HashMap<String, bool> {
         let mut q: HashMap<(u32, u32), bool> = HashMap::new();
         q.insert((0, self.start), true);
 
-        let col = cols.last().unwrap().read().unwrap();
+        let col = cols.last().unwrap();
 
         let mut p: HashMap<String, bool> = HashMap::new();
         for y in col.waiting_for.keys() {
@@ -235,7 +241,7 @@ impl EarleyBool {
             for &(i, x, ys) in &col.waiting_for[y] {
                 if self.unit_ys[ys as usize] {
                     let node = (i, x);
-                    let value = self.next_token_weights_helper(node, cols, &mut q);   // todo
+                    let value = self.next_token_weights_helper(node, cols, &mut q);
                     total |= col.i_chart[&(i, x, ys)] & value;
                 }
             }
@@ -247,7 +253,7 @@ impl EarleyBool {
 
     #[allow(non_snake_case)]
     fn next_token_weights_helper(
-        &self, top: (u32, u32), cols: &Vec<Arc<RwLock<BoolColumn>>>,
+        &self, top: (u32, u32), cols: &Vec<Arc<BoolColumn>>,
         q: &mut HashMap<(u32, u32), bool>,
     ) -> bool {
         match q.get(&top) {
@@ -261,11 +267,10 @@ impl EarleyBool {
             let node = stack.last_mut().unwrap();
 
             let (j, y) = node.node;
-
+            
             if node.edges.is_none() {
-                // todo
                 let mut edges = Vec::new();
-                for x in &cols[j as usize].read().unwrap().waiting_for[&Nonterminal(y)] {
+                for x in &cols[j as usize].waiting_for[&Nonterminal(y)] {
                     if self.unit_ys[x.2 as usize] {
                         edges.push(*x);
                     }
@@ -285,7 +290,7 @@ impl EarleyBool {
                     }
                     Some(value) => {
                         node.cursor += 1;
-                        node.value |= &cols[j as usize].read().unwrap().i_chart[&arc] & value;
+                        node.value |= &cols[j as usize].i_chart[&arc] & value;
                     }
                 }
             }
@@ -300,7 +305,7 @@ impl EarleyBool {
 #[pymethods]
 impl EarleyBool {
 
-    #[new]
+    #[new] // this indicated to PyO3 that it's equivalent to the Python __init__
     fn new(
         rhs: HashMap<u32, Vec<RHS>>,
         start: u32,
@@ -313,8 +318,11 @@ impl EarleyBool {
         vocab: HashSet<String>,
         empty_weight: bool,
     ) -> Self {
-        let initial_column = Arc::new(RwLock::new(BoolColumn::new(0)));
-        let self_ = Self {
+        // use a dummy value to initialize the struct, and then call the method
+        // to actually initialize the column.
+        // this is because, once the Arc is initialized, it remains immutable.
+        let dummy_column = Arc::new(BoolColumn::new(0));
+        let mut self_ = Self {
             rhs,
             start,
             order,
@@ -324,12 +332,13 @@ impl EarleyBool {
             rest_ys,
             unit_ys,
             vocab,
-            initial_column,
+            initial_column: dummy_column,
             empty_weight,
             _chart: HashMap::new(),
         };
         // dbg!(&self_);
-        self_.predict(&mut self_.initial_column.write().unwrap());
+        // self_.predict(&mut self_.initial_column);
+        self_.predict_initial_column();
         // println!("---------------");
         // dbg!(&self_);
         self_
@@ -345,7 +354,7 @@ impl EarleyBool {
         let boxed_input = input.into_boxed_slice();
         self.ensure_chart(&boxed_input);
         let cols = self._chart.get(&boxed_input).unwrap();
-        let c_chart = &cols[boxed_input.len()].read().unwrap().c_chart;
+        let c_chart = &cols[boxed_input.len()].c_chart;
         let value = c_chart.get(&(0, self.start));
 
         match value {
