@@ -28,3 +28,5 @@ build/
 *.pkl
 *.pdf
 
+# for Rust cargo build
+/target

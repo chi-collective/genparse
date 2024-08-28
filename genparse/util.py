@@ -65,6 +65,13 @@ def lark_guide(grammar, **kwargs):
     return BoolCFGLM(LarkStuff(grammar).char_cfg(**kwargs))
 
 
+def lark_guide_fast(grammar, **kwargs):
+    from genparse.experimental.earley_fast import BoolCFGLM
+    from genparse.lark_interface import LarkStuff
+
+    return BoolCFGLM(LarkStuff(grammar).char_cfg(**kwargs))
+
+
 def load_model_by_name(model_name, batch_size=None, temperature=1, top_p=None):
     """
     Load an LLM from 🤗 into a genparse `TokenizedLLM`.
