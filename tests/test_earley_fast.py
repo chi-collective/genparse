@@ -10,7 +10,7 @@ except Exception:
     import warnings
 
     warnings.warn('skipping tests because Rust parser is not built.')
-    exit(0)
+    pytest.skip('Rust parser is not built.', allow_module_level=True)
 from genparse.parse.cky import CKYLM, IncrementalCKY
 from genparse.semiring import Float
 

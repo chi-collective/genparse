@@ -8,8 +8,6 @@ from genparse.cfglm import EOS, add_EOS, CFG
 from genparse.lm import LM
 from genparse.semiring import Boolean, Float
 
-from genpa_rs import Earley as _Earley, EarleyBool as _EarleyBool
-
 
 class BoolCFGLM(LM):
     def __init__(self, cfg, alg='earley'):
@@ -81,6 +79,16 @@ class Earley:
     """
 
     def __init__(self, cfg):
+        try:
+            from genpa_rs import Earley as _Earley, EarleyBool as _EarleyBool
+        except ModuleNotFoundError:
+            import warnings
+
+            warnings.warn(
+                'Cannot find Rust parser from `genpa_rs` package. Parser is not initialized.'
+            )
+            return
+
         cfg = cfg.nullaryremove(binarize=True).unarycycleremove().renumber()
         self.cfg = cfg
 
