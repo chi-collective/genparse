@@ -267,7 +267,6 @@ impl Earley {
             let (j, y) = node.node;
             
             if node.edges.is_none() {
-                // todo
                 let mut edges = Vec::new();
                 for x in &cols[j as usize].read().unwrap().waiting_for[&Nonterminal(y)] {
                     if self.unit_ys[x.2 as usize] {
