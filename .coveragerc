@@ -4,6 +4,8 @@ branch = True
 
 include =
     genparse/*
+omit =
+    genparse/experimental/*
 
 [report]
 # Regexes for lines to exclude from consideration
