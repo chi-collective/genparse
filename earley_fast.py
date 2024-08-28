@@ -18,7 +18,7 @@ class BoolCFGLM(LM):
         if cfg.R != Boolean:
             cfg = cfg.map_values(lambda x: Boolean(x > 0), Boolean)
         assert alg == 'earley', 'only support fast Earley'
-        self.model = _Earley(cfg.prefix_grammar)
+        self.model = Earley(cfg.prefix_grammar)
         super().__init__(eos=EOS, V=cfg.V)
 
     def p_next(self, context):
