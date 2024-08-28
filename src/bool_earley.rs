@@ -1,12 +1,8 @@
-mod bool_earley;
-
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};
-use pyo3::prelude::{PyResult, pymodule, PyModule, Bound, PyModuleMethods};
-use pyo3::{pyclass, pymethods, FromPyObject};
-use crate::Symbol::{Nonterminal, Terminal};
 use priority_queue::PriorityQueue;
-use bool_earley::EarleyBool;
+use pyo3::{pyclass, pymethods, FromPyObject};
+use Symbol::{Nonterminal, Terminal};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, FromPyObject)]
 enum Symbol {
@@ -14,18 +10,18 @@ enum Symbol {
     Nonterminal(u32),
 }
 
-type RHS = (f64, u32);
+type RHS = (bool, u32);
 
 
 #[derive(Debug)]
-struct Column {
+struct BoolColumn {
     k: u32,
-    i_chart: HashMap<(u32, u32, u32), f64>,
-    c_chart: HashMap<(u32, u32), f64>,
+    i_chart: HashMap<(u32, u32, u32), bool>,
+    c_chart: HashMap<(u32, u32), bool>,
     waiting_for: HashMap<Symbol, Vec<(u32, u32, u32)>>,
 }
 
-impl Column {
+impl BoolColumn {
     fn new(k: u32) -> Self {
         Self {
             k,
@@ -40,7 +36,7 @@ impl Column {
 struct Node {
     node: (u32, u32),
     edges: Option<Vec<(u32, u32, u32)>>,
-    value: f64,
+    value: bool,
     cursor: usize,
 }
 
@@ -49,7 +45,7 @@ impl Node {
         Self {
             node,
             edges: None,
-            value: 0.0,
+            value: false,
             cursor: 0,
         }
     }
@@ -58,7 +54,7 @@ impl Node {
 
 #[derive(Debug)]
 #[pyclass]
-struct Earley {
+pub struct EarleyBool {
     rhs: HashMap<u32, Vec<RHS>>,
     start: u32,
     order: HashMap<u32, u32>,
@@ -68,12 +64,12 @@ struct Earley {
     rest_ys: Vec<u32>,
     unit_ys: Vec<bool>,
     vocab: HashSet<String>,
-    initial_column: Arc<RwLock<Column>>,
-    empty_weight: f64, // sum(r.w for r in self.cfg.rhs[self.cfg.S] if r.body == ())
-    _chart: HashMap<Box<[String]>, Vec<Arc<RwLock<Column>>>>, // make sure to call ensure_chart before accessing
+    initial_column: Arc<RwLock<BoolColumn>>,
+    empty_weight: bool, // sum(r.w for r in self.cfg.rhs[self.cfg.S] if r.body == ())
+    _chart: HashMap<Box<[String]>, Vec<Arc<RwLock<BoolColumn>>>>, // make sure to call ensure_chart before accessing
 }
 
-impl Earley {
+impl EarleyBool {
 
     fn ensure_chart(&mut self, input: &Box<[String]>) {
         // chart(self, x), but doesnt return the chart itself.
@@ -88,7 +84,7 @@ impl Earley {
     // todo: Earley also does have a chart method, which is exposed as an external API...
     //       we will think about that later; probably refactor so that chart is never exposed
 
-    fn compute_chart(&mut self, input: &Box<[String]>) -> Vec<Arc<RwLock<Column>>> {
+    fn compute_chart(&mut self, input: &Box<[String]>) -> Vec<Arc<RwLock<BoolColumn>>> {
         if input.len() == 0 {
             vec![Arc::clone(&self.initial_column)]
         } else {
@@ -103,10 +99,10 @@ impl Earley {
         }
     }
 
-    fn next_column(&self, prev_cols: &Vec<Arc<RwLock<Column>>>, token: &String) -> Column {
+    fn next_column(&self, prev_cols: &Vec<Arc<RwLock<BoolColumn>>>, token: &String) -> BoolColumn {
         let prev_col = prev_cols.last().unwrap();
         let prev_col_read = prev_col.read().unwrap();
-        let mut next_col = Column::new(prev_col_read.k + 1);
+        let mut next_col = BoolColumn::new(prev_col_read.k + 1);
 
         let mut queue: PriorityQueue<(u32, u32), i64> = PriorityQueue::new();
 
@@ -133,7 +129,7 @@ impl Earley {
                 self.update_column(
                     &mut next_col, Some(&mut queue), *i, *x,
                     self.rest_ys[*ys as usize],
-                    col_j.i_chart[customer] * val,
+                    col_j.i_chart[customer] & val,
                 );
             }
         }
@@ -143,7 +139,7 @@ impl Earley {
         next_col
     }
 
-    fn predict(&self, col: &mut Column) {
+    fn predict(&self, col: &mut BoolColumn) {
         let k = col.k;
 
         let mut agenda = match k {
@@ -183,7 +179,7 @@ impl Earley {
         }
     }
 
-    fn update_column(&self, col: &mut Column, queue: Option<&mut PriorityQueue<(u32, u32), i64>>, i: u32, x: u32, ys: u32, value: f64) {
+    fn update_column(&self, col: &mut BoolColumn, queue: Option<&mut PriorityQueue<(u32, u32), i64>>, i: u32, x: u32, ys: u32, value: bool) {
         if ys == 0 {
             let item = (i, x);
             let was = col.c_chart.get(&item);
@@ -199,7 +195,7 @@ impl Earley {
 
                 col.c_chart.insert(item, value);
             } else {
-                col.c_chart.insert(item, was.unwrap() + value);
+                col.c_chart.insert(item, was.unwrap() | value);
             }
         } else {
             let item = (i, x, ys);
@@ -210,7 +206,7 @@ impl Earley {
                     .push(item);
                 col.i_chart.insert(item, value);
             } else {
-                col.i_chart.insert(item, was.unwrap() + value);
+                col.i_chart.insert(item, was.unwrap() | value);
             }
         }
     }
@@ -219,13 +215,13 @@ impl Earley {
         self.vocab.contains(x)
     }
 
-    fn next_token_weights(&self, cols: &Vec<Arc<RwLock<Column>>>) -> HashMap<String, f64> {
-        let mut q: HashMap<(u32, u32), f64> = HashMap::new();
-        q.insert((0, self.start), 1.0);
+    fn next_token_weights(&self, cols: &Vec<Arc<RwLock<BoolColumn>>>) -> HashMap<String, bool> {
+        let mut q: HashMap<(u32, u32), bool> = HashMap::new();
+        q.insert((0, self.start), true);
 
         let col = cols.last().unwrap().read().unwrap();
 
-        let mut p: HashMap<String, f64> = HashMap::new();
+        let mut p: HashMap<String, bool> = HashMap::new();
         for y in col.waiting_for.keys() {
             match y {
                 Terminal(x) => { if !self.is_terminal(x) { continue; } }
@@ -235,12 +231,12 @@ impl Earley {
                 Terminal(x) => { if self.is_terminal(x) { x } else { continue; } }
                 Nonterminal(_) => continue,
             };
-            let mut total = 0.0;
+            let mut total = false;
             for &(i, x, ys) in &col.waiting_for[y] {
                 if self.unit_ys[ys as usize] {
                     let node = (i, x);
-                    let value = self.next_token_weights_helper(node, cols, &mut q);
-                    total += col.i_chart[&(i, x, ys)] * value;
+                    let value = self.next_token_weights_helper(node, cols, &mut q);   // todo
+                    total |= col.i_chart[&(i, x, ys)] & value;
                 }
             }
             p.insert(x.clone(), total);
@@ -251,9 +247,9 @@ impl Earley {
 
     #[allow(non_snake_case)]
     fn next_token_weights_helper(
-        &self, top: (u32, u32), cols: &Vec<Arc<RwLock<Column>>>,
-        q: &mut HashMap<(u32, u32), f64>,
-    ) -> f64 {
+        &self, top: (u32, u32), cols: &Vec<Arc<RwLock<BoolColumn>>>,
+        q: &mut HashMap<(u32, u32), bool>,
+    ) -> bool {
         match q.get(&top) {
             Some(&value) => return value,
             _ => {},
@@ -265,7 +261,7 @@ impl Earley {
             let node = stack.last_mut().unwrap();
 
             let (j, y) = node.node;
-            
+
             if node.edges.is_none() {
                 // todo
                 let mut edges = Vec::new();
@@ -289,7 +285,7 @@ impl Earley {
                     }
                     Some(value) => {
                         node.cursor += 1;
-                        node.value += &cols[j as usize].read().unwrap().i_chart[&arc] * value;
+                        node.value |= &cols[j as usize].read().unwrap().i_chart[&arc] & value;
                     }
                 }
             }
@@ -302,7 +298,7 @@ impl Earley {
 
 
 #[pymethods]
-impl Earley {
+impl EarleyBool {
 
     #[new]
     fn new(
@@ -315,9 +311,9 @@ impl Earley {
         rest_ys: Vec<u32>,
         unit_ys: Vec<bool>,
         vocab: HashSet<String>,
-        empty_weight: f64,
+        empty_weight: bool,
     ) -> Self {
-        let initial_column = Arc::new(RwLock::new(Column::new(0)));
+        let initial_column = Arc::new(RwLock::new(BoolColumn::new(0)));
         let self_ = Self {
             rhs,
             start,
@@ -339,7 +335,7 @@ impl Earley {
         self_
     }
 
-    fn compute_weight(&mut self, input: Vec<String>) -> f64 { // __call__(self, x)
+    fn compute_weight(&mut self, input: Vec<String>) -> bool { // __call__(self, x)
         if input.len() == 0 {
             return self.empty_weight;
         }
@@ -353,7 +349,7 @@ impl Earley {
         let value = c_chart.get(&(0, self.start));
 
         match value {
-            None => 0.0,
+            None => false,
             Some(val) => *val,
         }
     }
@@ -362,7 +358,7 @@ impl Earley {
         self._chart.clear();
     }
 
-    fn p_next(&mut self, input: Vec<String>) -> HashMap<String, f64> {
+    fn p_next(&mut self, input: Vec<String>) -> HashMap<String, bool> {
         let boxed_input = input.into_boxed_slice();
         self.ensure_chart(&boxed_input);
         let cols = &self._chart[&boxed_input];
@@ -371,83 +367,7 @@ impl Earley {
 }
 
 
-/// A Python module implemented in Rust.
-#[pymodule]
-fn genpa_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<Earley>()?;
-    m.add_class::<EarleyBool>()?;
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::{Symbol, Earley, RHS};
-    use crate::Symbol::{Nonterminal, Terminal};
-    use std::collections::{HashMap, HashSet};
-    use approx::assert_relative_eq;
 
-    #[test]
-    fn test_simple() {
-        let rhs: HashMap<u32, Vec<RHS>> = [
-            (3, vec![(0.2857142857142857, 2)]),
-            (0, vec![(0.5, 5), (0.5, 6)]),
-            (1, vec![(0.2857142857142857, 1)]),
-            (2, vec![(1.0, 4)]),
-            (4, vec![(1.0, 4)]),
-            (5, vec![(0.5, 3)]),
-        ]
-            .iter()
-            .cloned()
-            .collect();
-
-        let order: HashMap<u32, u32> = [
-            (2, 1),
-            (0, 5),
-            (5, 0),
-            (1, 2),
-            (4, 3),
-            (3, 4),
-        ]
-            .iter()
-            .cloned()
-            .collect();
-
-        let outgoing: HashMap<u32, Vec<u32>> = [
-            (1, vec![2]),
-            (4, vec![5]),
-            (0, vec![1, 3]),
-            (2, vec![5]),
-            (3, vec![4]),
-        ]
-            .iter()
-            .cloned()
-            .collect();
-
-        let first_ys = vec![
-            Nonterminal(0),
-            Nonterminal(2),
-            Nonterminal(4),
-            Terminal(String::from("c")),
-            Nonterminal(5),
-            Nonterminal(1),
-            Nonterminal(3),
-        ];
-
-        let rest_ys = vec![0, 0, 0, 0, 0, 0, 0];
-
-        let unit_ys = vec![false, true, true, true, true, true, true];
-
-        let vocab = HashSet::new();
-
-        let mut earley = Earley::new(
-            rhs, 0, order, 6,
-            outgoing, first_ys, rest_ys, unit_ys, vocab, 0.0
-        );
-
-        // Print to verify
-        // println!("{:?}", earley);
-        let test_input = vec![String::from("c")];
-        let weight = earley.compute_weight(test_input);
-        assert_relative_eq!(weight, 0.14285714285714285, epsilon = f64::EPSILON);
-    }
 }
