@@ -1,7 +1,7 @@
 mod bool_earley;
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use pyo3::prelude::{PyResult, pymodule, PyModule, Bound, PyModuleMethods};
 use pyo3::{pyclass, pymethods, FromPyObject};
 use crate::Symbol::{Nonterminal, Terminal};
@@ -68,9 +68,9 @@ struct Earley {
     rest_ys: Vec<u32>,
     unit_ys: Vec<bool>,
     vocab: HashSet<String>,
-    initial_column: Arc<RwLock<Column>>,
+    initial_column: Arc<Column>,  // it won't be none after initialization; but necessary since Arc is immutable
     empty_weight: f64, // sum(r.w for r in self.cfg.rhs[self.cfg.S] if r.body == ())
-    _chart: HashMap<Box<[String]>, Vec<Arc<RwLock<Column>>>>, // make sure to call ensure_chart before accessing
+    _chart: HashMap<Box<[String]>, Vec<Arc<Column>>>, // make sure to call ensure_chart before accessing
 }
 
 impl Earley {
@@ -88,7 +88,7 @@ impl Earley {
     // todo: Earley also does have a chart method, which is exposed as an external API...
     //       we will think about that later; probably refactor so that chart is never exposed
 
-    fn compute_chart(&mut self, input: &Box<[String]>) -> Vec<Arc<RwLock<Column>>> {
+    fn compute_chart(&mut self, input: &Box<[String]>) -> Vec<Arc<Column>> {
         if input.len() == 0 {
             vec![Arc::clone(&self.initial_column)]
         } else {
@@ -98,14 +98,14 @@ impl Earley {
             let mut new_chart = Vec::new();
             // put all columns in chart into new_chart
             new_chart.extend(chart.iter().cloned());
-            new_chart.push(Arc::new(RwLock::new(last_chart)));
+            new_chart.push(Arc::new(last_chart));
             new_chart
         }
     }
 
-    fn next_column(&self, prev_cols: &Vec<Arc<RwLock<Column>>>, token: &String) -> Column {
+    fn next_column(&self, prev_cols: &Vec<Arc<Column>>, token: &String) -> Column {
         let prev_col = prev_cols.last().unwrap();
-        let prev_col_read = prev_col.read().unwrap();
+        let prev_col_read = prev_col;
         let mut next_col = Column::new(prev_col_read.k + 1);
 
         let mut queue: PriorityQueue<(u32, u32), i64> = PriorityQueue::new();
@@ -125,7 +125,7 @@ impl Earley {
         while let Some((jy, _)) = queue.pop() {
             let (j, y) = jy;
 
-            let col_j = &prev_cols[j as usize].read().unwrap();
+            let col_j = &prev_cols[j as usize];
             let val = next_col.c_chart[&jy];
             if !col_j.waiting_for.contains_key(&Nonterminal(y)) { continue; }
             for customer in col_j.waiting_for[&Nonterminal(y)].iter() {
@@ -141,6 +141,12 @@ impl Earley {
         self.predict(&mut next_col);
 
         next_col
+    }
+
+    fn predict_initial_column(&mut self) {
+        let mut initial_column = Column::new(0);
+        self.predict(&mut initial_column);
+        self.initial_column = Arc::new(initial_column);
     }
 
     fn predict(&self, col: &mut Column) {
@@ -219,11 +225,11 @@ impl Earley {
         self.vocab.contains(x)
     }
 
-    fn next_token_weights(&self, cols: &Vec<Arc<RwLock<Column>>>) -> HashMap<String, f64> {
+    fn next_token_weights(&self, cols: &Vec<Arc<Column>>) -> HashMap<String, f64> {
         let mut q: HashMap<(u32, u32), f64> = HashMap::new();
         q.insert((0, self.start), 1.0);
 
-        let col = cols.last().unwrap().read().unwrap();
+        let col = cols.last().unwrap();
 
         let mut p: HashMap<String, f64> = HashMap::new();
         for y in col.waiting_for.keys() {
@@ -251,7 +257,7 @@ impl Earley {
 
     #[allow(non_snake_case)]
     fn next_token_weights_helper(
-        &self, top: (u32, u32), cols: &Vec<Arc<RwLock<Column>>>,
+        &self, top: (u32, u32), cols: &Vec<Arc<Column>>,
         q: &mut HashMap<(u32, u32), f64>,
     ) -> f64 {
         match q.get(&top) {
@@ -268,7 +274,7 @@ impl Earley {
             
             if node.edges.is_none() {
                 let mut edges = Vec::new();
-                for x in &cols[j as usize].read().unwrap().waiting_for[&Nonterminal(y)] {
+                for x in &cols[j as usize].waiting_for[&Nonterminal(y)] {
                     if self.unit_ys[x.2 as usize] {
                         edges.push(*x);
                     }
@@ -288,7 +294,7 @@ impl Earley {
                     }
                     Some(value) => {
                         node.cursor += 1;
-                        node.value += &cols[j as usize].read().unwrap().i_chart[&arc] * value;
+                        node.value += &cols[j as usize].i_chart[&arc] * value;
                     }
                 }
             }
@@ -303,7 +309,7 @@ impl Earley {
 #[pymethods]
 impl Earley {
 
-    #[new]
+    #[new] // this indicated to PyO3 that it's equivalent to the Python __init__
     fn new(
         rhs: HashMap<u32, Vec<RHS>>,
         start: u32,
@@ -316,8 +322,11 @@ impl Earley {
         vocab: HashSet<String>,
         empty_weight: f64,
     ) -> Self {
-        let initial_column = Arc::new(RwLock::new(Column::new(0)));
-        let self_ = Self {
+        // use a dummy value to initialize the struct, and then call the method
+        // to actually initialize the column.
+        // this is because, once the Arc is initialized, it remains immutable.
+        let dummy_column = Arc::new(Column::new(0));
+        let mut self_ = Self {
             rhs,
             start,
             order,
@@ -327,12 +336,13 @@ impl Earley {
             rest_ys,
             unit_ys,
             vocab,
-            initial_column,
+            initial_column: dummy_column,
             empty_weight,
             _chart: HashMap::new(),
         };
         // dbg!(&self_);
-        self_.predict(&mut self_.initial_column.write().unwrap());
+        // self_.predict(&mut self_.initial_column);
+        self_.predict_initial_column();
         // println!("---------------");
         // dbg!(&self_);
         self_
@@ -348,7 +358,7 @@ impl Earley {
         let boxed_input = input.into_boxed_slice();
         self.ensure_chart(&boxed_input);
         let cols = self._chart.get(&boxed_input).unwrap();
-        let c_chart = &cols[boxed_input.len()].read().unwrap().c_chart;
+        let c_chart = &cols[boxed_input.len()].c_chart;
         let value = c_chart.get(&(0, self.start));
 
         match value {
@@ -380,7 +390,7 @@ fn genpa_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Symbol, Earley, RHS};
+    use crate::{Earley, RHS};
     use crate::Symbol::{Nonterminal, Terminal};
     use std::collections::{HashMap, HashSet};
     use approx::assert_relative_eq;
