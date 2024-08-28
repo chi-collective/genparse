@@ -71,6 +71,10 @@ def deep_convert_to_bool(obj):
 
 class Earley:
     """
+    Wrapper of the Rust Earley parser.
+
+    Original documentation:
+
     Implements a semiring-weighted version Earley's algorithm that runs in $\mathcal{O}(N^3|G|)$ time.
     Note that nullary rules and unary chain cycles will be been removed, altering the
     set of derivation trees.
