@@ -22,9 +22,9 @@ import json
 
 seed = 1234
 
-model_name = 'meta-llama/Meta-Llama-3.1-8B'
-# tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
-n_particles = 50
+model_name = 'meta-llama/Meta-Llama-3.1-8B-Instruct'
+tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
+n_particles = 10
 prompts = df['query'].tolist()
 max_tokens = 60
 tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
@@ -93,21 +93,3 @@ results = {'lm': lm_outputs, 'smc': smc_outputs, 'is': is_outputs}
 
 json.dump(results, open('sygus_results.json', 'w'))
 json.dump(df.to_dicts(), open('sygus_test.json', 'w'))
-# %%
-lm_outputs[0]
-# %%
-df.iloc[0]['answer']
-# %%
-df.iloc[0]['query']
-
-# %%
-import transformers
-
-tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
-
-# %%
-encoded_answers = [tokenizer.encode(x) for x in df['answer'].to_list()]
-# %%
-len(max(encoded_answers, key=len))
-
-# %%

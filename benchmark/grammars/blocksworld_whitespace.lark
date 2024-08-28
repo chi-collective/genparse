@@ -1,24 +1,29 @@
-start: WS* "(define" WS+ problem_clause WS+ domain_clause WS+ requirements_clause WS+ objects_clause WS+ init_clause WS+ goal_clause WS* ")"
-problem_clause: "(problem" WS+ pname WS* ")"
-domain_clause: "(:domain" WS+ "blocksworld)"
-requirements_clause: "(:requirements" WS+ ":strips)"
-objects_clause: "(:objects" WS+ obj_list WS? ")"
-obj_list: obj_list WS+ obj | obj
+start: WSSTAR "(define" WSPLUS problem_clause WSPLUS domain_clause WSPLUS requirements_clause WSPLUS objects_clause WSPLUS init_clause WSPLUS goal_clause WSSTAR ")" WSSTAR
+problem_clause: "(problem" WSPLUS pname WSSTAR ")"
+domain_clause: "(:domain" WSPLUS "blocksworld)"
+requirements_clause: "(:requirements" WSPLUS ":strips)"
+objects_clause: "(:objects" WSPLUS obj_list WS? ")"
+obj_list: obj_list WSPLUS obj | obj
 
-init_clause: "(:init" WS+ pred_list WS* ")"
-goal_clause: "(:goal" WS+ goal WS* ")"
-pred_list: pred_list WS+ pred | pred
-pred: "(clear" WS+ obj WS? ")" 
-    | "(on" WS+ obj WS+ obj WS? ")" 
+init_clause: "(:init" WSPLUS pred_list WSSTAR ")"
+goal_clause: "(:goal" WSPLUS goal WSSTAR ")"
+pred_list: pred_list WSPLUS pred | pred
+pred: "(clear" WSPLUS obj WS? ")" 
+    | "(on" WSPLUS obj WSPLUS obj WS? ")" 
     | "(arm-empty" WS? ")"
-    | "(holding" WS+ obj WS? ")"
-    | "(on-table" WS+ obj WS? ")"
+    | "(holding" WSPLUS obj WS? ")"
+    | "(on-table" WSPLUS obj WS? ")"
 
-goal: "(and" WS+ pred_list WS? ")" | pred
+goal: "(and" WSPLUS pred_list WS? ")" | pred
 
 pname: str
-obj: str
+obj: "b" number 
+number: digit | digit digit
+digit: /[0-9]/
 str: char+
-char: /[a-zA-Z0-9]/ | "_" 
+char: /([a-zA-Z0-9]|_){1,10}/
 
+
+WSPLUS: WS | WS WS | WS WS WS
+WSSTAR: WS? | WS WS | WS WS WS
 WS: " " | "\t" | "\n"

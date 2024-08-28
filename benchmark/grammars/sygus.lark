@@ -1,0 +1,6 @@
+start: "(define-fun inv ((s (BitVec 4)) (t (BitVec 4))) (BitVec 4) " item ")" "\n"
+item: "s" | "t" | "#x0" | "#x8" | "#x7"
+        | "(" "bvneg" " " item ")" | "(" "bvnot" " " item ")"
+        | "(" "bvadd" " " item " " item ")" | "(" "bvsub" " " item " " item ")"
+        | "(" "bvand" " " item " " item ")" | "(" "bvlshr" " " item " " item ")"
+        | "(" "bvor" " " item " " item ")" | "(" "bvshl" " " item " " item ")"

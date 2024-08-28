@@ -1,0 +1,25 @@
+start: init "\n" goal
+
+init: ("\n" init_pred)+
+goal: "Your goal is to have the following:" ("\n" goal_pred)+
+
+init_pred: clear_pred | on_table_pred | arm_empty_pred | holding_pred | on_pred
+goal_pred: clear_pred_goal | on_table_pred_goal | arm_empty_pred_goal | holding_pred_goal | on_pred_goal
+clear_pred: block " is clear."
+clear_pred_goal: block " should be clear."
+
+on_table_pred: block " is on the table."
+on_table_pred_goal: block " should be on the table."
+
+arm_empty_pred: "Your arm is empty."
+arm_empty_pred_goal: "Your arm should be empty."
+
+holding_pred: "You are holding " block "."
+holding_pred_goal: "You should be holding " block "."
+
+on_pred: block " is on " block "."
+on_pred_goal: block " should be on " block "."
+
+block: "b" number
+
+number: /[1-9]/

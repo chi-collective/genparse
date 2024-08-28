@@ -1,0 +1,16 @@
+start: " " init_clause "\n    " goal_clause "\n" ")"
+obj_list: obj_list " " obj | obj
+
+init_clause: "(:init " pred_list ")"
+goal_clause: "(:goal " goal ")"
+pred_list: pred_list " " pred | pred
+pred: "(clear " obj ")" 
+    | "(on " obj " " obj ")" 
+    | "(arm-empty)"
+    | "(holding " obj ")"
+    | "(on-table " obj ")"
+
+goal: "(and " pred_list ")" | pred
+
+obj: "b" digit 
+digit: /[0-9]/

@@ -3,7 +3,6 @@
 # %autoreload 2
 # %%
 import os
-import pandas as pd
 import vllm
 import polars as pl
 import transformers
@@ -15,12 +14,14 @@ HF_ACCESS_TOKEN = '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'
 os.environ['HF_TOKEN'] = HF_ACCESS_TOKEN
 
 
-df = pd.read_parquet(
+df = pl.read_parquet(
     'hf://datasets/BatsResearch/planetarium/data/train-00000-of-00001.parquet'
 )
+
 # %%
-df.to_parquet('planetarium_train.parquet', index=False)
-df = pl.DataFrame(df)
+df = df.with_columns(
+    pl.col('natural_language').str.split(by='Your goal').list.first().alias('init'),
+)
 # %%
 
 seed = 1234

@@ -1,0 +1,16 @@
+start: ("\n" init_pred)+
+
+init_pred: clear_pred | on_table_pred | arm_empty_pred | holding_pred | on_pred
+clear_pred: block " is clear."
+
+on_table_pred: block " is on the table."
+
+arm_empty_pred: "Your arm is empty."
+
+holding_pred: "You are holding " block "."
+
+on_pred: block " is on " block "."
+
+block: "b" number
+
+number: /[1-9]/
