@@ -28,7 +28,5 @@ exclude_lines =
     if __name__ == .__main__.:
     def todo_.*
 
-    # Don't complain if rust code is not found
-    genpa_rs
 
 ignore_errors = True
