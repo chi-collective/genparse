@@ -1,9 +1,16 @@
 import pytest
 from arsenal import colors
 
-from tests import examples
+import examples
 from genparse import add_EOS, EOS, CFG
-from genparse.experimental.earley_fast import Earley, EarleyLM
+
+try:
+    from genparse.experimental.earley_fast import Earley, EarleyLM
+except ImportError:
+    import warnings
+
+    warnings.warn('skipping tests because Rust parser is not built.')
+    exit(0)
 from genparse.parse.cky import CKYLM, IncrementalCKY
 from genparse.semiring import Float
 
