@@ -1,3 +1,6 @@
+import psutil
+import os
+
 import argparse
 import logging
 from genparse.lark_interface import LarkStuff
@@ -39,6 +42,11 @@ def main(grammar_path, example_path, out_path):
                 if not guide.p_next(f'{entry[0:i]}'):
                     logger.info(f'\t{entry[0:i]}')
                     break
+    process = psutil.Process(os.getpid())
+    memory_info = process.memory_info()
+    ram_usage = memory_info.rss
+    ram_usage_mb = ram_usage / (1024**2)
+    print(f'RAM usage: {ram_usage_mb:.2f} MB')
 
 
 if __name__ == '__main__':
