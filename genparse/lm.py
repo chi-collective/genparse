@@ -194,7 +194,7 @@ class TokenizedLLM(LM):
     This is a simple class which wraps a token LLM with a tokenizer.
     """
 
-    def __init__(self, tokenizer, model, batch_size, temperature=1, top_p=None):
+    def __init__(self, tokenizer, model, batch_size, temperature=1, top_p=None, eos=None):
         self.tokenizer = tokenizer
         self._model = model
         self._model.batch_size = batch_size
@@ -202,7 +202,8 @@ class TokenizedLLM(LM):
         self._encode = {x: i for i, x in enumerate(self._decode)}
         self.temperature = temperature
         self.top_p = top_p
-        super().__init__(V=set(self._decode), eos=self.tokenizer.eos_token)
+        self.eos = eos if eos is not None else self.tokenizer.eos_token
+        super().__init__(V=set(self._decode), eos=self.eos)
 
     def encode_prompt(self, prompt):
         "Encode `prompt` as a tuple of tokens (each a string)."
@@ -272,13 +273,15 @@ class TokenizedLLM(LM):
 
 
 class VirtualTokenizedLLM(TokenizedLLM):
-    def __init__(self, vllm_engine):
+    def __init__(self, vllm_engine, **kwargs):
         self.llm_engine = vllm_engine
         self.tokenizer = self.llm_engine.get_tokenizer()
-        super().__init__(tokenizer=self.tokenizer, model=vllm_engine, batch_size=None)
+        super().__init__(
+            tokenizer=self.tokenizer, model=vllm_engine, batch_size=None, **kwargs
+        )
 
     @classmethod
-    def from_name(cls, model_name):
+    def from_name(cls, model_name, **kwargs):
         from vllm import LLMEngine, EngineArgs
 
         if 'Llama-3.1' in model_name:
@@ -293,13 +296,15 @@ class VirtualTokenizedLLM(TokenizedLLM):
                         rope_scaling={'type': 'dynamic', 'factor': 1.0},
                         max_model_len=7760,
                     )
-                )
+                ),
+                **kwargs,
             )
         else:
             return cls(
                 LLMEngine.from_engine_args(  # seed not used since we are not sampling with vllm
                     EngineArgs(model=model_name, tokenizer=model_name, seed=0)
-                )
+                ),
+                **kwargs,
             )
 
     # TODO: support the following methods, for easier debugging
