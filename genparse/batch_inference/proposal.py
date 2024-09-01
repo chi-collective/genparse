@@ -32,7 +32,7 @@ class Error:
 
 class ProposalWorker:
     """
-    Class representing a worker for parallel inference. Each subprocess contains a ProposalWorker object.
+    A worker for parallel inference. Each subprocess contains a ProposalWorker object.
 
     Args:
         proposal (Proposal): The proposal object.

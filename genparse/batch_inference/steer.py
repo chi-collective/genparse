@@ -10,7 +10,7 @@ from arsenal.maths import logsumexp, log_sample, sample_dict
 
 class BatchStepModel:
     """
-    Represents a model for performing batch steps in the steering process.
+    A model for performing batch steps during inference.
 
     Attributes:
         batch_proposal (BatchProposal): The batch proposal.
@@ -40,7 +40,7 @@ class BatchStepModel:
 
     def batch_step(self, particles, is_initial=False):
         """
-        Perform a batch step in the steering process.
+        Perform a batch step during inference.
         Computes the next token logprobs for each particle.
         Samples an extension for each particle and updates the particle weights.
 
@@ -112,7 +112,7 @@ class Particle(
 
 class ParticleApproximation:
     """
-    Represents a particle approximation.
+    A particle approximation for a target distribution.
 
     Attributes:
         particles (list): List of particles representing the distribution.

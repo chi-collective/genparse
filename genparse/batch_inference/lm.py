@@ -87,8 +87,8 @@ class BatchVLLM(vllm.LLM):
     """
     Batch LM sampling with VLLM.
 
-    This class is a wrapper around the VirtualTokenizedLLM class which provides an interface for
-    batch next token log prob computations with the VLLM engine.
+    This class is a wrapper around VirtualTokenizedLLMs. It provides an interface for
+    batched next token logprob computations with the VLLM engine.
 
     Attributes:
         llm (VirtualTokenizedLLM): The VirtualTokenizedLLM instance.
