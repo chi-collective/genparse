@@ -3,7 +3,7 @@ import gc
 import pickle
 from collections import deque
 from genparse.util import lark_guide
-from genparse.experimental.batch_inference import (
+from genparse.batch_inference import (
     ParallelCharacterProposal,
     ParallelTokenProposal,
 )

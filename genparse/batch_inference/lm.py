@@ -1,19 +1,19 @@
 import torch
 import vllm
-from vllm import SamplingParams
-from vllm.engine.output_processor.util import create_output_by_sequence_group
-from vllm.sequence import ExecuteModelRequest
-from vllm.utils import Counter
 from vllm.sequence import (
-    CompletionSequenceGroupOutput,
-    SequenceOutput,
-    SamplerOutput,
     Logprob,
+    SamplerOutput,
+    SequenceOutput,
+    CompletionSequenceGroupOutput,
 )
+from vllm.utils import Counter
+from vllm import SamplingParams
+from vllm.sequence import ExecuteModelRequest
+from vllm.engine.output_processor.util import create_output_by_sequence_group
 
 import warnings
-from collections import defaultdict
 import numpy as np
+from collections import defaultdict
 
 from genparse.lm import VirtualTokenizedLLM
 from genparse.util import load_model_by_name
@@ -281,8 +281,6 @@ class BatchVLLM(vllm.LLM):
             scheduler_outputs.ignored_seq_groups,
             seq_group_metadata_list,
         )
-
-        # self.llm_engine.do_log_stats(scheduler_outputs, sampler_outputs)
 
     def free_unfinished_requests(self):
         for group in list(self.llm_engine.scheduler.running):

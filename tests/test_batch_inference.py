@@ -1,8 +1,7 @@
 import torch
 import warnings
 import multiprocessing as mp
-from genparse.util import lark_guide, set_seed
-from genparse.experimental.batch_inference import (
+from genparse.batch_inference import (
     BatchLLM,
     BatchVLLM,
     ParallelCharacterProposal,
@@ -12,6 +11,7 @@ from genparse.experimental.batch_inference import (
     BatchStepModel,
     smc,
 )
+from genparse.util import lark_guide, set_seed
 
 
 def test_character_abc():
@@ -56,7 +56,7 @@ def test_character_abc():
     have = smc(step_model, n_particles=n_particles)
     have.posterior.assert_equal(want)
 
-    step_model.cleanup(warn=False)
+    step_model.cleanup()
 
 
 def test_token_abc():
@@ -102,7 +102,7 @@ def test_token_abc():
     have = smc(step_model, n_particles=n_particles)
     have.posterior.assert_equal(want)
 
-    step_model.cleanup(warn=False)
+    step_model.cleanup()
 
 
 def test_vllm_abc():
@@ -136,7 +136,7 @@ def test_vllm_abc():
     have = smc(step_model, n_particles=n_particles)
     have.posterior.assert_equal(want)
 
-    step_model.cleanup(warn=False)
+    step_model.cleanup()
 
     parallel_proposal = ParallelTokenProposal(
         llm=batch_llm.llm,
@@ -156,7 +156,7 @@ def test_vllm_abc():
     have = smc(step_model, n_particles=n_particles)
     have.posterior.assert_equal(want)
 
-    step_model.cleanup(warn=False)
+    step_model.cleanup()
 
 
 if __name__ == '__main__':

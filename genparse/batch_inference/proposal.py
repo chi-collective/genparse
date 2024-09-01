@@ -11,14 +11,14 @@ from genparse.proposal import CharacterProposal, TokenProposal
 
 @dataclass
 class Task:
-    particle_id: int
+    particle_idx: int  # index in `particles` list
     context: str
     logprob_idx: int  # index in `ParallelProposal.shared_array`
 
 
 @dataclass
 class Result:
-    particle_id: int
+    particle_idx: int
     token: str
     token_id: int
     log_weight: float
@@ -31,6 +31,32 @@ class Error:
 
 
 class ProposalWorker:
+    """
+    Class representing a worker for parallel inference. Each subprocess contains a ProposalWorker object.
+
+    Args:
+        proposal (Proposal): The proposal object.
+        shared_array (numpy.ndarray): The shared array of next token log probs.
+        worker_id (int): The ID of the worker.
+        memory_threshold (float): The memory usage threshold, expressed as a percentage of the total memory
+            used by the subprocess, at which to trigger memory management actions.
+
+    Attributes:
+        proposal (Proposal): The proposal object.
+        shared_array (numpy.ndarray): The shared array of next token log probs.
+        worker_id (int): The ID of the worker.
+        _decode (list): The decode object from the proposal's llm object. Maps token IDs to tokens.
+        _encode (dict): The encode object from the proposal's llm object. Maps tokens to token IDs.
+        pid (int): The process ID.
+        total_memory (int): The total virtual memory.
+        memory_threshold (float): The memory usage threshold, expressed as a percentage of the total memory
+            used by the subprocess, at which to trigger memory management actions.
+
+    Methods:
+        get_memory_usage: Returns the memory usage of the process.
+        maybe_clear_cache: Clears the proposal's cache if memory usage exceeds the threshold.
+    """
+
     def __init__(self, proposal, shared_array, worker_id, memory_threshold):
         self.proposal = proposal
         self.shared_array = shared_array
@@ -38,6 +64,7 @@ class ProposalWorker:
 
         self._decode = self.proposal.llm._decode
         self._encode = self.proposal.llm._encode
+        # coerce guide eos to llm eos token id
         self._encode[self.proposal.guide.eos] = self.proposal.llm.tokenizer.eos_token_id
 
         self.pid = os.getpid()
@@ -45,12 +72,14 @@ class ProposalWorker:
         self.memory_threshold = memory_threshold
 
     def get_memory_usage(self):
+        """Returns the memory usage of the process, as a percentage of total memory usage."""
         process = psutil.Process(self.pid)
         process_memory = process.memory_info().rss
         memory_percentage = (process_memory / self.total_memory) * 100
         return memory_percentage
 
     def maybe_clear_cache(self):
+        """Clears the guide's cache if memory usage exceeds the threshold."""
         if (self.memory_threshold is not None) and (
             self.get_memory_usage() > self.memory_threshold
         ):
@@ -58,6 +87,18 @@ class ProposalWorker:
 
 
 def _process_proposal_task(task):
+    """
+    Function called in subprocesses to process a proposal task and return the result.
+
+    Reads the next token log probabilities from the shared array and samples the next token from the proposal.
+
+    Args:
+        task (Task): The proposal task to process.
+
+    Returns:
+        Result or Error: The result of processing the task. If an error occurs, an Error object is returned.
+
+    """
     try:
         p_llm = LazyProb(
             _p=np.exp(proposal_worker.shared_array[task.logprob_idx]),
@@ -72,7 +113,7 @@ def _process_proposal_task(task):
         proposal_worker.maybe_clear_cache()
 
         return Result(
-            particle_id=task.particle_id,
+            particle_idx=task.particle_idx,
             token=token,
             log_weight=w,
             token_id=token_id,
@@ -82,21 +123,40 @@ def _process_proposal_task(task):
 
 
 class ParallelProposal:
-    def __init__(
-        self, llm, guide, num_processes, seed, max_n_particles=250, memory_threshold=80
-    ):
-        """
-        Args:
-            llm: Language model.
-            guide (BoolCFGLM): Guide.
-            num_processes (int): The number of parallel processes to use during batch inference.
-            max_n_particles (int): The maximum number of particles.
-            seed (int): The seed value.
-            memory_threshold (int, optional): The memory usage threshold (as a percentage of total memory) at which
-                to trigger memory management actions. Default is 80%.
+    """
+    Base class for parallel proposals.
 
-        Initializes the multiprocessing pool and shared array of logprobs.
-        """
+    Attributes:
+        llm (LanguageModel): The language model.
+        guide (BoolCFGLM): The guide.
+        num_processes (int): The number of processes to use during inference.
+            A proposal server will be created for each process.
+        seed (int): The seed value. Each process will be seeded with a different value.
+        memory_threshold (int, optional): The memory usage threshold (as a percentage of total memory) at which
+            to trigger memory management actions. Default is 80%.
+        eos (str): The guide's end-of-sequence token.
+        is_running (bool): Flag indicating if the parallel proposal is running.
+        pool (multiprocessing.Pool): The multiprocessing pool.
+        max_n_particles (int): The maximum number of particles which can be used during inference. Used to allocate shared memory.
+        shared_mem (multiprocessing.shared_memory.SharedMemory): The shared memory for next token logprobs.
+            This is used to send logprobs from the main process to the proposal subprocesses.
+        shared_array (numpy.ndarray): The shared array of next token logprobs.
+
+    Methods:
+        __init__: Initializes the ParallelProposal object.
+        _start: Starts the multiprocessing pool and initializes the shared array of next token logprobs.
+        _init_worker: Initializes a worker process in the multiprocessing pool.
+        batch_particle_extensions: Performs batch particle extensions using the proposal server.
+        cleanup: Cleans up the proposal server.
+        restart: Restarts the proposal server.
+        create_instance: Creates an instance of the proposal.
+            Used by subprocess initilializer to create each proposal.
+        __del__: Destructor method that cleans up the proposal server.
+    """
+
+    def __init__(
+        self, llm, guide, num_processes, seed, max_n_particles=250, memory_threshold=70
+    ):
         self.llm = llm
         self.guide = guide
         self.seed = seed
@@ -145,7 +205,18 @@ class ParallelProposal:
             self.create_instance(), self.shared_array, worker_id, memory_threshold
         )
 
-    def batch_particle_extensions(self, particles, logprobs, particle_id_to_logprob_id):
+    def batch_particle_extensions(self, particles, logprobs, particle_idx_to_logprob_idx):
+        """
+        Batch sample particle extensions.
+
+        Args:
+            particles (list): A list of particles.
+            logprobs (list): A list of next token log probabilities.
+            particle_idx_to_logprob_idx (dict): A mapping of particle IDs to next token log probability indices in `logprobs`.
+
+        Returns:
+            tuple: A tuple containing the sampled extensions and the mapping of extension indices to their corresponding particle indices.
+        """
         if not self.is_running:
             warnings.warn(
                 'Proposal server is not running (pool is not initialized).'
@@ -168,9 +239,9 @@ class ParallelProposal:
 
         tasks = [
             Task(
-                particle_id=p_idx,
+                particle_idx=p_idx,
                 context=p.context,
-                logprob_idx=particle_id_to_logprob_id[p_idx],
+                logprob_idx=particle_idx_to_logprob_idx[p_idx],
             )
             for p_idx, p in enumerate(particles)
             if not p.done
@@ -182,11 +253,16 @@ class ParallelProposal:
         for i, result in enumerate(results):
             if isinstance(result, Error):
                 raise result.exception
-            result_id_to_particle_idx[i] = result.particle_id
+            result_id_to_particle_idx[i] = result.particle_idx
 
         return (results, result_id_to_particle_idx)
 
     def cleanup(self):
+        """
+        Cleans up resources used by the parallel proposal.
+        If a multiprocessing pool is present, it is closed and joined.
+        The shared memory is closed and unlinked.
+        """
         if self.pool is not None:
             try:
                 self.pool.close()
@@ -241,15 +317,15 @@ class SequentialBatchProposal:
         self.proposal = self.create_instance()
         self.eos = self.proposal.eos
 
-    def batch_particle_extensions(self, particles, logprobs, particle_id_to_logprob_id):
+    def batch_particle_extensions(self, particles, logprobs, particle_idx_to_logprob_idx):
         # sequential implementation
         num_extensions = 0
         extensions = []
-        extension_id_to_particle_id = {}
-        for particle_id, p in enumerate(particles):
+        extension_id_to_particle_idx = {}
+        for particle_idx, p in enumerate(particles):
             if not p.done:
                 p_llm = LazyProb(
-                    _p=np.exp(logprobs[particle_id_to_logprob_id[particle_id]]),
+                    _p=np.exp(logprobs[particle_idx_to_logprob_idx[particle_idx]]),
                     encode=self.llm._encode,
                     decode=self.llm._decode,
                 )
@@ -263,16 +339,16 @@ class SequentialBatchProposal:
                 )
                 extensions.append(
                     Result(
-                        particle_id=particle_id,
+                        particle_idx=particle_idx,
                         token=token,
                         log_weight=w,
                         token_id=token_id,
                     )
                 )
-                extension_id_to_particle_id[num_extensions] = particle_id
+                extension_id_to_particle_idx[num_extensions] = particle_idx
                 num_extensions += 1
 
-        return (extensions, extension_id_to_particle_id)
+        return (extensions, extension_id_to_particle_idx)
 
     def create_instance(self):
         raise NotImplementedError('Subclasses must implement the create_instance method')

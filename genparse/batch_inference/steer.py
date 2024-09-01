@@ -1,18 +1,27 @@
-from collections import namedtuple
-from arsenal import colors
-import numpy as np
-from arsenal.maths import logsumexp, log_sample, sample_dict
 import atexit
 import warnings
+import numpy as np
+from arsenal import colors
 from genparse import Float
+from collections import namedtuple
 from genparse.record import SMCRecord
+from arsenal.maths import logsumexp, log_sample, sample_dict
 
 
 class BatchStepModel:
+    """
+    Represents a model for performing batch steps in the steering process.
+
+    Attributes:
+        batch_proposal (BatchProposal): The batch proposal.
+        batch_llm (BatchLLM): The batch language model.
+        max_tokens (int): The maximum number of tokens to sample.
+
+    """
+
     def __init__(self, batch_proposal, batch_llm, max_tokens, prompt=None):
         self.batch_proposal = batch_proposal
         self.batch_llm = batch_llm
-        self.eos = batch_proposal.eos
         self.max_tokens = max_tokens
 
         if prompt is not None:
@@ -21,10 +30,28 @@ class BatchStepModel:
         atexit.register(self.cleanup)
 
     def set_prompt(self, prompt):
+        """
+        Set the prompt for the batch language model.
+
+        Args:
+            prompt (str): The prompt to set.
+        """
         self.batch_llm.set_prompt(prompt)
 
     def batch_step(self, particles, is_initial=False):
-        logprobs, particle_id_to_logprob_id = self.batch_llm.batch_next_token_logprobs(
+        """
+        Perform a batch step in the steering process.
+        Computes the next token logprobs for each particle.
+        Samples an extension for each particle and updates the particle weights.
+
+        Args:
+            particles (list): List of Particle objects.
+            is_initial (bool, optional): Flag indicating if it is the initial step. Defaults to False.
+
+        Returns:
+            list: List of updated Particle objects after the batch step.
+        """
+        logprobs, particle_idx_to_logprob_idx = self.batch_llm.batch_next_token_logprobs(
             particles=particles, is_initial=is_initial
         )
 
@@ -32,7 +59,7 @@ class BatchStepModel:
             self.batch_proposal.batch_particle_extensions(
                 particles=particles,
                 logprobs=logprobs,
-                particle_id_to_logprob_id=particle_id_to_logprob_id,
+                particle_idx_to_logprob_idx=particle_idx_to_logprob_idx,
             )
         )
 
@@ -55,18 +82,17 @@ class BatchStepModel:
 
         return particles
 
-    def cleanup(self, warn=False):
-        if warn:
-            warnings.warn(
-                'Cleaning up batch step model. All subprocesses will be terminated.'
-            )
+    def cleanup(self):
+        """
+        Clean up resources used by the batch proposal and batch language model.
+        """
         self.batch_proposal.cleanup()
         self.batch_llm.cleanup()
 
 
-###############
-# SMC methods #
-###############
+########################
+# Inference algorithms #
+########################
 
 
 class Particle(
@@ -85,6 +111,21 @@ class Particle(
 
 
 class ParticleApproximation:
+    """
+    Represents a particle approximation.
+
+    Attributes:
+        particles (list): List of particles representing the distribution.
+        size (int): Number of particles in the approximation.
+        log_weights (ndarray): Array of log weights for each particle.
+        log_total (float): Log of the sum of the weights.
+        log_ml (float): Log marginal likelihood estimate.
+        log_normalized_weights (ndarray): Array of log-normalized weights.
+        log_ess (float): Log of the effective sample size.
+        ess (float): Effective sample size, estimated as 1 / sum of squared normalized weights.
+        record (SMCRecord or None): Record associated with the approximation, if provided.
+    """
+
     def __init__(self, particles, record=None):
         self.particles = list(particles)
         self.size = len(particles)
@@ -163,6 +204,22 @@ def pretty_print_particles(particles, step_info):
 
 
 def maybe_resample(particles, ess_threshold, return_record, step_info, verbosity):
+    """
+    Resamples particles if the effective sample size (ESS) falls below a threshold.
+
+    If a resampling step occurs, all particle weights are set to the average weight of the particles prior to resampling.
+
+    Args:
+        particles (list): List of particles.
+        ess_threshold (float): Threshold for the effective sample size, specified as a fraction of the number of particles.
+        return_record (bool): Flag indicating whether to log additional information in the step_info dictionary.
+        step_info (dict): Dictionary to log step information.
+        verbosity (int): Verbosity level.
+
+    Returns:
+        list: List of resampled particles.
+
+    """
     if return_record:
         step_info['particles'] = [
             {
