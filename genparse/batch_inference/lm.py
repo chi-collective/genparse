@@ -1,4 +1,8 @@
 import torch
+import warnings
+import numpy as np
+from collections import defaultdict
+
 import vllm
 from vllm.sequence import (
     Logprob,
@@ -11,16 +15,12 @@ from vllm import SamplingParams
 from vllm.sequence import ExecuteModelRequest
 from vllm.engine.output_processor.util import create_output_by_sequence_group
 
-import warnings
-import numpy as np
-from collections import defaultdict
-
 from genparse.lm import VirtualTokenizedLLM
 from genparse.util import load_model_by_name
 
 
 class BatchLLM:
-    """Simple baseline class which wraps LMs. Next token logprobs are sampled sequentially from the llm."""
+    """Simple class which wraps LMs. Next token logprobs are computed sequentially from the llm."""
 
     def __init__(self, llm):
         self.llm = llm
@@ -84,7 +84,32 @@ class VLLMParticleMetadata:
 
 
 class BatchVLLM(vllm.LLM):
-    """Batch LM sampling with VLLM."""
+    """
+    Batch LM sampling with VLLM.
+
+    This class is a wrapper around the VirtualTokenizedLLM class which provides an interface for
+    batch next token log prob computations with the VLLM engine.
+
+    Attributes:
+        llm (VirtualTokenizedLLM): The VirtualTokenizedLLM instance.
+        llm_engine (VLLMEngine): The VLLM engine.
+        eos (str): The end-of-sequence token.
+        eos_token_id (int): The end-of-sequence token id.
+        request_counter (Counter): A counter for tracking the number of requests.
+        particle_metadata (VLLMParticleMetadata):
+            Metadata for tracking VLLM sequence information associated with the particle state.
+        prompt (str): The LM prompt.
+
+    Methods:
+        from_name: Create a BatchVLLM instance from a HF model name.
+        set_prompt: Set the LM prompt.
+        _make_initial_request: Make an initial request to the VLLM engine.
+        batch_next_token_logprobs: Compute the next token logprobs for a batch of particles.
+        _map_sequence_id_to_particle_ids: Associate the scheduled sequence ids in the VLLM with particle ids.
+        _register_particle_extensions: Update the VLLM engine with the sampled particle extensions.
+        free_unfinished_requests: Free all requests from the VLLM engine.
+        cleanup: Cleanup the BatchVLLM instance.
+    """
 
     def __init__(self, llm):
         if not isinstance(llm, VirtualTokenizedLLM):
@@ -201,7 +226,15 @@ class BatchVLLM(vllm.LLM):
         return logprobs.numpy(), particle_id_to_logprob_idx
 
     def _map_sequence_id_to_particle_ids(self, particles, from_possible_resampling=False):
-        """Associate the scheduled sequence ids with particle ids"""
+        """
+        Associate the scheduled sequence ids in the VLLM engine with particle ids
+
+        Args:
+            particles (list): A list of particles.
+            from_possible_resampling (bool): Whether a resampling step might have occured.
+                When true, particles and VLLM sequences are realigned excluding the most recent token in particle context.
+                This step must be done prior to registering particle extensions.
+        """
 
         # TODO: this can be optimized; the from_possible_resampling = True case is a hack to remap sequence ids to particle ids
         # in case there was a resampling step
@@ -241,6 +274,9 @@ class BatchVLLM(vllm.LLM):
         Update the VLLM Engine with the sampled particle extensions.
 
         This function updates the sequence outputs for each sequence id with the sample particle extensions.
+
+        Args:
+            particles (list): A list of particles.
         """
 
         sequence_outputs = []
@@ -283,6 +319,7 @@ class BatchVLLM(vllm.LLM):
         )
 
     def free_unfinished_requests(self):
+        """Free all requests from the VLLM Engine."""
         for group in list(self.llm_engine.scheduler.running):
             self.llm_engine.abort_request(group.request_id)
 
