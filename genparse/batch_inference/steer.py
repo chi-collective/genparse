@@ -3,6 +3,7 @@ import warnings
 import numpy as np
 from arsenal import colors
 from genparse import Float
+from numpy.random import random
 from collections import namedtuple
 from genparse.record import SMCRecord
 from arsenal.maths import logsumexp, log_sample, sample_dict
@@ -16,6 +17,11 @@ class BatchStepModel:
         batch_proposal (BatchProposal): The batch proposal.
         batch_llm (BatchLLM): The batch language model.
         max_tokens (int): The maximum number of tokens to sample.
+
+    Methods:
+        set_prompt: Set the prompt for the batch language model.
+        batch_step: Perform a batch step during inference.
+        cleanup: Clean up resources used by the batch proposal and batch language model.
 
     """
 
@@ -51,6 +57,7 @@ class BatchStepModel:
         Returns:
             list: List of updated Particle objects after the batch step.
         """
+
         logprobs, particle_idx_to_logprob_idx = self.batch_llm.batch_next_token_logprobs(
             particles=particles, is_initial=is_initial
         )
@@ -63,7 +70,7 @@ class BatchStepModel:
             )
         )
 
-        for extension_id, particle_id in extension_id_to_particle_id.items():
+        for extension_id, particle_id in enumerate(extension_id_to_particle_id):
             particle = particles[particle_id]
             extension = extensions[extension_id]
             particles[particle_id] = Particle(
@@ -203,7 +210,52 @@ def pretty_print_particles(particles, step_info):
     )
 
 
-def maybe_resample(particles, ess_threshold, return_record, step_info, verbosity):
+def stratified_resample(weights):
+    # source: https://filterpy.readthedocs.io/en/latest/_modules/filterpy/monte_carlo/resampling.html#stratified_resample
+    """Performs the stratified resampling algorithm used by particle filters.
+
+    This algorithms aims to make selections relatively uniformly across the
+    particles. It divides the cumulative sum of the weights into N equal
+    divisions, and then selects one particle randomly from each division. This
+    guarantees that each sample is between 0 and 2/N apart.
+
+    Parameters
+    ----------
+    weights : list-like of float
+        list of weights as floats
+
+    Returns
+    -------
+
+    indexes : ndarray of ints
+        array of indexes into the weights defining the resample. i.e. the
+        index of the zeroth resample is indexes[0], etc.
+    """
+
+    N = len(weights)
+    # make N subdivisions, and chose a random position within each one
+    positions = (random(N) + range(N)) / N
+
+    indexes = np.zeros(N, 'i')
+    cumulative_sum = np.cumsum(weights)
+    i, j = 0, 0
+    while i < N:
+        if positions[i] < cumulative_sum[j]:
+            indexes[i] = j
+            i += 1
+        else:
+            j += 1
+    return indexes
+
+
+def maybe_resample(
+    particles,
+    ess_threshold,
+    return_record,
+    step_info,
+    verbosity,
+    resample_method='multinomial',
+):
     """
     Resamples particles if the effective sample size (ESS) falls below a threshold.
 
@@ -212,6 +264,7 @@ def maybe_resample(particles, ess_threshold, return_record, step_info, verbosity
     Args:
         particles (list): List of particles.
         ess_threshold (float): Threshold for the effective sample size, specified as a fraction of the number of particles.
+        resample_method (str): Resampling method to use. Either 'multinomial' or 'stratified'. Default is 'multinomial'.
         return_record (bool): Flag indicating whether to log additional information in the step_info dictionary.
         step_info (dict): Dictionary to log step information.
         verbosity (int): Verbosity level.
@@ -244,7 +297,13 @@ def maybe_resample(particles, ess_threshold, return_record, step_info, verbosity
     ess = np.exp(log_ess)
 
     if ess < n_particles * ess_threshold:
-        indices = log_sample(log_normalized_weights, size=n_particles)
+        if resample_method == 'multinomial':
+            indices = log_sample(log_normalized_weights, size=n_particles)
+        elif resample_method == 'stratified':
+            indices = stratified_resample(np.exp(log_normalized_weights))
+        else:
+            raise ValueError(f'Unknown resampling method: {resample_method}')
+
         particles = [
             particles[i]._replace(log_weight=avg_log_weight, parent=i) for i in indices
         ]
@@ -263,15 +322,28 @@ def maybe_resample(particles, ess_threshold, return_record, step_info, verbosity
     return particles
 
 
-def smc(batch_model, n_particles, ess_threshold=0.5, verbosity=0, return_record=False):
+def smc(
+    batch_model,
+    n_particles,
+    potential=None,
+    ess_threshold=0.5,
+    verbosity=0,
+    return_record=False,
+    resample_method='multinomial',
+):
     """Standard sequential Monte Carlo algorithm with multinomial resampling.
 
     Args:
       - `batch_model` (`BatchStepper`): The model to perform inference on.
       - `n_particles` (`int`): The number of particles to perform inference with.
+      - `potential` (`Callable`):
+            A function that when called on a list of particles, returns a list with the log potential values
+            for each particle in the list of particles. Optional.
       - `ess_threshold` (`float`): Effective sample size below which resampling
-         triggered, given as a fraction of `n_particles`.
-      - `verbosity` (`int`): Verbosity level. When > 0, particles are printed at each step.
+         triggered, given as a fraction of `n_particles`. Default is 0.5.
+      - `verbosity` (`int`): Verbosity level. When > 0, particles are printed at each step. Default is 0.
+      - `return_record` (`bool`): Flag indicating whether to return a record of the inference steps. Default is False.
+      - `resample_method` (`str`): Resampling method to use. Either 'multinomial' or 'stratified'. Default is 'multinomial'.
 
     Returns:
       - `particle_approximation` (`ParticleApproximation`): The completed particle approximation.
@@ -282,6 +354,7 @@ def smc(batch_model, n_particles, ess_threshold=0.5, verbosity=0, return_record=
             {
                 'n_particles': n_particles,
                 'ess_threshold': ess_threshold,
+                'resample_method': resample_method,
                 'algorithm': 'smc_standard_record',
                 'history': [],
             }
@@ -290,14 +363,23 @@ def smc(batch_model, n_particles, ess_threshold=0.5, verbosity=0, return_record=
         else None
     )
 
-    particles = init_particles(n_particles)
     step_num = 1
+    apply_potential_inc = (potential is not None) and (ess_threshold > 0)
+    particles = init_particles(n_particles)
     while not all(p.done for p in particles):
         step_info = {'step': step_num}
 
         particles = batch_model.batch_step(particles, is_initial=step_num == 1)
+
+        if apply_potential_inc:
+            log_potentials = potential(particles)
+            particles = [
+                p._replace(log_weight=p.log_weight + log_potentials[i])
+                for i, p in enumerate(particles)
+            ]
+
         particles = maybe_resample(
-            particles, ess_threshold, return_record, step_info, verbosity
+            particles, ess_threshold, return_record, step_info, verbosity, resample_method
         )
 
         if verbosity > 0:
@@ -306,17 +388,36 @@ def smc(batch_model, n_particles, ess_threshold=0.5, verbosity=0, return_record=
         if return_record:
             record['history'].append(step_info)
 
+        if apply_potential_inc:
+            particles = [
+                p._replace(log_weight=p.log_weight - log_potentials[i])
+                for i, p in enumerate(particles)
+            ]
+
         step_num += 1
+
+    if potential is not None:
+        if ess_threshold == 0:
+            log_potentials = potential(particles)
+        particles = [
+            p._replace(log_weight=p.log_weight + log_potentials[i])
+            for i, p in enumerate(particles)
+        ]
 
     return ParticleApproximation(particles, record)
 
 
-def importance_sampling(batch_model, n_particles, verbosity=0, return_record=False):
+def importance_sampling(
+    batch_model, n_particles, potential=None, verbosity=0, return_record=False
+):
     """Standard sequential importance sampling.
 
     Args:
       - `batch_model` (`BatchStepper`): The model to perform inference on.
       - `n_particles` (`int`): The number of particles to perform inference with.
+      - `potential` (`Callable`):
+            A function that when called on a list of particles, returns a list of log potential scores. Optional.
+            This potential is only applied at the end of inference.
       - `verbosity` (`int`): Verbosity level. When > 0, particles are printed at each step.
 
     Returns:
@@ -325,6 +426,7 @@ def importance_sampling(batch_model, n_particles, verbosity=0, return_record=Fal
     return smc(
         batch_model=batch_model,
         n_particles=n_particles,
+        potential=potential,
         ess_threshold=0,
         verbosity=verbosity,
         return_record=return_record,

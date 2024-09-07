@@ -146,12 +146,12 @@ class ParallelProposal:
         __init__: Initializes the ParallelProposal object.
         _start: Starts the multiprocessing pool and initializes the shared array of next token logprobs.
         _init_worker: Initializes a worker process in the multiprocessing pool.
-        batch_particle_extensions: Performs batch particle extensions using the proposal server.
-        cleanup: Cleans up the proposal server.
-        restart: Restarts the proposal server.
+        batch_particle_extensions: Batch samples particle extensions.
+        cleanup: Cleans up the parallel proposal.
+        restart: Restarts the parallel proposal.
         create_instance: Creates an instance of the proposal.
-            Used by subprocess initilializer to create each proposal.
-        __del__: Destructor method that cleans up the proposal server.
+            Used by subprocess initilializer to create a proposal in each subprocess.
+        __del__: Destructor method that cleans up the parallel proposal.
     """
 
     def __init__(
@@ -249,13 +249,15 @@ class ParallelProposal:
 
         results = self.pool.map(_process_proposal_task, tasks)
 
-        result_id_to_particle_idx = {}
+        result_idx_to_particle_idx = np.ones(len(results), dtype=int) * -1
         for i, result in enumerate(results):
             if isinstance(result, Error):
                 raise result.exception
-            result_id_to_particle_idx[i] = result.particle_idx
+            result_idx_to_particle_idx[i] = result.particle_idx
 
-        return (results, result_id_to_particle_idx)
+        assert all(result_idx_to_particle_idx != -1)
+
+        return (results, result_idx_to_particle_idx)
 
     def cleanup(self):
         """
