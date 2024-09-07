@@ -33,7 +33,7 @@ class BatchStepModel:
         if prompt is not None:
             self.set_prompt(prompt)
 
-        atexit.register(self.cleanup)
+        # atexit.register(self.cleanup)
 
     def set_prompt(self, prompt):
         """
@@ -62,7 +62,7 @@ class BatchStepModel:
             particles=particles, is_initial=is_initial
         )
 
-        extensions, extension_id_to_particle_id = (
+        extensions, extension_idx_to_particle_idx = (
             self.batch_proposal.batch_particle_extensions(
                 particles=particles,
                 logprobs=logprobs,
@@ -70,10 +70,10 @@ class BatchStepModel:
             )
         )
 
-        for extension_id, particle_id in enumerate(extension_id_to_particle_id):
-            particle = particles[particle_id]
-            extension = extensions[extension_id]
-            particles[particle_id] = Particle(
+        for extension_idx, extension in enumerate(extensions):
+            particle_idx = extension_idx_to_particle_idx[extension_idx]
+            particle = particles[particle_idx]
+            particles[particle_idx] = Particle(
                 prompt=particle.prompt,
                 log_weight=particle.log_weight + extension.log_weight,
                 log_weight_updates=particle.log_weight_updates + (extension.log_weight,),
