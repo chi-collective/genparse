@@ -8,12 +8,16 @@ from dataclasses import dataclass
 from genparse.util import set_seed
 from genparse.proposal import CharacterProposal, TokenProposal
 
+MAX_NUM_PROMPTS = 2  # maximum number of distinct prompts
+
 
 @dataclass
 class Task:
     particle_idx: int  # index in `particles` list
     context: str
-    logprob_idx: int  # index in `ParallelProposal.shared_array`
+    logprob_idx: (
+        tuple  # 2D index in `ParallelProposal.shared_array` [seq_group_idx, seq_idx]
+    )
 
 
 @dataclass
@@ -174,11 +178,14 @@ class ParallelProposal:
 
         self.shared_mem = mp.shared_memory.SharedMemory(
             create=True,
-            size=self.max_n_particles * llm_vocab_size * np.float32().itemsize,
+            size=self.max_n_particles
+            * MAX_NUM_PROMPTS
+            * llm_vocab_size
+            * np.float32().itemsize,
         )
 
         self.shared_array = np.ndarray(
-            (self.max_n_particles, llm_vocab_size),
+            (MAX_NUM_PROMPTS, self.max_n_particles, llm_vocab_size),
             dtype=np.float32,
             buffer=self.shared_mem.buf,
         )
@@ -205,7 +212,9 @@ class ParallelProposal:
             self.create_instance(), self.shared_array, worker_id, memory_threshold
         )
 
-    def batch_particle_extensions(self, particles, logprobs, particle_idx_to_logprob_idx):
+    def batch_particle_extensions(
+        self, particles, logprobs_by_seq_group, particle_idx_to_logprob_idx
+    ):
         """
         Batch sample particle extensions.
 
@@ -234,8 +243,8 @@ class ParallelProposal:
             self.max_n_particles = to_serve
             self.restart()
 
-        for i, lps in enumerate(logprobs):
-            self.shared_array[i] = lps
+        n_seq_groups, n_seqs, n_tokens = logprobs_by_seq_group.shape
+        self.shared_array[:n_seq_groups, :n_seqs, :n_tokens] = logprobs_by_seq_group
 
         tasks = [
             Task(
@@ -319,7 +328,9 @@ class SequentialBatchProposal:
         self.proposal = self.create_instance()
         self.eos = self.proposal.eos
 
-    def batch_particle_extensions(self, particles, logprobs, particle_idx_to_logprob_idx):
+    def batch_particle_extensions(
+        self, particles, logprobs_by_seq_group, particle_idx_to_logprob_idx
+    ):
         # sequential implementation
         num_extensions = 0
         extensions = []
@@ -327,7 +338,9 @@ class SequentialBatchProposal:
         for particle_idx, p in enumerate(particles):
             if not p.done:
                 p_llm = LazyProb(
-                    _p=np.exp(logprobs[particle_idx_to_logprob_idx[particle_idx]]),
+                    _p=np.exp(
+                        logprobs_by_seq_group[particle_idx_to_logprob_idx[particle_idx]]
+                    ),
                     encode=self.llm._encode,
                     decode=self.llm._decode,
                 )

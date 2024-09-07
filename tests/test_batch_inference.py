@@ -42,7 +42,7 @@ def test_character_abc():
         prompt=prompt,
     )
 
-    have = smc(step_model, n_particles=n_particles)
+    have = smc(step_model, n_particles=n_particles, verbosity=1)
     have.posterior.assert_equal(want)
 
     # parallel proposal
@@ -61,7 +61,7 @@ def test_character_abc():
         prompt=prompt,
     )
 
-    have = smc(step_model, n_particles=n_particles)
+    have = smc(step_model, n_particles=n_particles, verbosity=1)
     have.posterior.assert_equal(want)
 
     step_model.cleanup()
@@ -87,7 +87,7 @@ def test_token_abc():
         prompt=prompt,
     )
 
-    have = smc(step_model, n_particles=n_particles)
+    have = smc(step_model, n_particles=n_particles, verbosity=1)
     have.posterior.assert_equal(want)
 
     # parallel proposal
@@ -107,7 +107,7 @@ def test_token_abc():
         prompt=prompt,
     )
 
-    have = smc(step_model, n_particles=n_particles)
+    have = smc(step_model, n_particles=n_particles, verbosity=1)
     have.posterior.assert_equal(want)
 
     step_model.cleanup()
@@ -151,7 +151,7 @@ def _test_vllm_inference_abc(vllm_llm):
         prompt=prompt,
     )
 
-    have = smc(step_model, n_particles=n_particles)
+    have = smc(step_model, n_particles=n_particles, verbosity=1)
     have.posterior.assert_equal(want)
 
     step_model.cleanup()
@@ -171,7 +171,7 @@ def _test_vllm_inference_abc(vllm_llm):
         prompt=prompt,
     )
 
-    have = smc(step_model, n_particles=n_particles)
+    have = smc(step_model, n_particles=n_particles, verbosity=1)
     have.posterior.assert_equal(want)
 
     step_model.cleanup()

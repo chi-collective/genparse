@@ -33,7 +33,7 @@ class BatchStepModel:
         if prompt is not None:
             self.set_prompt(prompt)
 
-        # atexit.register(self.cleanup)
+        atexit.register(self.cleanup)
 
     def set_prompt(self, prompt):
         """
@@ -58,14 +58,16 @@ class BatchStepModel:
             list: List of updated Particle objects after the batch step.
         """
 
-        logprobs, particle_idx_to_logprob_idx = self.batch_llm.batch_next_token_logprobs(
-            particles=particles, is_initial=is_initial
+        logprobs_by_seq_group, particle_idx_to_logprob_idx = (
+            self.batch_llm.batch_next_token_logprobs(
+                particles=particles, is_initial=is_initial
+            )
         )
 
         extensions, extension_idx_to_particle_idx = (
             self.batch_proposal.batch_particle_extensions(
                 particles=particles,
-                logprobs=logprobs,
+                logprobs_by_seq_group=logprobs_by_seq_group,
                 particle_idx_to_logprob_idx=particle_idx_to_logprob_idx,
             )
         )
@@ -76,7 +78,6 @@ class BatchStepModel:
             particles[particle_idx] = Particle(
                 prompt=particle.prompt,
                 log_weight=particle.log_weight + extension.log_weight,
-                log_weight_updates=particle.log_weight_updates + (extension.log_weight,),
                 context=particle.context + (extension.token,),
                 context_ids=particle.context_ids + (extension.token_id,),
                 done=(
@@ -102,12 +103,28 @@ class BatchStepModel:
 ########################
 
 
-class Particle(
-    namedtuple(
-        'Particle',
-        'prompt, log_weight, log_weight_updates, context, context_ids, parent, done',
-    )
-):
+class Particle:
+    def __init__(
+        self,
+        prompt=None,
+        log_weight=0,
+        context=(),
+        context_ids=(),
+        parent=None,
+        done=False,
+    ):
+        self.prompt = prompt
+        self.log_weight = log_weight
+        self.context = context
+        self.context_ids = context_ids
+        self.parent = parent
+        self.done = done
+
+    def _replace(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+        return self
+
     def __repr__(self):
         return (
             f'{self.log_weight:.2f}:\t'
@@ -199,7 +216,7 @@ class ParticleApproximation:
 
 
 def init_particles(n_particles):
-    return [Particle((), 0, (), (), (), None, False) for _ in range(n_particles)]
+    return [Particle() for _ in range(n_particles)]
 
 
 def pretty_print_particles(particles, step_info):
