@@ -281,15 +281,15 @@ class BatchVLLM(vllm.LLM):
             all_sequence_outputs
         ), 'Outputs must be provided for each running sequence group'
 
-        sequence_outputs = [
+        sequence_outputs = [  # single step
             SamplerOutput(
                 outputs=[
                     CompletionSequenceGroupOutput(
                         samples=sequence_outputs, prompt_logprobs=None
                     )
+                    for sequence_outputs in all_sequence_outputs
                 ]
             )
-            for sequence_outputs in all_sequence_outputs
         ]
 
         self.llm_engine._process_model_outputs(
@@ -393,121 +393,63 @@ class BatchVLLM(vllm.LLM):
                     seq.status = SequenceStatus.RUNNING
             self.llm_engine.scheduler.running.extend(swapped_out_seq_groups)
 
-    def batch_score_sequences(self, prompt, token_ids, masks=None, temperature=1):
+    def batch_score_sequences(self, prompts, token_ids, temperature=1):
         """
-        Compute log p(token_ids | prompt) for a batch of token_ids.
-
-        Args:
-            prompt (str): The prompt.
-            token_ids (list): A list of lists of token ids.
-            masks (list): A list of lists of boolean masks, one for each token id list.
-                mask[i,j] = False does not score token_ids[i,j]. Defaults to scoring all tokens.
-
-        Returns:
-            logprobs (np.ndarray): The log probabilities.
+        Compute log p(token_ids | prompt) for each prompt.
         """
-        max_length = max(len(l) for l in token_ids)
-        token_ids = np.array([x + [-1] * (max_length - len(x)) for x in token_ids])
-
-        if masks is None:
-            masks = np.ones(token_ids.shape, dtype=bool)
-        else:
-            masks = np.array([x + [0] * (max_length - len(x)) for x in masks], dtype=bool)
-
-        assert (
-            token_ids.shape == masks.shape
-        ), 'Token ids and masks must have the same shape'
-
         with self.swap_running_sequence_groups():
-            self._validate_and_add_request(prompt=prompt)
-            logprobs = self._batch_compute_logprobs(
-                token_ids=token_ids, masks=masks, temperature=temperature
-            )
+            request_ids = [
+                self._validate_and_add_request(prompt=prompt) for prompt in prompts
+            ]
+
+            logprobs = np.zeros(len(request_ids))
+            for i, token_id in enumerate(token_ids):
+                (
+                    logprobs_by_seq_group,
+                    sequence_ids_by_seq_group,
+                    seq_group_metadata_list,
+                    scheduler_outputs,
+                ) = self.step_engine()
+
+                all_sequence_outputs = []
+                for seq_group_idx, seq_group_metadata in enumerate(
+                    seq_group_metadata_list
+                ):
+                    prompt_idx = request_ids.index(seq_group_metadata.request_id)
+                    seq_group_seq_ids = sequence_ids_by_seq_group[seq_group_idx]
+                    assert len(seq_group_seq_ids) == 1, 'Multiple seqs not supported'
+                    seq_id = seq_group_seq_ids[0]
+
+                    token_logprob = self._temper_logprobs(
+                        logprobs_by_seq_group[seq_group_idx][0], temperature
+                    )[token_id]
+                    logprobs[prompt_idx] += token_logprob
+
+                    sequence_outputs = [
+                        SequenceOutput(
+                            parent_seq_id=seq_id,
+                            output_token=token_id,
+                            logprobs={token_id: Logprob(logprob=token_logprob)},
+                        )
+                    ]
+
+                    all_sequence_outputs.append(sequence_outputs)
+
+                self.apply_sequence_outputs(
+                    all_sequence_outputs=all_sequence_outputs,
+                    seq_group_metadata_list=seq_group_metadata_list,
+                    scheduler_outputs=scheduler_outputs,
+                )
+
+            self.free_running_sequence_groups()
 
         return logprobs
 
-    def _batch_compute_logprobs(self, token_ids, masks, temperature=1):
-        # It is possible to compute the logprobs for sequences by running a `generate` request
-        # on the vllm LLM with prompt_logprobs=0 and max_tokens=1.
-        # However, in practice I've found that this leads to a lot of memory leakage, which makes
-        # it essentially unusable.
-        token_logprobs = np.zeros(len(token_ids))
-        for i, step_ids in enumerate(token_ids.T):
-            (
-                logprobs_by_seq_group,
-                sequence_ids_by_seq_group,
-                seq_group_metadata_list,
-                scheduler_outputs,
-            ) = self.step_engine()
-            all_sequence_outputs = []
-            for seq_group_idx, seq_group_metadata in enumerate(seq_group_metadata_list):
-                sequence_outputs = []
-                seq_group_logprobs = logprobs_by_seq_group[seq_group_idx]
-                seq_group_seq_ids = sequence_ids_by_seq_group[seq_group_idx]
-                for seq_id, seq_data in seq_group_metadata.seq_data.items():
-                    next_token_logprobs = seq_group_logprobs[
-                        seq_group_seq_ids.index(seq_id)
-                    ]
-
-                    if temperature != 1:
-                        next_token_logprobs = next_token_logprobs / temperature
-                        next_token_logprobs = next_token_logprobs - logsumexp(
-                            next_token_logprobs
-                        )
-
-                    token_list_ids = np.where(
-                        np.all(token_ids[:, :i] == seq_data.output_token_ids, axis=1)
-                    )[0]
-
-                    is_finished = True
-                    unique_token_ids = []
-                    for token_list_id in token_list_ids:
-                        token_id = step_ids[token_list_id]
-
-                        if token_id == -1:
-                            continue
-
-                        is_finished = False
-                        if token_id not in unique_token_ids:
-                            unique_token_ids.append(token_id)
-
-                            if masks[token_list_id, i]:
-                                token_logprob = next_token_logprobs[token_id]
-                                token_logprobs[token_list_id] += token_logprob
-                            else:
-                                token_logprob = 0
-
-                            sequence_outputs.append(
-                                SequenceOutput(
-                                    parent_seq_id=seq_id,
-                                    output_token=token_id,
-                                    logprobs={token_id: Logprob(logprob=token_logprob)},
-                                )
-                            )
-
-                    if is_finished:
-                        seq_data.status = SequenceStatus.FINISHED_STOPPED
-                        # XXX Free blocks here?
-
-                all_sequence_outputs.append(sequence_outputs)
-
-            self.apply_sequence_outputs(
-                all_sequence_outputs=all_sequence_outputs,
-                seq_group_metadata_list=seq_group_metadata_list,
-                scheduler_outputs=scheduler_outputs,
-            )
-
-        self.free_running_sequence_groups()
-
-        return token_logprobs
-
-    def batch_score_marginal_sequence(
-        self, prompts, marginal_eos_token_id, token_ids, n_marginal, temperature=1
-    ):
-        raise NotImplementedError('This method is not yet implemented')
-        # XXX: very inefficient
-
-        # for each prompt, sample n_marginal completions, then score token_ids
+    def _temper_logprobs(self, logprobs, temperature):
+        if temperature != 1:
+            logprobs = logprobs / temperature
+            logprobs = logprobs - logsumexp(logprobs)
+        return logprobs
 
     def free_running_sequence_groups(self):
         while self.llm_engine.scheduler.running:

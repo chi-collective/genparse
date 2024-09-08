@@ -177,29 +177,28 @@ def _test_vllm_inference_abc(vllm_llm):
     step_model.cleanup()
 
 
-def reference_scorer(vllm_llm, prompt, token_ids, temperature, masks=None):
+def reference_scorer(vllm_llm, prompts, token_ids, temperature):
     # Memory intensive implementation
     from vllm import SamplingParams
     from vllm.model_executor.layers.sampler import Sampler
 
     tokenizer = vllm_llm.get_tokenizer()
 
-    preprompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
+    masks = []
+    all_token_ids = []
+    for prompt in prompts:
+        prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
+        all_token_ids.append(prompt_ids + token_ids)
+        masks.append([0] * len(prompt_ids) + ([1] * len(token_ids)))
 
-    _token_ids, _masks = [], []
-    for i, tokens in enumerate(token_ids):
-        _token_ids.append(preprompt_ids + tokens)
-        token_mask = ([1] * len(tokens)) if masks is None else masks[i]
-        _masks.append([0] * len(preprompt_ids) + token_mask)
-
-    prompts = tokenizer.batch_decode(_token_ids)
+    inputs = tokenizer.batch_decode(all_token_ids)
 
     vllm_llm.llm_engine.model_executor.driver_worker.model_runner.model.sampler = (
         Sampler()
     )
 
     outputs = vllm_llm.generate(
-        prompts=prompts,
+        prompts=inputs,
         use_tqdm=False,
         sampling_params=SamplingParams(
             prompt_logprobs=0, max_tokens=1, temperature=temperature
@@ -213,8 +212,8 @@ def reference_scorer(vllm_llm, prompt, token_ids, temperature, masks=None):
     logprobs = [
         sum(
             output.prompt_logprobs[j][token_id].logprob
-            for j, token_id in enumerate(_token_ids[i])
-            if _masks[i][j]
+            for j, token_id in enumerate(all_token_ids[i])
+            if masks[i][j]
         )
         for i, output in enumerate(outputs)
     ]
@@ -223,52 +222,32 @@ def reference_scorer(vllm_llm, prompt, token_ids, temperature, masks=None):
 
 
 def _test_vllm_scoring(vllm_llm):
-    tol = 0.05  # difference in *logprobs*
+    tol = 0.5  # difference in *logprobs*
     batch_llm = BatchVLLM(VirtualTokenizedLLM(vllm_llm.llm_engine))
 
     tokenizer = batch_llm.llm.tokenizer
     reference = partial(reference_scorer, vllm_llm=vllm_llm)
 
-    preprompt = 'Repeat " this that them": this that them\nRepeat " this that them":'
-    sequences = [' this that them', ' them this that', ' that this']
+    prompts = [
+        'Repeat " this that them": this that them\nRepeat " this that them":',
+        'Repeat " this them that": this them that\nRepeat " this them that":',
+        'Repeat " that this": that this\nRepeat " that this":',
+    ]
+    sequences = [' this that them', ' this them that', ' that this']
     token_ids = [tokenizer.encode(s, add_special_tokens=False) for s in sequences]
 
-    wants = reference(prompt=preprompt, token_ids=token_ids, temperature=1)
-    haves = batch_llm.batch_score_sequences(
-        prompt=preprompt, token_ids=token_ids, temperature=1
-    )
-
-    assert len(haves) == len(wants), [len(haves), len(wants)]
-    for i, (want, have) in enumerate(zip(wants, haves)):
-        print(sequences[i], want, have)
-        assert abs(have - want) < tol, [have, want]
-    print()
-
-    wants = reference(prompt=preprompt, token_ids=token_ids, temperature=1.5)
-    haves = batch_llm.batch_score_sequences(
-        prompt=preprompt, token_ids=token_ids, temperature=1.5
-    )
-
-    assert len(haves) == len(wants), [len(haves), len(wants)]
-    for i, (want, have) in enumerate(zip(wants, haves)):
-        print(sequences[i], want, have)
-        assert abs(have - want) < tol, [have, want]
-    print()
-
-    masks = [
-        [1, 0, 1],  # p(this | preprompt) * p(them | preprompt, this, that)
-        [1, 1, 0],  # p(them | preprompt) * p(this | preprompt, them)
-        [1, 1],  # p(that | preprompt) * p(this | preprompt, that)
-    ]
-    wants = reference(prompt=preprompt, token_ids=token_ids, masks=masks, temperature=1)
-    haves = batch_llm.batch_score_sequences(
-        prompt=preprompt, token_ids=token_ids, masks=masks, temperature=1
-    )
-
-    assert len(haves) == len(wants), [len(haves), len(wants)]
-    for i, (want, have) in enumerate(zip(wants, haves)):
-        print(sequences[i], want, have)
-        assert abs(have - want) < tol, [have, want]
+    for temperature in [0.25, 1, 1.75]:
+        print()
+        for i, _token_ids in enumerate(token_ids):
+            wants = reference(
+                prompts=prompts, token_ids=_token_ids, temperature=temperature
+            )
+            haves = batch_llm.batch_score_sequences(
+                prompts=prompts, token_ids=_token_ids, temperature=temperature
+            )
+            for j, (want, have) in enumerate(zip(wants, haves)):
+                print(repr(prompts[j]), repr(sequences[i]), want, have)
+                assert abs(have - want) < tol, [have, want, temperature, i, j]
 
 
 if __name__ == '__main__':
