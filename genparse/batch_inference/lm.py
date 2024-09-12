@@ -17,6 +17,7 @@ from vllm.utils import Counter
 from vllm import SamplingParams
 from vllm.sequence import SequenceStatus
 from vllm.sequence import ExecuteModelRequest
+from vllm.model_executor.layers.sampler import Sampler
 from vllm.engine.output_processor.util import create_output_by_sequence_group
 
 from genparse.lm import VirtualTokenizedLLM
@@ -499,3 +500,23 @@ class BatchVLLM(vllm.LLM):
         self.seq_group_metadata_list = None
         self.scheduler_outputs = None
         self.reset_scheduler()
+
+
+@contextmanager
+def use_default_sampler(vllm_llm):
+    """
+    Context manager to use the default sampler for the VLLM model.
+
+    Args:
+        vllm_llm (vllm.LLM): The VLLM model.
+    """
+    sampler = vllm_llm.llm_engine.model_executor.driver_worker.model_runner.model.sampler
+    vllm_llm.llm_engine.model_executor.driver_worker.model_runner.model.sampler = (
+        Sampler()
+    )
+    try:
+        yield
+    finally:
+        vllm_llm.llm_engine.model_executor.driver_worker.model_runner.model.sampler = (
+            sampler
+        )

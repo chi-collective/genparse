@@ -5,7 +5,7 @@ import numpy as np
 import multiprocessing as mp
 from functools import partial
 from genparse.util import lark_guide, set_seed
-from genparse.batch_inference.lm import LogitsGrouper
+from genparse.batch_inference.lm import use_default_sampler
 from genparse.lm import VirtualTokenizedLLM, MockLLM, LazyProb
 from genparse.batch_inference import (
     BatchLLM,
@@ -153,15 +153,15 @@ def test_parallel_this_that():
     )
 
     # test posterior multi-modality
-    have = smc(step_model, n_particles=500, verbosity=1)
     want = {' this this this▪': 0.5, ' that that that▪': 0.5}
+    have = smc(step_model, n_particles=500, verbosity=1)
     have.posterior.assert_equal(want, tol=0.5)
 
     # test weight quality
-    have = np.exp(have.log_ml)
     want = 0.5**4 + 0.5**4
+    have = np.exp(have.log_ml)
 
-    assert abs(have - want) < 1e-6
+    assert abs(have - want) < 1e-6, [have, want]
 
     step_model.cleanup()
 
@@ -238,7 +238,6 @@ def _test_vllm_inference_abc(vllm_llm):
 def reference_scorer(vllm_llm, prompts, token_ids, temperature):
     # Memory intensive implementation
     from vllm import SamplingParams
-    from vllm.model_executor.layers.sampler import Sampler
 
     tokenizer = vllm_llm.get_tokenizer()
 
@@ -251,21 +250,14 @@ def reference_scorer(vllm_llm, prompts, token_ids, temperature):
 
     inputs = tokenizer.batch_decode(all_token_ids)
 
-    vllm_llm.llm_engine.model_executor.driver_worker.model_runner.model.sampler = (
-        Sampler()
-    )
-
-    outputs = vllm_llm.generate(
-        prompts=inputs,
-        use_tqdm=False,
-        sampling_params=SamplingParams(
-            prompt_logprobs=0, max_tokens=1, temperature=temperature
-        ),
-    )
-
-    vllm_llm.llm_engine.model_executor.driver_worker.model_runner.model.sampler = (
-        LogitsGrouper()
-    )
+    with use_default_sampler(vllm_llm):
+        outputs = vllm_llm.generate(
+            prompts=inputs,
+            use_tqdm=False,
+            sampling_params=SamplingParams(
+                prompt_logprobs=0, max_tokens=1, temperature=temperature
+            ),
+        )
 
     logprobs = [
         sum(
@@ -289,7 +281,7 @@ def _test_vllm_scoring(vllm_llm):
     prompts = [
         'Repeat " this that them": this that them\nRepeat " this that them":',
         'Repeat " this them that": this that that\nRepeat " this that that":',
-        'Repeat " this that": that that\nRepeat " that that":',
+        'Repeat " this that": this that\nRepeat " this that":',
     ]
     token_ids = tokenizer.encode(' this that them', add_special_tokens=False)
 
@@ -298,14 +290,14 @@ def _test_vllm_scoring(vllm_llm):
         prompts=prompts, token_ids=token_ids, temperature=1
     )
 
-    assert np.allclose(have, want, atol=0, rtol=rtol)
+    assert np.allclose(have, want, atol=0, rtol=rtol), [have, want]
 
     want = reference(prompts=prompts, token_ids=token_ids, temperature=1.75)
     have = batch_llm.batch_score_sequences(
         prompts=prompts, token_ids=token_ids, temperature=1.75
     )
 
-    assert np.allclose(have, want, atol=0, rtol=rtol)
+    assert np.allclose(have, want, atol=0, rtol=rtol), [have, want]
 
 
 if __name__ == '__main__':
