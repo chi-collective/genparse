@@ -69,7 +69,7 @@ class ProposalWorker:
         self._decode = self.proposal.llm._decode
         self._encode = self.proposal.llm._encode
         # coerce guide eos to llm eos token id
-        self._encode[self.proposal.guide.eos] = self.proposal.llm.tokenizer.eos_token_id
+        self._encode[self.proposal.guide.eos] = self.proposal.llm.eos_token_id
 
         self.pid = os.getpid()
         self.total_memory = psutil.virtual_memory().total

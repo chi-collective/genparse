@@ -202,9 +202,9 @@ class TokenizedLLM(LM):
         self._encode = {x: i for i, x in enumerate(self._decode)}
         self.temperature = temperature
         self.top_p = top_p
-        super().__init__(
-            V=set(self._decode), eos=eos if eos is not None else self.tokenizer.eos_token
-        )
+        self.eos = eos if eos is not None else self.tokenizer.eos_token
+        self.eos_token_id = self._encode[self.eos]
+        super().__init__(V=set(self._decode), eos=self.eos)
 
     def encode_prompt(self, prompt):
         "Encode `prompt` as a tuple of tokens (each a string)."
@@ -407,6 +407,7 @@ class MockLLM(LM):
         self._logp = np.log(self._p)
         self._decode = list(V)
         self._encode = {x: i for i, x in enumerate(self._decode)}
+        self.eos_token_id = self._encode[eos]
         super().__init__(eos=eos, V=set(V))
 
     def p_next(self, context):

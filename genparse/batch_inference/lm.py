@@ -36,7 +36,12 @@ class BatchLLM:
         return cls(llm=load_model_by_name(model_name))
 
     def set_prompt(self, prompt):
-        self.prompt = self.llm.encode_prompt(prompt)
+        if isinstance(prompt, str):
+            self.prompt = self.llm.encode_prompt(prompt)
+        elif isinstance(prompt, tuple):
+            self.prompt = prompt
+        else:
+            raise ValueError('prompt must be a string or a tuple of token ids')
 
     def batch_next_token_logprobs(self, particles, *args, **kwargs):
         logprobs = []
@@ -136,11 +141,14 @@ class BatchVLLM(vllm.LLM):
         return request_id
 
     def _validate_and_add_request(self, prompt):
+        if not isinstance(prompt, str):
+            raise ValueError('prompt must be a string.')  # TODO: support token ids
         request_id = str(next(self.request_counter))
-        assert isinstance(prompt, str), 'Prompt must be a string.'
+        # [0] since we are provided a single prompt as input
+        inputs = self._convert_v1_inputs(prompts=[prompt], prompt_token_ids=None)[0]
         self.llm_engine.add_request(
             request_id=request_id,
-            inputs=self._convert_v1_inputs(prompts=prompt, prompt_token_ids=None)[0],
+            inputs=inputs,
             params=SamplingParams(
                 max_tokens=np.inf, stop_token_ids=[], stop=None, ignore_eos=True
             ),
@@ -160,7 +168,7 @@ class BatchVLLM(vllm.LLM):
         # reason does not schedule the sequences with `waiting` status. The later occurs
         # when the block manager assigns an AllocStatus.LATER to the sequence group. This
         # can happen if the block manager is unable to allocate the necessary blocks for the sequence.
-        # Calling `reset_scheduler` will clear the block manager and free up the space.
+        # Calling `reset_scheduler` will clear the block manager and free up the space, which we do upon initial requests.
         assert (
             len(seq_group_metadata_list) > 0
         ), 'Scheduler did not schedule any sequences'
@@ -187,8 +195,8 @@ class BatchVLLM(vllm.LLM):
             len(sequence_ids_by_step) == 1
         ), 'We should only be decoding a single step (sequence ids)'
 
-        logprobs_by_seq_group = logprobs_by_step[0]
-        sequence_ids_by_seq_group = sequence_ids_by_step[0]
+        logprobs_by_seq_group = logprobs_by_step[0]  # single step
+        sequence_ids_by_seq_group = sequence_ids_by_step[0]  # single step
 
         assert len(logprobs_by_seq_group) == len(
             seq_group_metadata_list
@@ -225,7 +233,6 @@ class BatchVLLM(vllm.LLM):
         context_to_particle_extensions = defaultdict(list)
         for particle_idx, particle in enumerate(particles):
             if not particle.done:
-                # we can ignore finished particles since we do not need to make vllm requests for them
                 context_to_particle_extensions[tuple(particle.context_ids[:-1])].append(
                     (particle_idx, particle.context_ids[-1])
                 )
@@ -234,8 +241,8 @@ class BatchVLLM(vllm.LLM):
             len(seq_group_metadata_list) == 1
         ), 'Only a single sequence group is supported for next token logprobs'
 
-        all_sequence_outputs = []
         extended_particles = []
+        seq_outputs_by_seq_group = []
         for seq_group_idx, seq_group_metadata in enumerate(seq_group_metadata_list):
             sequence_outputs = []
             for seq_id, seq_data in seq_group_metadata.seq_data.items():
@@ -245,7 +252,6 @@ class BatchVLLM(vllm.LLM):
 
                 if not extensions:
                     seq_data.status = SequenceStatus.FINISHED_STOPPED
-                    # XXX free blocks here?
                     continue
 
                 unique_token_ids = []
@@ -260,7 +266,7 @@ class BatchVLLM(vllm.LLM):
                                 logprobs={sampled_token_id: Logprob(logprob=0)},
                             )
                         )
-            all_sequence_outputs.append(sequence_outputs)
+            seq_outputs_by_seq_group.append(sequence_outputs)
         # This will fail if the vllm engine does not contain the sequence groups which generated
         # the particle state. Eventually we may want detect when this is the case, and initialize
         # the approapriate vllm sequences (related to the TODO at the top of this function).
@@ -269,16 +275,16 @@ class BatchVLLM(vllm.LLM):
         ), 'All unfinished particles should be associated with a running sequence'
 
         self.apply_sequence_outputs(
-            all_sequence_outputs=all_sequence_outputs,
+            seq_outputs_by_seq_group=seq_outputs_by_seq_group,
             seq_group_metadata_list=seq_group_metadata_list,
             scheduler_outputs=scheduler_outputs,
         )
 
     def apply_sequence_outputs(
-        self, all_sequence_outputs, seq_group_metadata_list, scheduler_outputs
+        self, seq_outputs_by_seq_group, seq_group_metadata_list, scheduler_outputs
     ):
         assert len(seq_group_metadata_list) == len(
-            all_sequence_outputs
+            seq_outputs_by_seq_group
         ), 'Outputs must be provided for each running sequence group'
 
         sequence_outputs = [  # single step
@@ -286,8 +292,8 @@ class BatchVLLM(vllm.LLM):
                 outputs=[
                     CompletionSequenceGroupOutput(
                         samples=sequence_outputs, prompt_logprobs=None
-                    )
-                    for sequence_outputs in all_sequence_outputs
+                    )  # for each sequence group
+                    for sequence_outputs in seq_outputs_by_seq_group
                 ]
             )
         ]
@@ -304,10 +310,12 @@ class BatchVLLM(vllm.LLM):
     def batch_next_token_logprobs(self, particles, is_initial=False):
         """Take a single VLLM step to compute logprobs for the next token"""
         if is_initial:
+            # initialize the VLLM state with a sequence group for the prompt
             request_id = self._make_initial_request(self.prompt)
             for p in particles:
-                p._replace(prompt=request_id)
+                p.prompt = request_id
         else:
+            # extend the VLLM sequences with the particle extensions
             self.extend_sequences_from_particles(
                 particles, self.seq_group_metadata_list, self.scheduler_outputs
             )
@@ -318,15 +326,18 @@ class BatchVLLM(vllm.LLM):
             seq_group_metadata_list,
             scheduler_outputs,
         ) = self.step_engine()
-        # Save scheduler outputs and md for subsequent batch steps (ugly)
+        # Save scheduler outputs and metadata for subsequent batch steps (ugly)
         # We need to save this state to extend sequences from extended particles at the next call to batch_next_token_logprobs.
         # Perhaps a more elegant solution would be to use a datastructure which stored the information necc
         # to reconstruct these objects based on the (seq ids for the) particles and the state of the vllm engine.
         self.seq_group_metadata_list = seq_group_metadata_list
         self.scheduler_outputs = scheduler_outputs
 
-        # request_id -> seq context_ids -> [seq_group_idx, seq_id]
-        context_ids_to_seq_id = {}
+        # map particles to sequences according to the particle context ids
+        # maybe TODO: instead of having to compute the sequence ids for each context at each step,
+        # store the sequence id in the particles themselves.
+
+        context_ids_to_seq_id = {}  # request_id -> seq_context_ids -> [seq_group_idx, seq_id]
         for seq_group_idx, seq_group_metadata in enumerate(seq_group_metadata_list):
             context_ids_to_seq_id[seq_group_metadata.request_id] = {}
             for seq_id, seq_data in seq_group_metadata.seq_data.items():
@@ -342,8 +353,7 @@ class BatchVLLM(vllm.LLM):
                     seq_id,
                 ]
 
-        # particle_idx -> [seq_group_idx, seq_id]
-        particle_idx_to_logprob_idx = []
+        particle_idx_to_logprob_idx = []  # particle_idx -> [seq_group_idx, seq_idx]
         for particle in particles:
             assert particle.prompt is not None, 'All particles should have a prompt id'
             if particle.done:
@@ -356,7 +366,7 @@ class BatchVLLM(vllm.LLM):
                 seq_group_idx, seq_id = seq_group_seq_ids.get(
                     tuple(particle.context_ids), (None, None)
                 )
-                assert (
+                assert (seq_group_idx is not None) and (
                     seq_id is not None
                 ), 'All unfinished particles should be associated with a running sequence'
                 particle_idx_to_logprob_idx.append(
@@ -375,7 +385,8 @@ class BatchVLLM(vllm.LLM):
         to run another. This is particularly useful to score sequences under the LM
         in the middle of SMC inference.
         """
-        # This swap does not free the blocks associated with the sequence group
+        # This swap does not free the *blocks* associated with the sequence group.
+        # A block is a contiguous chunk of memory which
         # Typically this is fine since there is enough space in the block manager
         # TODO: check if the block manager is full and recompute these requests if so.
         swapped_out_seq_groups = []
@@ -394,13 +405,16 @@ class BatchVLLM(vllm.LLM):
             self.llm_engine.scheduler.running.extend(swapped_out_seq_groups)
 
     def batch_score_sequences(self, prompts, token_ids, temperature=1):
-        """
-        Compute log p(token_ids | prompt) for each prompt.
-        """
+        """Compute log p(token_ids | prompt) for each prompt."""
         with self.swap_running_sequence_groups():
             request_ids = [
                 self._validate_and_add_request(prompt=prompt) for prompt in prompts
             ]
+
+            # This could likely be made much faster by increasing the step size.
+            # Instead of stepping the engine for each token, we could call it once
+            # and have it compute the logprobs for len(token_ids) steps. It would also
+            # remove much of this logic, and help us support SMC inference with step size greater than 1.
 
             logprobs = np.zeros(len(request_ids))
             for i, token_id in enumerate(token_ids):
@@ -411,13 +425,15 @@ class BatchVLLM(vllm.LLM):
                     scheduler_outputs,
                 ) = self.step_engine()
 
-                all_sequence_outputs = []
+                seq_outputs_by_seq_group = []
                 for seq_group_idx, seq_group_metadata in enumerate(
                     seq_group_metadata_list
                 ):
                     prompt_idx = request_ids.index(seq_group_metadata.request_id)
                     seq_group_seq_ids = sequence_ids_by_seq_group[seq_group_idx]
-                    assert len(seq_group_seq_ids) == 1, 'Multiple seqs not supported'
+                    assert (
+                        len(seq_group_seq_ids) == 1
+                    ), 'Multiple seqs not supported for scoring'
                     seq_id = seq_group_seq_ids[0]
 
                     token_logprob = self._temper_logprobs(
@@ -433,10 +449,10 @@ class BatchVLLM(vllm.LLM):
                         )
                     ]
 
-                    all_sequence_outputs.append(sequence_outputs)
+                    seq_outputs_by_seq_group.append(sequence_outputs)
 
                 self.apply_sequence_outputs(
-                    all_sequence_outputs=all_sequence_outputs,
+                    seq_outputs_by_seq_group=seq_outputs_by_seq_group,
                     seq_group_metadata_list=seq_group_metadata_list,
                     scheduler_outputs=scheduler_outputs,
                 )

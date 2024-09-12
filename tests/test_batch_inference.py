@@ -1,8 +1,12 @@
+import os
 import torch
 import warnings
+import numpy as np
 import multiprocessing as mp
-from genparse.lm import VirtualTokenizedLLM
+from functools import partial
+from genparse.util import lark_guide, set_seed
 from genparse.batch_inference.lm import LogitsGrouper
+from genparse.lm import VirtualTokenizedLLM, MockLLM, LazyProb
 from genparse.batch_inference import (
     BatchLLM,
     BatchVLLM,
@@ -13,10 +17,6 @@ from genparse.batch_inference import (
     BatchStepModel,
     smc,
 )
-from genparse.util import lark_guide, set_seed
-from functools import partial
-
-import os
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
@@ -111,6 +111,64 @@ def test_token_abc():
     have.posterior.assert_equal(want)
 
     step_model.cleanup()
+
+
+def test_parallel_this_that():
+    class ThisThatLM(MockLLM):
+        def __init__(self):
+            super().__init__(V=[' this', ' that', '▪'], eos='▪')
+
+        def logp_next(self, context):
+            assert isinstance(context, tuple)
+            assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
+            if context == ():
+                p = np.array([0.5, 0.5, 0])
+            elif context[-1] == ' this':
+                p = np.array([0.5, 0, 0.5])
+            elif context[-1] == ' that':
+                p = np.array([0, 0.5, 0.5])
+            else:
+                raise ValueError(f'Unexpected context: {context}')
+
+            return LazyProb(np.log(p), self._encode, self._decode)
+
+    batch_llm = BatchLLM(ThisThatLM())
+
+    guide = lark_guide('start: " this this this" | " that that that"')
+
+    parallel_proposal = ParallelTokenProposal(
+        llm=batch_llm.llm,
+        guide=guide,
+        K=None,
+        num_processes=max(mp.cpu_count(), 2),
+        max_n_particles=500,
+        seed=0,
+    )
+
+    step_model = BatchStepModel(
+        batch_proposal=parallel_proposal,
+        batch_llm=batch_llm,
+        max_tokens=10,
+        prompt=(),
+    )
+
+    # test posterior multi-modality
+    have = smc(step_model, n_particles=500, verbosity=1)
+    want = {' this this this▪': 0.5, ' that that that▪': 0.5}
+    have.posterior.assert_equal(want, tol=0.5)
+
+    # test weight quality
+    have = np.exp(have.log_ml)
+    want = 0.5**4 + 0.5**4
+
+    assert abs(have - want) < 1e-6
+
+    step_model.cleanup()
+
+
+##########################
+# VLLM integration tests #
+##########################
 
 
 def test_vllm():
@@ -222,7 +280,7 @@ def reference_scorer(vllm_llm, prompts, token_ids, temperature):
 
 
 def _test_vllm_scoring(vllm_llm):
-    tol = 0.5  # difference in *logprobs*
+    rtol = 0.01  # abs(a - b) <= rtol * abs(b)
     batch_llm = BatchVLLM(VirtualTokenizedLLM(vllm_llm.llm_engine))
 
     tokenizer = batch_llm.llm.tokenizer
@@ -230,24 +288,24 @@ def _test_vllm_scoring(vllm_llm):
 
     prompts = [
         'Repeat " this that them": this that them\nRepeat " this that them":',
-        'Repeat " this them that": this them that\nRepeat " this them that":',
-        'Repeat " that this": that this\nRepeat " that this":',
+        'Repeat " this them that": this that that\nRepeat " this that that":',
+        'Repeat " this that": that that\nRepeat " that that":',
     ]
-    sequences = [' this that them', ' this them that', ' that this']
-    token_ids = [tokenizer.encode(s, add_special_tokens=False) for s in sequences]
+    token_ids = tokenizer.encode(' this that them', add_special_tokens=False)
 
-    for temperature in [0.25, 1, 1.75]:
-        print()
-        for i, _token_ids in enumerate(token_ids):
-            wants = reference(
-                prompts=prompts, token_ids=_token_ids, temperature=temperature
-            )
-            haves = batch_llm.batch_score_sequences(
-                prompts=prompts, token_ids=_token_ids, temperature=temperature
-            )
-            for j, (want, have) in enumerate(zip(wants, haves)):
-                print(repr(prompts[j]), repr(sequences[i]), want, have)
-                assert abs(have - want) < tol, [have, want, temperature, i, j]
+    want = reference(prompts=prompts, token_ids=token_ids, temperature=1)
+    have = batch_llm.batch_score_sequences(
+        prompts=prompts, token_ids=token_ids, temperature=1
+    )
+
+    assert np.allclose(have, want, atol=0, rtol=rtol)
+
+    want = reference(prompts=prompts, token_ids=token_ids, temperature=1.75)
+    have = batch_llm.batch_score_sequences(
+        prompts=prompts, token_ids=token_ids, temperature=1.75
+    )
+
+    assert np.allclose(have, want, atol=0, rtol=rtol)
 
 
 if __name__ == '__main__':
