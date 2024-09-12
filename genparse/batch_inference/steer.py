@@ -1,3 +1,4 @@
+import copy
 import atexit
 import warnings
 import numpy as np
@@ -271,6 +272,7 @@ def maybe_resample(
     return_record,
     step_info,
     verbosity,
+    log_potentials=None,
     resample_method='multinomial',
 ):
     """
@@ -284,6 +286,7 @@ def maybe_resample(
         resample_method (str): Resampling method to use. Either 'multinomial' or 'stratified'. Default is 'multinomial'.
         return_record (bool): Flag indicating whether to log additional information in the step_info dictionary.
         step_info (dict): Dictionary to log step information.
+        log_potentials (list): List of log potentials for each particle. Optional.
         verbosity (int): Verbosity level.
 
     Returns:
@@ -295,7 +298,6 @@ def maybe_resample(
             {
                 'context': p.context,
                 'weight': p.log_weight,
-                'weight_update': p.log_weight_updates[-1],
                 'context_ids': p.context_ids,
             }
             for p in particles
@@ -322,8 +324,12 @@ def maybe_resample(
             raise ValueError(f'Unknown resampling method: {resample_method}')
 
         particles = [
-            particles[i]._replace(log_weight=avg_log_weight, parent=i) for i in indices
+            copy.deepcopy(particles[i])._replace(log_weight=avg_log_weight, parent=i)
+            for i in indices
         ]
+
+        if log_potentials is not None:
+            log_potentials = [log_potentials[i] for i in indices]
 
         if return_record:
             step_info['resample_indices'] = indices.tolist()
@@ -336,7 +342,7 @@ def maybe_resample(
         if verbosity > 0:
             print('└╼')
 
-    return particles
+    return particles, log_potentials
 
 
 def smc(
@@ -389,14 +395,20 @@ def smc(
         particles = batch_model.batch_step(particles, is_initial=step_num == 1)
 
         if apply_potential_inc:
-            log_potentials = potential(particles)
-            particles = [
-                p._replace(log_weight=p.log_weight + log_potentials[i])
-                for i, p in enumerate(particles)
-            ]
+            log_potentials = potential(particles=particles, step_num=step_num)
+            for i, p in enumerate(particles):
+                p.log_weight += log_potentials[i]
+        else:
+            log_potentials = None
 
-        particles = maybe_resample(
-            particles, ess_threshold, return_record, step_info, verbosity, resample_method
+        particles, log_potentials = maybe_resample(
+            particles=particles,
+            log_potentials=log_potentials,
+            ess_threshold=ess_threshold,
+            return_record=return_record,
+            step_info=step_info,
+            verbosity=verbosity,
+            resample_method=resample_method,
         )
 
         if verbosity > 0:
@@ -406,20 +418,16 @@ def smc(
             record['history'].append(step_info)
 
         if apply_potential_inc:
-            particles = [
-                p._replace(log_weight=p.log_weight - log_potentials[i])
-                for i, p in enumerate(particles)
-            ]
+            for i, p in enumerate(particles):
+                p.log_weight -= log_potentials[i]
 
         step_num += 1
 
     if potential is not None:
         if ess_threshold == 0:
-            log_potentials = potential(particles)
-        particles = [
-            p._replace(log_weight=p.log_weight + log_potentials[i])
-            for i, p in enumerate(particles)
-        ]
+            log_potentials = potential(particles=particles, step_num=step_num)
+        for i, p in enumerate(particles):
+            p.log_weight += log_potentials[i]
 
     return ParticleApproximation(particles, record)
 
