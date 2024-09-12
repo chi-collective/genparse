@@ -65,27 +65,23 @@ def make_file_path(results_dir, model, method, ess, run, n_particles, proposal=N
         )
 
 
+import itertools
+
+
+def _iter_args(models, methods, runs, ess_thresholds, n_particles_list, proposals):
+    return itertools.product(
+        models, methods, runs, ess_thresholds, n_particles_list, proposals
+    )
+
+
 def read_files(
     results_dir, models, methods, runs, ess_thresholds, n_particles_list, proposals
 ):
     all_experiment_data = []
-    for model in models:
-        for method in methods:
-            for run in runs:
-                for ess in ess_thresholds:
-                    for n_particles in n_particles_list:
-                        for proposal in proposals:
-                            all_experiment_data.extend(
-                                read_file(
-                                    results_dir,
-                                    model,
-                                    method,
-                                    run,
-                                    ess,
-                                    n_particles,
-                                    proposal,
-                                )
-                            )
+    for args in _iter_args(
+        models, methods, runs, ess_thresholds, n_particles_list, proposals
+    ):
+        all_experiment_data.extend(read_file(results_dir, *args))
     return all_experiment_data
 
 

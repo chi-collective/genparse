@@ -28,13 +28,13 @@ from utils import (
 )
 
 from genparse.util import set_seed
-from genparse.experimental.batch_inference import (
+from genparse.batch_inference import (
     BatchVLLM,
     BatchStepModel,
     smc,
     importance_sampling,
 )
-from genparse.experimental.batch_inference.steer import ParticleApproximation, Particle
+from genparse.batch_inference.steer import ParticleApproximation, Particle
 
 os.environ['TOKENIZERS_PARALLELISM'] = '(true | false)'
 os.environ['HF_TOKEN'] = HF_ACCESS_TOKEN
@@ -211,14 +211,14 @@ def main():
     already_processed = load_processed_examples(outpath)
     outfile = open(outpath, 'a+')
 
-    raw_spider_dir = Path('../spider/data/spider')
+    raw_spider_dir = Path('../../spider/data/spider')
     spider_dev_data = load_spider_data(raw_spider_dir, split='dev')
     prompt_formatter = load_prompt_formatter(raw_spider_dir)
 
     if len(already_processed) >= (len(spider_dev_data) * args.n_replicates):
         return
 
-    grammar_dir = 'spider_grammars'
+    grammar_dir = '../spider_grammars'
     schema = prepare_schema(args, spider_dev_data)
 
     set_seed(args.seed)

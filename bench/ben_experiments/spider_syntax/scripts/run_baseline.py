@@ -15,7 +15,7 @@ import vllm
 import transformers
 from tqdm import tqdm
 
-from genparse.experimental.batch_inference.steer import Particle, ParticleApproximation
+from genparse.batch_inference.steer import Particle, ParticleApproximation
 
 from bench.spider.evaluator import Evaluator
 from utils import (
@@ -75,7 +75,7 @@ def main():
 
     set_seed(args.seed)
 
-    raw_spider_dir = Path('../spider/data/spider')
+    raw_spider_dir = Path('../../spider/data/spider')
     spider_dev_data = load_spider_data(raw_spider_dir, split='dev')
     evaluator = Evaluator(raw_spider_dir)
     prompt_formatter = load_prompt_formatter(raw_spider_dir)

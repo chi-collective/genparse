@@ -2,6 +2,8 @@
 # Evaluation #
 ##############
 
+import os
+import json
 import time
 import numpy as np
 from tqdm import tqdm
@@ -9,12 +11,13 @@ from pathlib import Path
 import concurrent.futures
 from functools import lru_cache, wraps
 from bench.spider.evaluator import Evaluator
-from genparse.experimental.batch_inference.steer import ParticleApproximation, Particle
+
+from genparse.batch_inference.steer import ParticleApproximation, Particle
 
 from genparse import EOS
 
 eos = EOS
-spider_dir = Path('../../spider/data/spider')
+spider_dir = Path('../../../spider/data/spider')
 
 
 def get_final_particles_from_record(record):
@@ -103,15 +106,6 @@ def posterior_weighted_eval(particles, gold, db):
     return {'result': weighted_acc, 'particle_results': particle_results}
 
 
-def spider_eval(particles, gold, db, run_mbr):
-    approx = create_particle_approx(particles)
-    return {
-        'posterior_weighted_acc': posterior_weighted_eval(approx, gold, db),
-        'mbr': mbr_eval(approx, gold, db) if run_mbr else None,
-        'viterbi': viterbi_eval(approx, gold, db),
-    }
-
-
 @lru_cache
 def cached_eval(x, y, db):
     return evaluator.evaluate(x, y, db_name=db)
@@ -129,12 +123,78 @@ def process_datum_wrapper(args):
 
 def process_datum(datum, run_mbr, overwrite):
     particles = get_final_particles_from_record(datum['record'])
-    if not overwrite and len(datum['results']) > 0:
-        return datum
-    datum['results'].update(
-        spider_eval(particles, gold=datum['gold'], db=datum['db_name'], run_mbr=run_mbr)
-    )
+    approx = create_particle_approx(particles)
+
+    results = {}
+    gold = datum['gold']
+    db = datum['db_name']
+
+    if overwrite or ('posterior_weighted_acc' not in datum['results']):
+        results['posterior_weighted_acc'] = posterior_weighted_eval(approx, gold, db)
+
+    if overwrite or ('mbr' not in datum['results']):
+        if run_mbr:
+            results['mbr'] = mbr_eval(approx, gold, db)
+        else:
+            results['mbr'] = None
+
+    if overwrite or ('viterbi' not in datum['results']):
+        results['viterbi'] = viterbi_eval(approx, gold, db)
+
+    datum['results'].update(results)
+
     return datum
+
+
+from utils import _iter_args, make_file_path, read_file
+
+
+def run_evaluations(
+    results_dir,
+    models,
+    methods,
+    runs,
+    ess_thresholds,
+    n_particles_list,
+    proposals,
+    n_workers,
+    run_mbr=True,
+    overwrite=False,
+    timeout=None,
+):
+    for args in _iter_args(
+        models, methods, runs, ess_thresholds, n_particles_list, proposals
+    ):
+        model, method, run, ess, n_particles, proposal = args
+
+        data = read_file(
+            results_dir=results_dir,
+            model=model,
+            method=method,
+            run=run,
+            ess=ess,
+            n_particles=n_particles,
+            proposal=proposal,
+        )
+
+        if data == []:
+            continue
+
+        data = run_and_add_evaluation(
+            data, n_workers, run_mbr=run_mbr, overwrite=overwrite, timeout=timeout
+        )
+
+        fp = make_file_path(
+            results_dir=results_dir,
+            model=model,
+            method=method,
+            run=run,
+            ess=ess,
+            n_particles=n_particles,
+            proposal=proposal,
+        )
+
+        write_evaluated_results(data, fp)
 
 
 def run_and_add_evaluation(data, n_workers, run_mbr=True, overwrite=False, timeout=None):
@@ -152,3 +212,9 @@ def run_and_add_evaluation(data, n_workers, run_mbr=True, overwrite=False, timeo
                 progress_bar.update(1)
 
     return results
+
+
+def write_evaluated_results(data, fp):
+    with open(fp, 'w') as f:
+        for l in data:
+            print(json.dumps(l), file=f)
