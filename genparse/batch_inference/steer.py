@@ -45,7 +45,7 @@ class BatchStepModel:
         """
         self.batch_llm.set_prompt(prompt)
 
-    def batch_step(self, particles, is_initial=False):
+    def batch_step(self, particles, is_initial=False, free_dead_seqs=True):
         """
         Perform a batch step during inference.
         Computes the next token logprobs for each particle.
@@ -61,7 +61,7 @@ class BatchStepModel:
 
         logprobs_by_seq_group, particle_idx_to_logprob_idx = (
             self.batch_llm.batch_next_token_logprobs(
-                particles=particles, is_initial=is_initial
+                particles=particles, is_initial=is_initial, free_dead_seqs=free_dead_seqs
             )
         )
 
@@ -79,6 +79,7 @@ class BatchStepModel:
             particles[particle_idx] = Particle(
                 prompt=particle.prompt,
                 log_weight=particle.log_weight + extension.log_weight,
+                log_potential=particle.log_potential,
                 context=particle.context + (extension.token,),
                 context_ids=particle.context_ids + (extension.token_id,),
                 done=(
@@ -109,6 +110,7 @@ class Particle:
         self,
         prompt=None,
         log_weight=0,
+        log_potential=0,
         context=(),
         context_ids=(),
         parent=None,
@@ -116,10 +118,19 @@ class Particle:
     ):
         self.prompt = prompt
         self.log_weight = log_weight
+        self.log_potential = log_potential
         self.context = context
         self.context_ids = context_ids
         self.parent = parent
         self.done = done
+
+    def twist(self, log_potential):
+        self.log_weight += log_potential - self.log_potential
+        self.log_potential = log_potential
+
+    def untwist(self):
+        self.log_weight -= self.log_potential
+        self.log_potential = 0
 
     def _replace(self, **kwargs):
         for k, v in kwargs.items():
@@ -272,7 +283,6 @@ def maybe_resample(
     return_record,
     step_info,
     verbosity,
-    log_potentials=None,
     resample_method='multinomial',
 ):
     """
@@ -286,7 +296,6 @@ def maybe_resample(
         resample_method (str): Resampling method to use. Either 'multinomial' or 'stratified'. Default is 'multinomial'.
         return_record (bool): Flag indicating whether to log additional information in the step_info dictionary.
         step_info (dict): Dictionary to log step information.
-        log_potentials (list): List of log potentials for each particle. Optional.
         verbosity (int): Verbosity level.
 
     Returns:
@@ -328,9 +337,6 @@ def maybe_resample(
             for i in indices
         ]
 
-        if log_potentials is not None:
-            log_potentials = [log_potentials[i] for i in indices]
-
         if return_record:
             step_info['resample_indices'] = indices.tolist()
 
@@ -342,7 +348,15 @@ def maybe_resample(
         if verbosity > 0:
             print('└╼')
 
-    return particles, log_potentials
+    return particles
+
+
+def twist_particles(particles, potential):
+    if potential is not None:
+        log_potentials = potential(particles)
+        for i, p in enumerate(particles):
+            p.twist(log_potentials[i])
+    return particles
 
 
 def smc(
@@ -387,23 +401,17 @@ def smc(
     )
 
     step_num = 1
-    apply_potential_inc = (potential is not None) and (ess_threshold > 0)
     particles = init_particles(n_particles)
     while not all(p.done for p in particles):
         step_info = {'step': step_num}
 
         particles = batch_model.batch_step(particles, is_initial=step_num == 1)
 
-        if apply_potential_inc:
-            log_potentials = potential(particles=particles, step_num=step_num)
-            for i, p in enumerate(particles):
-                p.log_weight += log_potentials[i]
-        else:
-            log_potentials = None
+        if ess_threshold > 0:
+            particles = twist_particles(particles, potential)
 
-        particles, log_potentials = maybe_resample(
+        particles = maybe_resample(
             particles=particles,
-            log_potentials=log_potentials,
             ess_threshold=ess_threshold,
             return_record=return_record,
             step_info=step_info,
@@ -417,17 +425,10 @@ def smc(
         if return_record:
             record['history'].append(step_info)
 
-        if apply_potential_inc:
-            for i, p in enumerate(particles):
-                p.log_weight -= log_potentials[i]
-
         step_num += 1
 
-    if potential is not None:
-        if ess_threshold == 0:
-            log_potentials = potential(particles=particles, step_num=step_num)
-        for i, p in enumerate(particles):
-            p.log_weight += log_potentials[i]
+    if ess_threshold == 0:
+        particles = twist_particles(particles, potential)
 
     return ParticleApproximation(particles, record)
 
@@ -456,3 +457,77 @@ def importance_sampling(
         verbosity=verbosity,
         return_record=return_record,
     )
+
+
+def get_unstepped_particles(particles, step_condition):
+    """Helper function to get particles that haven't met the step condition and their indices."""
+    unstepped_particles, unstepped_idxs = [], []
+    for i, p in enumerate(particles):
+        if not step_condition(p):
+            unstepped_particles.append(p)
+            unstepped_idxs.append(i)
+    return unstepped_particles, unstepped_idxs
+
+
+def multistep_smc(
+    batch_model,
+    n_particles,
+    step_condition,
+    potential=None,
+    ess_threshold=0.5,
+    verbosity=0,
+    return_record=False,
+    resample_method='multinomial',
+):
+    token_step_num = 1
+    particles = init_particles(n_particles)
+    while not all(p.done for p in particles):
+        particles = batch_model.batch_step(particles, is_initial=token_step_num == 1)
+
+        unstepped_particles, unstepped_idxs = get_unstepped_particles(
+            particles, step_condition
+        )
+
+        while unstepped_particles:
+            # Perform SIS until the global step condition is satisfied for all particles.
+            assert all(
+                not p.done for p in unstepped_particles
+            ), 'Finished particles cannot be unstepped.'
+
+            token_step_num += 1
+
+            unstepped_particles = batch_model.batch_step(
+                unstepped_particles, free_dead_seqs=False
+            )
+
+            for i in unstepped_idxs:
+                particles[i] = unstepped_particles[unstepped_idxs.index(i)]
+
+            unstepped_particles, unstepped_idxs = get_unstepped_particles(
+                particles, step_condition
+            )
+
+        if (potential is not None) and (ess_threshold > 0):
+            particles = twist_particles(particles, potential)
+
+        step_info = {'step': token_step_num}
+
+        # resample
+        particles = maybe_resample(
+            particles=particles,
+            ess_threshold=ess_threshold,
+            return_record=return_record,
+            step_info=step_info,
+            verbosity=verbosity,
+            resample_method=resample_method,
+        )
+
+        if verbosity > 0:
+            pretty_print_particles(particles, step_info)
+
+        token_step_num += 1
+
+    if (potential is not None) and (ess_threshold == 0):
+        particles = twist_particles(particles, potential)
+
+    return ParticleApproximation(particles, None)

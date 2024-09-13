@@ -5,6 +5,7 @@ import numpy as np
 from arsenal.maths import logsumexp
 from collections import defaultdict
 from contextlib import contextmanager
+from dataclasses import dataclass
 
 import vllm
 from vllm.sequence import (
@@ -85,6 +86,12 @@ class LogitsGrouper(torch.nn.Module):
             sample_idx += num_parent_seqs
 
         return grouped_logprobs, grouped_seq_ids
+
+
+@dataclass
+class SequenceExtension:
+    parent_seq_id: int
+    token_id: int
 
 
 class BatchVLLM(vllm.LLM):
@@ -213,8 +220,20 @@ class BatchVLLM(vllm.LLM):
             scheduler_outputs,
         )
 
+    def pause_sequence(self, seq_id):
+        for seq_group in self.llm_engine.scheduler.running:
+            for seq in seq_group.get_seqs(status=SequenceStatus.RUNNING):
+                if seq.seq_id == seq_id:
+                    seq.status = SequenceStatus.SWAPPED
+
+    def unpause_sequence(self, seq_id):
+        for seq_group in self.llm_engine.scheduler.running:
+            for seq in seq_group.get_seqs(status=SequenceStatus.SWAPPED):
+                if seq.seq_id == seq_id:
+                    seq.status = SequenceStatus.RUNNING
+
     def extend_sequences_from_particles(
-        self, particles, seq_group_metadata_list, scheduler_outputs
+        self, particles, seq_group_metadata_list, scheduler_outputs, free_dead_seqs
     ):
         if seq_group_metadata_list is None:
             # TODO: create the sequence group from the particles for this case
@@ -246,13 +265,16 @@ class BatchVLLM(vllm.LLM):
         seq_outputs_by_seq_group = []
         for seq_group_idx, seq_group_metadata in enumerate(seq_group_metadata_list):
             sequence_outputs = []
-            for seq_id, seq_data in seq_group_metadata.seq_data.items():
+            seq_group_metadata_ = list(seq_group_metadata.seq_data.items())
+            for seq_id, seq_data in seq_group_metadata_:
                 extensions = context_to_particle_extensions[
                     tuple(seq_data.output_token_ids)
                 ]
 
                 if not extensions:
-                    seq_data.status = SequenceStatus.FINISHED_STOPPED
+                    sequence_outputs.append(
+                        SequenceExtension(parent_seq_id=seq_id, token_id=-1)
+                    )
                     continue
 
                 unique_token_ids = []
@@ -261,13 +283,13 @@ class BatchVLLM(vllm.LLM):
                     if sampled_token_id not in unique_token_ids:
                         unique_token_ids.append(sampled_token_id)
                         sequence_outputs.append(
-                            SequenceOutput(
-                                parent_seq_id=seq_id,
-                                output_token=sampled_token_id,
-                                logprobs={sampled_token_id: Logprob(logprob=0)},
+                            SequenceExtension(
+                                parent_seq_id=seq_id, token_id=sampled_token_id
                             )
                         )
+
             seq_outputs_by_seq_group.append(sequence_outputs)
+
         # This will fail if the vllm engine does not contain the sequence groups which generated
         # the particle state. Eventually we may want detect when this is the case, and initialize
         # the approapriate vllm sequences (related to the TODO at the top of this function).
@@ -279,36 +301,81 @@ class BatchVLLM(vllm.LLM):
             seq_outputs_by_seq_group=seq_outputs_by_seq_group,
             seq_group_metadata_list=seq_group_metadata_list,
             scheduler_outputs=scheduler_outputs,
+            free_dead_seqs=free_dead_seqs,
         )
 
     def apply_sequence_outputs(
-        self, seq_outputs_by_seq_group, seq_group_metadata_list, scheduler_outputs
+        self,
+        seq_outputs_by_seq_group,
+        seq_group_metadata_list,
+        scheduler_outputs,
+        free_dead_seqs=True,
     ):
+        # we have to do this custom
         assert len(seq_group_metadata_list) == len(
             seq_outputs_by_seq_group
         ), 'Outputs must be provided for each running sequence group'
 
-        sequence_outputs = [  # single step
-            SamplerOutput(
-                outputs=[
-                    CompletionSequenceGroupOutput(
-                        samples=sequence_outputs, prompt_logprobs=None
-                    )  # for each sequence group
-                    for sequence_outputs in seq_outputs_by_seq_group
-                ]
-            )
-        ]
-
-        self.llm_engine._process_model_outputs(
-            sequence_outputs,
+        for scheduled_seq_group, outputs, seq_group_meta in zip(
             scheduler_outputs.scheduled_seq_groups,
-            scheduler_outputs.ignored_seq_groups,
+            seq_outputs_by_seq_group,
             seq_group_metadata_list,
-        )
+        ):
+            seq_group = scheduled_seq_group.seq_group
+            parent_seqs = seq_group.get_seqs(status=SequenceStatus.RUNNING)
+
+            parent_child_dict = {parent_seq.seq_id: [] for parent_seq in parent_seqs}
+            for sequence_output in outputs:
+                # token_id == -1 indicates that the sequence was not extended
+                if sequence_output.token_id != -1:
+                    parent_child_dict[sequence_output.parent_seq_id].append(
+                        sequence_output.token_id
+                    )
+
+            child_seqs = []  # List[Tuple[Sequence, Sequence]]
+            for parent in parent_seqs:
+                child_samples = parent_child_dict[parent.seq_id]
+                if child_samples:
+                    parent.data.update_num_computed_tokens(
+                        scheduled_seq_group.token_chunk_size
+                    )
+                else:
+                    if free_dead_seqs:
+                        parent.status = SequenceStatus.FINISHED_ABORTED
+                        seq_group.remove(parent.seq_id)
+                        self.llm_engine.scheduler.free_seq(parent)
+                    continue
+
+                # Fork the parent sequence if there are multiple child samples.
+                for child_sample_token_id in child_samples[:-1]:
+                    new_child_seq_id = next(self.llm_engine.output_processor.seq_counter)
+                    child = parent.fork(new_child_seq_id)
+                    child.append_token_id(
+                        token_id=child_sample_token_id,
+                        logprobs={child_sample_token_id: Logprob(0)},
+                    )
+                    child_seqs.append((child, parent))
+
+                last_child_sample_token_id = child_samples[-1]
+                parent.append_token_id(
+                    token_id=last_child_sample_token_id,
+                    logprobs={last_child_sample_token_id: Logprob(0)},
+                )
+                child_seqs.append((parent, parent))
+
+            # TODO: loop through child sequences and stop according to criterion?
+
+            # For newly created child sequences, add them to the sequence group
+            # and fork them in block manager if they are not finished.
+            for seq, parent in child_seqs:
+                if seq is not parent:
+                    seq_group.add(seq)
+                    if not seq.is_finished():
+                        self.llm_engine.scheduler.fork_seq(parent, seq)
 
         self.llm_engine.scheduler.free_finished_seq_groups()
 
-    def batch_next_token_logprobs(self, particles, is_initial=False):
+    def batch_next_token_logprobs(self, particles, is_initial=False, free_dead_seqs=True):
         """Take a single VLLM step to compute logprobs for the next token"""
         if is_initial:
             # initialize the VLLM state with a sequence group for the prompt
@@ -318,7 +385,10 @@ class BatchVLLM(vllm.LLM):
         else:
             # extend the VLLM sequences with the particle extensions
             self.extend_sequences_from_particles(
-                particles, self.seq_group_metadata_list, self.scheduler_outputs
+                particles=particles,
+                seq_group_metadata_list=self.seq_group_metadata_list,
+                scheduler_outputs=self.scheduler_outputs,
+                free_dead_seqs=free_dead_seqs,
             )
 
         (
@@ -405,7 +475,9 @@ class BatchVLLM(vllm.LLM):
                     seq.status = SequenceStatus.RUNNING
             self.llm_engine.scheduler.running.extend(swapped_out_seq_groups)
 
-    def batch_score_sequences(self, prompts, token_ids, temperature=1):
+    def batch_score_sequences(
+        self, prompts, token_ids, temperature=1, return_categoricals=False
+    ):
         """Compute log p(token_ids | prompt) for each prompt."""
         with self.swap_running_sequence_groups():
             request_ids = [
@@ -417,7 +489,11 @@ class BatchVLLM(vllm.LLM):
             # and have it compute the logprobs for len(token_ids) steps. It would also
             # remove much of this logic, and help us support SMC inference with step size greater than 1.
 
+            if return_categoricals:
+                categoricals_by_seq_group = [[] for _ in prompts]
+
             logprobs = np.zeros(len(request_ids))
+
             for i, token_id in enumerate(token_ids):
                 (
                     logprobs_by_seq_group,
@@ -437,8 +513,13 @@ class BatchVLLM(vllm.LLM):
                     ), 'Multiple seqs not supported for scoring'
                     seq_id = seq_group_seq_ids[0]
 
+                    seq_group_log_probs = logprobs_by_seq_group[seq_group_idx][0]
+
+                    if return_categoricals:
+                        categoricals_by_seq_group[prompt_idx].append(seq_group_log_probs)
+
                     token_logprob = self._temper_logprobs(
-                        logprobs_by_seq_group[seq_group_idx][0], temperature
+                        seq_group_log_probs, temperature
                     )[token_id]
                     logprobs[prompt_idx] += token_logprob
 
