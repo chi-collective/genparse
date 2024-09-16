@@ -351,11 +351,12 @@ def maybe_resample(
     return particles
 
 
-def twist_particles(particles, potential):
-    if potential is not None:
-        log_potentials = potential(particles)
-        for i, p in enumerate(particles):
-            p.twist(log_potentials[i])
+def twist_particles(particles, potential, step_num):
+    if potential is None:
+        raise ValueError('Potential function must be provided to twist particles.')
+    log_potentials = potential(particles=particles, step_num=step_num)
+    for i, p in enumerate(particles):
+        p.twist(log_potentials[i])
     return particles
 
 
@@ -407,8 +408,8 @@ def smc(
 
         particles = batch_model.batch_step(particles, is_initial=step_num == 1)
 
-        if ess_threshold > 0:
-            particles = twist_particles(particles, potential)
+        if (potential is not None) and (ess_threshold > 0):
+            particles = twist_particles(particles, potential, step_num)
 
         particles = maybe_resample(
             particles=particles,
@@ -427,8 +428,8 @@ def smc(
 
         step_num += 1
 
-    if ess_threshold == 0:
-        particles = twist_particles(particles, potential)
+    if (potential is not None) and (ess_threshold == 0):
+        particles = twist_particles(particles, potential, step_num)
 
     return ParticleApproximation(particles, record)
 
@@ -479,10 +480,24 @@ def multistep_smc(
     return_record=False,
     resample_method='multinomial',
 ):
-    token_step_num = 1
+    record = (
+        SMCRecord(
+            {
+                'n_particles': n_particles,
+                'ess_threshold': ess_threshold,
+                'resample_method': resample_method,
+                'algorithm': 'multistep smc',
+                'history': [],
+            }
+        )
+        if return_record
+        else None
+    )
+
+    global_step_num = 1
     particles = init_particles(n_particles)
     while not all(p.done for p in particles):
-        particles = batch_model.batch_step(particles, is_initial=token_step_num == 1)
+        particles = batch_model.batch_step(particles, is_initial=global_step_num == 1)
 
         unstepped_particles, unstepped_idxs = get_unstepped_particles(
             particles, step_condition
@@ -493,8 +508,6 @@ def multistep_smc(
             assert all(
                 not p.done for p in unstepped_particles
             ), 'Finished particles cannot be unstepped.'
-
-            token_step_num += 1
 
             unstepped_particles = batch_model.batch_step(
                 unstepped_particles, free_dead_seqs=False
@@ -508,9 +521,9 @@ def multistep_smc(
             )
 
         if (potential is not None) and (ess_threshold > 0):
-            particles = twist_particles(particles, potential)
+            particles = twist_particles(particles, potential, global_step_num)
 
-        step_info = {'step': token_step_num}
+        step_info = {'step': global_step_num}
 
         # resample
         particles = maybe_resample(
@@ -525,9 +538,12 @@ def multistep_smc(
         if verbosity > 0:
             pretty_print_particles(particles, step_info)
 
-        token_step_num += 1
+        if return_record:
+            record['history'].append(step_info)
+
+        global_step_num += 1
 
     if (potential is not None) and (ess_threshold == 0):
-        particles = twist_particles(particles, potential)
+        particles = twist_particles(particles, potential, global_step_num)
 
-    return ParticleApproximation(particles, None)
+    return ParticleApproximation(particles, record)

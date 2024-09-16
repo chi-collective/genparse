@@ -149,10 +149,7 @@ class BatchVLLM(vllm.LLM):
         return request_id
 
     def _validate_and_add_request(self, prompt):
-        if not isinstance(prompt, str):
-            raise ValueError('prompt must be a string.')  # TODO: support token ids
         request_id = str(next(self.request_counter))
-        # [0] since we are provided a single prompt as input
         inputs = self._convert_v1_inputs(prompts=[prompt], prompt_token_ids=None)[0]
         self.llm_engine.add_request(
             request_id=request_id,
@@ -220,18 +217,6 @@ class BatchVLLM(vllm.LLM):
             scheduler_outputs,
         )
 
-    def pause_sequence(self, seq_id):
-        for seq_group in self.llm_engine.scheduler.running:
-            for seq in seq_group.get_seqs(status=SequenceStatus.RUNNING):
-                if seq.seq_id == seq_id:
-                    seq.status = SequenceStatus.SWAPPED
-
-    def unpause_sequence(self, seq_id):
-        for seq_group in self.llm_engine.scheduler.running:
-            for seq in seq_group.get_seqs(status=SequenceStatus.SWAPPED):
-                if seq.seq_id == seq_id:
-                    seq.status = SequenceStatus.RUNNING
-
     def extend_sequences_from_particles(
         self, particles, seq_group_metadata_list, scheduler_outputs, free_dead_seqs
     ):
@@ -265,8 +250,7 @@ class BatchVLLM(vllm.LLM):
         seq_outputs_by_seq_group = []
         for seq_group_idx, seq_group_metadata in enumerate(seq_group_metadata_list):
             sequence_outputs = []
-            seq_group_metadata_ = list(seq_group_metadata.seq_data.items())
-            for seq_id, seq_data in seq_group_metadata_:
+            for seq_id, seq_data in seq_group_metadata.seq_data.items():
                 extensions = context_to_particle_extensions[
                     tuple(seq_data.output_token_ids)
                 ]
@@ -296,6 +280,9 @@ class BatchVLLM(vllm.LLM):
         assert all(
             p.done or (p_idx in extended_particles) for p_idx, p in enumerate(particles)
         ), 'All unfinished particles should be associated with a running sequence'
+
+        # if not all(p.done for p_idx, p in enumerate(particles) if p_idx not in extended_particles):
+        #    import ipdb; ipdb.set_trace()
 
         self.apply_sequence_outputs(
             seq_outputs_by_seq_group=seq_outputs_by_seq_group,
@@ -475,9 +462,7 @@ class BatchVLLM(vllm.LLM):
                     seq.status = SequenceStatus.RUNNING
             self.llm_engine.scheduler.running.extend(swapped_out_seq_groups)
 
-    def batch_score_sequences(
-        self, prompts, token_ids, temperature=1, return_categoricals=False
-    ):
+    def batch_score_sequences(self, prompts, token_ids, temperature=1):
         """Compute log p(token_ids | prompt) for each prompt."""
         with self.swap_running_sequence_groups():
             request_ids = [
@@ -489,12 +474,9 @@ class BatchVLLM(vllm.LLM):
             # and have it compute the logprobs for len(token_ids) steps. It would also
             # remove much of this logic, and help us support SMC inference with step size greater than 1.
 
-            if return_categoricals:
-                categoricals_by_seq_group = [[] for _ in prompts]
-
-            logprobs = np.zeros(len(request_ids))
-
-            for i, token_id in enumerate(token_ids):
+            logprobs = [0] * len(request_ids)
+            num_scored_tokens = [0] * len(request_ids)
+            while self.llm_engine.has_unfinished_requests():
                 (
                     logprobs_by_seq_group,
                     sequence_ids_by_seq_group,
@@ -508,26 +490,29 @@ class BatchVLLM(vllm.LLM):
                 ):
                     prompt_idx = request_ids.index(seq_group_metadata.request_id)
                     seq_group_seq_ids = sequence_ids_by_seq_group[seq_group_idx]
-                    assert (
-                        len(seq_group_seq_ids) == 1
-                    ), 'Multiple seqs not supported for scoring'
-                    seq_id = seq_group_seq_ids[0]
 
+                    assert (
+                        len(seq_group_metadata.seq_data.items()) == 1
+                    ), 'Multiple seqs not supported for scoring'
+
+                    seq_id = seq_group_seq_ids[0]
                     seq_group_log_probs = logprobs_by_seq_group[seq_group_idx][0]
 
-                    if return_categoricals:
-                        categoricals_by_seq_group[prompt_idx].append(seq_group_log_probs)
-
-                    token_logprob = self._temper_logprobs(
-                        seq_group_log_probs, temperature
-                    )[token_id]
-                    logprobs[prompt_idx] += token_logprob
+                    if num_scored_tokens[prompt_idx] >= len(token_ids):
+                        # provide signal to kill the sequence once we've scored all tokens
+                        token_id = -1
+                    else:
+                        token_id = token_ids[num_scored_tokens[prompt_idx]]
+                        token_logprob = self._temper_logprobs(
+                            seq_group_log_probs, temperature
+                        )[token_id]
+                        logprobs[prompt_idx] += token_logprob.item()
+                        num_scored_tokens[prompt_idx] += 1
 
                     sequence_outputs = [
-                        SequenceOutput(
+                        SequenceExtension(
                             parent_seq_id=seq_id,
-                            output_token=token_id,
-                            logprobs={token_id: Logprob(logprob=token_logprob)},
+                            token_id=token_id,
                         )
                     ]
 
@@ -537,7 +522,12 @@ class BatchVLLM(vllm.LLM):
                     seq_outputs_by_seq_group=seq_outputs_by_seq_group,
                     seq_group_metadata_list=seq_group_metadata_list,
                     scheduler_outputs=scheduler_outputs,
+                    free_dead_seqs=True,
                 )
+
+            assert all(
+                n == len(token_ids) for n in num_scored_tokens
+            ), 'All tokens should be scored for each prompt'
 
             self.free_running_sequence_groups()
 
