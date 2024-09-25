@@ -1033,11 +1033,16 @@ star_div_mod: div
 |star
 stored_or_virtual: stored_
 |virtual_
-table_alias: t "1"i
-|t "2"i
-|t "3"i
-|t "4"i
-|t "5"i
+table_alias: t one
+|t two
+|t three
+|t four
+|t five
+one: "1"i 
+two: "2"i 
+three: "3"i
+four: "4"i 
+five: "5"i
 table_as_select_plus: comma ws_star cte_table_name ws_star as_ ws_star paren_select ws_star table_as_select_star
 table_as_select_star: maybe___nt_table_as_select_plus
 table_called_actor: table_alias
