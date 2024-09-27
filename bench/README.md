@@ -15,8 +15,9 @@ assuming you're currently in the `bench` directory, do
 ```bash
 mkdir spider/data
 cd spider/data
-gdown 'https://drive.google.com/u/0/uc?id=1iRDVHLr4mX2wQKSgA9J8Pire73Jahh0m&export=download'
-unzip spider.zip
+gdown 'https://drive.google.com/u/0/uc?id=1403EGqzIDoHMdQF4c9Bkyl7dZLZ5Wt6J&export=download'
+unzip spider_data.zip
+mv spider_data spider
 ```
 
 also, go back to the `genparse/bench` directory and download the evaluation codebase:
