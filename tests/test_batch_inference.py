@@ -34,7 +34,7 @@ def test_character_abc():
         prompt=prompt,
     )
 
-    have = smc(step_model, n_particles=n_particles)
+    have = smc(step_model, n_particles=n_particles, verbosity=1)
     have.posterior.assert_equal(want)
 
     # parallel proposal
@@ -42,7 +42,7 @@ def test_character_abc():
     parallel_proposal = ParallelCharacterProposal(
         llm=sequential_llm.llm,
         guide=guide,
-        num_processes=mp.cpu_count(),
+        num_processes=min(mp.cpu_count(), 2),
         max_n_particles=100,
         seed=0,
     )
@@ -53,7 +53,7 @@ def test_character_abc():
         prompt=prompt,
     )
 
-    have = smc(step_model, n_particles=n_particles)
+    have = smc(step_model, n_particles=n_particles, verbosity=1)
     have.posterior.assert_equal(want)
 
     step_model.cleanup()
@@ -79,7 +79,7 @@ def test_token_abc():
         prompt=prompt,
     )
 
-    have = smc(step_model, n_particles=n_particles)
+    have = smc(step_model, n_particles=n_particles, verbosity=1)
     have.posterior.assert_equal(want)
 
     # parallel proposal
@@ -88,7 +88,7 @@ def test_token_abc():
         llm=sequential_llm.llm,
         guide=guide,
         K=5,
-        num_processes=mp.cpu_count(),
+        num_processes=min(mp.cpu_count(), 2),
         max_n_particles=100,
         seed=0,
     )
@@ -99,7 +99,7 @@ def test_token_abc():
         prompt=prompt,
     )
 
-    have = smc(step_model, n_particles=n_particles)
+    have = smc(step_model, n_particles=n_particles, verbosity=1)
     have.posterior.assert_equal(want)
 
     step_model.cleanup()
@@ -122,7 +122,7 @@ def test_vllm_abc():
     parallel_proposal = ParallelCharacterProposal(
         llm=batch_llm.llm,
         guide=guide,
-        num_processes=mp.cpu_count(),
+        num_processes=min(mp.cpu_count(), 2),
         max_n_particles=100,
         seed=0,
     )
@@ -142,7 +142,7 @@ def test_vllm_abc():
         llm=batch_llm.llm,
         guide=guide,
         K=5,
-        num_processes=mp.cpu_count(),
+        num_processes=min(mp.cpu_count(), 2),
         max_n_particles=100,
         seed=0,
     )
