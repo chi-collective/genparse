@@ -21,6 +21,7 @@ requirements = [
     'transformers',
     'plotly',
     'maturin',  # for rust parser
+    'setuptools>=62.4',
 ]
 
 test_requirements = [
