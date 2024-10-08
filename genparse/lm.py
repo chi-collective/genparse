@@ -9,7 +9,6 @@ from arsenal.maths import sample_dict
 
 from genparse.semiring import Float
 from genparse.tokenization import decode_tokenizer_vocab
-from genparse.backends.vllm import vllmpplLLM
 from genparse.util import top_p_filter
 
 
@@ -194,7 +193,9 @@ class TokenizedLLM(LM):
     This is a simple class which wraps a token LLM with a tokenizer.
     """
 
-    def __init__(self, tokenizer, model, batch_size, temperature=1, top_p=None, eos=None):
+    def __init__(
+        self, tokenizer, model, batch_size=None, temperature=1, top_p=None, eos=None
+    ):
         self.tokenizer = tokenizer
         self._model = model
         self._model.batch_size = batch_size
@@ -238,10 +239,6 @@ class TokenizedLLM(LM):
         # For vllm, we need to provide the log probabilities, and
         # _logp is provided by the vllm centralized step function
 
-        assert (
-            not isinstance(self._model, vllmpplLLM) or _logp is not None
-        ), 'vLLM requires `_logp` to be passed.'
-
         if _logp is None:
             assert isinstance(
                 context, tuple
@@ -282,7 +279,7 @@ class VirtualTokenizedLLM(TokenizedLLM):
         )
 
     @classmethod
-    def from_name(cls, model_name, **kwargs):
+    def from_name(cls, model_name, engine_opts, **kwargs):
         from vllm import LLMEngine, EngineArgs
 
         if 'Llama-3.1' in model_name:
@@ -296,6 +293,7 @@ class VirtualTokenizedLLM(TokenizedLLM):
                         seed=0,
                         rope_scaling={'type': 'dynamic', 'factor': 1.0},
                         max_model_len=7760,
+                        **engine_opts,
                     )
                 ),
                 **kwargs,
@@ -303,7 +301,9 @@ class VirtualTokenizedLLM(TokenizedLLM):
         else:
             return cls(
                 LLMEngine.from_engine_args(  # seed not used since we are not sampling with vllm
-                    EngineArgs(model=model_name, tokenizer=model_name, seed=0)
+                    EngineArgs(
+                        model=model_name, tokenizer=model_name, seed=0, **engine_opts
+                    )
                 ),
                 **kwargs,
             )
