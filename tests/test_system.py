@@ -9,7 +9,9 @@ def test_basic():
     %ignore /[ ]/
     """
     #    infer = InferenceSetup('gpt2', grammar, proposal_name='character')
-    infer = InferenceSetup('gpt2', grammar, proposal_name='token')
+    infer = InferenceSetup(
+        'gpt2', grammar, proposal_name='token', proposal_opts={'K': 10}
+    )
     particles = infer(
         ' ', n_particles=20, ess_threshold=0.5, return_record=True, seed=1234
     )
