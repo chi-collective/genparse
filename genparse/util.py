@@ -85,7 +85,7 @@ def make_model_table(name2id):
     return table
 
 
-def load_model_by_name(model_name, use_vllm=None, vllm_engine_opts={}, **kwargs):
+def load_model_by_name(model_name, use_vllm=False, vllm_engine_opts={}, **kwargs):
     """
     Load an LLM from 🤗 into a genparse LLM.
 
@@ -111,16 +111,7 @@ def load_model_by_name(model_name, use_vllm=None, vllm_engine_opts={}, **kwargs)
 
     if is_mock:
         model_name = model_name.split('mock-')[1]
-        if use_vllm:
-            warnings.warn('VLLM cannot be used with mock LMs. Setting use_vllm=False.')
         use_vllm = False
-    elif use_vllm is None:
-        try:  # check whether we can use vllm
-            import vllm
-
-            use_vllm = torch.cuda.is_available()
-        except ImportError:
-            use_vllm = False
 
     if model_name not in name2id:
         raise ValueError(
@@ -239,6 +230,14 @@ class InferenceSetup:
 
         if seed is not None:
             set_seed(seed)
+
+        if self.use_vllm is None:
+            try:  # check whether we can use vllm
+                import vllm
+
+                self.use_vllm = torch.cuda.is_available()
+            except ImportError:
+                self.use_vllm = False
 
         self.llm = load_model_by_name(
             self.model_name,
