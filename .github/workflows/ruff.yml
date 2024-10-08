@@ -17,4 +17,8 @@ jobs:
         with:
           fetch-depth: 1
       - name:          run linter
-        run:           make ruff
+        run: |         
+                       python -m venv venv
+                       source venv/bin/activate
+                       pip install --upgrade pip "setuptools>=62.4"
+                       make ruff
