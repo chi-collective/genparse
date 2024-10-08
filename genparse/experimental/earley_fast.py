@@ -154,7 +154,6 @@ class Earley:
             outgoing[k] = list(v)
 
         if self.cfg.R == Boolean:
-            print('using boolean')
             self.impl = _EarleyBool(
                 deep_convert_to_bool(self.rhs),
                 self.cfg.S,
