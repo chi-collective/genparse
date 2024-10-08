@@ -28,5 +28,3 @@
   ```bash
   $ python genparse/experimental/test_earley_fast.py
   ```
-  Until I figure out a way to build the Rust parser in Github CI, this test will live outside the root `tests/`
-  directory to avoid failing the CI.
