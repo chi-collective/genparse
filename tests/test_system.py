@@ -10,11 +10,9 @@ def test_basic():
     """
     #    infer = InferenceSetup('gpt2', grammar, proposal_name='character')
     infer = InferenceSetup(
-        'gpt2', grammar, proposal_name='token', proposal_opts={'K': 10}
+        'gpt2', grammar, proposal_name='token', proposal_opts={'K': 10}, seed=1234
     )
-    particles = infer(
-        ' ', n_particles=20, ess_threshold=0.5, return_record=True, seed=1234
-    )
+    particles = infer(' ', n_particles=20, ess_threshold=0.5, return_record=True)
 
     print(particles)
 
