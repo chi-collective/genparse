@@ -10,7 +10,7 @@ requirements = [
     'IPython',
     'jsons',  # for spider benchmarking
     'lark',
-    #'nltk',
+    'nltk',
     #'svgling',  # nltk uses svgling to draw derivations
     'numpy',
     'pandas',
@@ -20,6 +20,7 @@ requirements = [
     'torch',
     'transformers',
     'plotly',
+    'maturin',  # for rust parser
 ]
 
 test_requirements = [

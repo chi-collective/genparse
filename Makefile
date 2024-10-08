@@ -22,17 +22,29 @@ update :
 .PHONY : env
 env : $(NAME).egg-info/
 $(NAME).egg-info/ : setup.py
-ifeq ("$(wildcard $(_pyproject.toml))","") # ignore pyproject.toml during build, which is only used for rust
-	@mv pyproject.toml _pyproject.toml
-endif
-ifeq ($(shell uname -s),Darwin)
-	@$(INSTALL) -e ".[test]" && pre-commit install
-else
-	@$(INSTALL) -e ".[test,vllm]" && pre-commit install
-endif
-ifeq ("$(wildcard $(_pyproject.toml))","") # restore so Rust bindings can build later by user separately
-	@mv _pyproject.toml pyproject.toml
-endif
+# check if rust is installed
+	@if ! command -v rustc > /dev/null; then \
+		echo "GenParse depends on Rust but it is not installed. Please install Rust from https://www.rust-lang.org/tools/install"; \
+		echo "You can check if Rust is installed by running 'rustc --version'"; \
+		echo "Note that you may need to restart your shell for the changes to take effect"; \
+		exit 1; \
+	fi
+# temporarily move pyproject.toml to avoid conflicts with setup.py
+	@if [ -f pyproject.toml ]; then \
+		mv pyproject.toml pyproject.toml.bak; \
+	fi
+# install dependencies from setup.py with pre-commit, while ignoring pyproject.toml
+	@( \
+		trap 'status=$$?; if [ -f pyproject.toml.bak ]; then mv pyproject.toml.bak pyproject.toml; fi; exit $$status' EXIT; \
+		set -e; \
+		if [ "$$(uname -s)" = "Darwin" ]; then \
+			$(INSTALL) -e ".[test]" && pre-commit install; \
+		else \
+			$(INSTALL) -e ".[test,vllm]" && pre-commit install; \
+		fi \
+	)
+# build rust parser
+	@maturin develop --release
 
 ## format    : format code style.
 .PHONY : format
