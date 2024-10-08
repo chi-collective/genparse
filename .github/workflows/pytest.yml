@@ -17,4 +17,9 @@ jobs:
         with:
           fetch-depth: 1
       - name:          run tests
-        run:           sudo apt-get -y install graphviz && make pytest
+        run: |
+                      python -m venv venv
+                      source venv/bin/activate
+                      sudo apt-get -y install graphviz
+                      pip install --upgrade pip "setuptools>=62.4"
+                      make pytest
