@@ -193,12 +193,9 @@ class TokenizedLLM(LM):
     This is a simple class which wraps a token LLM with a tokenizer.
     """
 
-    def __init__(
-        self, tokenizer, model, batch_size=None, temperature=1, top_p=None, eos=None
-    ):
+    def __init__(self, tokenizer, model, temperature=1, top_p=None, eos=None):
         self.tokenizer = tokenizer
         self._model = model
-        self._model.batch_size = batch_size
         self._decode = decode_tokenizer_vocab(self.tokenizer)
         self._encode = {x: i for i, x in enumerate(self._decode)}
         self.temperature = temperature
@@ -274,12 +271,10 @@ class VirtualTokenizedLLM(TokenizedLLM):
     def __init__(self, vllm_engine, **kwargs):
         self.llm_engine = vllm_engine
         self.tokenizer = self.llm_engine.get_tokenizer()
-        super().__init__(
-            tokenizer=self.tokenizer, model=vllm_engine, batch_size=None, **kwargs
-        )
+        super().__init__(tokenizer=self.tokenizer, model=vllm_engine, **kwargs)
 
     @classmethod
-    def from_name(cls, model_name, engine_opts, **kwargs):
+    def from_name(cls, model_name, engine_opts={}, **kwargs):
         from vllm import LLMEngine, EngineArgs
 
         if 'Llama-3.1' in model_name:
