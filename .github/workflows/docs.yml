@@ -12,6 +12,8 @@ jobs:
     steps:
       # - name:          free disk space
       #   uses:          jlumbroso/free-disk-space@v1.3.1
+      - name:          Upgrade setuptools
+        run:           pip install --upgrade setuptools
       - name:          checkout repo
         uses:          actions/checkout@v3.0.0
         with:
