@@ -4,11 +4,13 @@
 
 # GenParse
 
-GenParse is a sophisticated Python library for constrained text generation. It combines the power of large language models (like GPT-2) with formal grammars to produce text that is both fluent and adheres to specific structural rules. This library is equipped with algorithms for intersecting weighted context-free grammars with large language models.
+GenParse is a sophisticated Python library for constrained text generation.
+It combines the power of large language models (like Llama 3.1) with formal grammars to produce text that is both fluent and adheres to specific structural rules. In this library we approximate inference for controlled LLM generation based on Sequential Monte Carlo (SMC). SMC allows us to flexibly incorporate constraints at inference time, and efficiently reallocate computation in light of new information during the course of generation. We utilize VLLM for speed and compute optimization.
+
 
 ## Features
 
-- Integration with popular language models (e.g., GPT-2, CodeLlama)
+- Integration with popular language models (e.g., Llama 3.1, CodeLlama)
 - Custom grammar specification using Lark syntax
 - Character-level and token-level proposal mechanisms
 - Particle-based sampling for diverse output generation
@@ -31,18 +33,23 @@ GenParse is a sophisticated Python library for constrained text generation. It c
    cd genparse
    ```
 
-2. Set up the environment and install dependencies:
+2. Create and activate a virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+   ```
+
+3. Set up the environment and install dependencies:
    ```bash
    make env
    ```
    This command will:
-   - Create a virtual environment
    - Install the package in editable mode with test dependencies
    - Install pre-commit hooks
 
    Note: On macOS, it will install without the 'vllm' extra. On other systems, it will include 'vllm'.
 
-3. Verify the installation:
+4. Verify the installation:
    ```bash
    python -c "import genparse; print(genparse.__version__)"
    ```
@@ -68,6 +75,12 @@ GenParse uses the Lark parsing library for grammar specification. For a comprehe
 [Lark Grammar Reference](https://lark-parser.readthedocs.io/en/latest/grammar.html)
 
 ## Usage Guide
+
+###0. List Imports
+```python
+# Import the necessary class from genparse
+from genparse import InferenceSetup
+```
 
 ### 1. Define Your Grammar
 
@@ -106,40 +119,22 @@ The result from `InferenceSetup` is a `ParticleApproximation` object. This objec
 - `context`: The generated text sequence.
 - `weight`: A numerical value representing the particle's importance or likelihood.
 
-The weights are not normalized probabilities, but rather relative scores. To process these results into meaningful probabilities, you can use the following code:
+The weights are not normalized probabilities, but rather importance weights. GenParse provides post-processing to convert these weights into meaningful probabilities, which can be accessed via the `.posterior` property. Here's how you can use it:
 
 ```python
-# Create a dictionary to store unique texts and their total weights
-text_weights = {}
+# Access the posterior approximation
+posterior = result.posterior
 
-# Iterate through each particle in the result
-for particle in result.particles:
-    # Join the context (list of tokens) into a single string
-    generated_text = ''.join(particle.context)
-    # Get the weight of this particle
-    particle_weight = particle.weight
-    
-    # Accumulate weights for identical texts
-    if generated_text in text_weights:
-        text_weights[generated_text] += particle_weight
-    else:
-        text_weights[generated_text] = particle_weight
-
-# Calculate the total weight of all particles
-total_weight = sum(text_weights.values())
-
-# Convert weights to probabilities and print results
-for generated_text, weight in text_weights.items():
-    # Normalize the weight to a probability
-    probability = weight / total_weight
+# Iterate through each unique generated text and its probability
+for generated_text, probability in posterior.items():
     # Print the text and its probability
     print(f"'{generated_text}': {probability:.4f}")
 ```
 
 This code does the following:
-1. It aggregates the weights of particles that produced identical text.
-2. It then normalizes these weights into probabilities by dividing by the total weight.
-3. Finally, it prints each unique generated text along with its calculated probability.
+1. It accesses the posterior approximation directly from the `ParticleApproximation` object.
+2. It iterates through each unique generated text and its calculated probability.
+3. Finally, it prints each unique generated text along with its probability.
 
 
 ## Development
@@ -166,9 +161,11 @@ This will run all tests and ensure code quality.
 
 If you encounter any issues during installation or setup, please try the following:
 
-1. Ensure you have the correct Python version (3.10 or higher)
-2. Check that all prerequisites are installed
-3. If you encounter any errors, try running `make test` to see more detailed output
+1. Make sure you ran `make env` to set up your environment.
+2. If necessary run `make env` in a fresh environment. 
+3. Try running in a virtual environment if you skipped that step.
+4. Ensure you have the correct Python version (3.10 or higher)
+5. If you encounter any errors, try running `make test` to see more detailed output
 
 If problems persist, please open an issue on our GitHub repository with the error message and your system information.
 
@@ -178,8 +175,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- Thanks to the Hugging Face team for their Transformers library
-- Lark parser for grammar parsing capabilities
+- Thanks to Hugging Face, VLLM, Lark, and all of the teams we have dependencies on.
 
 ## Contact
 
