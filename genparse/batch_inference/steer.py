@@ -116,8 +116,14 @@ class Particle:
         self.done = done
 
     def twist(self, log_potential):
-        self.log_weight += log_potential - self.log_potential
-        self.log_potential = log_potential
+        if self.log_potential == -np.inf:
+            assert (
+                log_potential == -np.inf
+            ), 'Potentials φ must satisfy φ(x) = 0 => φ(xy) = 0, forall x,y in V*'
+            self.log_weight = -np.inf
+        else:
+            self.log_weight += log_potential - self.log_potential
+            self.log_potential = log_potential
 
     def untwist(self):
         self.log_weight -= self.log_potential
@@ -315,6 +321,9 @@ def maybe_resample(
     log_ess = -logsumexp(2 * log_normalized_weights)
     ess = np.exp(log_ess)
 
+    if verbosity > 0:
+        pretty_print_particles(particles, step_info)
+
     if ess < n_particles * ess_threshold:
         if resample_method == 'multinomial':
             indices = log_sample(log_normalized_weights, size=n_particles)
@@ -410,9 +419,6 @@ def smc(
             verbosity=verbosity,
             resample_method=resample_method,
         )
-
-        if verbosity > 0:
-            pretty_print_particles(particles, step_info)
 
         if return_record:
             record['history'].append(step_info)

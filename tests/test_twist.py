@@ -20,13 +20,13 @@ def test_boolean():
 
     print(approx)
 
-    assert all(not two_as(p) or p.log_weight == -np.inf for p in approx)
+    assert all(not two_as(p) or p.log_weight == -np.inf for p in approx), approx.particles
 
     approx = model(' ', method='is', n_particles=100, potential=not_two_as_potential)
 
     print(approx)
 
-    assert all(not two_as(p) or p.log_weight == -np.inf for p in approx)
+    assert all(not two_as(p) or p.log_weight == -np.inf for p in approx), approx.particles
 
 
 def test_continous():
@@ -42,8 +42,8 @@ def test_continous():
     )
 
     log_v = np.log(0.5)
-    num_as = lambda p: ''.join(p.context).count('a')
-    num_as_potential = lambda particles: [log_v * num_as(p) for p in particles]
+    num_as = lambda context: ''.join(context).count('a')
+    num_as_potential = lambda particles: [log_v * num_as(p.context) for p in particles]
 
     approx = model(
         prompt=' ',
@@ -52,7 +52,7 @@ def test_continous():
         potential=num_as_potential,
         # do not resample but twist particles at each step
         # (twists not computed with ess_tresh = 0)
-        ess_threshold=1e-10,
+        ess_threshold=1e-100,
         max_tokens=4,
         return_record=True,
     )
@@ -74,12 +74,42 @@ def test_continous():
         for particle in step['particles']:
             # weight (w/o twist) should be product of Zs since we are using token proposal with K = None
             log_w_t = log_Z_1 + (log_Z_gt_1 * (len(particle['context']) - 1))
-            potential_t = log_v * ''.join(particle['context']).count('a')
+            potential_t = log_v * num_as(particle['context'])
 
             have = particle['weight']
             want = log_w_t + potential_t
 
             assert_equal(have, want)
+
+    approx = model(
+        prompt=' ',
+        method='smc',
+        n_particles=5,
+        potential=num_as_potential,
+        ess_threshold=0.8,
+        max_tokens=5,
+        return_record=True,
+    )
+
+    r = -1
+    avg_log_w_r = 0
+    steps = approx.record['history']
+    log_weight_updates = [log_Z_1] + ([log_Z_gt_1] * (len(steps) - 1))
+    for i, step in enumerate(steps):
+        for particle in step['particles']:
+            context_len = len(particle['context'])
+            log_w_r_1_t = sum(log_weight_updates[r + 1 : context_len])
+            potential_t = log_v * num_as(particle['context'])
+            potential_r_1 = log_v * num_as(particle['context'][: r + 1])
+
+            have = particle['weight']
+            want = avg_log_w_r + log_w_r_1_t + potential_t - potential_r_1
+
+            assert_equal(want, have)
+
+        if 'resample_indices' in step:
+            r = i
+            avg_log_w_r = step['average_weight']
 
 
 if __name__ == '__main__':
