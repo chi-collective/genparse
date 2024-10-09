@@ -12,9 +12,9 @@ It combines the power of large language models (like Llama 3.1) with formal gram
 
 - Integration with popular language models (e.g., Llama 3.1, CodeLlama)
 - Custom grammar specification using Lark syntax
-- Character-level and token-level proposal mechanisms
-- Particle-based sampling for diverse output generation
+- Support for sequential Monte Carlo steering with built-in efficient proposal distributions.
 - Flexible inference setup for various generation tasks
+
 
 ## Installation
 
@@ -117,9 +117,7 @@ result = setup("if ", n_particles=10, max_tokens=50)
 
 The result from `InferenceSetup` is a `ParticleApproximation` object. This object contains a collection of particles, each representing a possible generated text sequence. Each particle has two main attributes:
 - `context`: The generated text sequence.
-- `weight`: A numerical value representing the particle's importance or likelihood.
-
-The weights are not normalized probabilities, but rather importance weights. GenParse provides post-processing to convert these weights into meaningful probabilities, which can be accessed via the `.posterior` property. Here's how you can use it:
+- `weight`: A numerical value representing the particle's importance weight. The weights are not normalized probabilities. GenParse provides post-processing to convert these weights into meaningful probabilities, which can be accessed via the `.posterior` property. Here's how you can use it:
 
 ```python
 # Access the posterior approximation
