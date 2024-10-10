@@ -14,6 +14,7 @@ class Task:
     particle_idx: int  # index in `particles` list
     context: str
     logprob_idx: int  # index in `ParallelProposal.shared_array`
+    seed: int
 
 
 @dataclass
@@ -100,6 +101,7 @@ def _process_proposal_task(task):
 
     """
     try:
+        set_seed(task.seed)
         p_llm = LazyProb(
             _p=np.exp(proposal_worker.shared_array[task.logprob_idx]),
             encode=proposal_worker._encode,
@@ -242,6 +244,9 @@ class ParallelProposal:
                 particle_idx=p_idx,
                 context=p.context,
                 logprob_idx=particle_idx_to_logprob_idx[p_idx],
+                seed=abs(
+                    hash((self.seed, p_idx, particle_idx_to_logprob_idx[p_idx])) % 2**32
+                ),
             )
             for p_idx, p in enumerate(particles)
             if not p.done
