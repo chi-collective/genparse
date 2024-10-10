@@ -65,7 +65,7 @@ def test_continous():
     )
 
     def log_Z(context):
-        "Compute ∑_{x \in V \cup \{EOS\}} p̃(x | context)) where p̃ is the local product"
+        "Compute log ∑_{x \in V \cup \{EOS\}} p̃(x | context)) where p̃ is the local product"
         return np.log(
             sum(
                 # genparse coerces the eos token so we make sure to convert it here too
@@ -106,7 +106,7 @@ def test_continous():
         n_particles=5,
         potential=num_as_potential,
         ess_threshold=0.8,
-        max_tokens=5,
+        max_tokens=10,
         return_record=True,
     )
 
@@ -114,8 +114,10 @@ def test_continous():
     avg_log_w_r = 0
     for i, step in enumerate(approx.record['history']):
         for particle in step['particles']:
+            # With the token proposal with K = None, we have that
             # w_t = w̄_r · (∏_{j=r+1}^t (∑ p̃(x' | x_{1:j-1}))) · ψ(x_{1:t}) / ψ(x_{1:r})
-            # where p̃ is the unnormalized local product (see issue 73)
+            # where p̃ is the unnormalized local product, r is the latest resampling step,
+            # and w̄_r is the avg weight at step r (see issue 73).
             context = particle['context']
             t = len(context)
             log_w_r__1_to_t = (
@@ -140,7 +142,7 @@ def test_invalid_potential():
 
     model = InferenceSetup('mock-gpt2', grammar, seed=0)
 
-    # potential does not satisfy φ(x) = 0 => φ(xy) = 0, forall x,y in V*
+    # potential does not satisfy `φ(x) = 0 => φ(xy) = 0, forall x,y in V*`
     not_one_a = lambda context: -np.inf if context.count('a') == 1 else 0
     invalid_potential = lambda particles: [
         not_one_a(''.join(p.context)) for p in particles
