@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 from genparse import EOS
+from functools import lru_cache
 from genparse.util import InferenceSetup
 from arsenal.maths import logsumexp, assert_equal
 
@@ -44,9 +45,8 @@ def test_continous():
         proposal_opts={'K': None},
     )
 
-    log_v = np.log(0.5)
-    num_as = lambda context: ''.join(context).count('a')
-    num_as_potential = lambda particles: [log_v * num_as(p.context) for p in particles]
+    phi = lambda context: np.log(0.5) * ''.join(context).count('a')
+    num_as_potential = lambda particles: [phi(p.context) for p in particles]
 
     #################
     # No resampling #
@@ -64,30 +64,37 @@ def test_continous():
         return_record=True,
     )
 
-    log_Z_1 = np.log(
-        sum(
-            # genparse coerces the eos token so we make sure to convert it here too
-            p
-            * model.guide.p_next_seq(
-                context=(), extension=tuple(x) if x != model.llm.eos else (EOS,)
+    def log_Z(context):
+        "Compute ∑_{x \in V \cup \{EOS\}} p̃(x | context)) where p̃ is the local product"
+        return np.log(
+            sum(
+                # genparse coerces the eos token so we make sure to convert it here too
+                p
+                * model.guide.p_next_seq(
+                    context=tuple(''.join(context)),
+                    extension=tuple(x) if x != model.llm.eos else (EOS,),
+                )
+                for x, p in model.llm.p_next(context).items()
             )
-            for x, p in model.llm.p_next(()).items()
         )
-    )
-    # Z is constant across contexts with length > 1 since we are using a uniform LM and guide
-    log_Z_gt_1 = logsumexp([log_Z_1, model.llm.logp_next(('a',))[model.llm.eos]])
+
+    # Z is constant for contexts with length > 1 here because we are using
+    # a uniform LM and guide. Z_1 != Z_{>1} because of the EOS token.
+    log_Z_1 = log_Z(())
+    log_Z_gt_1 = log_Z(('a',))
 
     for step in approx.record['history']:
         for particle in step['particles']:
-            # w_t = (∏_{j=1}^t (∑ p̃(x' | x_{1:j-1}))) · ψ(x_{1:t})
+            # since we are using the token proposal w/ K=None, we have that
+            # w_t = (∏_{i=1}^t (∑ p̃(x' | x_{1:i-1}))) · ψ(x_{1:t})
             # where p̃ is the unnormalized local product
-            log_w_t = log_Z_1 + (log_Z_gt_1 * (len(particle['context']) - 1))
-            phi_t = log_v * num_as(particle['context'])
-
+            context = particle['context']
+            t = len(context)
+            log_w_t = log_Z_1 + log_Z_gt_1 * (t - 1)
+            want = log_w_t + phi(context)
             have = particle['weight']
-            want = log_w_t + phi_t
 
-            assert_equal(have, want)
+            assert_equal(want, have)
 
     ###################
     # With resampling #
@@ -105,17 +112,18 @@ def test_continous():
 
     r = -1
     avg_log_w_r = 0
-    steps = approx.record['history']
-    log_weight_updates = [log_Z_1] + ([log_Z_gt_1] * (len(steps) - 1))
-    for i, step in enumerate(steps):
+    for i, step in enumerate(approx.record['history']):
         for particle in step['particles']:
             # w_t = w̄_r · (∏_{j=r+1}^t (∑ p̃(x' | x_{1:j-1}))) · ψ(x_{1:t}) / ψ(x_{1:r})
             # where p̃ is the unnormalized local product (see issue 73)
-            t = len(particle['context'])
-            log_w_r__1_to_t = sum(log_weight_updates[r + 1 : t])
+            context = particle['context']
+            t = len(context)
+            log_w_r__1_to_t = (
+                log_Z_1 + log_Z_gt_1 * (t - 1) if r == -1 else log_Z_gt_1 * (t - r - 1)
+            )
 
-            phi_t = log_v * num_as(particle['context'])
-            phi_r = log_v * num_as(particle['context'][: r + 1])
+            phi_t = phi(context)
+            phi_r = phi(context[: r + 1])
 
             have = particle['weight']
             want = avg_log_w_r + log_w_r__1_to_t + phi_t - phi_r
