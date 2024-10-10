@@ -13,7 +13,9 @@ from genparse.proposal import CharacterProposal, TokenProposal
 class Task:
     particle_idx: int  # index in `particles` list
     context: str
-    logprob_idx: int  # index in `ParallelProposal.shared_array`
+    logprob_idx: (
+        tuple  # 2D index in `ParallelProposal.shared_array` [seq_group_idx, seq_idx]
+    )
 
 
 @dataclass
@@ -65,7 +67,7 @@ class ProposalWorker:
         self._decode = self.proposal.llm._decode
         self._encode = self.proposal.llm._encode
         # coerce guide eos to llm eos token id
-        self._encode[self.proposal.guide.eos] = self.proposal.llm.tokenizer.eos_token_id
+        self._encode[self.proposal.guide.eos] = self.proposal.llm.eos_token_id
 
         self.pid = os.getpid()
         self.total_memory = psutil.virtual_memory().total
@@ -138,6 +140,7 @@ class ParallelProposal:
         is_running (bool): Flag indicating if the parallel proposal is running.
         pool (multiprocessing.Pool): The multiprocessing pool.
         max_n_particles (int): The maximum number of particles which can be used during inference. Used to allocate shared memory.
+        max_n_prompts (int): The maximum number of prompts. Used to allocate shared memory.
         shared_mem (multiprocessing.shared_memory.SharedMemory): The shared memory for next token logprobs.
             This is used to send logprobs from the main process to the proposal subprocesses.
         shared_array (numpy.ndarray): The shared array of next token logprobs.
@@ -146,22 +149,30 @@ class ParallelProposal:
         __init__: Initializes the ParallelProposal object.
         _start: Starts the multiprocessing pool and initializes the shared array of next token logprobs.
         _init_worker: Initializes a worker process in the multiprocessing pool.
-        batch_particle_extensions: Performs batch particle extensions using the proposal server.
-        cleanup: Cleans up the proposal server.
-        restart: Restarts the proposal server.
+        batch_particle_extensions: Batch samples particle extensions.
+        cleanup: Cleans up the parallel proposal.
+        restart: Restarts the parallel proposal.
         create_instance: Creates an instance of the proposal.
-            Used by subprocess initilializer to create each proposal.
-        __del__: Destructor method that cleans up the proposal server.
+            Used by subprocess initilializer to create a proposal in each subprocess.
+        __del__: Destructor method that cleans up the parallel proposal.
     """
 
     def __init__(
-        self, llm, guide, num_processes, seed, max_n_particles=250, memory_threshold=70
+        self,
+        llm,
+        guide,
+        num_processes,
+        seed,
+        max_n_particles=250,
+        max_n_prompts=5,
+        memory_threshold=70,
     ):
         self.llm = llm
         self.guide = guide
         self.seed = seed
         self.num_processes = num_processes
         self.max_n_particles = max_n_particles
+        self.max_n_prompts = max_n_prompts
         self.eos = self.guide.eos
         self.is_running = False
         self.pool = None
@@ -174,11 +185,14 @@ class ParallelProposal:
 
         self.shared_mem = mp.shared_memory.SharedMemory(
             create=True,
-            size=self.max_n_particles * llm_vocab_size * np.float32().itemsize,
+            size=self.max_n_particles
+            * self.max_n_prompts
+            * llm_vocab_size
+            * np.float32().itemsize,
         )
 
         self.shared_array = np.ndarray(
-            (self.max_n_particles, llm_vocab_size),
+            (self.max_n_prompts, self.max_n_particles, llm_vocab_size),
             dtype=np.float32,
             buffer=self.shared_mem.buf,
         )
@@ -205,7 +219,9 @@ class ParallelProposal:
             self.create_instance(), self.shared_array, worker_id, memory_threshold
         )
 
-    def batch_particle_extensions(self, particles, logprobs, particle_idx_to_logprob_idx):
+    def batch_particle_extensions(
+        self, particles, logprobs_by_seq_group, particle_idx_to_logprob_idx
+    ):
         """
         Batch sample particle extensions.
 
@@ -234,8 +250,8 @@ class ParallelProposal:
             self.max_n_particles = to_serve
             self.restart()
 
-        for i, lps in enumerate(logprobs):
-            self.shared_array[i] = lps
+        n_seq_groups, n_seqs, n_tokens = logprobs_by_seq_group.shape
+        self.shared_array[:n_seq_groups, :n_seqs, :n_tokens] = logprobs_by_seq_group
 
         tasks = [
             Task(
@@ -249,13 +265,15 @@ class ParallelProposal:
 
         results = self.pool.map(_process_proposal_task, tasks)
 
-        result_id_to_particle_idx = {}
+        result_idx_to_particle_idx = np.ones(len(results), dtype=int) * -1
         for i, result in enumerate(results):
             if isinstance(result, Error):
                 raise result.exception
-            result_id_to_particle_idx[i] = result.particle_idx
+            result_idx_to_particle_idx[i] = result.particle_idx
 
-        return (results, result_id_to_particle_idx)
+        assert all(result_idx_to_particle_idx != -1)
+
+        return (results, result_idx_to_particle_idx)
 
     def cleanup(self):
         """
@@ -317,7 +335,9 @@ class SequentialBatchProposal:
         self.proposal = self.create_instance()
         self.eos = self.proposal.eos
 
-    def batch_particle_extensions(self, particles, logprobs, particle_idx_to_logprob_idx):
+    def batch_particle_extensions(
+        self, particles, logprobs_by_seq_group, particle_idx_to_logprob_idx
+    ):
         # sequential implementation
         num_extensions = 0
         extensions = []
@@ -325,7 +345,9 @@ class SequentialBatchProposal:
         for particle_idx, p in enumerate(particles):
             if not p.done:
                 p_llm = LazyProb(
-                    _p=np.exp(logprobs[particle_idx_to_logprob_idx[particle_idx]]),
+                    _p=np.exp(
+                        logprobs_by_seq_group[particle_idx_to_logprob_idx[particle_idx]]
+                    ),
                     encode=self.llm._encode,
                     decode=self.llm._decode,
                 )

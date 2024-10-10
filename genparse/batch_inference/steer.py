@@ -52,22 +52,24 @@ class BatchStepModel:
         Returns:
             list: List of updated Particle objects after the batch step.
         """
-        logprobs, particle_idx_to_logprob_idx = self.batch_llm.batch_next_token_logprobs(
-            particles=particles, is_initial=is_initial
+        logprobs_by_seq_group, particle_idx_to_logprob_idx = (
+            self.batch_llm.batch_next_token_logprobs(
+                particles=particles, is_initial=is_initial
+            )
         )
 
-        extensions, extension_id_to_particle_id = (
+        extensions, extension_idx_to_particle_idx = (
             self.batch_proposal.batch_particle_extensions(
                 particles=particles,
-                logprobs=logprobs,
+                logprobs_by_seq_group=logprobs_by_seq_group,
                 particle_idx_to_logprob_idx=particle_idx_to_logprob_idx,
             )
         )
 
-        for extension_id, particle_id in extension_id_to_particle_id.items():
-            particle = particles[particle_id]
-            extension = extensions[extension_id]
-            particles[particle_id] = Particle(
+        for extension_idx, extension in enumerate(extensions):
+            particle_idx = extension_idx_to_particle_idx[extension_idx]
+            particle = particles[particle_idx]
+            particles[particle_idx] = Particle(
                 prompt=particle.prompt,
                 log_weight=particle.log_weight + extension.log_weight,
                 log_potential=particle.log_potential,
