@@ -12,16 +12,24 @@ def test_boolean():
 
     model = InferenceSetup('mock-gpt2', grammar, seed=0, num_processes=1)
 
-    two_as = lambda p: ''.join(p.context)[:2].count('a') > 1
-    not_two_as_potential = lambda particles: [
-        -np.inf if two_as(p) else 0 for p in particles
+    two_or_more_as = lambda p: ''.join(p.context).count('a') > 1
+    less_than_two_as_potential = lambda particles: [
+        -np.inf if two_or_more_as(p) else 0 for p in particles
     ]
 
-    approx = model(' ', method='smc', n_particles=100, potential=not_two_as_potential)
-    assert all(not two_as(p) or p.log_weight == -np.inf for p in approx), approx.particles
+    approx = model(
+        ' ', method='smc', n_particles=100, potential=less_than_two_as_potential
+    )
+    assert all(
+        not two_or_more_as(p) or p.log_weight == -np.inf for p in approx
+    ), approx.particles
 
-    approx = model(' ', method='is', n_particles=100, potential=not_two_as_potential)
-    assert all(not two_as(p) or p.log_weight == -np.inf for p in approx), approx.particles
+    approx = model(
+        ' ', method='is', n_particles=100, potential=less_than_two_as_potential
+    )
+    assert all(
+        not two_or_more_as(p) or p.log_weight == -np.inf for p in approx
+    ), approx.particles
 
 
 def test_continous():
