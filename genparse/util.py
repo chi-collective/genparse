@@ -155,7 +155,7 @@ class InferenceSetup:
         grammar,
         proposal_name='character',
         num_processes=min(mp.cpu_count(), 2),
-        use_rust_parser=True,
+        use_rust_parser=False,
         use_vllm=None,
         seed=None,
         guide_opts=None,
@@ -173,7 +173,7 @@ class InferenceSetup:
             num_processes (int, optional): Number of processes to use for parallel proposals.
                 Defaults to min(CPU count, 2).
             use_rust_parser (bool, optional): Whether to use Rust implementation of Earley parser for faster inference.
-                Defaults to True. When False, Python implementation is used.
+                Defaults to False. When False, Python implementation is used.
             use_vllm (bool, optional): Whether to use VLLM for LLM next token probability computations.
                 Defaults to None, which uses VLLM when possible.
             seed (int, optional): Random seed for reproducibility.
