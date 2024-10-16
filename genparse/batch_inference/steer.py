@@ -39,7 +39,7 @@ class BatchStepModel:
         """
         self.batch_llm.set_prompt(prompt)
 
-    def batch_step(self, particles, is_initial=False):
+    def batch_step(self, particles, is_initial=False, free_dead_seqs=True):
         """
         Perform a batch step during inference.
         Computes the next token logprobs for each particle.
@@ -54,7 +54,7 @@ class BatchStepModel:
         """
         logprobs_by_seq_group, particle_idx_to_logprob_idx = (
             self.batch_llm.batch_next_token_logprobs(
-                particles=particles, is_initial=is_initial
+                particles=particles, is_initial=is_initial, free_dead_seqs=True
             )
         )
 
@@ -232,7 +232,7 @@ def init_particles(n_particles):
 
 def pretty_print_particles(particles, step_info):
     for i, p in enumerate(particles):
-        print(f'├ Particle {i:3d} `{p.context[-1]}` : {p}')
+        print(f'├ Particle {i:3d} `{repr(p.context[-1])}` : {p}')
     print(
         f"│ Step {step_info['step']:3d} average weight: {step_info['average_weight']:.4f}"
     )
@@ -362,6 +362,16 @@ def twist_particles(particles, potential):
     return particles
 
 
+def get_unstepped_particles(particles, step_condition):
+    """Helper function to get particles that haven't met the step condition and their indices."""
+    unstepped_particles, unstepped_idxs = [], []
+    for i, p in enumerate(particles):
+        if not step_condition(p):
+            unstepped_particles.append(p)
+            unstepped_idxs.append(i)
+    return unstepped_particles, unstepped_idxs
+
+
 def smc(
     batch_model,
     n_particles,
@@ -370,8 +380,9 @@ def smc(
     verbosity=0,
     return_record=False,
     resample_method='multinomial',
+    step_condition=None,
 ):
-    """Standard sequential Monte Carlo algorithm with multinomial resampling.
+    """Standard sequential Monte Carlo algorithm.
 
     Args:
       - `batch_model` (`BatchStepper`): The model to perform inference on.
@@ -384,6 +395,8 @@ def smc(
       - `verbosity` (`int`): Verbosity level. When > 0, particles are printed at each step. Default is 0.
       - `return_record` (`bool`): Flag indicating whether to return a record of the inference steps. Default is False.
       - `resample_method` (`str`): Resampling method to use. Either 'multinomial' or 'stratified'. Default is 'multinomial'.
+      - `step_condition` (`Callable`): A function that when called on a particle, returns a boolean value indicating whether
+            the particle's step has been incremented. Optional. Default is to step each particle at each token.
 
     Returns:
       - `particle_approximation` (`ParticleApproximation`): The completed particle approximation.
@@ -409,6 +422,25 @@ def smc(
         step_info = {'step': step_num}
 
         particles = batch_model.batch_step(particles, is_initial=step_num == 1)
+
+        unstepped_particles, unstepped_idxs = get_unstepped_particles(
+            particles, step_condition
+        )
+
+        while unstepped_particles:
+            # Perform SIS until the step condition is satisfied for all particles.
+            assert all(
+                not p.done for p in unstepped_particles
+            ), 'Finished particles must meet step condition.'
+
+            particles = batch_model.batch_step(particles, free_dead_seqs=False)
+
+            for i in unstepped_idxs:
+                particles[i] = unstepped_particles[unstepped_idxs.index(i)]
+
+            unstepped_particles, unstepped_idxs = get_unstepped_particles(
+                particles, step_condition
+            )
 
         if (potential is not None) and (ess_threshold > 0):
             particles = twist_particles(particles, potential)
