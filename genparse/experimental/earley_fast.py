@@ -82,12 +82,9 @@ class Earley:
         try:
             from genpa_rs import Earley as _Earley, EarleyBool as _EarleyBool
         except ModuleNotFoundError:
-            import warnings
-
-            warnings.warn(
-                'Cannot find Rust parser from `genpa_rs` package. Parser is not initialized.'
+            raise ImportError(
+                'Rust parser from `genpa_rs` package not found. Please ensure the Rust components are properly installed.'
             )
-            return
 
         cfg = cfg.nullaryremove(binarize=True).unarycycleremove().renumber()
         self.cfg = cfg

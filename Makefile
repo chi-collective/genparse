@@ -30,7 +30,7 @@ $(NAME).egg-info/ : setup.py
 # rustc --version
 	@if [ "$(MAKECMDGOALS)" = "env" ]; then \
 		if ! command -v rustc > /dev/null; then \
-			echo "GenParse optionally depends on Rust but it is not installed."; \
+			echo "GenParse optionally depends on Rust for faster Earley parsing, but it is not installed."; \
 			echo "Please install Rust from https://www.rust-lang.org/tools/install or use 'make env-no-rust' to install GenParse without it"; \
 			exit 1; \
 		fi \
@@ -46,7 +46,7 @@ $(NAME).egg-info/ : setup.py
 		trap 'status=$$?; if [ -f pyproject.toml.bak ]; then mv pyproject.toml.bak pyproject.toml; fi; exit $$status' EXIT; \
 		set -e; \
 		if [ "$$(uname -s)" = "Darwin" ]; then \
-			echo "Skipping vllm installation on macOS. GPU-accelerated inference with vllm will not be available." \
+			echo "Skipping vllm installation on macOS. GPU-accelerated inference with vllm will not be available."; \
 			$(INSTALL) -e ".[test]" && pre-commit install; \
 		else \
 			$(INSTALL) -e ".[test,vllm]" && pre-commit install; \
@@ -54,7 +54,7 @@ $(NAME).egg-info/ : setup.py
 	)
 # build rust parser (only for 'env' target)
 	@if [ "$(MAKECMDGOALS)" = "env" ]; then \
-		echo "Building rust parser" \
+		echo "Building rust parser"; \
 		maturin develop --release; \
 	fi
 
