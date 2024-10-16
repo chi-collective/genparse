@@ -386,6 +386,7 @@ class InferenceSetup:
             torch.cuda.empty_cache()
 
     def __del__(self):
+        self.cleanup()
         if self.use_vllm:
             self._free_vllm_gpu_memory()
 
