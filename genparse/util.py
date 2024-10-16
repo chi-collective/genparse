@@ -1,7 +1,9 @@
 import os
+import gc
 import html
 import torch
 import random
+import sys
 import logging
 import warnings
 import numpy as np
@@ -363,6 +365,29 @@ class InferenceSetup:
 
     def cleanup(self):
         self.batch_model.cleanup()
+
+    def _free_vllm_gpu_memory(self):
+        # We need sys.meta_path to be non-None to import VLLM code.
+        # Per an ImportError, if sys.meta_path is None then
+        # Python is likely shutting down, so we can rely on
+        # VLLM's own cleanup.
+        if sys.meta_path is not None:
+            from vllm.distributed.parallel_state import (
+                destroy_model_parallel,
+                destroy_distributed_environment,
+            )
+
+            destroy_model_parallel()
+            destroy_distributed_environment()
+
+            del self.llm.llm_engine.model_executor
+            del self.llm
+            gc.collect()
+            torch.cuda.empty_cache()
+
+    def __del__(self):
+        if self.use_vllm:
+            self._free_vllm_gpu_memory()
 
 
 def format_table(rows, headings=None):
