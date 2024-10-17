@@ -50,9 +50,18 @@ def test_proposals():
 def test_parsers():
     grammar = 'start: "a" "b" "c"'
 
-    model = InferenceSetup('mock-gpt2', grammar=grammar, use_rust_parser=True, seed=0)
-    model(' ', n_particles=10, verbosity=1)
-    model.cleanup()
+    try:
+        from genpa_rs import Earley, EarleyBool
+        rust_parser_available = True
+    except ImportError:
+        rust_parser_available = False
+
+    if rust_parser_available:
+        model = InferenceSetup('mock-gpt2', grammar=grammar, use_rust_parser=True, seed=0)
+        model(' ', n_particles=10, verbosity=1)
+        model.cleanup()
+    else:
+        warnings.warn('Skipping rust parser test because genpa_rs is not available.')
 
     model = InferenceSetup('mock-gpt2', grammar=grammar, use_rust_parser=False, seed=0)
     model(' ', n_particles=10, verbosity=1)
