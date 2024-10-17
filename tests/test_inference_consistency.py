@@ -102,7 +102,7 @@ def _is_fast_case(case) -> bool:
         and inference_method == 'smc'
         and proposal == 'character'
         and use_parallel_proposal
-        and use_rust_parser
+        and not use_rust_parser
     )
 
 
