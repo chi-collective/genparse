@@ -21,6 +21,7 @@ requirements = [
     'transformers',
     'plotly',
     'maturin',  # for rust parser
+    'psutil',
 ]
 
 test_requirements = [

@@ -6,6 +6,7 @@ import multiprocessing as mp
 from genparse.lm import LazyProb
 from dataclasses import dataclass
 from genparse.util import set_seed
+from multiprocessing import shared_memory
 from genparse.proposal import CharacterProposal, TokenProposal
 
 
@@ -174,7 +175,7 @@ class ParallelProposal:
     def _start(self):
         llm_vocab_size = len(self.llm.V)
 
-        self.shared_mem = mp.shared_memory.SharedMemory(
+        self.shared_mem = shared_memory.SharedMemory(
             create=True,
             size=self.max_n_particles * llm_vocab_size * np.float32().itemsize,
         )

@@ -19,15 +19,23 @@ update :
 	@git pull origin
 
 ## env       : setup env and install dependencies.
-.PHONY : env
+## Usage:
+## make env       : Set up the environment and build the Rust parser
+## make env-no-rust : Set up the environment without building the Rust parser
+.PHONY : env env-no-rust
 env : $(NAME).egg-info/
+env-no-rust : $(NAME).egg-info/
 $(NAME).egg-info/ : setup.py
 # check if rust is installed
-	@if ! command -v rustc > /dev/null; then \
-		echo "GenParse depends on Rust but it is not installed. Please install Rust from https://www.rust-lang.org/tools/install"; \
-		echo "You can check if Rust is installed by running 'rustc --version'"; \
-		echo "Note that you may need to restart your shell for the changes to take effect"; \
-		exit 1; \
+# rustc --version
+	@if [ "$(MAKECMDGOALS)" = "env" ]; then \
+		if ! command -v rustc > /dev/null; then \
+			echo "GenParse optionally depends on Rust for faster Earley parsing, but it is not installed."; \
+			echo "Please install Rust from https://www.rust-lang.org/tools/install or use 'make env-no-rust' to install GenParse without it"; \
+			exit 1; \
+		fi \
+	else \
+		echo "Skipping Rust parser installation. Fast Earley parsing with Rust will not be available."; \
 	fi
 # temporarily move pyproject.toml to avoid conflicts with setup.py
 	@if [ -f pyproject.toml ]; then \
@@ -38,13 +46,17 @@ $(NAME).egg-info/ : setup.py
 		trap 'status=$$?; if [ -f pyproject.toml.bak ]; then mv pyproject.toml.bak pyproject.toml; fi; exit $$status' EXIT; \
 		set -e; \
 		if [ "$$(uname -s)" = "Darwin" ]; then \
+			echo "Skipping vllm installation on macOS. GPU-accelerated inference with vllm will not be available."; \
 			$(INSTALL) -e ".[test]" && pre-commit install; \
 		else \
 			$(INSTALL) -e ".[test,vllm]" && pre-commit install; \
 		fi \
 	)
-# build rust parser
-	@maturin develop --release
+# build rust parser (only for 'env' target)
+	@if [ "$(MAKECMDGOALS)" = "env" ]; then \
+		echo "Building rust parser"; \
+		maturin develop --release; \
+	fi
 
 ## format    : format code style.
 .PHONY : format
