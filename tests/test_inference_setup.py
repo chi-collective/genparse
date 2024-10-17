@@ -52,6 +52,7 @@ def test_parsers():
 
     try:
         from genpa_rs import Earley, EarleyBool
+
         rust_parser_available = True
     except ImportError:
         rust_parser_available = False
