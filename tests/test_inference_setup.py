@@ -12,7 +12,7 @@ def test_lms():
     if torch.cuda.is_available():
         model = InferenceSetup('gpt2', grammar=grammar, seed=0)
         model(' ', n_particles=10, verbosity=1)
-        model.cleanup()
+        del model
     else:
         warnings.warn('Skipping vllm test because cuda is not available.')
 
