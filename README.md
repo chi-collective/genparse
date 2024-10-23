@@ -124,9 +124,7 @@ The result from `InferenceSetup` is a `ParticleApproximation` object. This objec
 - `context`: The generated text sequence.
 - `weight`: A numerical value representing the particle's importance weight. The weights are not normalized probabilities. GenParse provides post-processing to convert these weights into meaningful probabilities, which can be accessed via the `.posterior` property.
 
-### 4. Complex usage
-
-#### Potential functions
+### 4. Potential functions
 
 Potential functions can be used to guide generation using additional constraints. A potential function maps (partial) generations to positive real numbers, with higher values indicating a stronger preference for those generations. Intuitively, when applied in SMC, potential functions offer richer signals for resampling steps, allowing computation to be redirected toward more promising particles during the course of generation.
 
@@ -148,7 +146,7 @@ def potential(particles):
 result = setup(' ', n_particles=10, potential=potential)
 ```
 
-#### Visualization
+### 5. Visualizing inference
 
 GenParse additionally provides methods to visualize inference runs. To display the visualization of an inference run:
 
@@ -171,9 +169,13 @@ GenParse additionally provides methods to visualize inference runs. To display t
    ```
 4. Navigate to [localhost:8000/](http://localhost:8000/).
 
+### Futher examples
+
+We provide a futher example of usage in `genparse_sql_example.py`.
+
 ## Supported language models
 
-Genparse currently supports the following HuggingFace language models.
+Genparse currently supports the following HuggingFace language models. If you would like support for an additional model, please create an issue. 
 
 | Name              | HuggingFace Identifier               |
 |-------------------|--------------------------------------|
@@ -188,9 +190,6 @@ Genparse currently supports the following HuggingFace language models.
 
 > **💡Tip**: Adding a `mock-` prefix to a language model name will create an imitation language model over the same vocabulary that can be used for testing (e.g., `mock-gpt2`). In practice, these models can be useful for rapid prototyping with minimal hardware.
 
-### Futher examples
-
-We provide a futher example of usage in `genparse_sql_example.py`.
 
 ## Development
 
