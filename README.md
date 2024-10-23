@@ -84,8 +84,7 @@ TODO: find a simple example with a semantic potential
 
 For a comprehensive guide on how to write grammars using Lark syntax, please refer to the [official Lark documentation](https://lark-parser.readthedocs.io/en/latest/grammar.html).
 
-> **User tip:**  
-> GenParse supports grammars with arbitrary regular expressions. In practice, we recommend avoiding extremely permisive regular expressions (e.g., `/.+/`) since these will lead to significantly slower inference. See [issue #62](https://github.com/probcomp/genparse/issues/62).
+> **💡Tip:** GenParse supports grammars with arbitrary regular expressions. In practice, we recommend avoiding extremely permisive regular expressions (e.g., `/.+/`) since these will lead to significantly slower inference. See [issue #62](https://github.com/probcomp/genparse/issues/62).
 
 ### 2. Create an `InferenceSetup` object
 
@@ -187,8 +186,7 @@ Genparse currently supports the following HuggingFace language models.
 | gpt2-medium       | gpt2-medium                          |
 | gpt2-large        | gpt2-large                           |
 
-> **User tip:**  
-> Adding a `mock-` prefix to a language model name will create an imitation language model over the same vocabulary that can be used for testing (e.g., `mock-gpt2`). In practice, these models can be useful for rapid prototyping with minimal hardware.
+> **💡Tip**: Adding a `mock-` prefix to a language model name will create an imitation language model over the same vocabulary that can be used for testing (e.g., `mock-gpt2`). In practice, these models can be useful for rapid prototyping with minimal hardware.
 
 ### Futher examples
 
