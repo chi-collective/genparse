@@ -7,6 +7,8 @@
 GenParse is a Python library for constrained generation with language models, specialized for tasks like semantic parsing and code generation. It uses sequential Monte Carlo (SMC) inference to ensure that language model generations comply with user-defined syntactic and semantic constraints. The library is equipped with proposal distributions that efficiently enforce syntactic constraints, supports constraints beyond grammaticality through arbitrary scoring (*potential*) functions, and is integrated with [vLLM](https://docs.vllm.ai/en/latest/) for fast language model inference.
 
 
+> **⚠️ Warning:** This library is currently in active development. We recommend frequently pulling the latest version to stay updated with improvements and bug fixes.
+
 ## Installation
 
 This library supports an automated build using [GNU Make](https://www.gnu.org/software/make/).
@@ -152,16 +154,19 @@ result = setup(' ', n_particles=10, potential=potential)
 GenParse additionally provides methods to visualize inference runs. To display the visualization of an inference run:
 
 1. Specify `return_record=True` when calling `InferenceSetup`:
+   
    ```python
    result = setup(' ', n_particles=10, return_record=True)
    ```
 2. Save the SMC record in `notes/smc_viz/`:
+   
    ```python
    import json
    with open('notes/smc_viz/record.json', 'w') as f:
        f.write(json.dumps(result.record))
    ```
 3. Run a server in `notes/smc_viz/`:
+   
    ```bash
    python -m http.server --directory notes/smc_viz 8000
    ```
