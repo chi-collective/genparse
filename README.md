@@ -4,19 +4,12 @@
 
 # GenParse
 
-GenParse is a sophisticated Python library for constrained text generation.
-It combines the power of large language models (like Llama 3.1) with formal grammars to produce text that is both fluent and adheres to specific structural rules. In this library we approximate inference for controlled LLM generation based on Sequential Monte Carlo (SMC). SMC allows us to flexibly incorporate constraints at inference time, and efficiently reallocate computation in light of new information during the course of generation. We utilize VLLM for speed and compute optimization.
-
-
-## Features
-
-- Integration with popular language models (e.g., Llama 3.1, CodeLlama)
-- Custom grammar specification using Lark syntax
-- Support for sequential Monte Carlo steering with built-in efficient proposal distributions.
-- Flexible inference setup for various generation tasks
+GenParse is a Python library for constrained generation with language models, specialized for tasks like semantic parsing and code generation. It uses sequential Monte Carlo (SMC) inference to ensure that language model generations comply with user-defined syntactic and semantic constraints. The library is equipped with proposal distributions that efficiently enforce grammaticality, supports constraints beyond grammaticality through arbitrary scoring (*potential*) functions, and is integrated with [vLLM](https://docs.vllm.ai/en/latest/) for fast language model inference.
 
 
 ## Installation
+
+This library supports an automated build using [GNU Make](https://www.gnu.org/software/make/).
 
 ### Prerequisites
 
@@ -24,116 +17,179 @@ It combines the power of large language models (like Llama 3.1) with formal gram
 - pip (Python package installer)
 - make
 - git
+- A GPU (not required, but strongly recommended)
 
 ### Steps
 
-1. Clone the repository:
+1. Clone this repository:
    ```bash
    git clone https://github.com/timvieira/genparse.git
    cd genparse
    ```
-
-2. Create and activate a virtual environment:
+2. Create and activate a virtual environment. We recommend using Conda.
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+   conda create -n genparse python=3.10
+   conda activate genparse
+   ```
+3. Install package in editable mode with pre-commit hooks
+   ```bash
+   make env 
+   ```
+   GenParse optionally dependends on Rust for fast parsing. If you do not have Rust installed, you will prompted to do so. However, you can also install the library without the Rust dependency via:
+   ```bash
+   make env-no-rust
    ```
 
-3. Set up the environment and install dependencies:
-   ```bash
-   make env
+4. You can test you test your installation with the following simple example:
+   ```python
+   >>> from genparse import InferenceSetup
+   >>> grammar = """
+   ... start: "Sequential Monte Carlo is " ( "good" | "bad" )
+   ... """
+   >>> m = InferenceSetup('gpt2', grammar, proposal_name='character')
+   >>> m(' ', n_particles=15)
+   {
+     'Sequential Monte Carlo is good▪': 0.7770842914205952,
+     'Sequential Monte Carlo is bad▪': 0.22291570857940482,
+   }
    ```
-   This command will:
-   - Install the package in editable mode with test dependencies
-   - Install pre-commit hooks
-
-   Note: On macOS, it will install without the 'vllm' extra. On other systems, it will include 'vllm'.
-
-4. Verify the installation:
-   ```bash
-   python -c "import genparse; print(genparse.__version__)"
-   ```
-
-## Quick Start
-
-There is an example script that shows how to use GenParse to generate text from a grammar in genparse_tiny_example.py. You can inspect the program and the output to see a simple example of how to use GenParse. You can run it as follows:
-
-```bash
-python genparse_tiny_example.py
-```
-
-There is a slighlty more complex text example script in genparse_example.py, and an even more complext example that shows how to use GenParse to generate SQL queries from a grammar in genparse_sql_example.py. You can inspect the program and the output to see a simple example of how to use GenParse to generate SQL queries. You can run it as follows:
-
-```bash
-python genparse_sql_example.py
-```
-
-## Defining Grammars
-
-GenParse uses the Lark parsing library for grammar specification. For a comprehensive guide on how to write grammars using Lark syntax, please refer to the official Lark documentation:
-
-[Lark Grammar Reference](https://lark-parser.readthedocs.io/en/latest/grammar.html)
 
 ## Usage Guide
 
-###0. List Imports
+GenParse currently provides a high-level interface for constrained generation via the `InferenceSetup` class. We recommend using this class as it's internals may be deprecated without prior warning. 
+
 ```python
-# Import the necessary class from genparse
 from genparse import InferenceSetup
 ```
 
-### 1. Define Your Grammar
+### 1. Define your grammar 
 
-Use Lark syntax to define your grammar. For example:
+GenParse uses Lark syntax for grammar specification. For example:
 
 ```python
 grammar = """
-start: statement+
-statement: "if" condition "then" action
-condition: WORD
-action: WORD
-WORD: /[a-zA-Z]+/
+start: "SELECT" column "FROM" table "WHERE" where_condition
+column: "age" | "year_of_birth"
+table: employees | staff
+where_condition: column binop int
+binop: "<" | "=" | ">"
+int: /[1-9]/ /[0-9]/+
+%ignore " "
 """
 ```
 
-### 2. Set Up Inference
+For a comprehensive guide on how to write grammars using Lark syntax, please refer to the [official Lark documentation](https://lark-parser.readthedocs.io/en/latest/grammar.html).
+
+> **User tip:**  
+> GenParse supports grammars with arbitrary regular expressions. In practice, we recommend avoiding extremely permisive regular expressions (e.g., `/.+/`) since these will lead to significantly slower inference. See [issue #62](https://github.com/probcomp/genparse/issues/62).
+
+### 2. Create an `InferenceSetup` object
 
 Create an `InferenceSetup` object with your chosen language model and grammar:
 
 ```python
-setup = InferenceSetup('gpt2', grammar, proposal_name='character')
+setup = InferenceSetup('gpt2', grammar)
 ```
 
-### 3. Generate Text
+`InferenceSetup` requires the following arguments:
+- **model_name** (str): Name of the language model to use. See [Supported language models](#Supported-language-models) for the list of models currently supported by GenParse.
+- **grammar** (str): The grammar specification in Lark format.
+
+See the docstring for optional arguments that can be provided for more complex usage.
+
+### 3. Run inference
 
 Use the setup object to generate text:
 
 ```python
 # The result is a ParticleApproximation object
-result = setup("if ", n_particles=10, max_tokens=50)
+result = setup("Write an SQL query which returns the ages of old team members:", n_particles=10, max_tokens=50, verbosity=1)
 ```
 
-### 4. Process Results
+When calling `InferenceSetup`, the following arguments are required:
+* **prompt** (str): The input prompt to generate samples from.
+* **n_particles** (int): The number of particles (samples) to generate.
 
-The result from `InferenceSetup` is a `ParticleApproximation` object. This object contains a collection of particles, each representing a possible generated text sequence. Each particle has two main attributes:
+We also highlight the following optional arguments:
+* **max_tokens** (int, optional): The maximum number of tokens to generate. Defaults to 500.
+* **verbosity** (int, optional): Verbosity level. When > 0, particles are printed at each step. Default is 0.
+* **potential** (Callable, optional): A function that when called on a list of particles, returns a list with the log potential values for each particle. Optional. Potentials can be used to guide generation with additional constraints. See TODO for an overview of potential functions.
+* **ess_threshold** (float, optional): Effective sample size below which resampling is triggered, given as a fraction of **n_particles**. Default is 0.5.
+
+
+The result from `InferenceSetup` is a `ParticleApproximation` object. This object contains a collection of particles, each representing a generated text sequence. Each particle has two main attributes:
 - `context`: The generated text sequence.
-- `weight`: A numerical value representing the particle's importance weight. The weights are not normalized probabilities. GenParse provides post-processing to convert these weights into meaningful probabilities, which can be accessed via the `.posterior` property. Here's how you can use it:
+- `weight`: A numerical value representing the particle's importance weight. The weights are not normalized probabilities. GenParse provides post-processing to convert these weights into meaningful probabilities, which can be accessed via the `.posterior` property.
+
+### 4. Complex usage
+
+#### Potential functions
+
+Potential functions can be used to guide generation using additional constraints. A potential function maps (partial) generations to positive real numbers, with higher values indicating a stronger preference for those generations. Intuitively, when applied in SMC, potential functions offer richer signals for resampling steps, allowing computation to be redirected toward more promising particles during the course of generation.
+
+Potentials are provided as input to an `InferenceSetup` call via the `potential` argument and must be defined at the particle beam level. That is, `InferenceSetup` expects potentials to be callables which are provided a *list* of particles as input and return a *list* of log potential values, one for each particle. 
+
+For example:
 
 ```python
-# Access the posterior approximation
-posterior = result.posterior
+import re
+import numpy as np
+   
+def potential(particles):
+   log_potential_values = []
+   for particle in particles:
+      partial_generation = ''.join(particle.context)
+      if not generated_from_clause(partial_generation):
+         # From clause hasn't been generated yet; keep particle
+         log_potential_values.append(0) # log(1)
+      elif valid_table_and_column(query):
+         # Column exists in table; keep particle
+         log_potential_values.append(0) # log(1)
+      else:
+         # Column does not exist in table; kill particle
+         log_potential_values.append(-np.inf) # log(0)
+   return log_potential_values
 
-# Iterate through each unique generated text and its probability
-for generated_text, probability in posterior.items():
-    # Print the text and its probability
-    print(f"'{generated_text}': {probability:.4f}")
+result = setup(' ', n_particles=10, potential=potential)
 ```
 
-This code does the following:
-1. It accesses the posterior approximation directly from the `ParticleApproximation` object.
-2. It iterates through each unique generated text and its calculated probability.
-3. Finally, it prints each unique generated text along with its probability.
+#### Visualization
 
+GenParse additionally provides methods to visualize inference runs. To display the visualization of an inference run:
+
+1. Specify `return_record=True` when calling `InferenceSetup`:
+   ```python
+   result = setup(' ', n_particles=10, return_record=True)
+   ```
+2. Save the SMC record in `notes/smc_viz/`:
+   ```python
+   import json
+   with open('notes/smc_viz/record.json', 'w') as f:
+       f.write(json.dumps(result.record))
+   ```
+3. Run a server in `notes/smc_viz/`:
+   ```bash
+   python -m http.server --directory notes/smc_viz 8000
+   ```
+4. Navigate to [localhost:8000/](http://localhost:8000/).
+
+## Supported language models
+
+Genparse currently supports the following HuggingFace language models.
+
+| Name              | HuggingFace Identifier               |
+|-------------------|--------------------------------------|
+| llama3            | meta-llama/Meta-Llama-3-8B           |
+| llama3.1          | meta-llama/Meta-Llama-3.1-8B         |
+| llama3-instruct   | meta-llama/Meta-Llama-3-8B-Instruct  |
+| llama3.1-instruct | meta-llama/Meta-Llama-3.1-8B-Instruct|
+| codellama         | codellama/CodeLlama-7b-Instruct-hf   |
+| gpt2              | gpt2                                 |
+| gpt2-medium       | gpt2-medium                          |
+| gpt2-large        | gpt2-large                           |
+
+> **User tip:**  
+> Adding a `mock-` prefix to a language model name will create an imitation language model over the same vocabulary that can be used for testing (e.g., `mock-gpt2`). In practice, these models can be useful for rapid prototyping with minimal hardware.
 
 ## Development
 
@@ -173,7 +229,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- Thanks to Hugging Face, VLLM, Lark, and all of the teams we have dependencies on.
+- Thanks to VLLM, Lark, Hugging Face and all of the teams we have dependencies on.
 
 ## Contact
 
