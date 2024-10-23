@@ -4,7 +4,7 @@
 
 # GenParse
 
-GenParse is a Python library for constrained generation with language models, specialized for tasks like semantic parsing and code generation. It uses sequential Monte Carlo (SMC) inference to ensure that language model generations comply with user-defined syntactic and semantic constraints. The library is equipped with proposal distributions that efficiently enforce grammaticality, supports constraints beyond grammaticality through arbitrary scoring (*potential*) functions, and is integrated with [vLLM](https://docs.vllm.ai/en/latest/) for fast language model inference.
+GenParse is a Python library for constrained generation with language models, specialized for tasks like semantic parsing and code generation. It uses sequential Monte Carlo (SMC) inference to ensure that language model generations comply with user-defined syntactic and semantic constraints. The library is equipped with proposal distributions that efficiently enforce syntactic constraints, supports constraints beyond grammaticality through arbitrary scoring (*potential*) functions, and is integrated with [vLLM](https://docs.vllm.ai/en/latest/) for fast language model inference.
 
 
 ## Installation
@@ -78,6 +78,8 @@ int: /[1-9]/ /[0-9]/+
 """
 ```
 
+TODO: find a simple example with a semantic potential
+
 For a comprehensive guide on how to write grammars using Lark syntax, please refer to the [official Lark documentation](https://lark-parser.readthedocs.io/en/latest/grammar.html).
 
 > **User tip:**  
@@ -99,7 +101,7 @@ See the docstring for optional arguments that can be provided for more complex u
 
 ### 3. Run inference
 
-Use the setup object to generate text:
+Use the setup object to run SMC inference:
 
 ```python
 # The result is a ParticleApproximation object
@@ -139,15 +141,7 @@ def potential(particles):
    log_potential_values = []
    for particle in particles:
       partial_generation = ''.join(particle.context)
-      if not generated_from_clause(partial_generation):
-         # From clause hasn't been generated yet; keep particle
-         log_potential_values.append(0) # log(1)
-      elif valid_table_and_column(query):
-         # Column exists in table; keep particle
-         log_potential_values.append(0) # log(1)
-      else:
-         # Column does not exist in table; kill particle
-         log_potential_values.append(-np.inf) # log(0)
+      # TODO
    return log_potential_values
 
 result = setup(' ', n_particles=10, potential=potential)
@@ -190,6 +184,10 @@ Genparse currently supports the following HuggingFace language models.
 
 > **User tip:**  
 > Adding a `mock-` prefix to a language model name will create an imitation language model over the same vocabulary that can be used for testing (e.g., `mock-gpt2`). In practice, these models can be useful for rapid prototyping with minimal hardware.
+
+### Futher examples
+
+We provide a futher example of usage in `genparse_sql_example.py`.
 
 ## Development
 
