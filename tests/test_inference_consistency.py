@@ -6,10 +6,7 @@ from typing import Union
 import pytest
 import torch
 
-from genparse.steer import ParticleApproximation
-from genparse.batch_inference.steer import (
-    ParticleApproximation as BatchParticleApproximation,
-)
+from genparse.batch_inference.steer import ParticleApproximation
 from genparse.util import InferenceSetup, set_seed
 
 
@@ -56,7 +53,7 @@ def _run_seeded_example(
     inference_method: str = 'smc',
     use_rust_parser: bool = True,
     n_particles: int = 10,
-) -> tuple[Union[ParticleApproximation, BatchParticleApproximation], ...]:
+) -> tuple[ParticleApproximation, ...]:
     assert n_particles > 0
 
     seed = 0
