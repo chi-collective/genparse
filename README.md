@@ -98,6 +98,8 @@ setup = InferenceSetup('gpt2', grammar)
 
 See the docstring for optional arguments that can be provided for more complex usage.
 
+> **💡Tip:** To try different grammars without having to instantiate new `InferenceSetup` objects each time, use the `update_grammar` method; `setup.update_grammar(new_grammar)` will replace the existing grammar in `setup` with `new_grammar`.
+
 ### 3. Run inference
 
 Use the setup object to run SMC inference:
