@@ -49,7 +49,7 @@ This library supports an automated build using [GNU Make](https://www.gnu.org/so
    ```
 
 
-4. You can test your installation by running the following example in the Python REPL (or your preferred Python development environment):
+4. You can test your installation by running the following example:
    ```python
    >>> from genparse import InferenceSetup
    >>> grammar = 'start: "Sequential Monte Carlo is " ( "good" | "bad" )'
@@ -60,6 +60,7 @@ This library supports an automated build using [GNU Make](https://www.gnu.org/so
      'Sequential Monte Carlo is bad▪': 0.22291570857940482,
    }
    ```
+   Or simply by running `python genparse_tiny_example.py`.
 
 ## Usage Guide
 
