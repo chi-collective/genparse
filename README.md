@@ -28,26 +28,31 @@ This library supports an automated build using [GNU Make](https://www.gnu.org/so
    git clone https://github.com/timvieira/genparse.git
    cd genparse
    ```
-2. Create and activate a virtual environment. We recommend using Conda.
+2. Create and activate a virtual environment. Using Conda (recommended):
    ```bash
    conda create -n genparse python=3.10
    conda activate genparse
    ```
+   Using Python's `venv` module:
+   ```bash
+   python -m venv genparse
+   source genparse/bin/activate  # On Windows, use `genparse\Scripts\activate`
+   ```
+
 3. Install package in editable mode with pre-commit hooks
    ```bash
    make env 
    ```
-   GenParse optionally dependends on Rust for fast parsing. If you do not have Rust installed, you will prompted to do so. However, you can also install the library without the Rust dependency via:
+   GenParse optionally depends on Rust for faster parsing. If you do not have Rust installed, you will prompted to do so. However, if you do not want to install Rust, you can also install the library without the Rust dependency via:
    ```bash
    make env-no-rust
    ```
 
-4. You can test you test your installation with the following simple example:
+
+4. You can test your installation by running the following example in the Python REPL (or your preferred Python development environment):
    ```python
    >>> from genparse import InferenceSetup
-   >>> grammar = """
-   ... start: "Sequential Monte Carlo is " ( "good" | "bad" )
-   ... """
+   >>> grammar = 'start: "Sequential Monte Carlo is " ( "good" | "bad" )'
    >>> m = InferenceSetup('gpt2', grammar, proposal_name='character')
    >>> m(' ', n_particles=15)
    {
@@ -58,7 +63,7 @@ This library supports an automated build using [GNU Make](https://www.gnu.org/so
 
 ## Usage Guide
 
-GenParse currently provides a high-level interface for constrained generation via the `InferenceSetup` class. We recommend using this class as it's internals may be deprecated without prior warning. 
+GenParse currently provides a high-level interface for constrained generation via the `InferenceSetup` class. We recommend using this class as its internals may be deprecated without prior warning. 
 
 ```python
 from genparse import InferenceSetup
@@ -121,7 +126,11 @@ We also highlight the following optional arguments:
 
 The result from `InferenceSetup` is a `ParticleApproximation` object. This object contains a collection of particles, each representing a generated text sequence. Each particle has two main attributes:
 - `context`: The generated text sequence.
-- `weight`: A numerical value representing the particle's importance weight. The weights are not normalized probabilities. GenParse provides post-processing to convert these weights into meaningful probabilities, which can be accessed via the `.posterior` property.
+- `weight`: A numerical value representing the particle's importance weight. The weights are not normalized probabilities. GenParse provides post-processing to convert these weights into meaningful probabilities, which can be accessed via the `.posterior` property:
+   ```python
+   >>> result.posterior
+   {"SELECT name FROM employees GROUP BY name▪" : 1}
+   ```
 
 ### 4. Potential functions
 
