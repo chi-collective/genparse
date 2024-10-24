@@ -154,10 +154,6 @@ GenParse additionally provides methods to visualize inference runs. To display t
    ```
 4. Navigate to [localhost:8000/](http://localhost:8000/).
 
-### Futher examples
-
-We provide a futher example of usage in `genparse_sql_example.py`.
-
 ## Supported language models
 
 Genparse currently supports the following HuggingFace language models. If you would like support for an additional model, please create an issue. 
