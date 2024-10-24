@@ -58,6 +58,18 @@ $(NAME).egg-info/ : setup.py
 		maturin develop --release; \
 	fi
 
+## refresh_env : force refresh the environment setup with Rust (see make env above).
+## refresh_env-no-rust : force refresh the environment setup without Rust.
+.PHONY : refresh_env refresh_env-no-rust
+refresh_env :
+	@rm -rf $(NAME).egg-info/
+	@$(MAKE) env
+
+refresh_env-no-rust :
+	@rm -rf $(NAME).egg-info/
+	@$(MAKE) env-no-rust
+
+
 ## format    : format code style.
 .PHONY : format
 format : env
