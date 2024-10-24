@@ -206,13 +206,21 @@ This will run all tests and ensure code quality.
 
 If you encounter any issues during installation or setup, please try the following:
 
-1. Make sure you ran `make env` to set up your environment.
-2. If necessary run `make env` in a fresh environment. 
-3. Try running in a virtual environment if you skipped that step.
-4. Ensure you have the correct Python version (3.10 or higher)
-5. If you encounter any errors, try running `make test` to see more detailed output
+1. Check the common issues below.
+2. Make sure you ran `make env` to set up your environment.
+3. If necessary run `make env` in a fresh environment. 
+4. Try running in a virtual environment if you skipped that step.
+5. Ensure you have the correct Python version (3.10 or higher).
+6. If you encounter any errors, try running `make test` to see more detailed output.
 
 If problems persist, please open an issue on our GitHub repository with the error message and your system information.
+
+### Common issues
+
+- Running `make env` outputs `make: Nothing to be done for 'env'.`
+   - Run `make refresh_env` (or `make refresh_env-no-rust`) to force refresh the environment.
+- If you are getting `RuntimeError: CUDA error: no kernel image is available for execution on the device` or `UserWarning: CUDA initialization: CUDA unknown error`, you may be using a GPU that is incompatable with `vLLM`. See [the vLLM documentation](https://docs.vllm.ai/en/latest/getting_started/installation.html) for GPU requirements.
+- If you are getting `TypeError: log_sample() got an unexpected keyword argument 'size'`, you have the wrong version of `arsenal` installed. Create a fresh environment and reinstall `genparse`.
 
 ## License
 
