@@ -19,9 +19,9 @@ update :
 	@git pull origin
 
 ## env       : setup env and install dependencies.
-## Usage:
-## make env       : Set up the environment and build the Rust parser
-## make env-no-rust : Set up the environment without building the Rust parser
+##   Usage:
+##   make env            : Set up the environment and build the Rust parser
+##   make env-no-rust    : Set up the environment without building the Rust parser
 .PHONY : env env-no-rust
 env : $(NAME).egg-info/
 env-no-rust : $(NAME).egg-info/
@@ -58,8 +58,8 @@ $(NAME).egg-info/ : setup.py
 		maturin develop --release; \
 	fi
 
-## refresh_env : force refresh the environment setup with Rust (see make env above).
-## refresh_env-no-rust : force refresh the environment setup without Rust.
+##   refresh_env         : Force refresh the environment setup with Rust.
+##   refresh_env-no-rust : Force refresh the environment setup without Rust.
 .PHONY : refresh_env refresh_env-no-rust
 refresh_env :
 	@rm -rf $(NAME).egg-info/
@@ -68,8 +68,7 @@ refresh_env :
 refresh_env-no-rust :
 	@rm -rf $(NAME).egg-info/
 	@$(MAKE) env-no-rust
-
-
+	
 ## format    : format code style.
 .PHONY : format
 format : env
