@@ -1,6 +1,3 @@
-import numpy as np
-from arsenal.maths import logsumexp  # Ensure this is imported
-
 """
 GenParse Tiny Example
 
