@@ -70,13 +70,12 @@ GenParse uses Lark syntax for grammar specification. For example:
 
 ```python
 grammar = """
-start: "SELECT" column "FROM" table "WHERE" where_condition
-column: "age" | "year_of_birth"
-table: employees | staff
-where_condition: column binop int
-binop: "<" | "=" | ">"
-int: /[1-9]/ /[0-9]/+
-%ignore " "
+start: WS? "SELECT" WS column WS from_clause (WS group_clause)?
+from_clause: "FROM" WS table
+group_clause: "GROUP BY" WS column
+column: "age" | "name"
+table: "employees"
+WS: " "
 """
 ```
 
@@ -106,7 +105,7 @@ Use the setup object to run SMC inference:
 
 ```python
 # The result is a ParticleApproximation object
-result = setup("Write an SQL query which returns the ages of old team members:", n_particles=10, max_tokens=50, verbosity=1)
+result = setup('Write an SQL query:', n_particles=10, verbosity=1, max_tokens=25)
 ```
 
 When calling `InferenceSetup`, the following arguments are required:
@@ -131,22 +130,6 @@ The result from `InferenceSetup` is a `ParticleApproximation` object. This objec
 Potential functions can be used to guide generation using additional constraints. A potential function maps (partial) generations to positive real numbers, with higher values indicating a stronger preference for those generations. Intuitively, when applied in SMC, potential functions offer richer signals for resampling steps, allowing computation to be redirected toward more promising particles during the course of generation.
 
 Potentials are provided as input to an `InferenceSetup` call via the `potential` argument and must be defined at the particle beam level. That is, `InferenceSetup` expects potentials to be callables which are provided a *list* of particles as input and return a *list* of log potential values, one for each particle. 
-
-For example:
-
-```python
-import re
-import numpy as np
-   
-def potential(particles):
-   log_potential_values = []
-   for particle in particles:
-      partial_generation = ''.join(particle.context)
-      # TODO
-   return log_potential_values
-
-result = setup(' ', n_particles=10, potential=potential)
-```
 
 ### 5. Visualizing inference
 
