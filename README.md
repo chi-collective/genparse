@@ -210,7 +210,7 @@ If you encounter any issues during installation or setup, please try the followi
 2. Make sure you ran `make env` to set up your environment.
 3. If necessary run `make env` in a fresh environment. 
 4. Try running in a virtual environment if you skipped that step.
-5. Ensure you have the correct Python version (3.10 or higher).
+5. Ensure you have the correct Python version (3.10 - 3.12).
 6. If you encounter any errors, try running `make test` to see more detailed output.
 
 If problems persist, please open an issue on our GitHub repository with the error message and your system information.
