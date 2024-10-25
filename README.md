@@ -121,7 +121,7 @@ When calling `InferenceSetup`, the following arguments are required:
 We also highlight the following optional arguments:
 * **max_tokens** (int, optional): The maximum number of tokens to generate. Defaults to 500.
 * **verbosity** (int, optional): Verbosity level. When > 0, particles are printed at each step. Default is 0.
-* **potential** (Callable, optional): A function that when called on a list of particles, returns a list with the log potential values for each particle. Optional. Potentials can be used to guide generation with additional constraints. See TODO for an overview of potential functions.
+* **potential** (Callable, optional): A function that when called on a list of particles, returns a list with the log potential values for each particle. Optional. Potentials can be used to guide generation with additional constraints. See below for an overview of potential functions.
 * **ess_threshold** (float, optional): Effective sample size below which resampling is triggered, given as a fraction of **n_particles**. Default is 0.5.
 
 
