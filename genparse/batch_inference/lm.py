@@ -1,3 +1,4 @@
+import sys
 import torch
 import warnings
 import numpy as np
@@ -138,6 +139,19 @@ if VLLM_AVAILABLE:
                 f'eos_token_id ({self.eos_token_id}) != vllm engine eos_token_id ({self.llm_engine.tokenizer.tokenizer.eos_token_id})'
                 'This will cause issues with particle termination conditions.'
             )
+
+        def free_vllm_gpu_memory(self):
+            """
+            Frees any residual GPU memory that VLLM allocated.
+
+            Calling this method is only necessary if you will go on to use the GPU later in your code. The
+            GPU memory will be deallocated as normal when the Python process ends. This method allows freeing the GPU
+            memory early.
+
+            Note that this batch LLM object will become unusable after calling this method. Call this when and only when
+            you're finished with the batc hLLM object.
+            """
+            self.llm.free_vllm_gpu_memory()
 
         @classmethod
         def from_name(cls, model_name):
