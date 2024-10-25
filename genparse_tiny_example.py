@@ -1,6 +1,3 @@
-import numpy as np
-from arsenal.maths import logsumexp  # Ensure this is imported
-
 """
 GenParse Tiny Example
 
@@ -38,10 +35,7 @@ def main():
     posterior = inference_result.posterior
 
     # Display results
-    print('{')
-    for generated_text, probability in posterior.items():
-        print(f"  '{generated_text}': {probability:.4f},")
-    print('}')
+    print(posterior)
 
 
 if __name__ == '__main__':
