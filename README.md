@@ -15,11 +15,11 @@ This library supports an automated build using [GNU Make](https://www.gnu.org/so
 
 ### Prerequisites
 
-- Python 3.10 or higher
+- Python 3.10 - 3.12
 - pip (Python package installer)
 - make
 - git
-- A GPU (not required, but strongly recommended)
+- A GPU with compute capability 7.0 or higher (GPUs are not required, but strongly recommended)
 
 ### Steps
 
