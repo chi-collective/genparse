@@ -25,7 +25,7 @@ This library supports an automated build using [GNU Make](https://www.gnu.org/so
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/timvieira/genparse.git
+   git clone git@github.com:probcomp/genparse.git
    cd genparse
    ```
 2. Create and activate a virtual environment. Using Conda (recommended):
