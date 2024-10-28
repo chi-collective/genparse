@@ -375,7 +375,8 @@ class InferenceSetup:
         Note that the inference setup will become unusable after calling this method. Call this when and only when
         you're finished with the inference setup.
         """
-        self.llm.free_vllm_gpu_memory()
+        if hasattr(self.llm, 'free_vllm_gpu_memory'):
+            self.llm.free_vllm_gpu_memory()
 
 
 def format_table(rows, headings=None):
