@@ -1,3 +1,4 @@
+import gc
 import torch
 import warnings
 import multiprocessing as mp
@@ -57,6 +58,9 @@ def test_character_abc():
     have.posterior.assert_equal(want)
 
     step_model.cleanup()
+    del sequential_llm.llm._model.model
+    gc.collect()
+    torch.cuda.empty_cache()
 
 
 def test_token_abc():
@@ -103,6 +107,9 @@ def test_token_abc():
     have.posterior.assert_equal(want)
 
     step_model.cleanup()
+    del sequential_llm.llm._model.model
+    gc.collect()
+    torch.cuda.empty_cache()
 
 
 def test_vllm_abc():
