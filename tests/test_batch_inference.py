@@ -157,6 +157,7 @@ def test_vllm_abc():
     have.posterior.assert_equal(want)
 
     step_model.cleanup()
+    batch_llm.free_vllm_gpu_memory()
 
 
 if __name__ == '__main__':
