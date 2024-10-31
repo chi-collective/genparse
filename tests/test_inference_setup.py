@@ -13,6 +13,7 @@ def test_lms():
         model = InferenceSetup('gpt2', grammar=grammar, seed=0)
         model(' ', n_particles=10, verbosity=1)
         model.cleanup()
+        model.free_vllm_gpu_memory()
     else:
         warnings.warn('Skipping vllm test because cuda is not available.')
 

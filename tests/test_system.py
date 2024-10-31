@@ -28,6 +28,7 @@ def test_basic():
     f = '/tmp/viz.html'
     particles.record.plotly().write_html(f)
     print(f'wrote {colors.link("file://" + f)}')
+    infer.free_vllm_gpu_memory()
 
 
 if __name__ == '__main__':

@@ -3,7 +3,9 @@ Language models go here
 """
 
 import asyncio
+import gc
 import numpy as np
+import sys
 import torch
 from arsenal.maths import sample_dict
 
@@ -322,6 +324,37 @@ class VirtualTokenizedLLM(TokenizedLLM):
 
     async def p_next_async(self, **kwargs):
         raise NotImplementedError()
+
+    def __del__(self):
+        self.free_vllm_gpu_memory()
+
+    def free_vllm_gpu_memory(self):
+        """
+        Frees any residual GPU memory that VLLM allocated.
+
+        Calling this method is only necessary if you will go on to use the GPU later in your code. The
+        GPU memory will be deallocated as normal when the Python process ends. This method allows freeing the GPU memory
+        early.
+
+        Note that the virtual tokenized LLM will become unusable after calling this method. Call this when and only when
+        you're finished with this virtual tokenized LLM.
+        """
+        # We need sys.meta_path to be non-None to import VLLM code.
+        # Per an ImportError, if sys.meta_path is None then
+        # Python is likely shutting down, so we can rely on
+        # VLLM's own cleanup.
+        if sys.meta_path is not None and hasattr(self.llm_engine, 'model_executor'):
+            from vllm.distributed.parallel_state import (
+                destroy_model_parallel,
+                destroy_distributed_environment,
+            )
+
+            destroy_model_parallel()
+            destroy_distributed_environment()
+
+            del self.llm_engine.model_executor
+            gc.collect()
+            torch.cuda.empty_cache()
 
 
 #    def p_next_healing(self, context, top=10):

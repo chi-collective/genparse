@@ -364,6 +364,20 @@ class InferenceSetup:
     def cleanup(self):
         self.batch_model.cleanup()
 
+    def free_vllm_gpu_memory(self):
+        """
+        When using VLLM, frees any residual GPU memory that VLLM allocated.
+
+        Calling this method is only necessary if you will go on to use the GPU later in your code. The
+        GPU memory will be deallocated as normal when the Python process ends. This method allows freeing the GPU memory
+        early.
+
+        Note that the inference setup will become unusable after calling this method. Call this when and only when
+        you're finished with the inference setup.
+        """
+        if hasattr(self.llm, 'free_vllm_gpu_memory'):
+            self.llm.free_vllm_gpu_memory()
+
 
 def format_table(rows, headings=None):
     def fmt(x):
