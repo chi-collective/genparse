@@ -48,7 +48,6 @@ This library supports an automated build using [GNU Make](https://www.gnu.org/so
    make env-no-rust
    ```
 
-
 4. You can test your installation by running the following example:
    ```python
    >>> from genparse import InferenceSetup
@@ -101,9 +100,22 @@ setup = InferenceSetup('gpt2', grammar)
 - **model_name** (str): Name of the language model to use. See [Supported language models](#Supported-language-models) for the list of models currently supported by GenParse.
 - **grammar** (str): The grammar specification in Lark format.
 
+`InferenceSetup` accepts the following optional arguments:
+- **proposal_name** (str): The type of proposal to use. Options include 'character' and 'token'. Default is 'character'.
+- **num_processes** (int): The number of processes to use for parallel proposals. This can help speed up the inference process by utilizing multiple CPU cores. Default: min(mp.cpu_count(), 2)
+- **use_rust_parser** (bool): Whether to use the Rust implementation of the Earley parser for faster inference. If False, the Python implementation is used. Default to True.
+- **use_vllm** (bool or None): Whether to use VLLM for LLM next token probability computations. If None, VLLM is used when possible (i.e., if the vllm library is available and CUDA is enabled). Default is None.
+- **seed** (int or None): A random seed for reproducibility. If provided, it ensures that the inference process is deterministic.
+- **guide_opts** (dict or None): Additional options for the guide, which may include specific configurations for the grammar-based model.
+- **proposal_opts** (dict or None): Additional options for the proposal mechanism, such as parameters specific to the proposal type (e.g., K for token proposal).
+- **llm_opts** (dict or None): Additional options for the language model, such as temperature or top-p settings for sampling.
+- **vllm_engine_opts** (dict or None): Additional options for the VLLM engine, such as data type (dtype). These options are ignored if VLLM is not used.
+
 See the docstring for optional arguments that can be provided for more complex usage.
 
 > **💡Tip:** To try different grammars without having to instantiate new `InferenceSetup` objects each time, use the `update_grammar` method; `setup.update_grammar(new_grammar)` will replace the existing grammar in `setup` with `new_grammar`.
+
+
 
 ### 3. Run inference
 
@@ -115,15 +127,19 @@ result = setup('Write an SQL query:', n_particles=10, verbosity=1, max_tokens=25
 ```
 
 When calling `InferenceSetup`, the following arguments are required:
-* **prompt** (str): The input prompt to generate samples from.
-* **n_particles** (int): The number of particles (samples) to generate.
+- **prompt** (str): The input prompt to generate samples from. This is the starting text for the language model.
+- **n_particles** (int): The number of particles (samples) to generate.
 
 We also highlight the following optional arguments:
-* **max_tokens** (int, optional): The maximum number of tokens to generate. Defaults to 500.
-* **verbosity** (int, optional): Verbosity level. When > 0, particles are printed at each step. Default is 0.
-* **potential** (Callable, optional): A function that when called on a list of particles, returns a list with the log potential values for each particle. Optional. Potentials can be used to guide generation with additional constraints. See below for an overview of potential functions.
-* **ess_threshold** (float, optional): Effective sample size below which resampling is triggered, given as a fraction of **n_particles**. Default is 0.5.
+- **method** (str): The sampling method to use. Options include 'smc' for Sequential Monte Carlo and 'is' for importance sampling. Default to 'smc'.
+* **max_tokens** (int): The maximum number of tokens to generate. Defaults to 500.
 
+The following optional arguments are passed in as **kwargs**, which may be expanded over time.
+- **potential** (Callable): A function that when called on a list of particles, returns a list with the log potential values for each particle. Potentials can be used to guide generation with additional constraints. See below for an overview of potential functions.
+- **ess_threshold** (float): Effective sample size below which resampling is triggered, given as a fraction of **n_particles**. Default is 0.5.
+* **verbosity** (int): Verbosity level. When > 0, particles are printed at each step. Default is 0.
+- **return_record** (bool): Flag indicating whether to return a record of the inference steps. Default is False.
+- **resample_method** (str): Resampling method to use. Either 'multinomial' or 'stratified'. Default is 'multinomial'.
 
 The result from `InferenceSetup` is a `ParticleApproximation` object. This object contains a collection of particles, each representing a generated text sequence. Each particle has two main attributes:
 - `context`: The generated text sequence.
@@ -192,6 +208,8 @@ After installation, you can use the following commands for development:
 - `make docs`: Build documentation using pdoc
 - `make test`: Run linting (ruff) and tests (pytest with coverage)
 
+After you run make docs, the documentation will be built and output to the html/docs/index.html file. You can open this file in your browser to view the generated documentation.
+
 ## Contributing
 
 Before pushing a new commit, always run:
@@ -236,10 +254,11 @@ If problems persist, please open an issue on our GitHub repository with the erro
    then you should downgrade your version of numpy via `pip install "numpy<2"`.
 
 
+## Reference Papers
+An Introduction to Sequential Monte Carlo Language Model Probabilistic Programming framework of Lew et al. (2023)
 
 ## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
