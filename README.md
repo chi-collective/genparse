@@ -111,8 +111,6 @@ setup = InferenceSetup('gpt2', grammar)
 - **llm_opts** (dict or None): Additional options for the language model, such as temperature or top-p settings for sampling.
 - **vllm_engine_opts** (dict or None): Additional options for the VLLM engine, such as data type (dtype). These options are ignored if VLLM is not used.
 
-See the docstring for optional arguments that can be provided for more complex usage.
-
 > **💡Tip:** To try different grammars without having to instantiate new `InferenceSetup` objects each time, use the `update_grammar` method; `setup.update_grammar(new_grammar)` will replace the existing grammar in `setup` with `new_grammar`.
 
 
