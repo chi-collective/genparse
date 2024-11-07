@@ -76,9 +76,19 @@ format : env
 
 ## docs      : build documentation.
 .PHONY : docs
-docs : env html/docs/index.html
-html/docs/index.html : $(SRC_FILES)
+docs : env docs/api/index.html
+docs/api/index.html : $(SRC_FILES)
 	@pdoc $(NAME) --docformat google --math -o $(@D)
+
+## mkdocs    : build documentation using mkdocs.
+.PHONY : mkdocs
+mkdocs : env docs 
+	mkdocs build
+
+## mkdocs-serve : serve documentation locally using mkdocs.
+.PHONY : mkdocs-serve
+serve-mkdocs : env
+	mkdocs serve
 
 ## test      : run linting and tests.
 .PHONY : test

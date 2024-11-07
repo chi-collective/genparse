@@ -1,0 +1,8 @@
+site_name: GenParse Docs
+nav:
+  - Home: index.md
+  - Usage Guide: usage_guide.md
+  - API Documentation: api/index.html
+  - Contributing: contributing.md
+  - Troubleshooting: troubleshooting.md
+theme: 
