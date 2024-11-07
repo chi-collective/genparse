@@ -22,6 +22,7 @@ requirements = [
     'plotly',
     'maturin',  # for rust parser
     'psutil',
+    'mkdocs',
 ]
 
 test_requirements = [

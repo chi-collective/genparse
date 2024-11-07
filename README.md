@@ -235,8 +235,6 @@ If problems persist, please open an issue on our GitHub repository with the erro
    ```
    then you should downgrade your version of numpy via `pip install "numpy<2"`.
 
-
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
