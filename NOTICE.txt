@@ -1,0 +1,4 @@
+GenParse
+Copyright 2024 The Computation and Human Intelligence Focused Research Organization
+
+This product includes software developed at the Computation and Human Intelligence Focused Research Organization.
