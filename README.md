@@ -253,7 +253,7 @@ If problems persist, please open an issue on our GitHub repository with the erro
 
 
 ## Reference Papers
-An Introduction to Sequential Monte Carlo Language Model Probabilistic Programming framework of Lew et al. (2023)
+[Sequential Monte Carlo Steering of Large Language Models using Probabilistic Programs](https://arxiv.org/pdf/2306.03081)
 
 ## License
 This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
