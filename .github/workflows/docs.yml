@@ -1,12 +1,13 @@
-name:                  Docs
+name:                  Doc
 
 on:
   push:
     branches:
       - main
+      - mkdocs_branch
   pull_request:
     branches:
-      - mkdocs_branch
+
 
 permissions:
   contents: write
