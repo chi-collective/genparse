@@ -2,10 +2,12 @@ SHELL := /usr/bin/env bash
 EXEC = python=3.10
 NAME = genparse
 TEST = tests
+PERF_TEST = perf_tests
 RUN = python -m
 INSTALL = $(RUN) pip install
 SRC_FILES := $(shell find $(NAME) -name '*.py')
 TEST_FILES := $(shell find $(TEST) -name '*.py')
+PERF_TEST_FILES := $(shell find $(PERF_TEST) -name '*.py')
 .DEFAULT_GOAL := help
 
 ## help      : print available commands.
@@ -100,3 +102,7 @@ html/coverage/index.html : html/pytest/report.html
 	@coverage html -d $(@D)
 html/pytest/report.html : $(SRC_FILES) $(TEST_FILES)
 	@coverage run --branch -m pytest --html=$@ --self-contained-html $(SRC_FILES) $(TEST_FILES)
+benchmark : env benchmark.json
+benchmark.json : $(SRC_FILES) $(PERF_TEST_FILES)
+	@pytest $(PERF_TEST_FILES) --benchmark-json output.json
+

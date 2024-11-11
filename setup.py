@@ -32,6 +32,7 @@ test_requirements = [
     'pre-commit',
     'pytest',
     'pytest-html',
+    'pytest-benchmark',
     'ruff',
 ]
 
