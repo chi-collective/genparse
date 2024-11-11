@@ -111,7 +111,11 @@ jobs:
           
           echo "Generating website directory ${WEBSITE_DIR:?}"
           mkdir -p "${WEBSITE_DIR:?}"
-          rm -f "$WEBSITE_DIR"/*  # Delete any existing data for this branch
+          # Do `|| true` because otherwise this glob will list some directories.
+          # This causes an error because we can't delete directories without -r.
+          # However, we want to leave directories alone and delete only files,
+          # so `|| true` should give the desired behavior.
+          rm "$WEBSITE_DIR"/* || true  # Delete any existing data for this branch
           cp .github/workflows/performance-monitoring/index.html "${WEBSITE_DIR:?}"/index.html
           cp data.js "${WEBSITE_DIR:?}"/data.js
         id: update_website_data
