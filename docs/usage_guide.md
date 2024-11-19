@@ -34,7 +34,7 @@ setup = InferenceSetup('gpt2', grammar)
 ```
 
 `InferenceSetup` requires the following arguments:
-- **model_name** (str): Name of the language model to use. See [Supported language models](#Supported-language-models) for the list of models currently supported by GenParse.
+- **model_name** (str): Name of the language model to use. See the main page for the list of models currently supported by GenParse.
 - **grammar** (str): The grammar specification in Lark format.
 
 See the docstring for optional arguments that can be provided for more complex usage.
