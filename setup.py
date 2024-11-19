@@ -23,6 +23,7 @@ requirements = [
     'maturin',  # for rust parser
     'psutil',
     'mkdocs',
+    'mkdocs-include-markdown-plugin',
 ]
 
 test_requirements = [
