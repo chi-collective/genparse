@@ -460,33 +460,85 @@ def importance_sampling(
     )
 
 
-def get_unstepped_particles(particles, step_condition):
-    """Helper function to get particles that haven't met the step condition and their indices."""
-    unstepped_particles, unstepped_idxs = [], []
-    for i, p in enumerate(particles):
-        if not step_condition(p):
-            unstepped_particles.append(p)
-            unstepped_idxs.append(i)
-    return unstepped_particles, unstepped_idxs
+########################
+# SMC steering methods #
+########################
 
 
-def multistep_smc(
-    batch_model,
-    n_particles,
-    step_condition,
-    potential=None,
-    ess_threshold=0.5,
-    verbosity=0,
-    return_record=False,
-    resample_method='multinomial',
+def find_c(weights, N):
+    # Sort the weights
+    sorted_weights = np.sort(weights)
+    # Find the smallest chi
+    B_val = 0.0
+    A_val = len(weights)
+    for i in range(len(sorted_weights)):
+        chi = sorted_weights[i]
+        # Calculate A_val -- number of weights larger than chi
+        A_val -= 1
+        # Update B_val -- add the sum of weights smaller than or equal to chi
+        B_val += chi
+        if B_val / chi + A_val - N <= 1e-12:
+            return (N - A_val) / B_val
+    return N
+
+
+def resample_optimal(weights, N):
+    c = find_c(weights, N)
+    # Weights for which c * w >= 1 are deterministically resampled
+    deterministic = np.where(c * weights >= 1)[0]
+    # Weights for which c * w <= 1 are stochastically resampled
+    stochastic = np.where(c * weights < 1)[0]
+    # Stratified sampling to generate N-len(deterministic) indices
+    # from the stochastic weights
+    n_stochastic = len(stochastic)
+    n_resample = N - len(deterministic)
+    if n_resample == 0:
+        return deterministic, np.array([], dtype=int), c
+    K = np.sum(weights[stochastic]) / (n_resample)
+    u = np.random.uniform(0, K)
+    i = 0
+    stoch_resampled = np.array([], dtype=int)
+    while i < n_stochastic:
+        u = u - weights[stochastic[i]]
+        if u <= 0:
+            # Add stochastic[i] to resampled indices
+            stoch_resampled = np.append(stoch_resampled, stochastic[i])
+            # Update u
+            u = u + K
+            i = i + 1
+        else:
+            i += 1
+    # Concatenate the deterministic and stochastic resampled indices
+    # resampled = np.concatenate((deterministic, stoch_resampled))
+    # return resampled
+    return deterministic, stoch_resampled, c
+
+
+def log_softmax(nums):
+    """Compute log(softmax(nums)).
+
+    Args:
+        nums: a vector or numpy array of unnormalized log probabilities.
+
+    Returns:
+        np.array: an array of log (normalized) probabilities.
+    """
+    return nums - logsumexp(nums)
+
+
+def softmax(nums):
+    return np.exp(log_softmax(nums))
+
+
+def smc_steer(
+    batch_model, n_particles, n_beam, potential=None, return_record=False, verbosity=0
 ):
     record = (
         SMCRecord(
             {
                 'n_particles': n_particles,
-                'ess_threshold': ess_threshold,
-                'resample_method': resample_method,
-                'algorithm': 'multistep smc',
+                'n_beam': n_beam,
+                'algorithm': 'smc_steer_record',
                 'history': [],
             }
         )
@@ -494,56 +546,66 @@ def multistep_smc(
         else None
     )
 
-    global_step_num = 1
+    step_num = 1
     particles = init_particles(n_particles)
     while not all(p.done for p in particles):
-        particles = batch_model.batch_step(particles, is_initial=global_step_num == 1)
+        step_info = {'step': step_num}
 
-        unstepped_particles, unstepped_idxs = get_unstepped_particles(
-            particles, step_condition
+        # Count the number of finished particles
+        n_finished = sum(map(lambda p: p.done, particles))
+        n_total = n_finished + (n_particles - n_finished) * n_beam
+
+        # Create a super-list of particles that has n_beam copies of each
+        super_particles = []
+        for p in particles:
+            super_particles.append(p)
+            if p.done:
+                p.log_weight += np.log(n_total) - np.log(n_particles)
+            else:
+                p.log_weight += np.log(n_total) - np.log(n_particles) - np.log(n_beam)
+                super_particles.extend([copy.deepcopy(p) for _ in range(n_beam - 1)])
+
+        super_particles = batch_model.batch_step(
+            super_particles, is_initial=step_num == 1
         )
 
-        while unstepped_particles:
-            # Perform SIS until the global step condition is satisfied for all particles.
-            assert all(
-                not p.done for p in unstepped_particles
-            ), 'Finished particles cannot be unstepped.'
+        if potential is not None:
+            super_particles = twist_particles(super_particles, potential, step_num)
 
-            unstepped_particles = batch_model.batch_step(
-                unstepped_particles, free_dead_seqs=False
+        # Use optimal resampling to resample
+        W = np.array([p.log_weight for p in super_particles])
+        W_tot = logsumexp(W)
+        W_normalized = softmax(W)
+        det_indices, stoch_indices, c = resample_optimal(W_normalized, n_particles)
+        particles = [
+            super_particles[i] for i in np.concatenate((det_indices, stoch_indices))
+        ]
+        # For deterministic particles: w = w * N/N'
+        for i in det_indices:
+            super_particles[i].log_weight += np.log(n_particles) - np.log(n_total)
+        # For stochastic particles: w = 1/c * total       sum(stoch weights) / num_stoch = sum(stoch weights / total) / num_stoch * total * N/M
+        for i in stoch_indices:
+            super_particles[i].log_weight = (
+                W_tot - np.log(c) + np.log(n_particles) - np.log(n_total)
             )
-
-            for i in unstepped_idxs:
-                particles[i] = unstepped_particles[unstepped_idxs.index(i)]
-
-            unstepped_particles, unstepped_idxs = get_unstepped_particles(
-                particles, step_condition
-            )
-
-        if (potential is not None) and (ess_threshold > 0):
-            particles = twist_particles(particles, potential, global_step_num)
-
-        step_info = {'step': global_step_num}
-
-        # resample
-        particles = maybe_resample(
-            particles=particles,
-            ess_threshold=ess_threshold,
-            return_record=return_record,
-            step_info=step_info,
-            verbosity=verbosity,
-            resample_method=resample_method,
-        )
 
         if verbosity > 0:
             pretty_print_particles(particles, step_info)
 
         if return_record:
+            step_info['particles'] = [
+                {
+                    'context': p.context,
+                    'weight': p.log_weight,
+                    'context_ids': p.context_ids,
+                }
+                for p in particles
+            ]
             record['history'].append(step_info)
 
-        global_step_num += 1
+        step_num += 1
 
-    if (potential is not None) and (ess_threshold == 0):
-        particles = twist_particles(particles, potential, global_step_num)
+    if potential is not None:
+        particles = twist_particles(particles, potential, step_num)
 
     return ParticleApproximation(particles, record)

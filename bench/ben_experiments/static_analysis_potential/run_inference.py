@@ -35,7 +35,7 @@ log_eps = np.log(eps)
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Run Spider inference with utterance potential.'
+        description='Run Spider inference with table column check potential.'
     )
     parser.add_argument(
         '--model_name',
@@ -85,7 +85,13 @@ def parse_args():
         help='Resampling method to use.',
     )
     parser.add_argument(
-        '--dev_data_limit',
+        '--dev_data_min',
+        type=int,
+        default=0,
+        help='Limit on the number of dev data points to process.',
+    )
+    parser.add_argument(
+        '--dev_data_max',
         type=int,
         default=1034,
         help='Limit on the number of dev data points to process.',
@@ -184,7 +190,10 @@ def table_column_potential(
 
     potential_values = []
     for p in particles:
-        query = strip_query_at_boundary(''.join(p.context))
+        if p.done:
+            query = ''.join(p.context).rstrip(EOS)
+        else:
+            query = strip_query_at_boundary(''.join(p.context))
 
         if (query is None) and (not p.done):
             potential_values.append(0)
@@ -205,8 +214,8 @@ def table_column_potential(
                     continue
 
                 parse = parser(subquery)
-            except Exception as e:
-                print('Failed to parse:', query, e)
+            except Exception:
+                # print('Failed to parse:', query, e)
                 potential_values.append(0)
                 continue
 
@@ -215,8 +224,8 @@ def table_column_potential(
             validator.transform(parse)
             value = 0 if validator.is_valid else log_eps
             potential_values.append(value)
-        except Exception as e:
-            print('Failed to validate:', query, e)
+        except Exception:
+            # print('Failed to validate:', query, e)
             potential_values.append(0)
 
     return potential_values
@@ -315,7 +324,7 @@ def main():
                 add_generation_prompt=True,
                 tokenize=False,
             )
-            for datum in dev_data[: args.dev_data_limit]
+            for datum in dev_data[args.dev_data_min : args.dev_data_max]
         ]
 
         with use_default_sampler(llm):
@@ -329,7 +338,7 @@ def main():
                     )
 
                     for dev_datum, output in zip(
-                        dev_data[: args.dev_data_limit], tqdm(llm_outputs)
+                        dev_data[args.dev_data_min : args.dev_data_max], tqdm(llm_outputs)
                     ):
                         particles = ParticleApproximation(
                             [
@@ -391,7 +400,9 @@ def main():
 
     for n_particles in args.n_particles_range:
         for n_replicate in range(args.n_replicates):
-            for dev_datum in tqdm(dev_data[: args.dev_data_limit]):
+            for dev_datum in tqdm(dev_data[args.dev_data_min : args.dev_data_max]):
+                # for dev_datum_idx in tqdm(idxs):
+                #    dev_datum = dev_data[dev_datum_idx]
                 potential = partial(
                     table_column_potential,
                     schema_name=dev_datum.schema_name,
@@ -433,16 +444,13 @@ def main():
 
                             print(json.dumps(smc_results), file=f)
 
-                        if (
-                            not skip_instance(
-                                question=dev_datum.utterance,
-                                method='smc_no_potential',
-                                ess_threshold=ess_threshold,
-                                resample_method=args.resample_method,
-                                n_replicate=n_replicate,
-                            )
-                            and False
-                        ):  # XXX: Disabled for now
+                        if not skip_instance(
+                            question=dev_datum.utterance,
+                            method='smc_no_potential',
+                            ess_threshold=ess_threshold,
+                            resample_method=args.resample_method,
+                            n_replicate=n_replicate,
+                        ):
                             particles = run_inference(
                                 dev_datum,
                                 potential=None,
@@ -468,23 +476,19 @@ def main():
 
                             print(json.dumps(smc_results), file=f)
 
-                    if (
-                        skip_instance(
-                            question=dev_datum.utterance,
-                            method='sis',
-                            ess_threshold=None,
-                            resample_method=None,
-                            n_replicate=n_replicate,
-                        )
-                        and skip_instance(
-                            question=dev_datum.utterance,
-                            method='sis_no_potential',
-                            ess_threshold=None,
-                            resample_method=None,
-                            n_replicate=n_replicate,
-                        )
-                        and True
-                    ):  # XXX: Disabled for now
+                    if skip_instance(
+                        question=dev_datum.utterance,
+                        method='sis',
+                        ess_threshold=None,
+                        resample_method=None,
+                        n_replicate=n_replicate,
+                    ) and skip_instance(
+                        question=dev_datum.utterance,
+                        method='sis_no_potential',
+                        ess_threshold=None,
+                        resample_method=None,
+                        n_replicate=n_replicate,
+                    ):
                         continue
 
                     particles = run_inference(
