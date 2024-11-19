@@ -36,7 +36,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: mkdocs-site
-        path: docs/
+        path: site/
 
   publish:
     needs: build-deploy
