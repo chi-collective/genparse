@@ -102,6 +102,32 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 
 - Thanks to VLLM, Lark, Hugging Face and all of the teams we have dependencies on.
+## Licensing
+
+This project makes use of several open-source dependencies, which are distributed under the following licenses:
+
+- **Arsenal**: GNU General Public License v3.0
+- **FrozenDict**: MIT License
+- **Graphviz**: MIT License
+- **Interegular**: MIT License
+- **IPython**: BSD 3-Clause "New" or "Revised" License
+- **Jsons**: MIT License
+- **Lark**: MIT License
+- **NLTK**: Apache 2.0 License
+- **NumPy**: BSD License
+- **Pandas**: BSD 3-Clause "New" or "Revised" License
+- **Path**: MIT License
+- **Rich**: MIT License
+- **NumBa**: BSD 2-Clause "Simplified" License
+- **Torch (PyTorch)**: BSD License
+- **Transformers**: Apache 2.0 License
+- **Plotly**: MIT License
+- **Maturin**: Apache 2.0 License OR MIT License
+- **Psutil**: BSD 3-Clause "New" or "Revised" License
+- **MkDocs**: BSD 2-Clause "Simplified" License
+- **MkDocs Include Markdown Plugin**: Apache 2.0 License
+
+Each dependency retains its own license, which can be found in the respective repository or package distribution.
 
 ## Contact
 

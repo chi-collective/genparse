@@ -5,6 +5,7 @@ nav:
   - API Documentation: api/index.html
   - Contributing: contributing.md
   - Troubleshooting: troubleshooting.md
-theme: 
+theme:
+  name: material
 plugins:
   - include-markdown

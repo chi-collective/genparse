@@ -24,6 +24,7 @@ requirements = [
     'psutil',
     'mkdocs',
     'mkdocs-include-markdown-plugin',
+    'mkdocs-material',
 ]
 
 test_requirements = [

@@ -2,3 +2,25 @@ GenParse
 Copyright 2024 The Computation and Human Intelligence Focused Research Organization
 
 This product includes software developed at the Computation and Human Intelligence Focused Research Organization.
+
+This project includes dependencies with the following licenses:
+1. Arsenal - GNU General Public License v3.0
+2. FrozenDict - MIT License
+3. Graphviz - MIT License
+4. Interegular - MIT License
+5. IPython - BSD 3-Clause "New" or "Revised" License
+6. Jsons - MIT License
+7. Lark - MIT License
+8. NLTK - Apache 2.0 License
+9. NumPy - (Appears to be)BSD License
+10. Pandas - BSD 3-Clause "New" or "Revised" License
+11. Path - MIT License
+12. Rich - MIT License
+13. NumBa - BSD 2-Clause "Simplified" License
+14. Torch (PyTorch) - A BSD-"style" license
+15. Transformers - Apache 2.0 License
+16. Plotly - MIT License
+17. Maturin - Apache 2.0 License OR MIT License
+18. Psutil - BSD 3-Clause "New" or "Revised" License
+19. MkDocs - BSD 2-Clause "Simplified" License
+20. MkDocs Include Markdown Plugin - Apache 2.0 License
