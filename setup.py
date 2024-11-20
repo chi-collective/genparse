@@ -49,7 +49,7 @@ setup(
         'Ben LeBrun',
         'Ben Lipkin',
     ],
-    readme=open('README.md').read(),
+    readme=open('README.md', encoding='utf-8').read(),
     scripts=[],
     packages=['genparse'],
 )

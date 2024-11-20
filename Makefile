@@ -47,11 +47,16 @@ $(NAME).egg-info/ : setup.py
 	@( \
 		trap 'status=$$?; if [ -f pyproject.toml.bak ]; then mv pyproject.toml.bak pyproject.toml; fi; exit $$status' EXIT; \
 		set -e; \
-		if [ "$$(uname -s)" = "Darwin" ]; then \
-			echo "Skipping vllm installation on macOS. GPU-accelerated inference with vllm will not be available."; \
+		if [ "$(OS)" = "Windows_NT" ]; then \
+			echo "Skipping vllm installation on Windows. GPU-accelerated inference with vllm will not be available."; \
 			$(INSTALL) -e ".[test]" && pre-commit install; \
 		else \
-			$(INSTALL) -e ".[test,vllm]" && pre-commit install; \
+			if [ "$$(uname -s)" = "Darwin" ]; then \
+				echo "Skipping vllm installation on macOS. GPU-accelerated inference with vllm will not be available."; \
+				$(INSTALL) -e ".[test]" && pre-commit install; \
+			else \
+				$(INSTALL) -e ".[test,vllm]" && pre-commit install; \
+			fi \
 		fi \
 	)
 # build rust parser (only for 'env' target)
