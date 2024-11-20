@@ -7,5 +7,5 @@ nav:
   - Troubleshooting: troubleshooting.md
 theme:
   name: material
-plugins:
-  - include-markdown
+  palette:
+    scheme: slate

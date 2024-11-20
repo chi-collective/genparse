@@ -9,7 +9,9 @@ GenParse is a Python library for constrained generation with language models, sp
 
 > **⚠️ Warning:** This library is currently in active development. We recommend frequently pulling the latest version to stay updated with improvements and bug fixes. Please report any bugs in [the issue tracker](https://github.com/probcomp/genparse/issues).
 
-First time here? Go to our [Full Documentation](https://genparse.gen.dev/).
+First time here? Go to our [Full Documentation](https://genparse.gen.dev/). 
+
+> **💡Tip**: Note that the documentation index is symlinked from the README.md file. If you are on a Windows machine you will need to symlink the README.md file to docs/index.md before building the docs.
 
 ## Installation
 
@@ -81,7 +83,8 @@ Genparse currently supports the following HuggingFace language models. If you wo
 | gpt2-medium       | gpt2-medium                          |
 | gpt2-large        | gpt2-large                           |
 
-> **💡Tip**: Adding a `mock-` prefix to a language model name will create an imitation language model over the same vocabulary that can be used for testing (e.g., `mock-gpt2`). In practice, these models can be useful for rapid prototyping with minimal hardware.
+
+Adding a `mock-` prefix to a language model name will create an imitation language model over the same vocabulary that can be used for testing (e.g., `mock-gpt2`). In practice, these models can be useful for rapid prototyping with minimal hardware.
 
 
 ## Development
