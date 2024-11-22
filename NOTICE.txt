@@ -23,4 +23,4 @@ This project includes dependencies with the following licenses:
 17. Maturin - Apache 2.0 License OR MIT License
 18. Psutil - BSD 3-Clause "New" or "Revised" License
 19. MkDocs - BSD 2-Clause "Simplified" License
-K
+20. MKDocs Material - MIT License
