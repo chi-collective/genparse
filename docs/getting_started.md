@@ -36,9 +36,10 @@ setup = InferenceSetup('gpt2', grammar)
 - **model_name** (str): Name of the language model to use. See the README for the list of models currently supported by GenParse.
 - **grammar** (str): The grammar specification in Lark format.
 
-`InferenceSetup` accepts the following optional arguments:
-- **proposal_name** (str): The type of proposal to use. Options include 'character' and 'token'. Default is 'character'.
 
+It accepts the following optional arguments:
+
+- **proposal_name** (str): The type of proposal to use. Options include 'character' and 'token'. Default is 'character'.
 - **num_processes** (int): The number of processes to use for parallel proposals. This can help speed up the inference process by utilizing multiple CPU cores. Default: min(mp.cpu_count(), 2)
 - **use_rust_parser** (bool): Whether to use the Rust implementation of the Earley parser for faster inference. If False, the Python implementation is used. Default to True.
 - **use_vllm** (bool or None): Whether to use VLLM for LLM next token probability computations. If None, VLLM is used when possible (i.e., if the vllm library is available and CUDA is enabled). Default is None.
@@ -47,6 +48,7 @@ setup = InferenceSetup('gpt2', grammar)
 - **proposal_opts** (dict or None): Additional options for the proposal mechanism, such as parameters specific to the proposal type (e.g., K for token proposal).
 - **llm_opts** (dict or None): Additional options for the language model, such as temperature or top-p settings for sampling.
 - **vllm_engine_opts** (dict or None): Additional options for the VLLM engine, such as data type (dtype). These options are ignored if VLLM is not used.
+
 
 > **💡Tip:** To try different grammars without having to instantiate new `InferenceSetup` objects each time, use the `update_grammar` method; `setup.update_grammar(new_grammar)` will replace the existing grammar in `setup` with `new_grammar`.
 
@@ -65,7 +67,7 @@ When calling `InferenceSetup`, the following arguments are required:
 - **prompt** (str): The input prompt to generate samples from. This is the starting text for the language model.
 - **n_particles** (int): The number of particles (samples) to generate.
 
-We also highlight the following optional arguments:
+There are the following optional arguments:
 
 - **method** (str): The sampling method to use. Options include 'smc' for Sequential Monte Carlo and 'is' for importance sampling. Default to 'smc'.
 * **max_tokens** (int): The maximum number of tokens to generate. Defaults to 500.
@@ -101,19 +103,22 @@ GenParse additionally provides methods to visualize inference runs. To display t
 
 1. Specify `return_record=True` when calling `InferenceSetup`:
    
-   ```python
-   result = setup(' ', n_particles=10, return_record=True)
-   ```
+```python
+result = setup(' ', n_particles=10, return_record=True)
+```
+
 2. Save the SMC record in `notes/smc_viz/`:
    
-   ```python
-   import json
-   with open('notes/smc_viz/record.json', 'w') as f:
-       f.write(json.dumps(result.record))
-   ```
+```python
+import json
+with open('notes/smc_viz/record.json', 'w') as f:
+      f.write(json.dumps(result.record))
+```
+
 3. Run a server in `notes/smc_viz/`:
    
-   ```bash
-   python -m http.server --directory notes/smc_viz 8000
-   ```
+```bash
+python -m http.server --directory notes/smc_viz 8000
+```
+
 4. Navigate to [localhost:8000/](http://localhost:8000/).
