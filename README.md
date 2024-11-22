@@ -11,7 +11,6 @@ GenParse is a Python library for constrained generation with language models, sp
 
 First time here? Go to our [Full Documentation](https://genparse.gen.dev/). 
 
-> **💡Tip**: Note that the documentation index is symlinked from the README.md file. If you are on a Windows machine you will need to symlink the README.md file to docs/index.md before building the docs.
 
 ## Installation
 
@@ -65,7 +64,10 @@ This library supports an automated build using [GNU Make](https://www.gnu.org/so
    }
    ```
 
-   Or simply by running `python genparse_tiny_example.py`, which will run on a CPU.
+   Or simply by running:
+   ```bash
+   python genparse_tiny_example.py
+   ```
 
 
 ## Supported language models

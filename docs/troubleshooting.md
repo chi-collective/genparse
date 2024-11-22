@@ -1,5 +1,3 @@
-## Troubleshooting
-
 If you encounter any issues during installation or setup, please try the following:
 
 1. Check the common issues below.
@@ -11,7 +9,7 @@ If you encounter any issues during installation or setup, please try the followi
 
 If problems persist, please open an issue on our GitHub repository with the error message and your system information.
 
-### Common issues
+## Common issues
 
 - Running `make env` outputs `make: Nothing to be done for 'env'.`
    - Run `make refresh_env` (or `make refresh_env-no-rust`) to force refresh the environment.
