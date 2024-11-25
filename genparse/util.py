@@ -260,6 +260,12 @@ class InferenceSetup:
         self.batch_model = self._init_step_model()
 
     def _init_step_model(self):
+        """
+        Initialize the step model for batch inference.
+
+        Returns:
+            BatchStepModel: The initialized batch step model.
+        """
         from genparse.batch_inference.steer import BatchStepModel
 
         if self.use_rust_parser:
@@ -316,6 +322,7 @@ class InferenceSetup:
 
     def __call__(self, prompt, n_particles, method='smc', max_tokens=500, **kwargs):
         """
+        @public
         Run inference with n_particles using the specified method.
 
         Args:
@@ -362,6 +369,11 @@ class InferenceSetup:
         self.batch_model = self._init_step_model()
 
     def cleanup(self):
+        """
+        Clean up resources used by the batch model.
+
+        This method should be called to release resources when the inference setup is no longer needed.
+        """
         self.batch_model.cleanup()
 
     def free_vllm_gpu_memory(self):

@@ -1,8 +1,12 @@
 site_name: GenParse Docs
 nav:
   - Home: index.md
-  - Usage Guide: usage_guide.md
+  - Getting Started: getting_started.md
   - API Documentation: api/index.html
   - Contributing: contributing.md
   - Troubleshooting: troubleshooting.md
-theme: 
+theme:
+  name: material
+  palette:
+    scheme: slate
+repo_url: https://github.com/probcomp/genparse

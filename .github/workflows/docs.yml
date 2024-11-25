@@ -1,24 +1,46 @@
-name:                  Docs
+name:                  Doc
 
 on:
   push:
-    branches:          [main]
+    branches:
+      - main
+      - mkdocs_branch
   pull_request:
-    branches:          [main]
+    branches:
+
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 jobs:
-  run_tests:
-    runs-on:           ubuntu-latest
+  build-deploy:
+    runs-on: ubuntu-latest
+
     steps:
-      # - name:          free disk space
-      #   uses:          jlumbroso/free-disk-space@v1.3.1
-      - name:          checkout repo
-        uses:          actions/checkout@v3.0.0
-        with:
-          fetch-depth: 1
-      - name:          check docs build
-        run: |
-                      python -m venv venv
-                      source venv/bin/activate
-                      pip install --upgrade pip "setuptools>=62.4"
-                      make docs
+    - name: Check out repository
+      uses: actions/checkout@v4
+   
+    - name: Install dependencies
+      run: |
+        python -m venv venv
+        source venv/bin/activate
+        pip install --upgrade pip "setuptools>=62.4"
+
+    - name: Build docs
+      run: |
+        make mkdocs
+
+    - name: Upload docs
+      uses: actions/upload-artifact@v4
+      with:
+        name: mkdocs-site
+        path: site/
+
+  publish:
+    needs: build-deploy
+    name: Deploy to private site
+    uses: probcomp/gen-website-private/.github/workflows/publish_private_website.yml@main
+    with:
+      artifact: mkdocs-site
