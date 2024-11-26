@@ -19,8 +19,6 @@ class BatchLLM:
 
     def __init__(self, llm):
         self.llm = llm
-        self.eos = self.llm.eos
-        self.eos_token_id = self.llm._encode[self.eos]
 
     @classmethod
     def from_name(cls, model_name):
@@ -100,8 +98,6 @@ if VLLM_AVAILABLE:
         Attributes:
             llm (VirtualTokenizedLLM): The VirtualTokenizedLLM instance.
             llm_engine (VLLMEngine): The VLLM engine.
-            eos (str): The end-of-sequence token.
-            eos_token_id (int): The end-of-sequence token id.
             request_counter (Counter): A counter for tracking the number of requests.
             particle_metadata (VLLMParticleMetadata):
                 Metadata for tracking VLLM sequence information associated with the particle state.
@@ -126,19 +122,9 @@ if VLLM_AVAILABLE:
             self.llm_engine.model_executor.driver_worker.model_runner.model.sampler = (
                 LogitsGrouper()
             )
-            self.eos = self.llm.eos
-            self.eos_token_id = self.llm._encode[self.eos]
             self.request_counter = Counter()
             self.particle_metadata = VLLMParticleMetadata()
             self.prompt = None
-
-            assert (
-                self.eos_token_id == self.llm_engine.tokenizer.tokenizer.eos_token_id
-            ), (
-                'BatchVLLM eos_token misalignment; '
-                f'eos_token_id ({self.eos_token_id}) != vllm engine eos_token_id ({self.llm_engine.tokenizer.tokenizer.eos_token_id})'
-                'This will cause issues with particle termination conditions.'
-            )
 
         def free_vllm_gpu_memory(self):
             """
@@ -154,17 +140,26 @@ if VLLM_AVAILABLE:
             self.llm.free_vllm_gpu_memory()
 
         @classmethod
-        def from_name(cls, model_name):
-            return cls(llm=VirtualTokenizedLLM.from_name(model_name))
+        def from_name(cls, model_name, **kwargs):
+            return cls(llm=VirtualTokenizedLLM.from_name(model_name, **kwargs))
 
         def set_prompt(self, prompt):
             self.prompt = prompt
 
         def _make_initial_request(self, prompt):
+            if self.llm_engine.has_unfinished_requests():
+                self.free_unfinished_requests()
+
+            if self.prompt is None:
+                raise ValueError('Initial request requires a prompt.')
+
             self._validate_and_add_requests(
                 inputs=self._convert_v1_inputs(prompts=prompt, prompt_token_ids=None),
                 params=SamplingParams(
-                    max_tokens=np.inf, stop_token_ids=[self.eos_token_id], stop=None
+                    max_tokens=np.inf,
+                    stop_token_ids=[self.llm.eos_token_id],
+                    stop=None,
+                    ignore_eos=True,
                 ),
                 lora_request=None,
             )
@@ -172,13 +167,6 @@ if VLLM_AVAILABLE:
         def batch_next_token_logprobs(self, particles, is_initial=False):
             """Take a single VLLM step to compute logprobs for the next token"""
             if is_initial:
-                if self.llm_engine.has_unfinished_requests():
-                    # 'Engine has unfinished requests from previous runs. Freeing leftover requests.'
-                    self.free_unfinished_requests()
-
-                if self.prompt is None:
-                    raise ValueError('Initial request requires a prompt.')
-
                 self._make_initial_request(prompt=self.prompt)
             else:
                 self._map_sequence_id_to_particle_ids(
@@ -283,9 +271,6 @@ if VLLM_AVAILABLE:
                     try:
                         context_ids_to_particle_ids[context_ids].append(particle_id)
                     except KeyError:
-                        # This KeyError may arise if context_ids[-1] == self.llm_engine.tokenizer.tokenizer.eos_token_id,
-                        # but particle.done = False. In those cases, the VLLM scheduler will not schedule sequences which
-                        # end in the EOS token.
                         raise KeyError(
                             'Particle context ids not found in seq group metadata.'
                         )

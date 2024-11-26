@@ -23,7 +23,7 @@ def test_character_abc():
     prompt = 'Generate "abc":'
     max_tokens = 100
     n_particles = 10
-    want = {'abc▪': 1.0}
+    want = {f'abc{sequential_llm.llm.eos}': 1.0}
 
     # sequential proposal
 
@@ -71,7 +71,7 @@ def test_token_abc():
     prompt = 'Generate "abc":'
     max_tokens = 100
     n_particles = 10
-    want = {'abc▪': 1.0}
+    want = {f'abc{sequential_llm.llm.eos}': 1.0}
 
     # sequential proposal
 
@@ -124,7 +124,7 @@ def test_vllm_abc():
     prompt = 'Generate "abc":'
     max_tokens = 100
     n_particles = 10
-    want = {'abc▪': 1.0}
+    want = {f'abc{batch_llm.llm.eos}': 1.0}
 
     parallel_proposal = ParallelCharacterProposal(
         llm=batch_llm.llm,
