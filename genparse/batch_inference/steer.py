@@ -2,6 +2,7 @@ import copy
 import atexit
 import warnings
 import numpy as np
+from genparse import EOS
 from arsenal import colors
 from genparse import Float
 from numpy.random import random
@@ -17,7 +18,6 @@ class BatchStepModel:
         batch_proposal (BatchProposal): The batch proposal.
         batch_llm (BatchLLM): The batch language model.
         max_tokens (int): The maximum number of tokens to sample.
-
     """
 
     def __init__(self, batch_proposal, batch_llm, max_tokens, prompt=None):
@@ -67,17 +67,22 @@ class BatchStepModel:
         for extension_id, particle_id in extension_id_to_particle_id.items():
             particle = particles[particle_id]
             extension = extensions[extension_id]
+
+            if generated_eos := (extension.token == EOS):
+                # Convert token to configured EOS token
+                next_token = self.batch_llm.llm.eos
+                next_token_id = self.batch_llm.llm.eos_token_id
+            else:
+                next_token = extension.token
+                next_token_id = self.batch_llm.llm._encode[next_token]
+
             particles[particle_id] = Particle(
                 prompt=particle.prompt,
                 log_weight=particle.log_weight + extension.log_weight,
                 log_potential=particle.log_potential,
-                context=particle.context + (extension.token,),
-                context_ids=particle.context_ids + (extension.token_id,),
-                done=(
-                    extension.token == self.batch_proposal.eos
-                    or extension.token_id == self.batch_llm.eos_token_id
-                    or len(particle.context) + 1 >= self.max_tokens
-                ),
+                context=particle.context + (next_token,),
+                context_ids=particle.context_ids + (next_token_id,),
+                done=(generated_eos or len(particle.context) + 1 >= self.max_tokens),
                 parent=particle.parent,
             )
 

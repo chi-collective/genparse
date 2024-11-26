@@ -22,7 +22,6 @@ class Task:
 class Result:
     particle_idx: int
     token: str
-    token_id: int
     log_weight: float
 
 
@@ -66,8 +65,6 @@ class ProposalWorker:
 
         self._decode = self.proposal.llm._decode
         self._encode = self.proposal.llm._encode
-        # coerce guide eos to llm eos token id
-        self._encode[self.proposal.guide.eos] = self.proposal.llm.tokenizer.eos_token_id
 
         self.pid = os.getpid()
         self.total_memory = psutil.virtual_memory().total
@@ -111,7 +108,6 @@ def _process_proposal_task(task):
         token, _, w = proposal_worker.proposal.sample_next_token_sync(
             context=task.context, p_llm=p_llm
         )
-        token_id = proposal_worker._encode[token]
 
         proposal_worker.maybe_clear_cache()
 
@@ -119,7 +115,6 @@ def _process_proposal_task(task):
             particle_idx=task.particle_idx,
             token=token,
             log_weight=w,
-            token_id=token_id,
         )
     except Exception as e:
         return Error(exception=e, worker_id=proposal_worker.worker_id)
@@ -137,7 +132,6 @@ class ParallelProposal:
         seed (int): The seed value. Each process will be seeded with a different value.
         memory_threshold (int, optional): The memory usage threshold (as a percentage of total memory) at which
             to trigger memory management actions. Default is 80%.
-        eos (str): The guide's end-of-sequence token.
         is_running (bool): Flag indicating if the parallel proposal is running.
         pool (multiprocessing.Pool): The multiprocessing pool.
         max_n_particles (int): The maximum number of particles which can be used during inference. Used to allocate shared memory.
@@ -165,7 +159,6 @@ class ParallelProposal:
         self.seed = seed
         self.num_processes = num_processes
         self.max_n_particles = max_n_particles
-        self.eos = self.guide.eos
         self.is_running = False
         self.pool = None
         self.memory_threshold = memory_threshold
@@ -321,7 +314,6 @@ class SequentialBatchProposal:
         self.llm = llm
         self.guide = guide
         self.proposal = self.create_instance()
-        self.eos = self.proposal.eos
 
     def batch_particle_extensions(self, particles, logprobs, particle_idx_to_logprob_idx):
         # sequential implementation
@@ -338,17 +330,11 @@ class SequentialBatchProposal:
                 token, _, w = self.proposal.sample_next_token_sync(
                     context=p.context, p_llm=p_llm
                 )
-                token_id = (
-                    self.proposal.llm._encode[token]
-                    if not token == self.eos
-                    else self.proposal.llm.tokenizer.eos_token_id
-                )
                 extensions.append(
                     Result(
                         particle_idx=particle_idx,
                         token=token,
                         log_weight=w,
-                        token_id=token_id,
                     )
                 )
                 extension_id_to_particle_idx[num_extensions] = particle_idx
