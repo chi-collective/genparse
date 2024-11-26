@@ -20,11 +20,7 @@ def _do_setup(
     # Use multiple processes only if parallel proposal is enabled
     num_processes: int
     if use_parallel_proposal:
-        num_processes = (
-            torch.cuda.device_count()
-            if torch.cuda.is_available()
-            else min(mp.cpu_count(), 2)
-        )
+        num_processes = min(mp.cpu_count(), 2)
         assert num_processes >= 2
     else:
         num_processes = 1
