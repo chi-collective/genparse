@@ -23,6 +23,8 @@ For a comprehensive guide on how to write grammars using Lark syntax, please ref
 
 > **💡Tip:** GenParse supports grammars with arbitrary regular expressions. In practice, we recommend avoiding extremely permisive regular expressions (e.g., `/.+/`) since these will lead to significantly slower inference. See [issue #62](https://github.com/probcomp/genparse/issues/62).
 
+> **💡Tip:** If you don't allow your grammar to generate tokens that begin with a space, generation performance gets much worse. GenParse grammar requires adding a " " terminal to the top-level production rule.
+
 ## 2. Create an `InferenceSetup` object
 
 Create an `InferenceSetup` object with your chosen language model and grammar:
