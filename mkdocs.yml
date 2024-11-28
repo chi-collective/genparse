@@ -2,7 +2,9 @@ site_name: GenParse Docs
 nav:
   - Home: index.md
   - Getting Started: getting_started.md
-  - API Documentation: api/index.html
+  - Visualizing Inference: visualizing_inference.md
+  - Jupyter Examples: jupyter_examples.md
+  - API Documentation (generated using pdocs): api/index.html
   - Contributing: contributing.md
   - Troubleshooting: troubleshooting.md
 theme:

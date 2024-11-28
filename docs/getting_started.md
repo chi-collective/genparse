@@ -21,9 +21,9 @@ WS: " "
 
 For a comprehensive guide on how to write grammars using Lark syntax, please refer to the [official Lark documentation](https://lark-parser.readthedocs.io/en/latest/grammar.html).
 
-> **💡Tip:** GenParse supports grammars with arbitrary regular expressions. In practice, we recommend avoiding extremely permisive regular expressions (e.g., `/.+/`) since these will lead to significantly slower inference. See [issue #62](https://github.com/probcomp/genparse/issues/62).
+**💡Tip:** GenParse supports grammars with arbitrary regular expressions. In practice, we recommend avoiding extremely permisive regular expressions (e.g., `/.+/`) since these will lead to significantly slower inference. See [issue #62](https://github.com/probcomp/genparse/issues/62).
 
-> **💡Tip:** If you don't allow your grammar to generate tokens that begin with a space, generation performance gets much worse. GenParse grammar requires adding a " " terminal to the top-level production rule.
+**💡Tip:** If you don't allow your grammar to generate tokens that begin with a space, generation performance gets much worse. GenParse grammar requires adding a " " terminal to the top-level production rule.
 
 ## 2. Create an `InferenceSetup` object
 
@@ -52,7 +52,9 @@ It accepts the following optional arguments:
 - **vllm_engine_opts** (dict or None): Additional options for the VLLM engine, such as data type (dtype). These options are ignored if VLLM is not used.
 
 
-> **💡Tip:** To try different grammars without having to instantiate new `InferenceSetup` objects each time, use the `update_grammar` method; `setup.update_grammar(new_grammar)` will replace the existing grammar in `setup` with `new_grammar`.
+**💡Tip:** To try different grammars without having to instantiate new `InferenceSetup` objects each time, use the `update_grammar` method; `setup.update_grammar(new_grammar)` will replace the existing grammar in `setup` with `new_grammar`.
+
+**💡Tip:** If you choose to use a Llama model you will need to authenticate with huggingface. You can do this by running `huggingface-cli login` and entering your credentials (a token), which you can get from [here](https://huggingface.co/settings/tokens). You will also need to sign a waiver to use the Llama models, which you can do [here](https://huggingface.co/meta-llama/Meta-Llama-3-8B). You may need to wait for approval before you can use the Llama models.
 
 
 ## 3. Run inference
@@ -93,7 +95,7 @@ The result from `InferenceSetup` is a `ParticleApproximation` object. This objec
 
 ## 4. Potential functions
 
-> **💡 Tip:** Incorporate constraints directly into the grammar when possible, as this will generally improve the quality of inference.
+**💡 Tip:** Incorporate constraints directly into the grammar when possible, as this will generally improve the quality of inference.
 
 Potential functions can be used to guide generation using additional constraints. A potential function maps (partial) generations to positive real numbers, with higher values indicating a stronger preference for those generations. Intuitively, when applied in SMC, potential functions offer richer signals for resampling steps, allowing computation to be redirected toward more promising particles during the course of generation.
 
@@ -101,26 +103,4 @@ Potentials are provided as input to an `InferenceSetup` call via the `potential`
 
 ## 5. Visualizing inference
 
-GenParse additionally provides methods to visualize inference runs. To display the visualization of an inference run:
-
-1. Specify `return_record=True` when calling `InferenceSetup`:
-   
-```python
-result = setup(' ', n_particles=10, return_record=True)
-```
-
-2. Save the SMC record in `notes/smc_viz/`:
-   
-```python
-import json
-with open('notes/smc_viz/record.json', 'w') as f:
-      f.write(json.dumps(result.record))
-```
-
-3. Run a server in `notes/smc_viz/`:
-   
-```bash
-python -m http.server --directory notes/smc_viz 8000
-```
-
-4. Navigate to [localhost:8000/](http://localhost:8000/).
+See the [visualizing inference](./visualizing_inference.md) page for more details.
