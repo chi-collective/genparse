@@ -71,26 +71,35 @@ def cleanup(inference_setup):
         pass
 
 
-def do_inference(inference_setup_: InferenceSetup, prompt: str, n_particles: int = 5):
-    return inference_setup_(prompt, n_particles=n_particles, verbosity=1)
+def do_inference(
+    inference_setup_: InferenceSetup,
+    prompt: str,
+    max_tokens: int = 500,
+    n_particles: int = 5,
+):
+    return inference_setup_(
+        prompt, max_tokens=max_tokens, n_particles=n_particles, verbosity=1
+    )
 
 
 @pytest.mark.benchmark()
 def test_very_long_sequences(benchmark):
     inference_setup = get_inference_setup(LOREM_IPSUM_GRAMMAR)
-    benchmark(do_inference, inference_setup, 'Generate some lorem ipsum text:')
+    benchmark(
+        do_inference, inference_setup, 'Generate some lorem ipsum text:', max_tokens=1000
+    )
     cleanup(inference_setup)
 
 
 @pytest.mark.benchmark()
 def test_very_permissive_grammar(benchmark):
     inference_setup = get_inference_setup('start: /.+/')
-    benchmark(do_inference, inference_setup, ' ')
+    benchmark(do_inference, inference_setup, ' ', max_tokens=100)
     cleanup(inference_setup)
 
 
 @pytest.mark.benchmark()
 def test_many_particles(benchmark):
     inference_setup = get_inference_setup(RESTRICTED_SQL_GRAMMAR)
-    benchmark(do_inference, inference_setup, SQL_PROMPT, n_particles=50)
+    benchmark(do_inference, inference_setup, SQL_PROMPT, max_tokens=200, n_particles=50)
     cleanup(inference_setup)
