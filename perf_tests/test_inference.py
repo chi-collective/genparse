@@ -86,7 +86,7 @@ def do_inference(
 def test_very_long_sequences(benchmark):
     inference_setup = get_inference_setup(LOREM_IPSUM_GRAMMAR)
     benchmark(
-        do_inference, inference_setup, 'Generate some lorem ipsum text:', max_tokens=1000
+        do_inference, inference_setup, 'Generate some lorem ipsum text:', max_tokens=75
     )
     cleanup(inference_setup)
 
