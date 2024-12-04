@@ -4,7 +4,7 @@ name: Performance monitoring
 
 on:
   push:
-    branches:          [main, performance-monitoring]
+    branches:          [main, performance-monitoring, 45-add-simple-benchmarks]
   # Disable on other branches for now, because I don't know how to publish artifacts elsewhere.
   # pull_request:
   #   branches:          [main]
