@@ -101,6 +101,8 @@ Potential functions can be used to guide generation using additional constraints
 
 Potentials are provided as input to an `InferenceSetup` call via the `potential` argument and must be defined at the particle beam level. That is, `InferenceSetup` expects potentials to be callables which are provided a *list* of particles as input and return a *list* of log potential values, one for each particle. 
 
+There is an example of a potential function in [examples/genparse_sql_example.py](./examples/genparse_sql_example.py).
+
 ## 5. Visualizing inference
 
 See the [visualizing inference](./visualizing_inference.md) page for more details.

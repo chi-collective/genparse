@@ -76,7 +76,7 @@ make env-no-rust
 Or by running:
 
 ```bash
-python genparse_tiny_example.py
+python examples/genparse_tiny_example.py
 ```
 
 

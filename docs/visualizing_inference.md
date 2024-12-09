@@ -10,7 +10,6 @@ result = setup(' ', n_particles=10, return_record=True)
 2. Save the Sequential Monte Carlo (SMC) record of your inference run to a file by adding this to your source code:
    
 ```python
-# Import the json library at the top of your source file.
 import json
 
 # Save the SMC record to a file after the inference run.
