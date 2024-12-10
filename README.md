@@ -73,11 +73,11 @@ make env-no-rust
 }
 ```
 
-Or simply by running:
+Or by running:
 
 ```bash
-python genparse_tiny_example.py
-   ```
+python examples/genparse_tiny_example.py
+```
 
 
 ## Supported language models

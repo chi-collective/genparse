@@ -10,6 +10,8 @@ probabilities for each generated text.
 """
 
 from genparse import InferenceSetup
+import os
+import json
 
 
 def main():
@@ -21,13 +23,15 @@ def main():
     """
     print('Grammar defined.')
 
-    # Initialize InferenceSetup with GPT-2 model and character-level proposal
+    # Initialize InferenceSetup with GPT2 model and character-level proposal
     inference_setup = InferenceSetup('gpt2', grammar, proposal_name='character')
     print('InferenceSetup created successfully.')
 
     # Run inference with a single space as the inital prompt, 5 particles,
     # and set verbosity to 1 to print progress to the console
-    inference_result = inference_setup(' ', n_particles=5, verbosity=1)
+    inference_result = inference_setup(
+        ' ', n_particles=5, verbosity=1, return_record=True
+    )
     print('Inference completed.')
 
     # Display probabilities using the .posterior property
@@ -36,6 +40,12 @@ def main():
 
     # Display results
     print(posterior)
+
+    # Save the inference record to a file so we can visualize it later
+    os.makedirs('notes/smc_viz', exist_ok=True)
+    with open('notes/smc_viz/record.json', 'w') as f:
+        f.write(json.dumps(inference_result.record))
+    print('Inference record saved to notes/smc_viz/record.json.')
 
 
 if __name__ == '__main__':
