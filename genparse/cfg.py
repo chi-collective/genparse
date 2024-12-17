@@ -741,14 +741,13 @@ class CFG:
         iteration = 0
         while b >= 0:
             iteration += 1
-            if iteration > maxiter:
-                break
 
-            if len(change[b]) == 0:
+            # Move on to the next block
+            if len(change[b]) == 0 or iteration > maxiter:
                 b -= 1
                 iteration = 0  # reset iteration number for the next bucket
                 continue
-
+            
             u, v = change[b].popitem()
 
             new = old[u] + v
