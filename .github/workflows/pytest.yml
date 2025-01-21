@@ -1,25 +1,39 @@
-name:                  Tests
+name: Tests
 
 on:
   push:
-    branches:          [main]
+    branches: [main]
   pull_request:
-    branches:          [main]
+    branches: [main]
 
 jobs:
   run_tests:
-    runs-on:           ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
-      # - name:          free disk space
-      #   uses:          jlumbroso/free-disk-space@v1.3.1
-      - name:          checkout repo
-        uses:          actions/checkout@v3.0.0
+      # - name: free disk space
+      #   uses: jlumbroso/free-disk-space@v1.3.1
+
+      - name: Checkout Repository
+        uses: actions/checkout@v3.0.0
         with:
           fetch-depth: 1
-      - name:          run tests
+
+      - name: Install Dependencies
         run: |
-                      python -m venv venv
-                      source venv/bin/activate
-                      sudo apt-get -y install graphviz
-                      pip install --upgrade pip "setuptools>=62.4"
-                      make pytest
+          sudo apt-get update
+          sudo apt-get install -y graphviz nvidia-cuda-toolkit
+          echo "CUDA_HOME=/usr/lib/cuda" >> $GITHUB_ENV
+          echo "PATH=$CUDA_HOME/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Verify CUDA Installation
+        run: |
+          echo "CUDA_HOME: $CUDA_HOME"
+          nvcc --version
+
+      - name: Run Tests
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip "setuptools>=62.4"
+          pip install -r requirements.txt
+          make pytest
