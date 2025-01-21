@@ -24,7 +24,8 @@ update :
 ##   Usage:
 ##   make env            : Set up the environment and build the Rust parser
 ##   make env-no-rust    : Set up the environment without building the Rust parser
-.PHONY : env env-no-rust
+##   make env-no-vllm    : Set up the environment without installing vllm
+.PHONY : env env-no-rust env-no-vllm
 env : $(NAME).egg-info/
 env-no-rust : $(NAME).egg-info/
 env-no-vllm : $(NAME).egg-info/
