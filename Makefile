@@ -24,9 +24,11 @@ update :
 ##   Usage:
 ##   make env            : Set up the environment and build the Rust parser
 ##   make env-no-rust    : Set up the environment without building the Rust parser
-.PHONY : env env-no-rust
+##   make env-no-vllm    : Set up the environment without installing vllm
+.PHONY : env env-no-rust env-no-vllm
 env : $(NAME).egg-info/
 env-no-rust : $(NAME).egg-info/
+env-no-vllm : $(NAME).egg-info/
 $(NAME).egg-info/ : setup.py
 # check if rust is installed
 # rustc --version
@@ -47,16 +49,11 @@ $(NAME).egg-info/ : setup.py
 	@( \
 		trap 'status=$$?; if [ -f pyproject.toml.bak ]; then mv pyproject.toml.bak pyproject.toml; fi; exit $$status' EXIT; \
 		set -e; \
-		if [ "$(OS)" = "Windows_NT" ]; then \
-			echo "Skipping vllm installation on Windows. GPU-accelerated inference with vllm will not be available."; \
-			$(INSTALL) -e ".[test]" && pre-commit install; \
+		if [ "$$(uname -s)" = "Linux" ] && ! echo "$(MAKECMDGOALS)" | grep -q "no-vllm"; then \
+			$(INSTALL) -e ".[test,vllm]" && pre-commit install; \
 		else \
-			if [ "$$(uname -s)" = "Darwin" ]; then \
-				echo "Skipping vllm installation on macOS. GPU-accelerated inference with vllm will not be available."; \
-				$(INSTALL) -e ".[test]" && pre-commit install; \
-			else \
-				$(INSTALL) -e ".[test,vllm]" && pre-commit install; \
-			fi \
+			echo "Skipping vllm installation. GPU-accelerated inference with vllm will not be available."; \
+			$(INSTALL) -e ".[test]" && pre-commit install; \
 		fi \
 	)
 # build rust parser (only for 'env' target)
@@ -90,7 +87,7 @@ docs/api/index.html : $(SRC_FILES)
 ## mkdocs    : build documentation using mkdocs.
 .PHONY : mkdocs
 mkdocs : env docs 
-	mkdocs build
+mkdocs-no-vllm : env-no-vllm docs 
 
 ## mkdocs-serve : serve documentation locally using mkdocs.
 .PHONY : mkdocs-serve
@@ -102,7 +99,10 @@ serve-mkdocs : env
 test : ruff pytest
 ruff : env
 	@ruff check --fix
+ruff-no-vllm : env-no-vllm
+	@ruff check --fix
 pytest : env html/coverage/index.html
+pytest-no-vllm : env-no-vllm html/coverage/index.html
 html/coverage/index.html : html/pytest/report.html
 	@coverage html -d $(@D)
 html/pytest/report.html : $(SRC_FILES) $(TEST_FILES)

@@ -30,7 +30,7 @@ jobs:
 
     - name: Build docs
       run: |
-        make mkdocs
+        make mkdocs-no-vllm
 
     - name: Upload docs
       uses: actions/upload-artifact@v4
