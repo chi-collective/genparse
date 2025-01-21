@@ -747,7 +747,7 @@ class CFG:
                 b -= 1
                 iteration = 0  # reset iteration number for the next bucket
                 continue
-            
+
             u, v = change[b].popitem()
 
             new = old[u] + v
