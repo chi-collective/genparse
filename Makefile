@@ -27,6 +27,7 @@ update :
 .PHONY : env env-no-rust
 env : $(NAME).egg-info/
 env-no-rust : $(NAME).egg-info/
+env-no-vllm : $(NAME).egg-info/
 $(NAME).egg-info/ : setup.py
 # check if rust is installed
 # rustc --version
@@ -51,8 +52,8 @@ $(NAME).egg-info/ : setup.py
 			echo "Skipping vllm installation on Windows. GPU-accelerated inference with vllm will not be available."; \
 			$(INSTALL) -e ".[test]" && pre-commit install; \
 		else \
-			if [ "$$(uname -s)" = "Darwin" ]; then \
-				echo "Skipping vllm installation on macOS. GPU-accelerated inference with vllm will not be available."; \
+			if [ "$$(uname -s)" = "Darwin" ] || [ "$(MAKECMDGOALS)" = "env-no-vllm" ]; then \
+				echo "Skipping vllm installation. GPU-accelerated inference with vllm will not be available."; \
 				$(INSTALL) -e ".[test]" && pre-commit install; \
 			else \
 				$(INSTALL) -e ".[test,vllm]" && pre-commit install; \
@@ -103,6 +104,7 @@ test : ruff pytest
 ruff : env
 	@ruff check --fix
 pytest : env html/coverage/index.html
+pytest-no-vllm : env-no-vllm html/coverage/index.html
 html/coverage/index.html : html/pytest/report.html
 	@coverage html -d $(@D)
 html/pytest/report.html : $(SRC_FILES) $(TEST_FILES)

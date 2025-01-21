@@ -15,15 +15,10 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Set CUDA Environment Variables
-        run: |
-          echo "CUDA_HOME=/usr/local/cuda" >> $GITHUB_ENV
-          echo "PATH=$CUDA_HOME/bin:$PATH" >> $GITHUB_ENV
-
       - name: Run Tests
         run: |
           python -m venv venv
           source venv/bin/activate
           sudo apt-get -y install graphviz
           pip install --upgrade pip "setuptools>=62.4"
-          make pytest
+          make pytest-no-vllm
