@@ -10,19 +10,14 @@ jobs:
   run_tests:
     runs-on: ubuntu-latest
     steps:
-      # - name: free disk space
-      #   uses: jlumbroso/free-disk-space@v1.3.1
-
       - name: Checkout Repository
         uses: actions/checkout@v3.0.0
         with:
           fetch-depth: 1
 
-      - name: Install Dependencies
+      - name: Set CUDA Environment Variables
         run: |
-          sudo apt-get update
-          sudo apt-get install -y graphviz nvidia-cuda-toolkit
-          echo "CUDA_HOME=/usr/lib/cuda" >> $GITHUB_ENV
+          echo "CUDA_HOME=/usr/local/cuda" >> $GITHUB_ENV
           echo "PATH=$CUDA_HOME/bin:$PATH" >> $GITHUB_ENV
 
       - name: Verify CUDA Installation
@@ -34,6 +29,6 @@ jobs:
         run: |
           python -m venv venv
           source venv/bin/activate
+          sudo apt-get -y install graphviz
           pip install --upgrade pip "setuptools>=62.4"
-          pip install -r requirements.txt
           make pytest
