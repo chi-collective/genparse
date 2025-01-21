@@ -108,7 +108,7 @@ html/coverage/index.html : html/pytest/report.html
 html/pytest/report.html : $(SRC_FILES) $(TEST_FILES)
 	@coverage run --branch -m pytest --html=$@ --self-contained-html $(SRC_FILES) $(TEST_FILES)
 benchmark : env benchmark.json
-benchmark-no-vllm: env-no-rust benchmark.json
+benchmark-no-vllm: env-no-vllm benchmark.json
 benchmark.json : $(SRC_FILES) $(PERF_TEST_FILES)
 	@pytest $(PERF_TEST_FILES) --benchmark-json output.json
 
