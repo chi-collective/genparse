@@ -167,19 +167,27 @@ class InferenceSetup:
         Initialize an InferenceSetup object for running inference with a specified model and grammar.
 
         Args:
-            model_name (str): Name of the language model to use.
+            model_name (str): Name of the language model to use. See the README for the list of models
+            currently supported by GenParse.
             grammar (str): The grammar specification in Lark format.
-            proposal_name (str, optional): Type of proposal to use ('character' or 'token'). Defaults to 'character'.
-            num_processes (int, optional): Number of processes to use for parallel proposals.
+            proposal_name (str, optional): Type of proposal to use ('character' or 'token').
+                Defaults to 'character'.
+            num_processes (int, optional): Number of processes to use for parallel proposals. This can help speed
+            up the inference process by utilizing multiple CPU cores.
                 Defaults to min(CPU count, 2).
             use_rust_parser (bool, optional): Whether to use Rust implementation of Earley parser for faster inference.
                 Defaults to False. When False, Python implementation is used.
             use_vllm (bool, optional): Whether to use VLLM for LLM next token probability computations.
+            If None, VLLM is used when possible (i.e., if the vllm library is available and CUDA is enabled).
                 Defaults to None, which uses VLLM when possible.
-            seed (int, optional): Random seed for reproducibility.
-            guide_opts (dict, optional): Additional options for the guide.
-            proposal_opts (dict, optional): Additional options for the proposal (e.g., K for token proposal).
-            llm_opts (dict, optional): Additional options for the genparse LM (e.g., temperature, top_p).
+            seed (int, optional): Random seed for reproducibility. If provided, it ensures that the inference
+            process is deterministic.
+            guide_opts (dict, optional): Additional options for the guide, which may include specific
+            configurations for the grammar-based model.
+            proposal_opts (dict, optional): Additional options for the proposal mechanism, such as parameters
+            specific to the proposal type (e.g., K for token proposal).
+            llm_opts (dict, optional): Additional options for the genparse LM, such as temperature or
+            top-p settings for sampling.
             vllm_engine_opts (dict, optional): Additional options for the VLLM engine (e.g., dtype).
                 These are ignored when VLLM is not used.
 
@@ -326,12 +334,25 @@ class InferenceSetup:
         Run inference with n_particles using the specified method.
 
         Args:
-            prompt (str): The input prompt to generate samples from.
+            prompt (str): The input prompt to generate samples from. This is the starting text
+            for the language model.
             n_particles (int): The number of particles (samples) to generate.
-            method (str, optional): The sampling method to use. Either 'smc' for sequential Monte Carlo
-                                    or 'is' for importance sampling. Defaults to 'smc'.
+            method (str, optional): The sampling method to use. Either 'smc' for sequential Monte
+            Carlo or 'is' for importance sampling. Defaults to 'smc'.
             max_tokens (int, optional): The maximum number of tokens to generate. Defaults to 500.
             **kwargs: Additional keyword arguments to pass to the inference method.
+
+            The following optional arguments are passed in as **kwargs**, which may be expanded over time:
+            potential (Callable): A function that when called on a list of particles, returns a list
+            with the log potential values for each particle. Potentials can be used to guide generation
+            with additional constraints. See below for an overview of potential functions.
+            ess_threshold (float): Effective sample size below which resampling is triggered, given as
+            a fraction of **n_particles**. Default is 0.5.
+            verbosity (int): Verbosity level. When > 0, particles are printed at each step. Default is 0.
+            return_record (bool): Flag indicating whether to return a record of the inference steps.
+            Default is False.
+            resample_method (str): Resampling method to use. Either 'multinomial' or 'stratified'.
+            Default is 'multinomial'.
 
         Returns:
             A ParticleApproximation.
