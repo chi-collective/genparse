@@ -87,7 +87,7 @@ docs/api/index.html : $(SRC_FILES)
 ## mkdocs    : build documentation using mkdocs.
 .PHONY : mkdocs
 mkdocs : env docs 
-	mkdocs build
+mkdocs-no-vllm : env-no-vllm docs 
 
 ## mkdocs-serve : serve documentation locally using mkdocs.
 .PHONY : mkdocs-serve
@@ -98,6 +98,8 @@ serve-mkdocs : env
 .PHONY : test
 test : ruff pytest
 ruff : env
+	@ruff check --fix
+ruff-no-vllm : env-no-vllm
 	@ruff check --fix
 pytest : env html/coverage/index.html
 pytest-no-vllm : env-no-vllm html/coverage/index.html
