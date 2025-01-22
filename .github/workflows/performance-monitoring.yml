@@ -44,7 +44,7 @@ jobs:
           source venv/bin/activate
           sudo apt-get -y install graphviz
           pip install --upgrade pip "setuptools>=62.4"
-          make benchmark
+          make benchmark-no-vllm
 
       - name: Fetch historical data
         # Does not yet account for running on pull requests, where we might need to initialize the benchmark data

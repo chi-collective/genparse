@@ -1,25 +1,24 @@
-name:                  Tests
+name: Tests
 
 on:
   push:
-    branches:          [main]
+    branches: [main]
   pull_request:
-    branches:          [main]
+    branches: [main]
 
 jobs:
   run_tests:
-    runs-on:           ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
-      # - name:          free disk space
-      #   uses:          jlumbroso/free-disk-space@v1.3.1
-      - name:          checkout repo
-        uses:          actions/checkout@v3.0.0
+      - name: Checkout Repository
+        uses: actions/checkout@v3.0.0
         with:
           fetch-depth: 1
-      - name:          run tests
+
+      - name: Run Tests
         run: |
-                      python -m venv venv
-                      source venv/bin/activate
-                      sudo apt-get -y install graphviz
-                      pip install --upgrade pip "setuptools>=62.4"
-                      make pytest
+          python -m venv venv
+          source venv/bin/activate
+          sudo apt-get -y install graphviz
+          pip install --upgrade pip "setuptools>=62.4"
+          make pytest-no-vllm
