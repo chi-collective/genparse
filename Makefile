@@ -86,8 +86,10 @@ docs/api/index.html : $(SRC_FILES)
 
 ## mkdocs    : build documentation using mkdocs.
 .PHONY : mkdocs
-mkdocs : env docs 
-mkdocs-no-vllm : env-no-vllm docs 
+mkdocs : env docs
+	mkdocs build
+mkdocs-no-vllm : env-no-vllm docs
+	mkdocs build
 
 ## mkdocs-serve : serve documentation locally using mkdocs.
 .PHONY : mkdocs-serve
