@@ -181,7 +181,7 @@ def convert_to_tree(output, do_flatten=False):
                 new_suffix = sorted(new_suffix)
                 # pdb.set_trace()
                 graph.nodes[n]['name'] = (
-                    f"{graph.nodes[n]['name'].split(':')[0]}:{''.join(new_suffix)}"
+                    f'{graph.nodes[n]["name"].split(":")[0]}:{"".join(new_suffix)}'
                 )
                 new_child_names.append(re.sub(':', '', graph.nodes[n]['name']))
                 # new_child_names.append(graph.nodes[n]['name'].split(":")[0])
@@ -189,7 +189,7 @@ def convert_to_tree(output, do_flatten=False):
             new_child_names = [re.sub(r'\[.*?\]', '', x) for x in new_child_names]
             # pdb.set_trace()
             graph.nodes[parent]['name'] = (
-                f"{graph.nodes[parent]['name'].split(':')[0]}:{''.join(new_child_names)}"
+                f'{graph.nodes[parent]["name"].split(":")[0]}:{"".join(new_child_names)}'
             )
 
     return graph

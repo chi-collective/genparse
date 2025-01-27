@@ -78,8 +78,8 @@ def lark_guide_fast(grammar, **kwargs):
 def make_model_table(name2id):
     name_width = max(len('Name'), max(len(name) for name in name2id.keys()))
     id_width = max(len('HuggingFace Identifier'), max(len(id) for id in name2id.values()))
-    table = f"{'Name':<{name_width}} | {'HuggingFace Identifier':<{id_width}}\n"
-    table += f"{'-' * name_width}-+-{'-' * id_width}\n"
+    table = f'{"Name":<{name_width}} | {"HuggingFace Identifier":<{id_width}}\n'
+    table += f'{"-" * name_width}-+-{"-" * id_width}\n'
     for name, id in name2id.items():
         table += f'{name:<{name_width}} | {id:<{id_width}}\n'
     return table
@@ -232,8 +232,8 @@ class InferenceSetup:
 
         if proposal_name not in proposal_names:
             raise ValueError(
-                f"Invalid proposal name {proposal_name!r}. "
-                f"proposal_name must be one of `{' `'.join(proposal_names)}`"
+                f'Invalid proposal name {proposal_name!r}. '
+                f'proposal_name must be one of `{" `".join(proposal_names)}`'
             )
 
         if seed is not None:

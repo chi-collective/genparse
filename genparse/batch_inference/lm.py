@@ -191,9 +191,9 @@ if VLLM_AVAILABLE:
                 self.llm_engine.scheduler.schedule()
             )
 
-            assert (
-                len(seq_group_metadata_list) == 1
-            ), 'There should only be a single sequence group'
+            assert len(seq_group_metadata_list) == 1, (
+                'There should only be a single sequence group'
+            )
 
             # update particle metadata with scheduler metadata and output
             self.particle_metadata.scheduler_outputs = scheduler_outputs
@@ -227,18 +227,18 @@ if VLLM_AVAILABLE:
 
             self.particle_metadata.sequence_ids_by_seq_group = sequence_ids_by_seq_group
 
-            assert (
-                len(logprobs_by_seq_group) == 1
-            ), 'There should only be one sequence group (logprobs)'
-            assert (
-                len(logprobs_by_seq_group[0]) == 1
-            ), 'We should only be decoding a single step (logprobs)'
-            assert (
-                len(sequence_ids_by_seq_group) == 1
-            ), 'There should only be one sequence group (sequence ids)'
-            assert (
-                len(sequence_ids_by_seq_group[0]) == 1
-            ), 'We should only be decoding a single step (sequence ids)'
+            assert len(logprobs_by_seq_group) == 1, (
+                'There should only be one sequence group (logprobs)'
+            )
+            assert len(logprobs_by_seq_group[0]) == 1, (
+                'We should only be decoding a single step (logprobs)'
+            )
+            assert len(sequence_ids_by_seq_group) == 1, (
+                'There should only be one sequence group (sequence ids)'
+            )
+            assert len(sequence_ids_by_seq_group[0]) == 1, (
+                'We should only be decoding a single step (sequence ids)'
+            )
 
             logprobs = logprobs_by_seq_group[0][0]
             sequence_ids = sequence_ids_by_seq_group[0][0]

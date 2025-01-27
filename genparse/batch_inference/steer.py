@@ -117,9 +117,9 @@ class Particle:
 
     def twist(self, log_potential):
         if self.log_potential == -np.inf:
-            assert (
-                log_potential == -np.inf
-            ), 'Potentials φ must satisfy φ(x) = 0 => φ(xy) = 0, forall x,y in V*'
+            assert log_potential == -np.inf, (
+                'Potentials φ must satisfy φ(x) = 0 => φ(xy) = 0, forall x,y in V*'
+            )
             self.log_weight = -np.inf
         else:
             self.log_weight += log_potential - self.log_potential
@@ -232,7 +232,7 @@ def pretty_print_particles(particles, step_info):
     for i, p in enumerate(particles):
         print(f'├ Particle {i:3d} `{p.context[-1]}` : {p}')
     print(
-        f"│ Step {step_info['step']:3d} average weight: {step_info['average_weight']:.4f}"
+        f'│ Step {step_info["step"]:3d} average weight: {step_info["average_weight"]:.4f}'
     )
 
 

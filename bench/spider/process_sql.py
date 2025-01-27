@@ -202,9 +202,9 @@ def parse_col(toks, start_idx, tables_with_alias, schema, default_tables=None):
         key = tables_with_alias[alias] + '.' + col
         return start_idx + 1, schema.idMap[key]
 
-    assert (
-        default_tables is not None and len(default_tables) > 0
-    ), 'Default tables should not be None or empty'
+    assert default_tables is not None and len(default_tables) > 0, (
+        'Default tables should not be None or empty'
+    )
 
     for alias in default_tables:
         table = tables_with_alias[alias]
@@ -352,9 +352,9 @@ def parse_condition(toks, start_idx, tables_with_alias, schema, default_tables=N
             not_op = True
             idx += 1
 
-        assert (
-            idx < len_ and toks[idx] in WHERE_OPS
-        ), 'Error condition: idx: {}, tok: {}'.format(idx, toks[idx])
+        assert idx < len_ and toks[idx] in WHERE_OPS, (
+            'Error condition: idx: {}, tok: {}'.format(idx, toks[idx])
+        )
         op_id = WHERE_OPS.index(toks[idx])
         idx += 1
         val1 = val2 = None

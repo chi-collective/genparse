@@ -21,16 +21,16 @@ def test_boolean():
     approx = model(
         ' ', method='smc', n_particles=100, potential=less_than_two_as_potential
     )
-    assert all(
-        not two_or_more_as(p) or p.log_weight == -np.inf for p in approx
-    ), approx.particles
+    assert all(not two_or_more_as(p) or p.log_weight == -np.inf for p in approx), (
+        approx.particles
+    )
 
     approx = model(
         ' ', method='is', n_particles=100, potential=less_than_two_as_potential
     )
-    assert all(
-        not two_or_more_as(p) or p.log_weight == -np.inf for p in approx
-    ), approx.particles
+    assert all(not two_or_more_as(p) or p.log_weight == -np.inf for p in approx), (
+        approx.particles
+    )
 
 
 def test_continous():
