@@ -94,6 +94,7 @@ Genparse currently supports the following HuggingFace language models. If you wo
 | gpt2              | gpt2                                 |
 | gpt2-medium       | gpt2-medium                          |
 | gpt2-large        | gpt2-large                           |
+| llama3.2-1B       | meta-llama/Meta-Llama-3.2-1B         |
 
 
 Adding a `mock-` prefix to a language model name will create an imitation language model over the same vocabulary that can be used for testing (e.g., `mock-gpt2`). In practice, these models can be useful for rapid prototyping with minimal hardware.
