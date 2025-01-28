@@ -279,7 +279,7 @@ class VirtualTokenizedLLM(TokenizedLLM):
     def from_name(cls, model_name, engine_opts={}, **kwargs):
         from vllm import LLMEngine, EngineArgs
 
-        if 'Llama-3.1' in model_name:
+        if any(v in model_name for v in ('Llama-3.1', 'Llama-3.2')):
             # rope_scaling is a hack to make our version of VLLM work with Llama 3.1
             # max_model_len needs to be reduced to fit the quantized 70B model an 80Gb GPU
             return cls(

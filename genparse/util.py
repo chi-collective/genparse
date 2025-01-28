@@ -105,6 +105,7 @@ def load_model_by_name(model_name, use_vllm=False, vllm_engine_opts={}, **kwargs
         'gpt2': 'gpt2',
         'gpt2-medium': 'gpt2-medium',
         'gpt2-large': 'gpt2-large',
+        'llama3.2-1B': 'meta-llama/Llama-3.2-1B',
     }
 
     is_mock = model_name.startswith('mock-')
