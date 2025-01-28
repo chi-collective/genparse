@@ -21,4 +21,4 @@ jobs:
                        python -m venv venv
                        source venv/bin/activate
                        pip install --upgrade pip "setuptools>=62.4"
-                       make ruff
+                       make ruff-no-vllm
