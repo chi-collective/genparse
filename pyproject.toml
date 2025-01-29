@@ -1,15 +1,58 @@
+# [build-system]
+# requires = ["maturin>=1.7,<2.0",]
+# build-backend = "maturin"
+
 [build-system]
-requires = ["maturin>=1.7,<2.0"]
-build-backend = "maturin"
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [project]
-name = "genpa-rs"
+name = "genparse"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dynamic = ["version"]
-[tool.maturin]
-features = ["pyo3/extension-module"]
+dependencies = ["arsenal @ git+https://github.com/timvieira/arsenal"]
+version = "0.1.0"
+
+
+[tool.pixi.system-requirements]
+cuda = "12.4"
+
+# [tool.maturin]
+# features = ["pyo3/extension-module"]
+
+[tool.pixi.project]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.pypi-dependencies]
+genparse = { path = ".", editable = true }
+
+[tool.pixi.tasks]
+
+[tool.pixi.dependencies]
+graphviz = ">=12.0.0,<13"
+interegular = ">=0.3.3,<0.4"
+ipython = ">=8.31.0,<9"
+jsons = ">=1.6.3,<2"
+lark = ">=1.2.2,<2"
+nltk = ">=3.9.1,<4"
+numpy = ">=2.0.2,<3"
+pandas = ">=2.2.3,<3"
+path = ">=17.1.0,<18"
+rich = ">=13.9.4,<14"
+numba = ">=0.60.0,<0.61"
+transformers = ">=4.48.1,<5"
+plotly = ">=5.24.1,<6"
+maturin = ">=1.8.1,<2"
+psutil = ">=6.1.1,<7"
+mkdocs = ">=1.6.1,<2"
+mkdocs-material = ">=9.5.50,<10"
+pytorch = { version = ">=2.5.1,<3", build = "cuda12*" }
+frozendict = ">=2.4.6,<3"

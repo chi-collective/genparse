@@ -30,3 +30,7 @@ build/
 
 # for Rust cargo build
 /target
+
+# pixi environments
+.pixi
+*.egg-info
