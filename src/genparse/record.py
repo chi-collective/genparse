@@ -150,11 +150,11 @@ class SMCRecord(dict):
                     hoverinfo='text',
                     hovertext=resampled_as_data.apply(
                         lambda row: (
-                            f"Token:    {'`<b>'+row['token']+'</b>`' if row['token'] else ''}<br>"
-                            + f"Context:  {row['context_string']}<br>"
-                            + f"Step {row['step']}; Avg weight = {row['average weight']:4f}<br>"
-                            + f"Particle {row['particle']}; Weight = {row['weight']:4f}<br>"
-                            + f"{'        ↳ resample_indices particle '+str(row['resample_indices']) if row['resample?'] else ''}"
+                            f'Token:    {"`<b>" + row["token"] + "</b>`" if row["token"] else ""}<br>'
+                            + f'Context:  {row["context_string"]}<br>'
+                            + f'Step {row["step"]}; Avg weight = {row["average weight"]:4f}<br>'
+                            + f'Particle {row["particle"]}; Weight = {row["weight"]:4f}<br>'
+                            + f'{"        ↳ resample_indices particle " + str(row["resample_indices"]) if row["resample?"] else ""}'
                         ),
                         axis=1,
                     ),

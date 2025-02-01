@@ -129,7 +129,7 @@ class Node:
         if self.children is None:
             return
         for a, x in self.children.items():
-            print(f'{indent}{a} ({x.mass/self.mass if self.mass > 0 else 0})')
+            print(f'{indent}{a} ({x.mass / self.mass if self.mass > 0 else 0})')
             x.show(indent + '  ')
 
 

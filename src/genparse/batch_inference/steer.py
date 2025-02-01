@@ -232,7 +232,7 @@ def pretty_print_particles(particles, step_info):
     for i, p in enumerate(particles):
         print(f'├ Particle {i:3d} `{p.context[-1]}` : {p}')
     print(
-        f"│ Step {step_info['step']:3d} average weight: {step_info['average_weight']:.4f}"
+        f'│ Step {step_info["step"]:3d} average weight: {step_info["average_weight"]:.4f}'
     )
 
 

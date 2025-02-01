@@ -51,7 +51,7 @@ update-pixi-global() {
 install-pixi-global() {
     info "Installing pixi global environment..."
     pixi global install --environment genparse-dev \
-      make git gh rust coverage pdoc pre-commit pytest ruff
+      make git gh rust coverage pdoc pre-commit pytest ruff gcc "python<=3.11" pytest-cov pytest-html
 }
 
 # Authenticate gcloud

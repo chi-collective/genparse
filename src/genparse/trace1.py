@@ -150,7 +150,7 @@ class Node:
             if x.children is None:
                 continue
             for a, y in x.children.items():
-                g.edge(str(f(x)), str(f(y)), label=f'{fmt_edge(x,a,y)}')
+                g.edge(str(f(x)), str(f(y)), label=f'{fmt_edge(x, a, y)}')
                 q.append(y)
         for x in xs:
             if x.children is not None:

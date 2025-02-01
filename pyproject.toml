@@ -4,19 +4,21 @@ requires = ["hatchling"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
 [project]
 name = "genparse"
-requires-python = ">=3.8"
+requires-python = "<=3.11"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = ["arsenal @ git+https://github.com/timvieira/arsenal"]
+dependencies = [ "vllm", "arsenal @ git+https://github.com/timvieira/arsenal"]
 version = "0.1.0"
 
 [tool.pixi.system-requirements]
 cuda = "12.4"
+
 
 # [tool.maturin]
 # features = ["pyo3/extension-module"]
@@ -25,10 +27,20 @@ cuda = "12.4"
 channels = ["conda-forge"]
 platforms = ["linux-64"]
 
+
 [tool.pixi.pypi-dependencies]
 genparse = { path = ".", editable = true }
 
 [tool.pixi.tasks]
+update = "git pull origin"
+format = "ruff format"
+docs = "pdoc src/genparse --docformat google --math -o docs/api"
+mkdocs = "mkdocs build"
+docs-serve = "mkdocs serve"
+test = { depends-on = ["ruff", "pytest"]}
+ruff = "ruff check --fix"
+pytest = "pytest --cov=genparse --cov-report=html --html=html/pytest/report.html --self-contained-html tests"
+benchmark = "pytest perf_tests --benchmark-json benchmark.json"
 
 [tool.pixi.dependencies]
 graphviz = ">=12.0.0,<13"
@@ -48,5 +60,10 @@ maturin = ">=1.8.1,<2"
 psutil = ">=6.1.1,<7"
 mkdocs = ">=1.6.1,<2"
 mkdocs-material = ">=9.5.50,<10"
-pytorch = { version = ">=2.5.1,<3", build = "cuda12*" }
+pytorch = { version = "==2.3.0", build = "cuda12*" }
+torchvision = { version = "*", build = "cuda12*" }
 frozendict = ">=2.4.6,<3"
+vllm-nccl-cu12 = ">=2.18.1.0.4.0,<3"
+xformers = ">=0.0.26.post1,<0.0.27"
+pdoc = ">=14.4.0,<15"
+tqdm = ">=4.67.1,<5"

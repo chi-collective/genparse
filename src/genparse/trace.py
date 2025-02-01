@@ -143,7 +143,7 @@ class Node:
 
     def graphviz(
         self,
-        fmt_edge=lambda x, a, y: f'{html.escape(str(a))}/{y._mass/x._mass:.2g}',
+        fmt_edge=lambda x, a, y: f'{html.escape(str(a))}/{y._mass / x._mass:.2g}',
         # fmt_node=lambda x: ' ',
         fmt_node=lambda x: (
             f'{x.mass}/{x._mass:.2g}' if x.mass > 0 else f'{x._mass:.2g}'
@@ -171,7 +171,7 @@ class Node:
                 continue
             for a, y in x.active_children.items():
                 a = y.token if y.token is not None else a
-                g.edge(str(f(x)), str(f(y)), label=f'{fmt_edge(x,a,y)}')
+                g.edge(str(f(x)), str(f(y)), label=f'{fmt_edge(x, a, y)}')
                 q.append(y)
         for x in xs:
             if x.child_masses is not None:

@@ -191,7 +191,7 @@ class FOLFormula(Formula):
             # print(f"children of {statements.nodes[node]['name']} are {child_names}")
             if len(children) == 0:
                 return split_name(statements.nodes[node]['name'], atom=True)
-            op = f" {split_name(statements.nodes[node]['name'])} "
+            op = f' {split_name(statements.nodes[node]["name"])} '
 
             # don't use parens if the same type of parent and parent is AND or OR
             # i.e. instead of ((a AND b) AND c) allow (a AND b AND c)
@@ -224,7 +224,7 @@ class LispFormula(Formula):
             fxn_and_args = atom.split(' ')
             fxn = fxn_and_args[0]
             args = fxn_and_args[1:]
-            new_str = f"{fxn}[{','.join(args)}]"
+            new_str = f'{fxn}[{",".join(args)}]'
             formula = re.sub(f'\( {atom} \)', new_str, formula)
 
         # manipulate quantifiers to make parsing easy
@@ -259,7 +259,7 @@ class LispFormula(Formula):
                 new_root = f'quant:{i}'
             statements.add_node(f'quant:{i}', name=q)
             if i < len(quantifiers) - 1:
-                statements.add_edge(f'quant:{i}', f'quant:{i+1}')
+                statements.add_edge(f'quant:{i}', f'quant:{i + 1}')
             else:
                 statements.add_edge(f'quant:{i}', root)
 
@@ -295,9 +295,9 @@ class LispFormula(Formula):
             if len(children) == 0:
                 fxn_str = split_fxn_name(statements.nodes[node]['name'])
                 return fxn_str
-            op = f"{split_name(statements.nodes[node]['name'])}"
+            op = f'{split_name(statements.nodes[node]["name"])}'
 
-            return f"( {op} {' '.join([order_helper(n) for n in children])} )"
+            return f'( {op} {" ".join([order_helper(n) for n in children])} )'
 
         seq = order_helper(root)
         return seq

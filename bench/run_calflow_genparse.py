@@ -112,7 +112,7 @@ def main():
         prompt = prompt_builder.assemble(selected_train_data, dev_datum)
         samples.append({'datum': dev_datum, 'prompt': prompt})
 
-    logger.debug(f"Example prompt:\n{samples[0]['prompt']}")
+    logger.debug(f'Example prompt:\n{samples[0]["prompt"]}')
 
     batch_llm = BatchVLLM.from_name(args.model_name)
 
