@@ -453,4 +453,4 @@ OPERATOR: "=" | " = "
 DIGIT: "0".."9"
 INT: DIGIT+
 FLOAT: INT "." INT? | "." INT
-NUMBER: FLOAT | INT  
+NUMBER: FLOAT | INT

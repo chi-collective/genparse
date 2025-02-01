@@ -9,7 +9,7 @@ GenParse is a Python library for constrained generation with language models, sp
 
 > **⚠️ Warning:** This library is currently in active development. We recommend frequently pulling the latest version to stay updated with improvements and bug fixes. Please report any bugs in [the issue tracker](https://github.com/probcomp/genparse/issues).
 
-First time here? Go to our [Full Documentation](https://genparse.gen.dev/). 
+First time here? Go to our [Full Documentation](https://genparse.gen.dev/).
 
 
 ## Installation
@@ -32,7 +32,7 @@ This library supports an automated build using [GNU Make](https://www.gnu.org/so
 git clone git@github.com:probcomp/genparse.git
 cd genparse
 ```
-   
+
 #### 2. Create and activate a virtual environment. Using Conda (recommended):
 
 ```bash
@@ -44,14 +44,14 @@ Using Python's `venv` module:
 
 ```bash
 python -m venv genparse
-source genparse/bin/activate  
+source genparse/bin/activate
 ```
 > **💡Tip**: On Windows, use `genparse\Scripts\activate`
 
 #### 3. Install package in editable mode with pre-commit hooks
 
 ```bash
-make env 
+make env
 ```
 
 GenParse optionally depends on Rust for faster parsing. If you do not have Rust installed, you will prompted to do so. However, if you do not want to install Rust, you can also install the library without the Rust dependency via:
@@ -82,7 +82,7 @@ python examples/genparse_tiny_example.py
 
 ## Supported language models
 
-Genparse currently supports the following HuggingFace language models. If you would like support for an additional model, please create an issue. 
+Genparse currently supports the following HuggingFace language models. If you would like support for an additional model, please create an issue.
 
 | Name              | HuggingFace Identifier               |
 |-------------------|--------------------------------------|

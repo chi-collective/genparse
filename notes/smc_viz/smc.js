@@ -72,7 +72,7 @@ function populateLeftInfoSelect({collapsed}) {
     noneOption.textContent = "None";
     leftInfoSelect.appendChild(noneOption);
 
-    const options = collapsed 
+    const options = collapsed
       ? Object.keys(current_data.history[0]).filter(key => key !== 'particles')
       : Object.keys(current_data.history[0].particles[0]);
 
@@ -130,10 +130,10 @@ function setToggleCollapsed() {
     const currentTransform = d3.zoomTransform(frame_background.node());
     const newTransform = d3.zoomIdentity.translate(0, 0).scale(currentTransform.k);
     frame_background.call(zoom_control.transform, newTransform);
-    
+
     showData(current_data, { collapsed, left_info: collapsed ? leftInfoChoiceCollapsed : leftInfoChoiceExpanded });
     populateLeftInfoSelect({collapsed});
-    
+
     const leftInfoSelect = document.getElementById('left-info-select');
     leftInfoSelect.value = collapsed ? leftInfoChoiceCollapsed : leftInfoChoiceExpanded;
   }
@@ -152,7 +152,7 @@ function highlightAncestors(history, particle, t, i) {
   let currentParticle = particle;
   let currentT = t;
   let currentI = i;
-  
+
   while (currentT > 0) {
 
     const linkId = `#link-${currentT}-${currentI}`;
@@ -201,11 +201,11 @@ function showData(data, options = {}) {
     if (untangle && t > 0 && history[t - 1].is_resampled) {
         const prevStep = history[t - 1];
         const perm = createPermutation(prevStep.re_indices);
-        
+
         // Reorder previous step's re_indices and current step's particles
         prevStep.re_indices = perm.permute(prevStep.re_indices);
         step.particles = perm.permute(step.particles);
-        
+
         // Update current step's re_indices
         step.re_indices = perm.reIndex(step.re_indices);
       }
@@ -222,10 +222,10 @@ function showData(data, options = {}) {
       if (t > 0) {
         particle.parent = history[t - 1].is_resampled ? history[t - 1].re_indices[i] : i;
       }
-      
+
       if (untangle && step.is_resampled) {
         const perm = createPermutation(step.re_indices);
-        
+
         // Reorder step's re_indices
         step.re_indices = perm.permute(step.re_indices);
       }
@@ -233,7 +233,7 @@ function showData(data, options = {}) {
       particle.children = step.re_indices
         .map((v, j) => v === i ? j : null) // find locations where i is resampled
         .filter(e => e !== null);
-      
+
     });
   })
 
@@ -290,7 +290,7 @@ function showData(data, options = {}) {
       particle_g.append("circle")
         .attr("r", radius)
         .attr("fill", color_scale(i))
-        
+
       particle_g
         .attr("id", `particle-${t}-${i}`)
         .on("click", (event, d) => highlightAncestors(history, d, t, i));
@@ -368,7 +368,7 @@ function showData(data, options = {}) {
       particle_g.on("mouseover", (event) => {
         tooltip.transition().duration(100).style("opacity", 0.9);
         const displayed_keys = ['token', 'prefix', 'weight', 'relative_weight', 'parent', 'context'];
-        
+
         function formatValue(key, value, spanClassName = 'array-element') {
           if (Array.isArray(value)) {
             return value.map(item => `<span class="${spanClassName}">${item}</span>`).join('');
@@ -408,7 +408,7 @@ function showData(data, options = {}) {
         const parent_x = particle.parent * particle_xspace;
         const parent_y = collapsed ? 0 : particle.parent * particle_yspace;
         const current_y = collapsed ? 0 : i * particle_yspace;
-        
+
         const parent_state_y = (t - 1) * (collapsed ? 2 * y_offset : particle_yspace * history[t-1].particles.length + y_offset);
         const current_state_y = t * (collapsed ? 2 * y_offset : particle_yspace * num_particles + y_offset);
 
@@ -420,7 +420,7 @@ function showData(data, options = {}) {
           x: x_offset + i * particle_xspace,
           y: y_offset + current_y + current_state_y,
         };
-        
+
         pathGroup
           .append("path")
           .attr(
@@ -444,20 +444,20 @@ function showData(data, options = {}) {
     // Add one more step to show resampling
     if (t === history.length - 1) {
       const next_step_y = (t + 1) * (collapsed ? 2 * y_offset : particle_yspace * num_particles + y_offset);
-      
+
       step.particles.forEach((particle, i) => {
         const current_location = {
           x: x_offset + i * particle_xspace,
           y: y_offset + (collapsed ? 0 : i * particle_yspace) + t * (collapsed ? 2 * y_offset : particle_yspace * num_particles + y_offset),
         };
-        
+
         // Draw a link for each child of the current particle
         particle.children.forEach(childIndex => {
           const placeholder_location = {
             x: x_offset + childIndex * particle_xspace,
             y: y_offset + (collapsed ? 0 : childIndex * particle_yspace) + next_step_y,
           };
-          
+
           pathGroup
             .append("path")
             .attr(
@@ -494,7 +494,7 @@ function showProb(prob, digits = 0) {
 
 /**
  * Creates a permutation object based on the input array.
- * 
+ *
  * @param {Array} arr - The input array to create the permutation from.
  * @returns An object containing:
  *   - fromIndex: Array of indices sorted by the values in the input array.
@@ -505,11 +505,11 @@ function showProb(prob, digits = 0) {
 function createPermutation(arr) {
   const fromIndex = Array.from(arr.keys()).sort((a, b) => arr[a] - arr[b]);
   const toIndex = fromIndex.map((_, i) => fromIndex.indexOf(i));
-  
+
   // Utility functions
   const permute = (array) => fromIndex.map(i => array[i]);
   const reIndex = (indices) => indices.map(i => toIndex[i]);
-  
+
   return { fromIndex, toIndex, permute, reIndex };
 }
 
@@ -518,4 +518,3 @@ function logaddexp(x, y) {
   if (y === -Infinity) return x;
   return Math.max(x, y) + Math.log1p(Math.exp(-Math.abs(x - y)));
 }
-

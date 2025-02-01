@@ -34,7 +34,7 @@ make env_no_rust
 make -B env-no-rust
 ```
 
-If you haven't already installed Jupyter Notebook, you can do so using pip: 
+If you haven't already installed Jupyter Notebook, you can do so using pip:
 ```
 conda install -c conda-forge notebook ipywidgets jupyter_contrib_nbextensions
 jupyter nbextension enable --py widgetsnbextension --sys-prefix # Ensure that ipywidgets is enabled for Jupyter Notebook

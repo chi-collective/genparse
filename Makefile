@@ -72,7 +72,7 @@ refresh_env :
 refresh_env-no-rust :
 	@rm -rf $(NAME).egg-info/
 	@$(MAKE) env-no-rust
-	
+
 ## format    : format code style.
 .PHONY : format
 format : env
@@ -113,4 +113,3 @@ benchmark : env benchmark.json
 benchmark-no-vllm: env-no-vllm benchmark.json
 benchmark.json : $(SRC_FILES) $(PERF_TEST_FILES)
 	@pytest $(PERF_TEST_FILES) --benchmark-json output.json
-

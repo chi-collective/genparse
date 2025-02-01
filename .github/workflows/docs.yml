@@ -7,7 +7,7 @@ on:
       - mkdocs_branch
   pull_request:
     branches:
-
+      - main
 
 permissions:
   contents: write
@@ -21,7 +21,7 @@ jobs:
     steps:
     - name: Check out repository
       uses: actions/checkout@v4
-   
+
     - name: Install dependencies
       run: |
         python -m venv venv
@@ -32,15 +32,9 @@ jobs:
       run: |
         make mkdocs-no-vllm
 
-    - name: Upload docs
-      uses: actions/upload-artifact@v4
+    - name: Deploy
+      uses: peaceiris/actions-gh-pages@v3
+      if: ${{ github.ref == 'refs/heads/main' }}
       with:
-        name: mkdocs-site
-        path: site/
-
-  publish:
-    needs: build-deploy
-    name: Deploy to private site
-    uses: probcomp/gen-website-private/.github/workflows/publish_private_website.yml@main
-    with:
-      artifact: mkdocs-site
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./public/build

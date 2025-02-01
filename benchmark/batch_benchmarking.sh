@@ -18,7 +18,7 @@ do
                                 command="python $script --model $model --proposal $proposal --particles $particles --inference $inference --max-tokens $max_tokens --n-beam $nbeam"
                             done
                         else
-                            command="python $script --model $model --proposal $proposal --particles $particles --inference $inference --max-tokens $max_tokens"                    
+                            command="python $script --model $model --proposal $proposal --particles $particles --inference $inference --max-tokens $max_tokens"
                         fi
                         echo Running: $command
                         export CUDA_VISIBLE_DEVICES=0

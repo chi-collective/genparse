@@ -34,7 +34,7 @@ before running any evaluation, `spider-eval` depends on `punkt` package of `nltk
   >>> nltk.download('punkt')
 ```
 
-***vLLM*** 
+***vLLM***
 
 To run the evaluation script on vLLM, first serve the vLLM model, by doing
 
@@ -42,7 +42,7 @@ To run the evaluation script on vLLM, first serve the vLLM model, by doing
 python -m vllm.entrypoints.openai.api_server --model meta-llama/Meta-Llama-3-8B-Instruct --port 9999
 ```
 
-and then the server will be up at `http://localhost:9999`.  
+and then the server will be up at `http://localhost:9999`.
 
 If vLLM complains the model is gated, you might want to follow the printed instruction to get permission to use the model
 and then set your Hugginface token:
@@ -61,7 +61,7 @@ which will generated `spider-eval/gold-13b-100.txt` and `spider-eval/predicted-1
 
 ### Evaluation
 
-you need to run evaluation inside the eval codebase: 
+you need to run evaluation inside the eval codebase:
 
 ```bash
 cd spider-eval

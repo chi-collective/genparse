@@ -1,9 +1,9 @@
 # Rust Parser Build Instructions
 
-* First, you need to install Rust.  Check if your OS comes with a Rust version, if not, 
+* First, you need to install Rust.  Check if your OS comes with a Rust version, if not,
   go to [this link](https://www.rust-lang.org/tools/install) and run the one-liner to install.
 * To make the Rust parser available to Python, I used the PyO3 bindings. Its Python-based build tool is
-  [`maturin`](https://github.com/PyO3/maturin).  
+  [`maturin`](https://github.com/PyO3/maturin).
   Go into your preferred venv or conda env, and simply install it with `pip install maturin`.
 * Build the `genpa-rs` library (which exports the fast Earley parser) by running
   ```bash
