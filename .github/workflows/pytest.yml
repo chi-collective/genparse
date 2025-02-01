@@ -15,6 +15,11 @@ jobs:
         with:
           fetch-depth: 1
 
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.11.5
+          cache: 'pip'
+
       - name: Run Tests
         run: |
           python -m venv venv
