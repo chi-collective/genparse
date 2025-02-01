@@ -1,21 +1,15 @@
-name:                  Doc
+name: Docs
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
       - mkdocs_branch
   pull_request:
-    branches:
-      - main
-
-permissions:
-  contents: write
-  pages: write
-  id-token: write
 
 jobs:
-  build-deploy:
+  docs:
     runs-on: ubuntu-latest
 
     steps:
@@ -33,8 +27,7 @@ jobs:
         make mkdocs-no-vllm
 
     - name: Deploy
-      uses: peaceiris/actions-gh-pages@v3
-      if: ${{ github.ref == 'refs/heads/main' }}
+      uses: peaceiris/actions-gh-pages@v4
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./site

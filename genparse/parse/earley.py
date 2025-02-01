@@ -45,7 +45,7 @@ class Column:
 
 class Earley:
     """
-    Implements a semiring-weighted version Earley's algorithm that runs in $\mathcal{O}(N^3|G|)$ time.
+    Implements a semiring-weighted version Earley's algorithm that runs in $\\mathcal{O}(N^3|G|)$ time.
     Note that nullary rules and unary chain cycles will be been removed, altering the
     set of derivation trees.
     """

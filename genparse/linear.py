@@ -185,7 +185,7 @@ class WeightedGraph:
 def scc_decomposition(successors, roots):
     r"""
     Find the strongly connected components of a graph.
-    Implemention is based on Tarjan's (1972) algorithm; runs in $\mathcal{O}(E + V)$ time, uses $\mathcal{O}(V)$ space.
+    Implemention is based on Tarjan's (1972) algorithm; runs in $\\mathcal{O}(E + V)$ time, uses $\\mathcal{O}(V)$ space.
 
     Tarjan, R. E. (1972), [Depth-first search and linear graph algorithms](https://epubs.siam.org/doi/10.1137/0201010)
     SIAM Journal on Computing, 1 (2): 146–160, doi:10.1137/0201010
