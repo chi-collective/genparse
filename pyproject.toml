@@ -8,20 +8,11 @@ allow-direct-references = true
 [project]
 name = "genparse"
 requires-python = "<=3.11"
-classifiers = [
-    "Programming Language :: Rust",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
-]
 dependencies = [ "vllm", "arsenal @ git+https://github.com/timvieira/arsenal"]
 version = "0.1.0"
 
 [tool.pixi.system-requirements]
 cuda = "12.4"
-
-
-# [tool.maturin]
-# features = ["pyo3/extension-module"]
 
 [tool.pixi.project]
 channels = ["conda-forge"]
@@ -49,7 +40,7 @@ ipython = ">=8.31.0,<9"
 jsons = ">=1.6.3,<2"
 lark = ">=1.2.2,<2"
 nltk = ">=3.9.1,<4"
-numpy = ">=2.0.2,<3"
+numpy = "<2.0.0"
 pandas = ">=2.2.3,<3"
 path = ">=17.1.0,<18"
 rich = ">=13.9.4,<14"
@@ -66,4 +57,11 @@ frozendict = ">=2.4.6,<3"
 vllm-nccl-cu12 = ">=2.18.1.0.4.0,<3"
 xformers = ">=0.0.26.post1,<0.0.27"
 pdoc = ">=14.4.0,<15"
-tqdm = ">=4.67.1,<5"
+pytest-cov = ">=6.0.0,<7"
+pytest-html = ">=4.1.1,<5"
+pytest = ">=8.3.4,<9"
+pytest-benchmark = ">=5.1.0,<6"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = "src"
