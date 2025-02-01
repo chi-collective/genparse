@@ -1,14 +1,9 @@
-# [build-system]
-# requires = ["maturin>=1.7,<2.0",]
-# build-backend = "maturin"
-
 [build-system]
 build-backend = "hatchling.build"
 requires = ["hatchling"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
-
 [project]
 name = "genparse"
 requires-python = ">=3.8"
@@ -19,7 +14,6 @@ classifiers = [
 ]
 dependencies = ["arsenal @ git+https://github.com/timvieira/arsenal"]
 version = "0.1.0"
-
 
 [tool.pixi.system-requirements]
 cuda = "12.4"
