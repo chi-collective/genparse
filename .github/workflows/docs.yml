@@ -8,6 +8,9 @@ on:
       - mkdocs_branch
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
   docs:
     runs-on: ubuntu-latest
