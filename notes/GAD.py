@@ -29,9 +29,9 @@ class AdaptiveSampler:
         else:
             # recursive rule: update the sum-of-child-mass invariant
             new_mass = sum(curr.p1[a] * y.mass for a, y in curr.children.items())
-            assert (
-                curr.mass >= new_mass
-            ), 'Not an overestimate; failed {curr.mass=} >= {new_mass=}'
+            assert curr.mass >= new_mass, (
+                'Not an overestimate; failed {curr.mass=} >= {new_mass=}'
+            )
             curr.mass = new_mass
         self.update(curr.parent)
 
@@ -129,7 +129,7 @@ class Node:
         if self.children is None:
             return
         for a, x in self.children.items():
-            print(f'{indent}{a} ({x.mass/self.mass if self.mass > 0 else 0})')
+            print(f'{indent}{a} ({x.mass / self.mass if self.mass > 0 else 0})')
             x.show(indent + '  ')
 
 

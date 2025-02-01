@@ -29,29 +29,29 @@ def format_report(scores_by_type):
         other_in_top_k = score_dict['other_in_top_k']
 
         print(
-            f'\tpred_top_1_matches_correct: {pred_top_1_matches_correct} / {total} = {safe_divide(pred_top_1_matches_correct, total) *100:.2f}'
+            f'\tpred_top_1_matches_correct: {pred_top_1_matches_correct} / {total} = {safe_divide(pred_top_1_matches_correct, total) * 100:.2f}'
         )
         print(
-            f'\tpred_top_1_matches_other: {pred_top_1_matches_other} / {total} = {safe_divide(pred_top_1_matches_other, total) *100:.2f}'
+            f'\tpred_top_1_matches_other: {pred_top_1_matches_other} / {total} = {safe_divide(pred_top_1_matches_other, total) * 100:.2f}'
         )
         print(
-            f'\tpred_top_1_matches_0: {pred_top_1_matches_0} / {total} = {safe_divide(pred_top_1_matches_0, total) *100:.2f}'
+            f'\tpred_top_1_matches_0: {pred_top_1_matches_0} / {total} = {safe_divide(pred_top_1_matches_0, total) * 100:.2f}'
         )
         print(
-            f'\tpred_top_1_matches_1: {pred_top_1_matches_1} / {total} = {safe_divide(pred_top_1_matches_1, total) *100:.2f}'
+            f'\tpred_top_1_matches_1: {pred_top_1_matches_1} / {total} = {safe_divide(pred_top_1_matches_1, total) * 100:.2f}'
         )
 
         print(
-            f'\tpred_top_2_matches_other: {pred_top_2_matches_other} / {total} = {safe_divide(pred_top_2_matches_other, total) *100:.2f}'
+            f'\tpred_top_2_matches_other: {pred_top_2_matches_other} / {total} = {safe_divide(pred_top_2_matches_other, total) * 100:.2f}'
         )
         print(
-            f'\tpred_top_2_matches_correct: {pred_top_2_matches_correct} / {total} = {safe_divide(pred_top_2_matches_correct, total) *100:.2f}'
+            f'\tpred_top_2_matches_correct: {pred_top_2_matches_correct} / {total} = {safe_divide(pred_top_2_matches_correct, total) * 100:.2f}'
         )
         print(
-            f'\tcorrect_in_top_k: {correct_in_top_k} / {total} = {safe_divide(correct_in_top_k, total) *100:.2f}'
+            f'\tcorrect_in_top_k: {correct_in_top_k} / {total} = {safe_divide(correct_in_top_k, total) * 100:.2f}'
         )
         print(
-            f'\tother_in_top_k: {other_in_top_k} / {total} = {safe_divide(other_in_top_k, total) *100:.2f}'
+            f'\tother_in_top_k: {other_in_top_k} / {total} = {safe_divide(other_in_top_k, total) * 100:.2f}'
         )
         print('=====================================')
 
@@ -114,10 +114,10 @@ def get_score_data(test_data, pred_data, test_data_lut, is_fol=False, convert=Tr
         scores_by_type[ex_type]['total'] += 1
 
     print(
-        f'{missing_first} = {missing_first / len(pred_data) * 100 :.2f} are missing a first output'
+        f'{missing_first} = {missing_first / len(pred_data) * 100:.2f} are missing a first output'
     )
     print(
-        f'{missing_second} = {missing_second / len(pred_data) * 100 :.2f} are missing a second output'
+        f'{missing_second} = {missing_second / len(pred_data) * 100:.2f} are missing a second output'
     )
 
     # divide everything by the total

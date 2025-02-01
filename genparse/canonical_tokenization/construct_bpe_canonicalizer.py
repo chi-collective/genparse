@@ -152,7 +152,7 @@ def main():
         '--output',
         type=pathlib.Path,
         required=True,
-        help='Path to an output .pt file where the canonicalizer will be ' 'written.',
+        help='Path to an output .pt file where the canonicalizer will be written.',
     )
     args = parser.parse_args()
 

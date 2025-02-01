@@ -111,7 +111,7 @@ def main():
         prompt = prompt_builder.assemble(selected_train_data, dev_datum)
         samples.append({'datum': dev_datum, 'prompt': prompt})
 
-    logger.info(f"Example prompt:\n{samples[0]['prompt']}")
+    logger.info(f'Example prompt:\n{samples[0]["prompt"]}')
 
     llm = vllm.LLM(model=args.model_name)
     llm_outputs = llm.generate([s['prompt'] for s in samples], sampling_params)

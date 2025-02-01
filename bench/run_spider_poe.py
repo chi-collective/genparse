@@ -228,9 +228,9 @@ def main():
             n_mismatch += 1
 
         print(
-            f'correct: {n_correct / (i+1):.2f}, '
-            f'invalid: {n_invalid / (i+1):.2f}, '
-            f'mismatch: {n_mismatch / (i+1):.2f}'
+            f'correct: {n_correct / (i + 1):.2f}, '
+            f'invalid: {n_invalid / (i + 1):.2f}, '
+            f'mismatch: {n_mismatch / (i + 1):.2f}'
         )
 
 

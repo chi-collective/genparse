@@ -213,9 +213,9 @@ class TokenizedLLM(LM):
     def __call__(self, context):
         assert isinstance(context, tuple), '`context` must be explicitly tokenized'
         assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
-        assert (
-            context[-1] == self.eos
-        ), f'Context must end with eos ({self.eos!r}); got {context = }.'
+        assert context[-1] == self.eos, (
+            f'Context must end with eos ({self.eos!r}); got {context = }.'
+        )
         if self.temperature == 1 and self.top_p is None:
             return self._model([self._encode[x] for x in context])
         else:
@@ -239,9 +239,9 @@ class TokenizedLLM(LM):
         # _logp is provided by the vllm centralized step function
 
         if _logp is None:
-            assert isinstance(
-                context, tuple
-            ), 'API change; `context` must be explicitly tokenized'
+            assert isinstance(context, tuple), (
+                'API change; `context` must be explicitly tokenized'
+            )
             assert set(context) <= self.V, f'OOVs detected: {set(context) - self.V}'
 
             tokens = [self._encode[x] for x in context]

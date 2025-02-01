@@ -40,9 +40,9 @@ def decode_tokenizer_vocab(tokenizer):
     for i, t in enumerate(decoded):
         tmp[t].append(i)
     for x in tmp:
-        assert (
-            len(tmp[x]) == 1
-        ), f'surface form {x!r} maps to more than one token> {tmp[x]}'
+        assert len(tmp[x]) == 1, (
+            f'surface form {x!r} maps to more than one token> {tmp[x]}'
+        )
 
     return decoded
 
