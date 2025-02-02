@@ -1,9 +1,9 @@
 [build-system]
-build-backend = "hatchling.build"
-requires = ["hatchling"]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
 
-[tool.hatch.metadata]
-allow-direct-references = true
+[tool.maturin]
+features = ["pyo3/extension-module"]
 
 [project]
 name = "genparse"
@@ -32,6 +32,7 @@ test = { depends-on = ["ruff", "pytest"]}
 ruff = "ruff check --fix"
 pytest = "pytest --cov=genparse --cov-report=html --html=html/pytest/report.html --self-contained-html tests"
 benchmark = "pytest perf_tests --benchmark-json benchmark.json"
+build-parser = "maturin develop --release"
 
 [tool.pixi.dependencies]
 graphviz = ">=12.0.0,<13"
@@ -61,6 +62,7 @@ pytest-cov = ">=6.0.0,<7"
 pytest-html = ">=4.1.1,<5"
 pytest = ">=8.3.4,<9"
 pytest-benchmark = ">=5.1.0,<6"
+pip = ">=25.0,<26"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
