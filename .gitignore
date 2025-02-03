@@ -27,6 +27,7 @@ build/
 /benchmark/results
 *.pkl
 *.pdf
+site
 
 # for Rust cargo build
 /target

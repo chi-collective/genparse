@@ -1,27 +1,29 @@
-name:                  Doc
+name: Docs
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
       - mkdocs_branch
   pull_request:
-    branches:
-
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 jobs:
-  build-deploy:
+  docs:
     runs-on: ubuntu-latest
 
     steps:
     - name: Check out repository
       uses: actions/checkout@v4
-   
+
+    - uses: actions/setup-python@v4
+      with:
+        python-version: 3.11.5
+        cache: 'pip'
+
     - name: Install dependencies
       run: |
         python -m venv venv
@@ -32,15 +34,6 @@ jobs:
       run: |
         make mkdocs-no-vllm
 
-    - name: Upload docs
-      uses: actions/upload-artifact@v4
-      with:
-        name: mkdocs-site
-        path: site/
-
-  publish:
-    needs: build-deploy
-    name: Deploy to private site
-    uses: probcomp/gen-website-private/.github/workflows/publish_private_website.yml@main
-    with:
-      artifact: mkdocs-site
+    - name: Deploy documentation
+      run: |
+        mkdocs gh-deploy --force
