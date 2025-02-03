@@ -267,7 +267,7 @@ impl EarleyBool {
             let node = stack.last_mut().unwrap();
 
             let (j, y) = node.node;
-
+            
             if node.edges.is_none() {
                 let mut edges = Vec::new();
                 for x in &cols[j as usize].waiting_for[&Nonterminal(y)] {

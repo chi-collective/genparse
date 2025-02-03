@@ -1,10 +1,10 @@
-GenParse currently provides a high-level interface for constrained generation via the `InferenceSetup` class. We recommend using this class as its internals may be deprecated without prior warning.
+GenParse currently provides a high-level interface for constrained generation via the `InferenceSetup` class. We recommend using this class as its internals may be deprecated without prior warning. 
 
 ```python
 from genparse import InferenceSetup
 ```
 
-## 1. Define your grammar
+## 1. Define your grammar 
 
 GenParse uses Lark syntax for grammar specification. For example:
 
@@ -67,7 +67,7 @@ The result from `InferenceSetup` is a `ParticleApproximation` object. This objec
 
 Potential functions can be used to guide generation using additional constraints. A potential function maps (partial) generations to positive real numbers, with higher values indicating a stronger preference for those generations. Intuitively, when applied in SMC, potential functions offer richer signals for resampling steps, allowing computation to be redirected toward more promising particles during the course of generation.
 
-Potentials are provided as input to an `InferenceSetup` call via the `potential` argument and must be defined at the particle beam level. That is, `InferenceSetup` expects potentials to be callables which are provided a *list* of particles as input and return a *list* of log potential values, one for each particle.
+Potentials are provided as input to an `InferenceSetup` call via the `potential` argument and must be defined at the particle beam level. That is, `InferenceSetup` expects potentials to be callables which are provided a *list* of particles as input and return a *list* of log potential values, one for each particle. 
 
 There is an example of a potential function in [genparse_sql_example.py](https://github.com/probcomp/genparse/blob/main/examples/genparse_sql_example.py).
 

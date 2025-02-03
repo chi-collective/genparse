@@ -1,6 +1,6 @@
 start: WS query_expr "</s>"
 
-query_expr: select WS [ "ORDER" WS "BY" WS (order_by_expr ",")*  order_by_expr] WS [ "LIMIT" WS integer_ ]
+query_expr: select WS [ "ORDER" WS "BY" WS (order_by_expr ",")*  order_by_expr] WS [ "LIMIT" WS integer_ ] 
 
 select: "SELECT" WS [(select_expr ",")*] select_expr WS "FROM" WS "data" WS [ "WHERE" WS bool_expression ] [ "GROUP" WS "BY" WS [(expression ",")*] expression ]
 

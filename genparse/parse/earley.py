@@ -45,7 +45,7 @@ class Column:
 
 class Earley:
     """
-    Implements a semiring-weighted version Earley's algorithm that runs in $\\mathcal{O}(N^3|G|)$ time.
+    Implements a semiring-weighted version Earley's algorithm that runs in $\mathcal{O}(N^3|G|)$ time.
     Note that nullary rules and unary chain cycles will be been removed, altering the
     set of derivation trees.
     """
@@ -349,7 +349,7 @@ class Earley:
             """
     #[test]
     fn test_earley() {{
-
+        
         let rhs: HashMap<u32, Vec<RHS>> = [
             {}
         ].iter().cloned().collect();
@@ -436,12 +436,12 @@ class Earley:
 
         print("""
         let mut earley = Earley::new(
-            rhs, start, order, order_max, outgoing, first_ys,
+            rhs, start, order, order_max, outgoing, first_ys, 
             rest_ys, unit_ys, vocab, empty_weight,
         );
         let chart = earley.p_next(vec![]);
         dbg!(&chart);
-
+        
     }}
         """)
 

@@ -11,7 +11,7 @@ always_: a l w a y s
 amp: "&"i
 analyze_: a n a l y z e
 and_: a n d
-any:
+any: 
 |/[.]/ any
 asc_: a s c
 assign: "="i
@@ -128,7 +128,7 @@ i: "I"i
 identifier: identifier_head identifier_tail
 identifier_head: alpha
 |"_"i
-identifier_tail:
+identifier_tail: 
 |identifier_tail_char identifier_tail
 identifier_tail_char: digit
 |alpha
@@ -181,7 +181,7 @@ newline: "\n"i
 |"\r"i
 nonempty_decimal: "."i digit_plus
 non_newline: /[^\r\n]/
-non_newline_star:
+non_newline_star: 
 |non_newline non_newline_star
 nothing_: n o t h i n g
 notnull_: n o t n u l l
@@ -476,7 +476,7 @@ commit_or_end: commit_
 |end_
 commit_stmt: commit_or_end maybe___nt_ws_transaction
 common_table_expression: table_name maybe___nt_ws_column_name_list ws as_ ws_star paren_select
-common_table_stmt:
+common_table_stmt: 
 common_table_ws: common_table_stmt ws
 compound_operator: except_
 |intersect_
@@ -660,237 +660,237 @@ lt_lteq_gt_gteq: gt
 |gt_eq
 |lt
 |lt_eq
-maybe___nt_autoincrement_:
+maybe___nt_autoincrement_: 
 |autoincrement_
-maybe___nt_digit_plus:
+maybe___nt_digit_plus: 
 |digit_plus
-maybe___nt_hex_digit_plus:
+maybe___nt_hex_digit_plus: 
 |hex_digit_plus
-maybe___nt_maybe_empty_decimal:
+maybe___nt_maybe_empty_decimal: 
 |maybe_empty_decimal
-maybe___nt_plus_minus:
+maybe___nt_plus_minus: 
 |plus_minus
-maybe___nt_scientific:
+maybe___nt_scientific: 
 |scientific
-maybe___nt_as_alias:
+maybe___nt_as_alias: 
 |as_alias
-maybe___nt_as_column_alias:
+maybe___nt_as_column_alias: 
 |as_column_alias
-maybe___nt_as_table:
+maybe___nt_as_table: 
 |as_table
-maybe___nt_base_window_name:
+maybe___nt_base_window_name: 
 |base_window_name
-maybe___nt_before_after_or_instead_of:
+maybe___nt_before_after_or_instead_of: 
 |before_after_or_instead_of
-maybe___nt_column_constraint_plus:
+maybe___nt_column_constraint_plus: 
 |column_constraint_plus
-maybe___nt_column_def_plus:
+maybe___nt_column_def_plus: 
 |column_def_plus
-maybe___nt_comma_column_name_plus:
+maybe___nt_comma_column_name_plus: 
 |comma_column_name_plus
-maybe___nt_comma_common_table_expression_plus:
+maybe___nt_comma_common_table_expression_plus: 
 |comma_common_table_expression_plus
-maybe___nt_comma_expr_asc_desc_plus:
+maybe___nt_comma_expr_asc_desc_plus: 
 |comma_expr_asc_desc_plus
-maybe___nt_comma_expr_plus:
+maybe___nt_comma_expr_plus: 
 |comma_expr_plus
-maybe___nt_comma_indexed_column_plus:
+maybe___nt_comma_indexed_column_plus: 
 |comma_indexed_column_plus
-maybe___nt_comma_ordering_term_plus:
+maybe___nt_comma_ordering_term_plus: 
 |comma_ordering_term_plus
-maybe___nt_comma_paren_expr_list_plus:
+maybe___nt_comma_paren_expr_list_plus: 
 |comma_paren_expr_list_plus
-maybe___nt_comma_result_column_plus:
+maybe___nt_comma_result_column_plus: 
 |comma_result_column_plus
-maybe___nt_comma_table_or_subquery_plus:
+maybe___nt_comma_table_or_subquery_plus: 
 |comma_table_or_subquery_plus
-maybe___nt_comma_window_as_plus:
+maybe___nt_comma_window_as_plus: 
 |comma_window_as_plus
-maybe___nt_common_table_stmt:
+maybe___nt_common_table_stmt: 
 |common_table_stmt
-maybe___nt_compound_select_plus:
+maybe___nt_compound_select_plus: 
 |compound_select_plus
-maybe___nt_conflict_clause:
+maybe___nt_conflict_clause: 
 |conflict_clause
-maybe___nt_constraint_name:
+maybe___nt_constraint_name: 
 |constraint_name
-maybe___nt_distinct_exprs_or_star:
+maybe___nt_distinct_exprs_or_star: 
 |distinct_exprs_or_star
-maybe___nt_distinct_ws:
+maybe___nt_distinct_ws: 
 |distinct_ws
-maybe___nt_explain:
+maybe___nt_explain: 
 |explain
-maybe___nt_expr_plus:
+maybe___nt_expr_plus: 
 |expr_plus
-maybe___nt_for_each_row:
+maybe___nt_for_each_row: 
 |for_each_row
-maybe___nt_foreign_key_clause_mod:
+maybe___nt_foreign_key_clause_mod: 
 |foreign_key_clause_mod
-maybe___nt_foreign_key_clause_on_or_match_plus:
+maybe___nt_foreign_key_clause_on_or_match_plus: 
 |foreign_key_clause_on_or_match_plus
-maybe___nt_frame_spec:
+maybe___nt_frame_spec: 
 |frame_spec
-maybe___nt_from_table:
+maybe___nt_from_table: 
 |from_table
-maybe___nt_generated_always:
+maybe___nt_generated_always: 
 |generated_always
-maybe___nt_group_by:
+maybe___nt_group_by: 
 |group_by
-maybe___nt_if_exists:
+maybe___nt_if_exists: 
 |if_exists
-maybe___nt_indexed_or_not:
+maybe___nt_indexed_or_not: 
 |indexed_or_not
-maybe___nt_initially_deferred_or_immediate:
+maybe___nt_initially_deferred_or_immediate: 
 |initially_deferred_or_immediate
-maybe___nt_join_plus:
+maybe___nt_join_plus: 
 |join_plus
-maybe___nt_left_outer_inner_cross:
+maybe___nt_left_outer_inner_cross: 
 |left_outer_inner_cross
-maybe___nt_maybe_not_exists:
+maybe___nt_maybe_not_exists: 
 |maybe_not_exists
-maybe___nt_module_argument_list:
+maybe___nt_module_argument_list: 
 |module_argument_list
-maybe___nt_module_argument_plus:
+maybe___nt_module_argument_plus: 
 |module_argument_plus
-maybe___nt_name:
+maybe___nt_name: 
 |name
-maybe___nt_named_transaction:
+maybe___nt_named_transaction: 
 |named_transaction
-maybe___nt_natural_ws:
+maybe___nt_natural_ws: 
 |natural_ws
-maybe___nt_nulls_first_or_last:
+maybe___nt_nulls_first_or_last: 
 |nulls_first_or_last
-maybe___nt_of_comma_column_name_plus:
+maybe___nt_of_comma_column_name_plus: 
 |of_comma_column_name_plus
-maybe___nt_offset_or_comma_expr:
+maybe___nt_offset_or_comma_expr: 
 |offset_or_comma_expr
-maybe___nt_order_by_limit:
+maybe___nt_order_by_limit: 
 |order_by_limit
-maybe___nt_partition_by:
+maybe___nt_partition_by: 
 |partition_by
-maybe___nt_qualifier_for_asset_parts:
+maybe___nt_qualifier_for_asset_parts: 
 |qualifier_for_asset_parts
-maybe___nt_qualifier_for_assets:
+maybe___nt_qualifier_for_assets: 
 |qualifier_for_assets
-maybe___nt_qualifier_for_engineer_skills:
+maybe___nt_qualifier_for_engineer_skills: 
 |qualifier_for_engineer_skills
-maybe___nt_qualifier_for_engineer_visits:
+maybe___nt_qualifier_for_engineer_visits: 
 |qualifier_for_engineer_visits
-maybe___nt_qualifier_for_fault_log:
+maybe___nt_qualifier_for_fault_log: 
 |qualifier_for_fault_log
-maybe___nt_qualifier_for_fault_log_parts:
+maybe___nt_qualifier_for_fault_log_parts: 
 |qualifier_for_fault_log_parts
-maybe___nt_qualifier_for_maintenance_contracts:
+maybe___nt_qualifier_for_maintenance_contracts: 
 |qualifier_for_maintenance_contracts
-maybe___nt_qualifier_for_maintenance_engineers:
+maybe___nt_qualifier_for_maintenance_engineers: 
 |qualifier_for_maintenance_engineers
-maybe___nt_qualifier_for_part_faults:
+maybe___nt_qualifier_for_part_faults: 
 |qualifier_for_part_faults
-maybe___nt_qualifier_for_parts:
+maybe___nt_qualifier_for_parts: 
 |qualifier_for_parts
-maybe___nt_qualifier_for_skills:
+maybe___nt_qualifier_for_skills: 
 |qualifier_for_skills
-maybe___nt_qualifier_for_skills_required_to_fix:
+maybe___nt_qualifier_for_skills_required_to_fix: 
 |qualifier_for_skills_required_to_fix
-maybe___nt_qualifier_for_staff:
+maybe___nt_qualifier_for_staff: 
 |qualifier_for_staff
-maybe___nt_qualifier_for_third_party_companies:
+maybe___nt_qualifier_for_third_party_companies: 
 |qualifier_for_third_party_companies
-maybe___nt_schema_dot_ws:
+maybe___nt_schema_dot_ws: 
 |schema_dot_ws
-maybe___nt_schema_or_table_or_index:
+maybe___nt_schema_or_table_or_index: 
 |schema_or_table_or_index
-maybe___nt_select_or_exprs:
+maybe___nt_select_or_exprs: 
 |select_or_exprs
-maybe___nt_sql_stmt:
+maybe___nt_sql_stmt: 
 |sql_stmt
-maybe___nt_sql_stmt_plus:
+maybe___nt_sql_stmt_plus: 
 |sql_stmt_plus
-maybe___nt_stored_or_virtual:
+maybe___nt_stored_or_virtual: 
 |stored_or_virtual
-maybe___nt_table_as_select_plus:
+maybe___nt_table_as_select_plus: 
 |table_as_select_plus
-maybe___nt_table_constraint_plus:
+maybe___nt_table_constraint_plus: 
 |table_constraint_plus
-maybe___nt_type_name:
+maybe___nt_type_name: 
 |type_name
-maybe___nt_type_name_tail:
+maybe___nt_type_name_tail: 
 |type_name_tail
-maybe___nt_update_or_insert_or_delete_or_select_plus:
+maybe___nt_update_or_insert_or_delete_or_select_plus: 
 |update_or_insert_or_delete_or_select_plus
-maybe___nt_when_then_plus:
+maybe___nt_when_then_plus: 
 |when_then_plus
-maybe___nt_window_clause:
+maybe___nt_window_clause: 
 |window_clause
-maybe___nt_with_clause:
+maybe___nt_with_clause: 
 |with_clause
-maybe___nt_without_row:
+maybe___nt_without_row: 
 |without_row
-maybe___nt_ws_all:
+maybe___nt_ws_all: 
 |ws_all
-maybe___nt_ws_as:
+maybe___nt_ws_as: 
 |ws_as
-maybe___nt_ws_asc_desc:
+maybe___nt_ws_asc_desc: 
 |ws_asc_desc
-maybe___nt_ws_begin_mod:
+maybe___nt_ws_begin_mod: 
 |ws_begin_mod
-maybe___nt_ws_collate_name:
+maybe___nt_ws_collate_name: 
 |ws_collate_name
-maybe___nt_ws_column_name_list:
+maybe___nt_ws_column_name_list: 
 |ws_column_name_list
-maybe___nt_ws_conflict_clause:
+maybe___nt_ws_conflict_clause: 
 |ws_conflict_clause
-maybe___nt_ws_database:
+maybe___nt_ws_database: 
 |ws_database
-maybe___nt_ws_distinct_or_all:
+maybe___nt_ws_distinct_or_all: 
 |ws_distinct_or_all
-maybe___nt_ws_else_expr:
+maybe___nt_ws_else_expr: 
 |ws_else_expr
-maybe___nt_ws_escape:
+maybe___nt_ws_escape: 
 |ws_escape
-maybe___nt_ws_expr:
+maybe___nt_ws_expr: 
 |ws_expr
-maybe___nt_ws_exprs:
+maybe___nt_ws_exprs: 
 |ws_exprs
-maybe___nt_ws_filter:
+maybe___nt_ws_filter: 
 |ws_filter
-maybe___nt_ws_frame_spec_tail:
+maybe___nt_ws_frame_spec_tail: 
 |ws_frame_spec_tail
-maybe___nt_ws_having:
+maybe___nt_ws_having: 
 |ws_having
-maybe___nt_ws_if_not_exists:
+maybe___nt_ws_if_not_exists: 
 |ws_if_not_exists
-maybe___nt_ws_join_constraint:
+maybe___nt_ws_join_constraint: 
 |ws_join_constraint
-maybe___nt_ws_limit:
+maybe___nt_ws_limit: 
 |ws_limit
-maybe___nt_ws_not:
+maybe___nt_ws_not: 
 |ws_not
-maybe___nt_ws_order_by:
+maybe___nt_ws_order_by: 
 |ws_order_by
-maybe___nt_ws_over:
+maybe___nt_ws_over: 
 |ws_over
-maybe___nt_ws_recursive:
+maybe___nt_ws_recursive: 
 |ws_recursive
-maybe___nt_ws_rollback_to:
+maybe___nt_ws_rollback_to: 
 |ws_rollback_to
-maybe___nt_ws_savepoint:
+maybe___nt_ws_savepoint: 
 |ws_savepoint
-maybe___nt_ws_schema_dot:
+maybe___nt_ws_schema_dot: 
 |ws_schema_dot
-maybe___nt_ws_temp:
+maybe___nt_ws_temp: 
 |ws_temp
-maybe___nt_ws_transaction:
+maybe___nt_ws_transaction: 
 |ws_transaction
-maybe___nt_ws_transaction_name:
+maybe___nt_ws_transaction_name: 
 |ws_transaction_name
-maybe___nt_ws_unique:
+maybe___nt_ws_unique: 
 |ws_unique
-maybe___nt_ws_when_expr:
+maybe___nt_ws_when_expr: 
 |ws_when_expr
-maybe___nt_ws_where_expr:
+maybe___nt_ws_where_expr: 
 |ws_where_expr
-maybe___t__chr37_:
+maybe___t__chr37_: 
 |"%"i
 maybe_not_exists: maybe___nt_ws_not ws exists_ ws
 module_argument: column_def
@@ -904,7 +904,7 @@ name: any_name
 named_transaction: ws transaction_ maybe___nt_ws_transaction_name
 natural_ws: natural_ ws
 new_table_name: any_name
-non_back_tick_star:
+non_back_tick_star: 
 non_binop_expr: expr_base_case
 |non_binop_expr_compound
 non_binop_expr_compound: case_ ws maybe___nt_ws_expr ws when_then_plus ws maybe___nt_ws_else_expr ws end_
@@ -919,8 +919,8 @@ non_binop_expr_compound: case_ ws maybe___nt_ws_expr ws when_then_plus ws maybe_
 |non_binop_expr ws_collate_name
 |paren_expr_list
 |unary_operator ws expr
-non_bracket_star:
-non_double_quote_star:
+non_bracket_star: 
+non_double_quote_star: 
 |"0"i
 |"016 Kaitlyn Fall Suite 236"i
 |"066 Bechtelar Ridge"i
@@ -1081,7 +1081,7 @@ non_double_quote_star:
 |"system2"i
 |"system3"i
 |"top"i
-non_single_quote_star:
+non_single_quote_star: 
 |"0"i
 |"016 Kaitlyn Fall Suite 236"i
 |"066 Bechtelar Ridge"i
@@ -1494,9 +1494,9 @@ ws_rollback_to: ws to_ maybe___nt_ws_savepoint ws_savepoint_name
 ws_savepoint: ws savepoint_
 ws_savepoint_name: ws savepoint_name
 ws_schema_dot: ws schema_dot
-ws_star:
+ws_star: 
 |ws
-ws_star_empty:
+ws_star_empty: 
 |ws_char ws_star
 ws_temp: ws temp
 ws_transaction: ws transaction_
@@ -1504,3 +1504,5 @@ ws_transaction_name: ws transaction_name
 ws_unique: ws unique_
 ws_when_expr: ws when_expr
 ws_where_expr: ws where_ ws expr
+
+

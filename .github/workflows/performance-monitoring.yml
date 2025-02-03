@@ -51,10 +51,10 @@ jobs:
         # from main
         run: |
           BUCKET_PATH=gs://gen-website-private/gen.dev/genparse-performance-monitoring
-          # The benchmarking action should tolerate a nonexistent data file,
+          # The benchmarking action should tolerate a nonexistent data file, 
           # but fetch historical data if available.
-          ([[ "${{ steps.extract_branch.outputs.branch }}" != main ]] &&
-           (gcloud storage cp "${BUCKET_PATH:?}"/"${{ steps.extract_branch.outputs.branch }}"/data.js data.js ||
+          ([[ "${{ steps.extract_branch.outputs.branch }}" != main ]] && 
+           (gcloud storage cp "${BUCKET_PATH:?}"/"${{ steps.extract_branch.outputs.branch }}"/data.js data.js || 
             echo "No historical data found for ${{ steps.extract_branch.outputs.branch }}, attempting to get main branch data.")
           ) ||
             gcloud storage cp "${BUCKET_PATH:?}"/main/data.js data.js ||
@@ -95,7 +95,7 @@ jobs:
           # genparse-performance-monitoring.gen.dev/BRANCH
           ROOT_WEBSITE_DIR=website
           mkdir -p "$ROOT_WEBSITE_DIR"
-
+          
           gcloud storage rsync --recursive "${BUCKET_PATH:?}" "${ROOT_WEBSITE_DIR:?}" ||
             echo "No preexisting website data, skipping..."
 
@@ -108,7 +108,7 @@ jobs:
             WEBSITE_DIR="${WEBSITE_DIR:?}"/"${{ steps.extract_branch.outputs.branch }}"
           fi
           echo "website_dir=${WEBSITE_DIR:?}" >> "$GITHUB_OUTPUT"
-
+          
           echo "Generating website directory ${WEBSITE_DIR:?}"
           mkdir -p "${WEBSITE_DIR:?}"
           # Do `|| true` because otherwise this glob will list some directories.

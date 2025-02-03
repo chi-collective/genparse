@@ -1,4 +1,4 @@
-// Adapted from https://github.com/zbrookle/sql_to_ibis and https://github.com/lapp0/outlines
+// Adapted from https://github.com/zbrookle/sql_to_ibis and https://github.com/lapp0/outlines 
 // License for https://github.com/zbrookle/sql_to_ibis follows
 //BSD 3-Clause License
 //
@@ -76,7 +76,7 @@ JOIN_DIRECTION: "FULL"i | "LEFT"i | "RIGHT"i
                | "CASE"i (when_then)+ "ELSE"i expression_math "END"i -> case_expression
                | "CAST"i" (" expression_math "AS"i TYPENAME ")" -> as_type
                | "CAST"i" (" literal "AS"i TYPENAME ")" -> literal_cast
-               //| AGGREGATION /\s?\(/ expression_math /\)\s?/ -> sql_aggregation
+               //| AGGREGATION /\s?\(/ expression_math /\)\s?/ -> sql_aggregation 
                | AGGREGATION expression_math /\s?\)/ [window_form] -> sql_aggregation
                | "RANK"i "(" ")" window_form -> rank_expression
                | "DENSE_RANK"i "(" ")" window_form -> dense_rank_expression
@@ -104,7 +104,7 @@ order: expression_math ["ASC"i] -> order_asc
           | expression_math "DESC"i-> order_desc
 
 column_name: [name "."] name
-?expression_product: expression_parens
+?expression_product: expression_parens 
                   | expression_product "*" expression_parens -> expression_mul
                   | expression_product "/" expression_parens -> expression_div
 

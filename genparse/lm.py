@@ -21,7 +21,7 @@ class LM:
     Every language model admits a left-to-right factorization:
 
     $$
-    p(x_1 x_2 \cdots x_T) = p(x_1 \\mid \varepsilon) p(x_2 \\mid x_1) \cdots p(x_T \\mid x_1 \cdots x_{T-1}) p(\\mathrm{EOS} \\mid x_1 \cdots x_T)
+    p(x_1 x_2 \cdots x_T) = p(x_1 \mid \varepsilon) p(x_2 \mid x_1) \cdots p(x_T \mid x_1 \cdots x_{T-1}) p(\mathrm{EOS} \mid x_1 \cdots x_T)
     $$
 
     Arguments:
@@ -30,7 +30,7 @@ class LM:
 
       - `eos`: a distinguished end of sequence symbol
 
-      - `p_next(xs)`: $p(\cdot \\mid x_1 \cdots x_T)$ is provided by subclasses.
+      - `p_next(xs)`: $p(\cdot \mid x_1 \cdots x_T)$ is provided by subclasses.
 
     """
 
